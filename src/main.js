@@ -155,7 +155,6 @@ const setupApiMock = () => {
 
       if (useMock) {
         console.log(`[模拟] 请求: ${resource}`);
-        // 模拟API响应
         return mockApiResponse(resource, options);
       }
 
@@ -168,6 +167,13 @@ const setupApiMock = () => {
         );
         window._useMockData = true;
         window.localStorage.setItem("useMockData", "true");
+
+        // 显示友好提示
+        ElMessage({
+          message: "API连接失败，已切换到模拟数据模式",
+          type: "warning",
+          duration: 3000,
+        });
 
         // 模拟API响应
         return mockApiResponse(resource, options);
@@ -379,7 +385,7 @@ const checkInitialBackendConnection = async () => {
       window._useMockData = false;
       window.localStorage.setItem("useMockData", "false");
     } else {
-      console.warn("后端服务连接失败，启动自动重试");
+      console.warn("后端服务连接失败，自动启用模拟数据模式");
       // 启动自动重试
       startConnectionRetry(() => {
         ElMessage({
@@ -392,11 +398,15 @@ const checkInitialBackendConnection = async () => {
         window.localStorage.setItem("useMockData", "false");
       });
 
+      // 立即启用模拟数据模式
+      window._useMockData = true;
+      window.localStorage.setItem("useMockData", "true");
+
       // 显示友好的提示
       setTimeout(() => {
         ElMessage({
-          message: "后端服务未启动，已切换到模拟数据模式，功能将受限",
-          type: "warning",
+          message: "已启用模拟数据模式，可随时正常使用界面功能",
+          type: "info",
           duration: 5000,
         });
       }, 500);
@@ -406,7 +416,19 @@ const checkInitialBackendConnection = async () => {
     loadingNotification.close();
 
     console.error("后端连接检查失败:", error);
-    // 启动自动重试
+
+    // 启用模拟数据模式
+    window._useMockData = true;
+    window.localStorage.setItem("useMockData", "true");
+
+    // 显示友好的提示
+    ElMessage({
+      message: "已启用模拟数据模式，可随时正常使用界面功能",
+      type: "info",
+      duration: 5000,
+    });
+
+    // 启动自动重试连接后端
     startConnectionRetry(() => {
       ElMessage({
         message: "后端服务连接成功",
@@ -422,6 +444,13 @@ const checkInitialBackendConnection = async () => {
 
 // 启动应用
 initApp();
+
+// 设置模拟数据为默认模式，除非明确禁用
+if (localStorage.getItem("useMockData") === null) {
+  localStorage.setItem("useMockData", "true");
+  window._useMockData = true;
+  console.log("默认启用模拟数据模式");
+}
 
 // 添加侧边栏状态同步
 window.addEventListener("sidebar-state-changed", () => {

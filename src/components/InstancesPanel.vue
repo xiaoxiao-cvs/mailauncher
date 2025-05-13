@@ -123,23 +123,34 @@ const fetchInstalledVersions = async () => {
     const response = await instancesApi.getInstances();
     installedVersions.value = response.data.instances || [];
   } catch (error) {
-    console.error('获取已安装实例失败:', error);
-    ElMessage.error('获取已安装实例失败');
+    handleApiError(error, "获取已安装实例失败");
   }
+};
+
+// 添加通用错误处理函数
+const handleApiError = (error, defaultMessage = "操作失败") => {
+  console.error(defaultMessage + ":", error);
+
+  if (error.isMock) {
+    console.log("使用模拟数据，无需显示错误");
+    return; // 如果是模拟数据模式，不显示错误提示
+  }
+
+  // 显示友好的错误提示
+  ElMessage.error(defaultMessage);
 };
 
 const startBot = async (instanceName) => {
   try {
     const response = await instancesApi.startInstance(instanceName);
-    if (response.data.success) {
+    if (response.data && response.data.success) {
       ElMessage.success('MaiBot已启动');
       fetchInstalledVersions();
     } else {
       ElMessage.error('启动失败');
     }
   } catch (error) {
-    console.error('启动失败:', error);
-    ElMessage.error('启动失败: ' + (error.response?.data?.detail || error.message));
+    handleApiError(error, '启动失败');
   }
 };
 
@@ -147,15 +158,14 @@ const startBot = async (instanceName) => {
 const startNapcat = async (instanceName) => {
   try {
     const response = await instancesApi.startNapcat(instanceName);
-    if (response.data.success) {
+    if (response.data && response.data.success) {
       ElMessage.success('NapCat已启动');
       fetchInstalledVersions();
     } else {
       ElMessage.error('NapCat启动失败: ' + (response.data.message || ''));
     }
   } catch (error) {
-    console.error('NapCat启动失败:', error);
-    ElMessage.error('NapCat启动失败: ' + (error.response?.data?.detail || error.message));
+    handleApiError(error, 'NapCat启动失败');
   }
 };
 
@@ -178,15 +188,14 @@ const startNonebot = async (instanceName) => {
 const stopBot = async (instanceName) => {
   try {
     const response = await instancesApi.stopInstance();
-    if (response.data.success) {
+    if (response.data && response.data.success) {
       ElMessage.success('所有服务已停止');
       fetchInstalledVersions();
     } else {
       ElMessage.error('停止失败');
     }
   } catch (error) {
-    console.error('停止失败:', error);
-    ElMessage.error('停止失败: ' + (error.response?.data?.detail || error.message));
+    handleApiError(error, '停止失败');
   }
 };
 

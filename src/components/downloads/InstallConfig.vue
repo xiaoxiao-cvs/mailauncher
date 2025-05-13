@@ -230,10 +230,10 @@ const fetchVersions = async () => {
         // 使用统一的API服务获取版本
         const response = await deployApi.getVersions();
 
-        if (response.data && response.data.versions &&
-          response.data.versions.length > 0 &&
-          !(response.data.versions.length === 1 && response.data.versions[0] === 'NaN')) {
-          availableVersions.value = response.data.versions;
+        if (response && response.versions &&
+          response.versions.length > 0 &&
+          !(response.versions.length === 1 && response.versions[0] === 'NaN')) {
+          availableVersions.value = response.versions;
           success = true;
         } else {
           throw new Error('无效的版本数据');
@@ -252,7 +252,7 @@ const fetchVersions = async () => {
 
     // 在获取版本失败时提供静态版本选择
     availableVersions.value = ['latest', 'beta', 'stable', 'v0.6.3', 'v0.6.2'];
-    versionError.value = '从GitHub获取版本列表失败，可能是API速率限制或网络问题。已提供备选版本选择。';
+    versionError.value = '获取版本列表失败，已提供备选版本选择。';
 
     addLog({
       time: formatTime(new Date()),
@@ -433,28 +433,81 @@ const installVersion = async () => {
   }
 };
 
-// 添加安装状态轮询
-let statusPollingInterval = null;
-
+// 添加安装状态轮询 - 添加模拟数据支持
 const startInstallStatusPolling = () => {
   // 清除已有的轮询
   if (statusPollingInterval) {
     clearInterval(statusPollingInterval);
   }
 
+  // 检查是否在模拟数据模式
+  const useMockData = window._useMockData || localStorage.getItem("useMockData") === "true";
+
+  // 如果是模拟数据模式，使用更短的轮询时间
+  const pollingInterval = useMockData ? 3000 : 10000;
+
   // 开始新的轮询
   let checkCount = 0;
   statusPollingInterval = setInterval(async () => {
     try {
-      // 注意: deployApi.checkStatus() 应该检查的是整体安装状态，
-      // 包括 deployApi.checkInstallStatus() 返回的 napcat_installing 和 nonebot_installing (或 adapter_installing)
-      const response = await deployApi.checkInstallStatus(); // 使用 checkInstallStatus
-      const isStillInstalling = response.data.napcat_installing || response.data.nonebot_installing; // nonebot_installing 可能指适配器
+      // 如果是模拟数据模式，模拟进度
+      if (useMockData) {
+        checkCount++;
+
+        // 模拟安装进度
+        if (checkCount < 3) {
+          addLog({
+            time: formatTime(new Date()),
+            source: 'system',
+            level: 'INFO',
+            message: `$ 正在安装依赖... (${checkCount}/3)`
+          });
+        } else if (checkCount === 3) {
+          addLog({
+            time: formatTime(new Date()),
+            source: 'system',
+            level: 'SUCCESS',
+            message: `$ 依赖安装成功！`
+          });
+        } else if (checkCount === 4) {
+          addLog({
+            time: formatTime(new Date()),
+            source: 'system',
+            level: 'INFO',
+            message: `$ 正在配置 Bot...`
+          });
+        } else {
+          // 完成安装
+          clearInterval(statusPollingInterval);
+          statusPollingInterval = null;
+
+          // 恢复按钮状态
+          installLoading.value = false;
+
+          addLog({
+            time: formatTime(new Date()),
+            source: 'command',
+            level: 'SUCCESS',
+            message: '$ 模拟安装完成！'
+          });
+
+          // 刷新实例列表
+          refreshInstances();
+
+          ElMessage.success('模拟安装完成！');
+          return;
+        }
+        return;
+      }
+
+      // 正常API检查代码
+      const response = await deployApi.checkInstallStatus();
+      const isStillInstalling = response.napcat_installing || response.nonebot_installing;
 
       checkCount++;
 
       // 如果不再安装中或者检查次数超过60次(10分钟)，停止轮询
-      if (!isStillInstalling || checkCount > 120) { // 增加检查次数到20分钟 (120 * 10s)
+      if (!isStillInstalling || checkCount > 120) {
         clearInterval(statusPollingInterval);
         statusPollingInterval = null;
 
@@ -492,7 +545,11 @@ const startInstallStatusPolling = () => {
       }
     } catch (error) {
       console.error('检查安装状态失败:', error);
-      // 出现错误时也应停止轮询，避免无限循环错误请求
+
+      // 如果是模拟数据模式，不停止轮询，继续模拟进度
+      if (useMockData) return;
+
+      // 真实模式下出错时停止轮询
       clearInterval(statusPollingInterval);
       statusPollingInterval = null;
       installLoading.value = false;
@@ -503,7 +560,7 @@ const startInstallStatusPolling = () => {
         message: `$ 检查安装状态时出错: ${error.message}`
       });
     }
-  }, 10000); // 每10秒检查一次
+  }, pollingInterval); // 使用动态时间间隔
 };
 
 // 刷新实例列表辅助方法
