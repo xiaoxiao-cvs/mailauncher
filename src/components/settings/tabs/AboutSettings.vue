@@ -29,7 +29,7 @@
                 <h4>致谢</h4>
                 <p>感谢所有为此项目做出贡献的开发者们</p>
                 <h4>许可协议</h4>
-                <p>开源许可: MIT License</p>
+                <p>开源许可: GPL V3 License</p>
             </div>
         </el-card>
     </div>
