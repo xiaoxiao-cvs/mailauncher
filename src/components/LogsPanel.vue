@@ -3,29 +3,17 @@
     <div class="log-header">
       <h3>日志记录</h3>
       <div class="header-actions">
-        <el-select 
-          v-model="currentLogSource" 
-          placeholder="选择日志来源" 
-          size="small" 
-          style="width: 200px; margin-right: 10px"
+        <el-select v-model="currentLogSource" placeholder="选择日志来源" size="small" style="width: 200px; margin-right: 10px"
           @change="changeLogSource">
           <el-option label="系统日志" value="system" />
-          <el-option 
-            v-for="instance in botInstances" 
-            :key="instance" 
-            :label="`实例: ${instance}`" 
-            :value="instance" />
+          <el-option v-for="instance in botInstances" :key="instance" :label="`实例: ${instance}`" :value="instance" />
         </el-select>
-        <el-button 
-          type="primary" 
-          size="small" 
-          @click="clearLogs"
-          class="clear-btn">
+        <el-button type="primary" size="small" @click="clearLogs" class="clear-btn">
           清空日志
         </el-button>
       </div>
     </div>
-    
+
     <div class="log-container">
       <div v-if="logs.length === 0" class="empty-logs">
         <el-empty description="暂无日志" />
@@ -33,9 +21,9 @@
       <div v-else>
         <div v-for="(log, index) in logs" :key="index" class="log-item">
           <div class="log-icon">
-            <el-icon :color="getLogColor(log.type)">
-              <WarningFilled v-if="log.type === 'warning' || log.type === 'ERROR'" />
-              <SuccessFilled v-else-if="log.type === 'success' || log.type === 'INFO'" />
+            <el-icon :color="getLogColor(log.type || log.level)">
+              <WarningFilled v-if="isWarningOrError(log)" />
+              <SuccessFilled v-else-if="isSuccessOrInfo(log)" />
               <InfoFilled v-else />
             </el-icon>
           </div>
@@ -45,17 +33,21 @@
           </div>
           <div class="log-action">
             <el-button size="small" text @click="copyLog(log.message)">
-              <el-icon><DocumentCopy /></el-icon>
+              <el-icon>
+                <DocumentCopy />
+              </el-icon>
             </el-button>
           </div>
         </div>
       </div>
     </div>
-    
+
     <div class="log-footer">
       <el-checkbox v-model="autoScroll">自动滚动</el-checkbox>
       <el-button type="default" size="small" @click="exportLogs">
-        <el-icon><Download /></el-icon> 导出日志
+        <el-icon>
+          <Download />
+        </el-icon> 导出日志
       </el-button>
     </div>
   </div>
@@ -93,6 +85,18 @@ const copyLog = (message) => {
       ElMessage.error('复制失败')
       console.error('复制失败:', err)
     })
+}
+
+// 新增的辅助函数，判断是否为警告或错误类型
+const isWarningOrError = (log) => {
+  const type = (log.type || log.level || '').toLowerCase();
+  return type === 'warning' || type === 'error';
+}
+
+// 新增的辅助函数，判断是否为成功或信息类型
+const isSuccessOrInfo = (log) => {
+  const type = (log.type || log.level || '').toLowerCase();
+  return type === 'success' || type === 'info';
 }
 
 const clearLogs = () => {
@@ -147,7 +151,7 @@ const fetchInstanceLogs = async (instanceName) => {
 const setupLogWS = () => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const ws = new WebSocket(`${protocol}//${window.location.host}/api/logs/ws`);
-  
+
   ws.onmessage = (event) => {
     try {
       const logData = JSON.parse(event.data);
@@ -158,15 +162,15 @@ const setupLogWS = () => {
       console.error('处理WebSocket日志消息失败:', error);
     }
   };
-  
+
   ws.onerror = (error) => {
     console.error('WebSocket错误:', error);
   };
-  
+
   ws.onopen = () => {
     console.log('日志WebSocket已连接');
   };
-  
+
   ws.onclose = () => {
     console.log('日志WebSocket已关闭，尝试重连...');
     setTimeout(setupLogWS, 3000);
@@ -179,7 +183,7 @@ const addLog = (logData) => {
     time: logData.time || formatTime(new Date()),
     message: logData.message
   });
-  
+
   if (autoScroll.value) {
     scrollToBottom();
   }
@@ -201,7 +205,7 @@ const exportLogs = () => {
   const logText = logs.value.map(log => `[${log.time}][${log.type}] ${log.message}`).join('\n');
   const blob = new Blob([logText], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
-  
+
   const a = document.createElement('a');
   a.href = url;
   a.download = `logs-${currentLogSource.value}-${formatDateForFile(new Date())}.txt`;
@@ -213,12 +217,12 @@ const exportLogs = () => {
 
 // 辅助方法
 function formatTime(date) {
-  return date.toLocaleString('zh-CN', { 
-    year: 'numeric', 
-    month: '2-digit', 
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
     day: '2-digit',
-    hour: '2-digit', 
-    minute: '2-digit', 
+    hour: '2-digit',
+    minute: '2-digit',
     second: '2-digit'
   });
 }
@@ -228,7 +232,9 @@ function formatDateForFile(date) {
 }
 
 function getLogColor(type) {
-  switch(type.toUpperCase()) {
+  if (!type) return '#909399'; // 添加默认颜色以处理undefined情况
+
+  switch (type.toString().toUpperCase()) {
     case 'ERROR':
     case 'WARNING':
       return '#E6A23C';
