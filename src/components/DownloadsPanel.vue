@@ -10,10 +10,15 @@
     <!-- 安装配置组件 -->
     <InstallConfig @refresh-instances="refreshInstances" @add-log="addLog" />
 
-
-
     <!-- 日志显示组件 -->
-    <LogsDisplay :logs="allLogs" @clear-logs="clearLogs" />
+    <LogsDisplay :logs="allLogs" @clear-logs="clearLogs">
+      <template #before-logs>
+        <div v-if="isGlobalMockMode" style="padding: 10px;">
+          <el-alert title="模拟模式提示" type="info" description="当前处于模拟数据模式，安装过程的实时日志可能不完整或为模拟信息。" show-icon
+            :closable="false" />
+        </div>
+      </template>
+    </LogsDisplay>
 
     <!-- 实例列表组件 -->
     <InstancesList :instances="instanceList" @toggle-instance="toggleInstance" @refresh-instances="refreshInstances" />
@@ -27,10 +32,11 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, inject, nextTick } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElAlert } from 'element-plus'; // 引入 ElAlert
 // 导入统一的API服务
 import { instancesApi, deployApi } from '@/services/api';
 import { WebSocketService } from '../services/websocket';
+import { isMockModeActive } from '../services/apiService'; // 引入模拟模式检查
 
 import InstallConfig from './downloads/InstallConfig.vue';
 import LogsDisplay from './downloads/LogsDisplay.vue';
@@ -51,6 +57,7 @@ const consoleVisible = ref(false);
 const instanceLogs = ref([]);
 const runningInstanceId = ref(null);
 const runningInstanceName = ref('');
+const isGlobalMockMode = ref(false); // 添加全局模拟模式状态
 
 let wsConnection = null;
 let logPollingInterval = null;
@@ -204,7 +211,9 @@ const fetchInstanceLogs = async () => {
 const setupWebSocket = () => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host;
-  const wsUrl = `${protocol}//${host}/api/logs/ws`;
+  const wsUrl = `${protocol}//${host}/api/logs/ws`; // 这个WebSocket主要用于安装过程的日志
+
+  isGlobalMockMode.value = isMockModeActive(); // 更新全局模拟模式状态
 
   // 如果已经有连接，先关闭
   if (wsConnection && wsConnection.readyState !== WebSocket.CLOSED) {
@@ -214,10 +223,10 @@ const setupWebSocket = () => {
   try {
     // 使用WebSocketService代替原生WebSocket
     wsConnection = new WebSocketService({
-      url: wsUrl,
+      url: wsUrl, // 通常安装日志会推送到一个通用的端点或特定的安装任务端点
       reconnectDelay: 3000,
       maxReconnectAttempts: 5,
-      autoReconnect: true
+      autoReconnect: true // WebSocketService内部会处理模拟模式下的重连
     });
 
     wsConnection.on('open', () => {
@@ -442,6 +451,7 @@ const startDownload = async () => {
 
 // 生命周期钩子
 onMounted(() => {
+  isGlobalMockMode.value = isMockModeActive(); // 初始化时检查
   // 启动时添加延迟，确保后端服务已启动
   setTimeout(() => {
     refreshDownloads();

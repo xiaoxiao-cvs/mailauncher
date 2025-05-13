@@ -1,11 +1,9 @@
 <template>
-  <div class="app-container" :class="{ 'dark-mode': darkMode, 'sidebar-expanded': sidebarExpanded, 'sidebar-collapsed': !sidebarExpanded }">
+  <div class="app-container"
+    :class="{ 'dark-mode': darkMode, 'sidebar-expanded': sidebarExpanded, 'sidebar-collapsed': !sidebarExpanded }">
     <!-- 侧边栏 -->
-    <AppSidebar 
-      :is-expanded="sidebarExpanded" 
-      @toggle="toggleSidebar" 
-    />
-    
+    <AppSidebar :is-expanded="sidebarExpanded" @toggle="toggleSidebar" />
+
     <!-- 主内容区域 -->
     <div class="content-area" :class="{ 'sidebar-expanded': sidebarExpanded }">
       <!-- 页面切换动画 -->
@@ -13,6 +11,9 @@
         <component :is="currentComponent" :key="activeTab" />
       </transition>
     </div>
+
+    <!-- 设置抽屉 -->
+    <SettingsDrawer :is-open="isSettingsOpen" @close="closeSettings" />
   </div>
 </template>
 
@@ -22,14 +23,18 @@ import HomeView from './components/HomeView.vue'
 import LogsPanel from './components/LogsPanel.vue'
 import DownloadsPanel from './components/DownloadsPanel.vue'
 import InstancesPanel from './components/InstancesPanel.vue'
-import SettingsPanel from './components/SettingsPanel.vue'
 import AppSidebar from './components/AppSidebar.vue'
+import SettingsDrawer from './components/settings/SettingsDrawer.vue'
 import { HomeFilled, List, Download, Document, Setting, Grid } from '@element-plus/icons-vue'
+import settingsService from './services/settingsService'
+import { initTheme, applyThemeColor } from './services/theme'
 
 // 深色模式状态 - 应用级别的中心管理
 const darkMode = ref(false);
 // 侧边栏展开状态
 const sidebarExpanded = ref(false);
+// 设置面板状态
+const isSettingsOpen = ref(false);
 
 // 创建更完整的事件总线
 const emitter = {
@@ -102,15 +107,18 @@ const currentComponent = computed(() => {
     case 'instances': return InstancesPanel;
     case 'downloads': return DownloadsPanel;
     case 'logs': return LogsPanel;
-    case 'settings': return SettingsPanel;
-    case 'plugins': 
+    case 'settings':
+      // 现在当选择settings标签时，打开设置抽屉，而不是加载旧的设置组件
+      openSettings();
+      return HomeView; // 保持当前页面为首页
+    case 'plugins':
       return {
         template: `<div class="tab-content">
                     <h3>插件广场</h3>
                     <p>功能正在开发中...</p>
                   </div>`
       };
-    default: 
+    default:
       return {
         template: `<div class="tab-content">
                     <h3>${menuItems[activeTab.value]?.title || activeTab.value}</h3>
@@ -134,7 +142,7 @@ provide('handleInstall', (installConfig) => {
 // 监听深色模式变化
 const updateDarkMode = (isDark) => {
   darkMode.value = isDark;
-  
+
   // 应用深色模式到根文档
   if (isDark) {
     document.documentElement.classList.add('dark-mode');
@@ -154,7 +162,7 @@ const initDarkMode = () => {
     // 检查系统偏好
     darkMode.value = window.matchMedia('(prefers-color-scheme: dark)').matches;
   }
-  
+
   // 立即应用当前深色模式设置
   updateDarkMode(darkMode.value);
 };
@@ -162,22 +170,22 @@ const initDarkMode = () => {
 // 切换侧边栏状态 - 增加日志和调试信息
 const toggleSidebar = () => {
   console.log('侧边栏切换被触发，当前状态:', sidebarExpanded.value);
-  
+
   // 切换状态
   sidebarExpanded.value = !sidebarExpanded.value;
-  
+
   // 保存状态到本地存储
   localStorage.setItem('sidebarExpanded', sidebarExpanded.value.toString());
-  
+
   // 更新CSS变量以确保内容区域正确偏移
   const sidebarWidth = sidebarExpanded.value ? '220px' : '64px';
   document.documentElement.style.setProperty('--sidebar-width', sidebarWidth);
   document.documentElement.style.setProperty(
-    '--content-margin', 
+    '--content-margin',
     sidebarExpanded.value ? '235px' : '79px'
   );
   document.documentElement.style.setProperty(
-    '--content-width', 
+    '--content-width',
     sidebarExpanded.value ? 'calc(100% - 220px)' : 'calc(100% - 64px)'
   );
 
@@ -192,10 +200,10 @@ const toggleSidebar = () => {
       appElement.classList.remove('sidebar-expanded');
     }
   }
-  
+
   // 触发自定义事件，通知侧边栏状态变化
   window.dispatchEvent(new CustomEvent('sidebar-state-changed'));
-  
+
   // 确保DOM更新后再触发resize事件
   setTimeout(() => {
     window.dispatchEvent(new Event('resize'));
@@ -206,28 +214,45 @@ const toggleSidebar = () => {
 // 监听侧边栏展开状态变化 - 确保正确应用CSS变量
 const checkSidebarState = () => {
   sidebarExpanded.value = localStorage.getItem('sidebarExpanded') === 'true';
-  
+
   // 根据侧边栏状态更新CSS变量
   const sidebarWidth = sidebarExpanded.value ? '220px' : '64px';
   document.documentElement.style.setProperty('--sidebar-width', sidebarWidth);
   document.documentElement.style.setProperty(
-    '--content-margin', 
+    '--content-margin',
     sidebarExpanded.value ? '235px' : '79px'
   );
   document.documentElement.style.setProperty(
-    '--content-width', 
+    '--content-width',
     sidebarExpanded.value ? 'calc(100% - 220px)' : 'calc(100% - 64px)'
   );
+};
+
+// 打开设置面板
+const openSettings = (tab) => {
+  isSettingsOpen.value = true;
+  settingsService.openSettings(tab);
+};
+
+// 关闭设置面板
+const closeSettings = () => {
+  isSettingsOpen.value = false;
+  settingsService.closeSettings();
+
+  // 如果当前标签页是设置，切换回首页
+  if (activeTab.value === 'settings') {
+    activeTab.value = 'home';
+  }
 };
 
 // 监听日志查看事件和页面导航
 onMounted(() => {
   // 初始化深色模式 (从App.vue中集中管理)
   initDarkMode();
-  
+
   // 初始化主题色
-  initThemeColor();
-  
+  initTheme();
+
   // 初始化侧边栏状态
   checkSidebarState();
 
@@ -254,14 +279,18 @@ onMounted(() => {
       }
     }, 100);
   });
-  
+
   // 添加导航事件处理
   emitter.on('navigate-to-tab', (tabName) => {
-    if (menuItems[tabName] || tabName === 'home') {
+    if (tabName === 'settings') {
+      // 如果是导航到设置，打开设置抽屉
+      openSettings();
+    } else if (menuItems[tabName] || tabName === 'home') {
+      // 如果是其他有效选项卡，切换标签页
       activeTab.value = tabName;
     }
   });
-  
+
   // 添加深色模式变化监听
   emitter.on('dark-mode-changed', updateDarkMode);
 
@@ -270,19 +299,21 @@ onMounted(() => {
     console.log('Theme color changed to:', color);
     // 更新全局主题色变量
     window.currentThemeColor = color;
-    
+
     // 更新图表颜色
     const lightenColor = adjustColorBrightness(color, 20);
     document.documentElement.style.setProperty('--chart-line', color);
     document.documentElement.style.setProperty('--chart-secondary', lightenColor);
-    
+
     // 触发窗口的resize事件，让图表重新绘制
     window.dispatchEvent(new Event('resize'));
   });
 
-  // 初始化反向API代理检测
-  checkApiConnection();
-  
+  // 应用初始化
+  checkApiConnection().then(() => {
+    console.log("应用初始化完成：使用模拟数据模式");
+  });
+
   // 监听系统深色模式变化
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
     // 只有当用户未明确设置时，才跟随系统变化
@@ -304,25 +335,25 @@ const initThemeColor = () => {
       pink: '#e84393',
       teal: '#00b894'
     };
-    
+
     if (themeColors[savedTheme]) {
       // 保存当前主题色到全局变量，供图表等组件使用
       window.currentThemeColor = themeColors[savedTheme];
-      
+
       document.documentElement.style.setProperty('--el-color-primary', themeColors[savedTheme]);
       document.documentElement.style.setProperty('--primary-color', themeColors[savedTheme]);
-      
+
       // 生成主题色的亮色和暗色变体
       const lightenColor = adjustColorBrightness(themeColors[savedTheme], 20);
       const darkenColor = adjustColorBrightness(themeColors[savedTheme], -20);
-      
+
       document.documentElement.style.setProperty('--primary-light', lightenColor);
       document.documentElement.style.setProperty('--primary-dark', darkenColor);
-      
+
       // 图表颜色绑定到主题色
       document.documentElement.style.setProperty('--chart-line', themeColors[savedTheme]);
       document.documentElement.style.setProperty('--chart-secondary', lightenColor);
-      
+
       // 更新侧边栏颜色变量 - 基于当前主题色
       updateSidebarColorVariable(themeColors[savedTheme], darkMode.value);
     }
@@ -345,7 +376,7 @@ const adjustColorBrightness = (hex, percent) => {
   r = Math.min(255, Math.max(0, Math.round(r + (r * percent / 100))));
   g = Math.min(255, Math.max(0, Math.round(g + (g * percent / 100))));
   b = Math.min(255, Math.max(0, Math.round(b + (b * percent / 100))));
-  
+
   // 转换回十六进制格式
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 };
@@ -353,10 +384,10 @@ const adjustColorBrightness = (hex, percent) => {
 // 添加侧边栏颜色更新函数
 const updateSidebarColorVariable = (themeColor, isDarkMode) => {
   // 根据主题色生成配套的侧边栏颜色
-  const baseColor = isDarkMode 
+  const baseColor = isDarkMode
     ? adjustColorBrightness(themeColor, -40) // 深色模式下变暗
     : adjustColorBrightness(themeColor, 90);  // 浅色模式下变亮
-  
+
   // 转换为rgba格式
   const hexToRgba = (hex, opacity) => {
     let r = parseInt(hex.substring(1, 3), 16);
@@ -364,10 +395,10 @@ const updateSidebarColorVariable = (themeColor, isDarkMode) => {
     let b = parseInt(hex.substring(5, 7), 16);
     return `rgba(${r}, ${g}, ${b}, ${opacity})`;
   };
-  
+
   // 生成侧边栏背景色
   const sidebarBg = hexToRgba(baseColor, 0.65);
-  
+
   // 更新CSS变量
   document.documentElement.style.setProperty('--sidebar-bg', sidebarBg);
 };
@@ -384,26 +415,20 @@ watch(darkMode, (newValue) => {
 onBeforeUnmount(() => {
   // 清理事件总线
   emitter.clear();
-  
+
   // 移除系统深色模式监听
-  window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', () => {});
+  window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', () => { });
 });
 
-// 检查API连接
+// 检查API连接 - 修改为始终使用模拟数据
 const checkApiConnection = async () => {
-  try {
-    await fetch('/api/status', { 
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-      // 添加短超时，避免长时间等待
-      signal: AbortSignal.timeout(2000)
-    });
-    console.log('API连接成功');
-  } catch (error) {
-    console.warn('API连接失败，可能需要启动后端服务:', error);
-    // 使用模拟数据模式
-    window._useMockData = true;
-  }
+  console.log("应用配置：后端已从项目移出，将使用模拟数据模式");
+
+  // 确保模拟数据模式开启
+  window._useMockData = true;
+  localStorage.setItem("useMockData", "true");
+
+  return false; // 返回false表示没有真实后端连接
 };
 </script>
 
@@ -434,5 +459,10 @@ const checkApiConnection = async () => {
 .page-transition-leave-to {
   opacity: 0;
   transform: translateX(20px);
+}
+
+/* 当设置面板打开时禁止滚动 */
+body.settings-open {
+  overflow: hidden;
 }
 </style>

@@ -14,8 +14,11 @@
       </div>
     </div>
 
-    <div class="log-container">
-      <div v-if="logs.length === 0" class="empty-logs">
+    <div class="log-container" ref="logContainerRef">
+      <div v-if="isMockMode && !wsConnected" class="mock-mode-notice">
+        <el-alert title="模拟模式提示" type="info" description="当前处于模拟数据模式，实时日志不可用。" show-icon :closable="false" />
+      </div>
+      <div v-if="logs.length === 0 && !isMockMode" class="empty-logs">
         <el-empty description="暂无日志" />
       </div>
       <div v-else>
@@ -54,17 +57,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ElMessage, ElAlert } from 'element-plus' // 引入 ElAlert
 import { WarningFilled, SuccessFilled, InfoFilled, DocumentCopy, Download } from '@element-plus/icons-vue'
 import axios from 'axios';
+import { getLogWebSocketService, WebSocketService } from '../services/websocket'; // 引入 WebSocketService
+import { isMockModeActive } from '../services/apiService'; // 引入模拟模式检查
 
 // 状态变量
 const logs = ref([])
 const botInstances = ref([])
 const currentLogSource = ref('system')
 const autoScroll = ref(true)
-const logContainer = ref(null)
+const logContainerRef = ref(null) // 修改引用名称以匹配模板
+const wsService = ref(null); // WebSocket服务实例
+const wsConnected = ref(false); // WebSocket连接状态
+const isMockMode = ref(false); // 本地模拟模式状态，用于UI
 
 // 初始样例日志
 logs.value = [
@@ -140,42 +148,75 @@ const fetchInstanceLogs = async (instanceName) => {
     const response = await axios.get(`/api/logs/instance/${instanceName}`);
     if (response.data && response.data.logs) {
       logs.value = response.data.logs;
+    } else {
+      logs.value = [{ type: 'INFO', time: formatTime(new Date()), message: `实例 ${instanceName} 暂无日志。` }];
     }
   } catch (error) {
     console.error(`获取实例 ${instanceName} 日志失败:`, error);
     ElMessage.error(`获取实例 ${instanceName} 日志失败`);
+    logs.value = [{ type: 'ERROR', time: formatTime(new Date()), message: `获取实例 ${instanceName} 日志失败。` }];
   }
 }
 
 // WebSocket日志订阅
 const setupLogWS = () => {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const ws = new WebSocket(`${protocol}//${window.location.host}/api/logs/ws`);
+  isMockMode.value = isMockModeActive();
+  if (isMockMode.value) {
+    console.log('LogsPanel: 模拟模式激活，不尝试连接WebSocket。');
+    wsConnected.value = false;
+    // 可以添加一条模拟日志提示
+    addLog({ type: 'WARNING', message: '模拟模式已激活，实时日志功能已禁用。' });
+    return;
+  }
 
-  ws.onmessage = (event) => {
-    try {
-      const logData = JSON.parse(event.data);
-      if (logData.source === currentLogSource.value) {
-        addLog(logData);
-      }
-    } catch (error) {
-      console.error('处理WebSocket日志消息失败:', error);
+  if (wsService.value) {
+    wsService.value.disconnect();
+  }
+
+  // 使用 getLogWebSocketService 或 new WebSocketService()
+  // 为了确保每次切换日志源时能正确订阅，这里我们创建一个新的实例
+  // 如果希望全局共享一个连接，则应使用 getLogWebSocketService() 并管理其订阅
+  wsService.value = new WebSocketService({
+    url: `${getWebSocketProtocol()}//${window.location.host}/api/logs/ws?source=${currentLogSource.value}`,
+    reconnectDelay: 5000, // 增加重连延迟
+  });
+
+  wsService.value.on('open', () => {
+    wsConnected.value = true;
+    console.log(`日志WebSocket已连接到源: ${currentLogSource.value}`);
+    addLog({ type: 'INFO', message: `实时日志监控已连接 (源: ${currentLogSource.value})` });
+  });
+
+  wsService.value.on('message', (logData) => {
+    // 后端推送的日志可能需要根据 source 过滤，如果WebSocket URL已包含source则不需要
+    // 假设后端推送的日志已根据连接参数中的source进行了过滤
+    // 或者，如果后端推送所有日志，前端需要过滤：
+    // if (logData.source === currentLogSource.value) {
+    //   addLog(logData);
+    // }
+    addLog(logData); // 假设后端已按source过滤
+  });
+
+  wsService.value.on('error', (error) => {
+    wsConnected.value = false;
+    console.error('日志WebSocket错误:', error);
+    addLog({ type: 'ERROR', message: `实时日志连接错误: ${error.message || '未知错误'}` });
+  });
+
+  wsService.value.on('close', (event) => {
+    wsConnected.value = false;
+    console.log('日志WebSocket已关闭。原因:', event.reason);
+    if (!isMockModeActive()) { // 仅在非模拟模式下提示重连
+      addLog({ type: 'WARNING', message: '实时日志连接已断开。' + (event.reason && event.reason.includes('Mock mode') ? '' : ' 尝试重连中...') });
     }
-  };
+  });
 
-  ws.onerror = (error) => {
-    console.error('WebSocket错误:', error);
-  };
-
-  ws.onopen = () => {
-    console.log('日志WebSocket已连接');
-  };
-
-  ws.onclose = () => {
-    console.log('日志WebSocket已关闭，尝试重连...');
-    setTimeout(setupLogWS, 3000);
-  };
+  wsService.value.connect();
 }
+
+const getWebSocketProtocol = () => {
+  return window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+};
 
 const addLog = (logData) => {
   logs.value.push({
@@ -191,8 +232,8 @@ const addLog = (logData) => {
 
 const scrollToBottom = async () => {
   await nextTick();
-  if (logContainer.value) {
-    logContainer.value.scrollTop = logContainer.value.scrollHeight;
+  if (logContainerRef.value) { // 使用正确的引用名称
+    logContainerRef.value.scrollTop = logContainerRef.value.scrollHeight;
   } else {
     const container = document.querySelector('.log-container');
     if (container) {
@@ -252,12 +293,32 @@ watch(logs, () => {
   }
 }, { deep: true });
 
+watch(currentLogSource, (newSource, oldSource) => {
+  if (newSource !== oldSource) {
+    logs.value = []; // 清空旧日志
+    addLog({ type: 'INFO', message: `日志源已切换到: ${newSource}` });
+    setupLogWS(); // 重新建立WebSocket连接或更新订阅
+  }
+});
+
 // 初始化
 onMounted(async () => {
+  isMockMode.value = isMockModeActive();
   await fetchBotInstances();
-  fetchSystemLogs();
+  // 根据 currentLogSource 初始化日志
+  if (currentLogSource.value === 'system') {
+    fetchSystemLogs();
+  } else {
+    fetchInstanceLogs(currentLogSource.value);
+  }
   setupLogWS();
 })
+
+onBeforeUnmount(() => {
+  if (wsService.value) {
+    wsService.value.disconnect();
+  }
+});
 
 // 暴露方法给父组件调用
 // defineExpose已经是编译宏，不需要导入
@@ -275,4 +336,9 @@ defineExpose({
 
 <style>
 @import '../assets/css/logsPanel.css';
+
+.mock-mode-notice {
+  padding: 10px;
+  margin-bottom: 10px;
+}
 </style>

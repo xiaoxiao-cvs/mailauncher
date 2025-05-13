@@ -354,103 +354,52 @@ const initApp = () => {
   // 设置API模拟
   setupApiMock();
 
+  // 添加状态监听
+  window.addEventListener("mock-mode-initialized", () => {
+    console.log("应用初始化完成，正在使用模拟数据模式...");
+    // 这里可以添加模拟数据模式下的初始化逻辑
+  });
+
   // 挂载应用
   app.mount("#app");
 };
 
 // 检查初始后端连接
 const checkInitialBackendConnection = async () => {
-  // 显示后端连接中的通知
+  // 显示正在初始化的通知
   const loadingNotification = ElMessage({
-    message: "正在连接后端服务...",
+    message: "正在初始化应用...",
     type: "info",
-    duration: 0,
+    duration: 2000,
     showClose: false,
   });
 
-  try {
-    const connected = await checkBackendConnection();
+  // 后端已从项目移出，直接启用模拟数据模式
+  window._useMockData = true;
+  window.localStorage.setItem("useMockData", "true");
 
-    // 关闭加载提示
-    loadingNotification.close();
-
-    if (connected) {
-      console.log("后端服务连接成功");
-      ElMessage({
-        message: "后端服务连接成功",
-        type: "success",
-        duration: 3000,
-      });
-      // 连接成功后关闭模拟模式
-      window._useMockData = false;
-      window.localStorage.setItem("useMockData", "false");
-    } else {
-      console.warn("后端服务连接失败，自动启用模拟数据模式");
-      // 启动自动重试
-      startConnectionRetry(() => {
-        ElMessage({
-          message: "后端服务连接成功",
-          type: "success",
-          duration: 3000,
-        });
-        // 连接成功后关闭模拟模式
-        window._useMockData = false;
-        window.localStorage.setItem("useMockData", "false");
-      });
-
-      // 立即启用模拟数据模式
-      window._useMockData = true;
-      window.localStorage.setItem("useMockData", "true");
-
-      // 显示友好的提示
-      setTimeout(() => {
-        ElMessage({
-          message: "已启用模拟数据模式，可随时正常使用界面功能",
-          type: "info",
-          duration: 5000,
-        });
-      }, 500);
-    }
-  } catch (error) {
-    // 关闭加载提示
-    loadingNotification.close();
-
-    console.error("后端连接检查失败:", error);
-
-    // 启用模拟数据模式
-    window._useMockData = true;
-    window.localStorage.setItem("useMockData", "true");
-
-    // 显示友好的提示
+  // 显示友好的提示
+  setTimeout(() => {
     ElMessage({
-      message: "已启用模拟数据模式，可随时正常使用界面功能",
-      type: "info",
-      duration: 5000,
+      message: "应用启动完成，使用模拟数据模式运行",
+      type: "success",
+      duration: 3000,
     });
+  }, 2500);
 
-    // 启动自动重试连接后端
-    startConnectionRetry(() => {
-      ElMessage({
-        message: "后端服务连接成功",
-        type: "success",
-        duration: 3000,
-      });
-      // 连接成功后关闭模拟模式
-      window._useMockData = false;
-      window.localStorage.setItem("useMockData", "false");
-    });
-  }
+  // 触发模拟数据模式下的应用初始化
+  setTimeout(() => {
+    window.dispatchEvent(new Event("mock-mode-initialized"));
+  }, 500);
 };
 
 // 启动应用
 initApp();
 
-// 设置模拟数据为默认模式，除非明确禁用
-if (localStorage.getItem("useMockData") === null) {
-  localStorage.setItem("useMockData", "true");
-  window._useMockData = true;
-  console.log("默认启用模拟数据模式");
-}
+// 设置模拟数据为默认模式
+localStorage.setItem("useMockData", "true");
+window._useMockData = true;
+console.log("应用已配置为使用模拟数据模式");
 
 // 添加侧边栏状态同步
 window.addEventListener("sidebar-state-changed", () => {

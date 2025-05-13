@@ -80,7 +80,15 @@ apiClient.interceptors.response.use(
 
 // 检查是否应该使用模拟数据
 const shouldUseMockData = () => {
-  return window._useMockData || localStorage.getItem("useMockData") === "true";
+  // 始终返回true，因为后端已从项目移出
+  return true;
+  // 以下代码已不再使用，保留作为参考
+  // return window._useMockData || localStorage.getItem("useMockData") === "true";
+};
+
+// 添加一个新的导出函数，用于检查模拟模式是否激活
+export const isMockModeActive = () => {
+  return true; // 始终返回true
 };
 
 // 生成模拟响应
@@ -196,8 +204,19 @@ const generateMockResponse = (url, method, params, data) => {
       status: "ok",
       version: "0.6.3",
       uptime: "1h 23m",
-      isMock: true,
+      serverTime: new Date().toISOString(),
+      isMock: true, // 显式标记为模拟数据
+      mockData: true, // 额外标记，防止判断逻辑出错
     };
+  }
+
+  // 确保所有响应都有isMock标记
+  if (
+    response &&
+    typeof response === "object" &&
+    !response.hasOwnProperty("isMock")
+  ) {
+    response.isMock = true;
   }
 
   return response;
@@ -274,7 +293,10 @@ const apiService = {
       // 如果启用了模拟模式，直接返回模拟数据
       if (shouldUseMockData()) {
         console.log(`[模拟模式] GET ${url}`);
-        return generateMockResponse(url, "get", params, null);
+        const mockResponse = generateMockResponse(url, "get", params, null);
+        // 添加延迟，模拟网络延迟
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return mockResponse;
       }
 
       const response = await apiClient.get(url, { params });
@@ -282,6 +304,7 @@ const apiService = {
     } catch (error) {
       // 如果开启模拟模式，则返回模拟数据
       if (shouldUseMockData()) {
+        console.log(`[模拟模式-请求失败后] GET ${url}`);
         return generateMockResponse(url, "get", params, null);
       }
 
@@ -313,7 +336,10 @@ const apiService = {
       // 如果启用了模拟模式，直接返回模拟数据
       if (shouldUseMockData()) {
         console.log(`[模拟模式] POST ${url}`);
-        return generateMockResponse(url, "post", {}, data);
+        const mockResponse = generateMockResponse(url, "post", {}, data);
+        // 添加延迟，模拟网络延迟
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return mockResponse;
       }
 
       const response = await apiClient.post(url, data);
@@ -321,6 +347,7 @@ const apiService = {
     } catch (error) {
       // 如果开启模拟模式，则返回模拟数据
       if (shouldUseMockData()) {
+        console.log(`[模拟模式-请求失败后] POST ${url}`);
         return generateMockResponse(url, "post", {}, data);
       }
 
@@ -352,12 +379,17 @@ const apiService = {
 
   /**
    * 禁用模拟数据模式
+   * 注意：由于后端已从项目移出，此方法不再有实际效果
    */
   disableMockMode: () => {
-    window._useMockData = false;
-    localStorage.setItem("useMockData", "false");
-    console.log("已禁用API模拟数据模式");
+    // 由于后端已移出，不再允许禁用模拟模式
+    console.log("注意：后端已从项目移出，将继续使用模拟数据模式");
+    window._useMockData = true;
+    localStorage.setItem("useMockData", "true");
   },
 };
+
+// 确保应用启动时启用模拟模式
+apiService.enableMockMode();
 
 export default apiService;
