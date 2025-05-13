@@ -49,8 +49,8 @@
                 <span class="setting-label">侧边栏位置</span>
                 <div class="setting-control">
                     <el-radio-group v-model="sidebarPosition">
-                        <el-radio label="left">靠左</el-radio>
-                        <el-radio label="right">靠右</el-radio>
+                        <el-radio value="left">靠左</el-radio>
+                        <el-radio value="right">靠右</el-radio>
                     </el-radio-group>
                 </div>
             </div>

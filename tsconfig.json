@@ -20,6 +20,12 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
+  "include": ["src/**/*.vue", "src/**/*.ts", "src/**/*.tsx"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/components/SettingsPanel.vue", // 添加已删除的文件到排除列表
+    "src/components/LogsPanel.vue" // 添加另一个不存在的文件到排除列表
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

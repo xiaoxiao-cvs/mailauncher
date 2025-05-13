@@ -433,6 +433,9 @@ const installVersion = async () => {
   }
 };
 
+// 添加statusPollingInterval变量
+let statusPollingInterval = null;
+
 // 添加安装状态轮询 - 添加模拟数据支持
 const startInstallStatusPolling = () => {
   // 清除已有的轮询

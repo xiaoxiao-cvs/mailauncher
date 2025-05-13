@@ -44,26 +44,10 @@ const initCssVariables = () => {
   window.sidebarState = {
     collapsed: sidebarCollapsed,
     toggle: () => {
+      const appRoot = document.getElementById("app");
       const newState = !window.sidebarState.collapsed;
-      localStorage.setItem("sidebarCollapsed", newState);
       window.sidebarState.collapsed = newState;
 
-      // 更新CSS变量
-      document.documentElement.style.setProperty(
-        "--sidebar-width",
-        newState ? "64px" : "220px"
-      );
-      document.documentElement.style.setProperty(
-        "--content-margin",
-        newState ? "79px" : "235px"
-      );
-      document.documentElement.style.setProperty(
-        "--content-width",
-        newState ? "calc(100% - 64px)" : "calc(100% - 220px)"
-      );
-
-      // 更新DOM类名并触发resize事件
-      const appRoot = document.getElementById("app");
       if (appRoot) {
         if (newState) {
           appRoot.classList.add("sidebar-collapsed");

@@ -17,16 +17,13 @@
     "allowJs": true,
     "noEmit": true
   },
-  "include": [
-    "src/**/*.js", 
-    "src/**/*.vue",
-    "src/**/*.jsx",
-    "src/**/*.json"
-  ],
+  "include": ["src/**/*.vue", "src/**/*.js"],
   "exclude": [
     "node_modules",
     "dist",
     "src/components/AppHeader.vue",
-    "src/components/AppSidebar.vue"
+    "src/components/AppSidebar.vue",
+    "src/components/SettingsPanel.vue",
+    "src/components/LogsPanel.vue"
   ]
 }

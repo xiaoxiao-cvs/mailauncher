@@ -100,9 +100,128 @@ const checkInstallStatus = async () => {
   }
 };
 
+/**
+ * 获取实例列表（模拟数据）
+ * @returns {Promise<Object>} 实例列表数据
+ */
+const getInstances = async () => {
+  try {
+    const response = await axios.get("/api/instances");
+    return response.data;
+  } catch (error) {
+    console.error("获取实例列表失败:", error);
+    // 返回模拟数据
+    return {
+      instances: generateMockInstances(),
+      success: true,
+      isMock: true,
+    };
+  }
+};
+
+/**
+ * 生成模拟实例数据
+ * @param {number} count 要生成的实例数量
+ * @returns {Array} 模拟实例数组
+ */
+const generateMockInstances = (count = 3) => {
+  const statuses = ["running", "stopped"];
+  const versions = ["latest", "stable", "beta", "v0.6.3", "v0.6.2"];
+  const instances = [];
+
+  for (let i = 0; i < count; i++) {
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+    const version = versions[Math.floor(Math.random() * versions.length)];
+    const date = new Date();
+    date.setDate(date.getDate() - Math.floor(Math.random() * 30));
+
+    instances.push({
+      name: `maibot-${version}-${i + 1}`,
+      status: status,
+      installedAt: date.toISOString().split("T")[0],
+      path: `D:\\MaiBot\\${version}-${i + 1}`,
+      services: {
+        napcat: status,
+        nonebot: Math.random() > 0.5 ? status : "stopped",
+      },
+      version: version,
+    });
+  }
+
+  return instances;
+};
+
+/**
+ * 启动实例（模拟）
+ * @param {string} instanceName 实例名称
+ * @returns {Promise<Object>} 启动结果
+ */
+const startInstance = async (instanceName) => {
+  console.log(`启动实例: ${instanceName}`);
+  try {
+    const response = await axios.post(`/api/start/${instanceName}`);
+    return response.data;
+  } catch (error) {
+    console.error(`启动实例 ${instanceName} 失败:`, error);
+    // 返回模拟成功数据
+    return {
+      success: true,
+      message: `实例 ${instanceName} 启动成功（模拟）`,
+      isMock: true,
+    };
+  }
+};
+
+/**
+ * 停止实例（模拟）
+ * @param {string} instanceName 实例名称
+ * @returns {Promise<Object>} 停止结果
+ */
+const stopInstance = async (instanceName) => {
+  console.log(`停止实例: ${instanceName}`);
+  try {
+    const response = await axios.post(`/api/stop/${instanceName}`);
+    return response.data;
+  } catch (error) {
+    console.error(`停止实例 ${instanceName} 失败:`, error);
+    // 返回模拟成功数据
+    return {
+      success: true,
+      message: `实例 ${instanceName} 已停止（模拟）`,
+      isMock: true,
+    };
+  }
+};
+
+/**
+ * 删除实例（模拟）
+ * @param {string} instanceName 实例名称
+ * @returns {Promise<Object>} 删除结果
+ */
+const deleteInstance = async (instanceName) => {
+  console.log(`删除实例: ${instanceName}`);
+  try {
+    const response = await axios.delete(`/api/instance/${instanceName}`);
+    return response.data;
+  } catch (error) {
+    console.error(`删除实例 ${instanceName} 失败:`, error);
+    // 返回模拟成功数据
+    return {
+      success: true,
+      message: `实例 ${instanceName} 已删除（模拟）`,
+      isMock: true,
+    };
+  }
+};
+
 export default {
   fetchVersions,
   deployVersion,
   configureBot,
   checkInstallStatus,
+  getInstances,
+  startInstance,
+  stopInstance,
+  deleteInstance,
+  generateMockInstances,
 };

@@ -26,7 +26,7 @@ export const debounce = (fn, delay = 300) => {
  * @returns {Function} 节流后的函数
  */
 export const throttle = (fn, limit = 300) => {
-  let lastCall = 0;
+  let lastCall = 0; // 添加 lastCall 变量
   return function (...args) {
     const now = Date.now();
     if (now - lastCall >= limit) {

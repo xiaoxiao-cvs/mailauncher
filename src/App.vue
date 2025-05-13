@@ -20,11 +20,11 @@
 <script setup>
 import { ref, provide, onMounted, computed, onBeforeUnmount, watch } from 'vue'
 import HomeView from './components/HomeView.vue'
-import LogsPanel from './components/LogsPanel.vue'
 import DownloadsPanel from './components/DownloadsPanel.vue'
 import InstancesPanel from './components/InstancesPanel.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import SettingsDrawer from './components/settings/SettingsDrawer.vue'
+import PluginsView from './views/PluginsView.vue' // 引入新创建的插件视图组件
 import { HomeFilled, List, Download, Document, Setting, Grid } from '@element-plus/icons-vue'
 import settingsService from './services/settingsService'
 import { initTheme, applyThemeColor } from './services/theme'
@@ -76,12 +76,11 @@ provide('sidebarExpanded', sidebarExpanded);
 // 日志面板引用
 const logsPanel = ref(null);
 
-// 侧边栏菜单项
+// 侧边栏菜单项 - 移除logs菜单项
 const menuItems = {
   home: { title: '仪表盘', icon: HomeFilled },
   instances: { title: '实例管理', icon: List },
   downloads: { title: '下载中心', icon: Download },
-  logs: { title: '系统日志', icon: Document },
   settings: { title: '系统设置', icon: Setting },
   plugins: { title: '插件广场', icon: Grid }
 }
@@ -100,30 +99,27 @@ const handleTabSelect = (tab) => {
 // 提供activeTab供侧边栏组件使用
 provide('activeTab', activeTab);
 
-// 计算当前组件
+// 计算当前组件 - 移除logs选项
 const currentComponent = computed(() => {
   switch (activeTab.value) {
     case 'home': return HomeView;
     case 'instances': return InstancesPanel;
     case 'downloads': return DownloadsPanel;
-    case 'logs': return LogsPanel;
     case 'settings':
       // 现在当选择settings标签时，打开设置抽屉，而不是加载旧的设置组件
       openSettings();
       return HomeView; // 保持当前页面为首页
     case 'plugins':
-      return {
-        template: `<div class="tab-content">
-                    <h3>插件广场</h3>
-                    <p>功能正在开发中...</p>
-                  </div>`
-      };
+      return PluginsView; // 使用导入的组件而非动态创建模板
     default:
+      // 创建一个通用的"正在构建"页面组件
       return {
-        template: `<div class="tab-content">
-                    <h3>${menuItems[activeTab.value]?.title || activeTab.value}</h3>
-                    <p>页面内容建设中...</p>
-                  </div>`
+        render() {
+          return h('div', { class: 'tab-content' }, [
+            h('h3', {}, menuItems[activeTab.value]?.title || activeTab.value),
+            h('p', {}, '页面内容建设中...')
+          ]);
+        }
       };
   }
 });
@@ -268,18 +264,7 @@ onMounted(() => {
     checkSidebarState();
   });
 
-  // 监听显示实例日志事件
-  emitter.on('show-instance-logs', (instanceName) => {
-    // 切换到日志选项卡
-    activeTab.value = 'logs';
-    // 在下一个渲染周期，告诉日志面板显示特定实例的日志
-    setTimeout(() => {
-      if (logsPanel.value && logsPanel.value.changeLogSource) {
-        logsPanel.value.changeLogSource(instanceName);
-      }
-    }, 100);
-  });
-
+  // 移除对 show-instance-logs 事件的监听处理
   // 添加导航事件处理
   emitter.on('navigate-to-tab', (tabName) => {
     if (tabName === 'settings') {

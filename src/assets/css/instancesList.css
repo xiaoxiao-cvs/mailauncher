@@ -1,0 +1,379 @@
+/* 实例管理页面样式 */
+.instances-container {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+}
+
+/* 顶部导航栏样式 */
+.header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px; /* 增加水平内边距 */
+  border-radius: 12px; /* 增加圆角 */
+  background: var(--sidebar-bg, rgba(30, 35, 42, 0.65));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  margin-bottom: 24px; /* 增加与下方间距 */
+  margin-top: 8px; /* 增加上方间距 */
+  width: calc(100% - 16px); /* 确保宽度填满容器，减去两边的margin */
+  margin-left: 8px;
+  margin-right: 8px;
+  color: var(--sidebar-text-color, rgba(255, 255, 255, 0.8));
+}
+
+/* 深色模式下头部导航栏 */
+html.dark-mode .header-bar {
+  background: rgba(22, 25, 30, 0.85);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 浅色模式下头部导航栏 */
+html:not(.dark-mode) .header-bar {
+  background: rgba(240, 245, 255, 0.85);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.title-area {
+  display: flex;
+  align-items: center;
+  gap: 12px; /* 增加图标和文字间距 */
+  padding-top: 4px; /* 标题向下移动 */
+  padding-left: 8px; /* 标题向右移动 */
+}
+
+.app-icon {
+  font-size: 22px; /* 放大图标 */
+  margin-right: 10px;
+  color: var(--el-color-primary);
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 600; /* 加粗一点 */
+  color: var(--el-text-color-primary);
+}
+
+.search-area {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-grow: 1;
+  justify-content: center;
+  max-width: 600px;
+}
+
+.filter-button {
+  padding: 8px 12px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background-color 0.3s;
+  margin-right: 10px;
+}
+
+.filter-button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* 浅色模式下的过滤按钮 */
+html:not(.dark-mode) .filter-button {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+html:not(.dark-mode) .filter-button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.filter-button .el-icon {
+  margin-left: 5px;
+}
+
+.search-box {
+  flex-grow: 1;
+  max-width: 450px;
+}
+
+.search-icon {
+  color: var(--el-text-color-placeholder);
+}
+
+.action-area {
+  display: flex;
+  align-items: center;
+  gap: 12px; /* 添加按钮之间的间距 */
+}
+
+.new-app-btn {
+  border: none;
+}
+
+/* 操作按钮栏样式 */
+.operation-bar {
+  display: none; /* 隐藏原来的操作栏 */
+}
+
+.left-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+/* 实例列表样式 */
+.instances-list {
+  flex-grow: 1;
+  padding: 16px;
+  overflow-y: auto;
+  background-color: var(--el-fill-color-light);
+}
+
+/* 卡片式布局 */
+.instances-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px; /* 增加卡片之间的间距 */
+  margin-top: 16px; /* 增加顶部间距 */
+  padding: 0 8px; /* 添加左右内边距 */
+}
+
+.instance-card {
+  background-color: var(--el-bg-color);
+  border-radius: 12px !important; /* 增加卡片圆角并使用!important确保生效 */
+  padding: 18px 20px; /* 增加内边距 */
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--el-border-color-lighter);
+  box-shadow: var(--el-box-shadow-light);
+  position: relative;
+  transition: transform 0.3s, box-shadow 0.3s;
+  height: 220px; /* 稍微减小高度 */
+  overflow: hidden; /* 确保内容不会溢出圆角 */
+}
+
+/* 覆盖element-plus的卡片样式 */
+.instances-grid .el-card {
+  border-radius: 12px; /* 确保卡片的圆角生效 */
+}
+
+.el-card.instance-card .el-card__body {
+  padding: 0; /* 移除el-card默认内边距，使用我们自己定义的padding */
+}
+
+.el-card.instance-card .el-card__body {
+  padding: 0; /* 移除el-card默认内边距，使用我们自己定义的padding */
+  height: 100%;
+}
+
+.instance-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1) !important; /* 增强悬浮效果 */
+}
+
+.instance-header {
+  margin-bottom: 20px; /* 增加下边距 */
+}
+
+.instance-name {
+  font-size: 16px;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 8px; /* 增加标题与描述的间距 */
+  color: var(--el-text-color-primary);
+}
+
+.instance-desc {
+  font-size: 14px;
+  display: block;
+  color: var(--el-text-color-secondary);
+}
+
+.instance-info {
+  margin-bottom: 20px; /* 增加与下方元素的间距 */
+}
+
+.info-item {
+  margin-bottom: 10px; /* 增加每个信息项之间的间距 */
+  display: flex;
+  font-size: 14px;
+}
+
+.info-label {
+  color: var(--el-text-color-secondary);
+  width: 80px;
+}
+
+.info-value {
+  color: var(--el-text-color-regular);
+}
+
+.instance-actions {
+  display: flex;
+  gap: 8px;
+  position: absolute;
+  right: 16px;
+  top: 16px;
+}
+
+/* 新增: 重新设计的操作按钮区域 - 位于卡片右下角 */
+.instance-actions-new {
+  position: absolute;
+  bottom: 15px;
+  right: 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px; /* 增加按钮组之间的间距 */
+  background: transparent;
+  padding: 5px;
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.action-group {
+  display: flex;
+  gap: 12px; /* 增加同组内按钮的间距 */
+}
+
+/* 分隔线样式 */
+.action-divider {
+  width: 1px;
+  height: 20px; /* 缩小高度 */
+  background-color: var(--el-border-color-lighter);
+  margin: 0 5px;
+}
+
+/* 统一按钮大小，确保对齐和完美圆形 */
+.instance-actions-new .el-button {
+  font-size: 14px; /* 缩小字体 */
+  width: 32px !important; /* 调整为合适的按钮尺寸 */
+  height: 32px !important; /* 强制高度 - 确保完全相等 */
+  padding: 0 !important; /* 移除内边距 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  border-radius: 50% !important; /* 确保是圆形 */
+}
+
+/* 按钮内的图标大小 */
+.instance-actions-new .el-button .el-icon {
+  font-size: 14px !important; /* 缩小图标大小 */
+}
+
+/* 按钮悬停效果 */
+.instance-actions-new .el-button:hover:not(.is-disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 禁用状态的按钮样式 */
+.instance-actions-new .el-button.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.instance-status {
+  margin-top: auto;
+  margin-bottom: 18px; /* 增加与卡片底部的间距 */
+  display: flex;
+  align-items: center;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.status-icon {
+  font-size: 16px;
+}
+
+.status-text {
+  font-size: 14px;
+}
+
+/* 状态颜色 */
+.status-running {
+  color: var(--el-color-success);
+}
+
+.status-starting {
+  color: var(--el-color-warning);
+}
+
+.status-stopping {
+  color: var(--el-color-danger);
+}
+
+.status-stopped {
+  color: var(--el-text-color-secondary);
+}
+
+.status-maintenance {
+  color: var(--el-color-info);
+}
+
+/* 加载状态 */
+.loading-container {
+  padding: 20px;
+}
+
+.empty-state {
+  margin: 40px 0;
+  color: var(--el-text-color-secondary);
+}
+
+/* 响应式样式 */
+@media (max-width: 768px) {
+  .header-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .search-area {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-button {
+    margin-right: 0;
+    margin-bottom: 10px;
+  }
+
+  .action-area {
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 10px;
+  }
+
+  .instance-actions {
+    position: static;
+    margin-top: 16px;
+  }
+
+  .instances-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .search-area,
+  .action-area {
+    width: 100%;
+  }
+
+  .search-box {
+    flex: 1;
+  }
+
+  .new-app-btn {
+    width: 100%;
+    margin-top: 10px;
+  }
+}

@@ -51,17 +51,43 @@ export const deployApi = {
  */
 export const instancesApi = {
   // 获取实例列表
-  getInstances: () => apiService.get(createUrl("/instances")),
+  getInstances: async (source = "all") => {
+    try {
+      // 可以根据source参数调用不同的API端点
+      const url =
+        source === "all" ? "/api/instances" : `/api/instances/${source}`;
+      const response = await axios.get(url);
+      return response;
+    } catch (error) {
+      console.error("获取实例列表失败:", error);
+      throw error;
+    }
+  },
 
   // 获取实例统计
   getStats: () => apiService.get(createUrl("/instances/stats")),
 
   // 启动实例
-  startInstance: (instanceName) =>
-    apiService.post(createUrl(`/start/${instanceName}`)),
+  startInstance: async (instanceName) => {
+    try {
+      const response = await axios.post(`/api/instance/${instanceName}/start`);
+      return response;
+    } catch (error) {
+      console.error(`启动实例${instanceName}失败:`, error);
+      throw error;
+    }
+  },
 
   // 停止实例
-  stopInstance: () => apiService.post(createUrl("/stop")),
+  stopInstance: async (instanceName) => {
+    try {
+      const response = await axios.post(`/api/instance/${instanceName}/stop`);
+      return response;
+    } catch (error) {
+      console.error(`停止实例${instanceName}失败:`, error);
+      throw error;
+    }
+  },
 
   // 启动NapCat服务
   startNapcat: (instanceName) =>
@@ -72,12 +98,61 @@ export const instancesApi = {
     apiService.get(createUrl(`/logs/instance/${instanceName}`)),
 
   // 删除实例
-  deleteInstance: (instanceName) =>
-    apiService.get(createUrl(`/instance/${instanceName}`)), // 修改为get请求，避免cors问题
+  deleteInstance: async (instanceName) => {
+    try {
+      const response = await axios.delete(`/api/instance/${instanceName}`);
+      return response;
+    } catch (error) {
+      console.error(`删除实例${instanceName}失败:`, error);
+      throw error;
+    }
+  },
 
   // 打开文件夹
   openFolder: (path) => apiService.post(createUrl("/open-folder"), { path }),
+
+  // 获取所有可用版本
+  getVersions: () => apiService.get(createUrl("/versions")),
+
+  // 部署新实例
+  deployInstance: (version, instanceName) =>
+    apiService.post(createUrl("/deploy"), {
+      version,
+      instance_name: instanceName,
+    }),
 };
+
+/**
+ * 生成模拟实例数据
+ * @param {number} count 要生成的实例数量
+ * @returns {Array} 模拟实例数组
+ */
+function generateMockInstances(count = 3) {
+  const statuses = ["running", "stopped"];
+  const versions = ["latest", "stable", "beta", "v0.6.3", "v0.6.2"];
+  const instances = [];
+
+  for (let i = 0; i < count; i++) {
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+    const version = versions[Math.floor(Math.random() * versions.length)];
+    const date = new Date();
+    date.setDate(date.getDate() - Math.floor(Math.random() * 30));
+
+    instances.push({
+      name: `maibot-${version}-${i + 1}`,
+      status: status,
+      installedAt: date.toISOString().split("T")[0],
+      path: `D:\\MaiBot\\${version}-${i + 1}`,
+      services: {
+        napcat: status,
+        nonebot: Math.random() > 0.5 ? status : "stopped",
+      },
+      version: version,
+    });
+  }
+
+  return instances;
+}
 
 /**
  * 系统API

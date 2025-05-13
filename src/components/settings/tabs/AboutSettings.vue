@@ -6,7 +6,7 @@
             <div class="app-info">
                 <img src="/assets/icon.ico" alt="App Logo" class="app-logo">
                 <div class="app-details">
-                    <h2>X² Launcher</h2>
+                    <h2>MaiLauncher</h2>
                     <p class="app-version">版本: 0.1.1</p>
                     <p class="app-description">MaiBot 管理器</p>
                 </div>
@@ -25,7 +25,7 @@
         <el-card class="settings-card">
             <div class="credits-section">
                 <h4>开发团队</h4>
-                <p>Developed by Team X²</p>
+                <p>Developed by Team Mai.To.The.Gate</p>
                 <h4>致谢</h4>
                 <p>感谢所有为此项目做出贡献的开发者们</p>
                 <h4>许可协议</h4>

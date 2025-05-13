@@ -5,21 +5,18 @@
       <el-table-column prop="name" label="实例名称" min-width="180" />
       <el-table-column prop="installedAt" label="安装时间" width="180" />
       <el-table-column prop="status" label="状态" width="100">
-        <template #default="{row}">
+        <template #default="{ row }">
           <el-tag :type="row.status === 'running' ? 'success' : 'info'">
             {{ row.status === 'running' ? '运行中' : '已停止' }}
           </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="220">
-        <template #default="{row}">
+        <template #default="{ row }">
           <el-button size="small" type="success" @click="openFolder(row.path)">
             打开文件夹
           </el-button>
-          <el-button 
-            size="small" 
-            :type="row.status === 'running' ? 'danger' : 'primary'"
-            @click="toggleInstance(row)">
+          <el-button size="small" :type="row.status === 'running' ? 'danger' : 'primary'" @click="toggleInstance(row)">
             {{ row.status === 'running' ? '停止' : '启动' }}
           </el-button>
         </template>
@@ -49,7 +46,7 @@ const hasInstances = computed(() => {
 // 打开文件夹
 const openFolder = (path) => {
   if (!path) return;
-  
+
   axios.post('/api/open-path', { path })
     .catch(error => {
       ElMessage.error('无法打开文件夹');
@@ -59,5 +56,15 @@ const openFolder = (path) => {
 // 启动或停止实例
 const toggleInstance = (instance) => {
   emit('toggle-instance', instance);
+};
+
+// 查看实例日志
+const viewInstanceLogs = (instance) => {
+  // 改为显示消息框，因为LogsPanel已被移除
+  ElMessage({
+    type: 'info',
+    message: `实例 ${instance.name} 的日志查看功能即将推出`,
+    duration: 3000
+  });
 };
 </script>

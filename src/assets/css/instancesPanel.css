@@ -38,7 +38,7 @@
   padding-bottom: 8px;
 }
 
-.instance-grid {
+.instances-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
@@ -49,75 +49,148 @@
   transition: all 0.3s ease;
   background-color: var(--el-bg-color);
   color: var(--el-text-color-primary);
-  border-color: var(--el-border-color);
+  border: 1px solid var(--el-border-color);
+  border-radius: 4px;
+  padding: 15px;
 }
 
 .instance-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-}
-
-.instance-card.running {
-  border-left: 4px solid var(--el-color-success);
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
 }
 
 .instance-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: inherit;
+  margin-bottom: 15px;
 }
 
-.instance-name {
+.instance-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.instance-id {
+  font-size: 18px;
   font-weight: bold;
 }
 
-.instance-info {
+.info-row {
+  display: flex;
+  margin-bottom: 5px;
   font-size: 14px;
-  margin: 8px 0;
-  color: var(--el-text-color-secondary);
 }
 
-.instance-info p {
-  margin: 5px 0;
-  color: inherit;
+.info-label {
+  color: var(--el-text-color-secondary);
+  width: 80px;
 }
 
 .instance-actions {
+  margin-top: auto;
   display: flex;
-  justify-content: space-between;
-  margin-top: 12px;
+  justify-content: flex-end;
 }
 
-.service-status {
-  margin-top: 12px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--el-border-color-light);
+.batch-operations {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
-.service-item {
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.search-input {
+  width: 220px;
+}
+
+.pagination-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 4px 0;
+  margin-top: 20px;
+  padding: 10px 0;
 }
 
-.service-name {
-  font-size: 13px;
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
   color: var(--el-text-color-secondary);
 }
 
-.tip-section {
-  margin-top: 16px;
+.el-dropdown-link {
+  cursor: pointer;
 }
 
-.starting-guide {
-  margin-top: 20px;
+/* 表格样式 */
+.instances-table-wrapper {
+  background-color: var(--el-bg-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+/* 状态标签样式 */
+.status-tag {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.status-tag.running {
+  background-color: rgba(103, 194, 58, 0.1);
+  color: var(--el-color-success);
+}
+
+.status-tag.stopped {
+  background-color: rgba(144, 147, 153, 0.1);
+  color: var(--el-color-info);
+}
+
+/* 按钮组样式 */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* 深色模式适配 */
+html.dark-mode .instance-card {
+  background-color: var(--card-bg-color);
+  border-color: var(--border-color);
+}
+
+html.dark-mode .instances-table-wrapper {
+  background-color: var(--card-bg-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .instance-grid {
+  .instances-list {
     grid-template-columns: 1fr;
+  }
+
+  .header-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    width: 100%;
   }
 }

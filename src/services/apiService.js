@@ -123,161 +123,143 @@ const generateMockResponse = (url, method, params, data) => {
         isMock: true,
       };
     } else {
+      // 确保实例数据格式一致
+      const mockInstances = generateMockInstances(3);
       response = {
-        instances: [
-          {
-            name: "maibot-latest",
-            status: "running",
-            installedAt: "2023-10-15",
-            path: "D:\\MaiBot\\latest",
-            services: {
-              napcat: "running",
-              nonebot: "stopped",
-            },
-          },
-          {
-            name: "maibot-stable",
-            status: "stopped",
-            installedAt: "2023-10-10",
-            path: "D:\\MaiBot\\stable",
-            services: {
-              napcat: "stopped",
-              nonebot: "stopped",
-            },
-          },
-          {
-            name: "maibot-test",
-            status: "stopped",
-            installedAt: "2023-09-20",
-            path: "D:\\MaiBot\\test",
-            services: {
-              napcat: "stopped",
-              nonebot: "stopped",
-            },
-          },
-        ],
+        instances: mockInstances,
+        success: true,
         isMock: true,
       };
     }
-  } else if (method === "post" && url.includes("/deploy")) {
+  } else if (url.includes("/start/")) {
+    // 处理启动实例请求
+    const instanceName = url.split("/start/")[1].split("/")[0];
     response = {
       success: true,
-      message: "模拟部署成功",
-      instanceName: requestBody.instance_name || "maibot-simulated",
+      message: `实例 ${instanceName} 已启动（模拟）`,
       isMock: true,
     };
-  } else if (method === "post" && url.includes("/install")) {
+  } else if (url.includes("/stop")) {
+    // 处理停止实例请求
     response = {
       success: true,
-      message: "模拟安装配置成功",
+      message: `实例已停止（模拟）`,
       isMock: true,
     };
-  } else if (method === "post" && url.includes("/start/")) {
-    const instanceName = url.split("/").pop();
+  } else if (url.match(/\/instance\/[^\/]+$/)) {
+    // 处理删除实例请求 (DELETE)
+    if (method === "DELETE") {
+      const instanceName = url.split("/instance/")[1];
+      response = {
+        success: true,
+        message: `实例 ${instanceName} 已删除（模拟）`,
+        isMock: true,
+      };
+    }
+  } else if (url.includes("/logs/instance/")) {
+    // 处理实例日志请求
+    const instanceName = url.split("/logs/instance/")[1];
+    response = {
+      logs: generateMockLogs(instanceName, 20),
+      isMock: true,
+    };
+  } else if (url.includes("/deploy")) {
+    // 处理部署请求
     response = {
       success: true,
-      message: `模拟启动 ${instanceName} 成功`,
+      message: "部署任务已提交（模拟）",
       isMock: true,
     };
-  } else if (method === "post" && url.includes("/stop")) {
+  } else if (url.includes("/install-status")) {
+    // 处理安装状态请求
+    response = {
+      napcat_installing: false,
+      nonebot_installing: false,
+      isMock: true,
+    };
+  } else if (url.includes("/open-folder")) {
+    // 处理打开文件夹请求
     response = {
       success: true,
-      message: "模拟停止成功",
       isMock: true,
     };
-  } else if (url.includes("/logs")) {
-    const logSource = url.includes("/system") ? "system" : "instance";
-    response = {
-      logs: generateMockLogs(20, logSource),
-      isMock: true,
-    };
-  } else if (url.includes("/status")) {
-    response = {
-      mongodb: { status: "running", info: "本地实例 (模拟)" },
-      napcat: { status: "running", info: "端口 8095 (模拟)" },
-      nonebot: { status: "stopped", info: "" },
-      maibot: { status: "running", info: "版本 0.6.3 (模拟)" },
-      isMock: true,
-    };
-  } else if (url.includes("/health")) {
-    response = {
-      status: "ok",
-      version: "0.6.3",
-      uptime: "1h 23m",
-      serverTime: new Date().toISOString(),
-      isMock: true, // 显式标记为模拟数据
-      mockData: true, // 额外标记，防止判断逻辑出错
-    };
-  }
-
-  // 确保所有响应都有isMock标记
-  if (
-    response &&
-    typeof response === "object" &&
-    !response.hasOwnProperty("isMock")
-  ) {
-    response.isMock = true;
   }
 
   return response;
 };
 
-// 生成模拟日志
-const generateMockLogs = (count, source = "system") => {
+/**
+ * 生成模拟日志数据
+ * @param {string} source 日志来源
+ * @param {number} count 日志条数
+ * @returns {Array} 模拟日志数组
+ */
+const generateMockLogs = (source, count = 10) => {
+  const levels = ["INFO", "WARNING", "ERROR", "SUCCESS"];
   const logs = [];
-  const levels = ["INFO", "WARNING", "ERROR", "SUCCESS", "DEBUG"];
   const now = new Date();
-
-  const messages = {
-    system: [
-      "系统启动完成",
-      "检查更新...",
-      "无可用更新",
-      "后台服务运行正常",
-      "尝试连接数据库",
-      "数据库连接成功",
-      "用户配置加载完成",
-      "监控服务启动",
-      "执行定时任务",
-      "清理临时文件",
-      "正在处理队列任务",
-      "警告: 磁盘空间不足",
-      "错误: 无法访问远程服务器",
-      "成功: 任务队列处理完成",
-    ],
-    instance: [
-      "实例初始化中...",
-      "加载配置文件",
-      "NapCat服务启动成功",
-      "NoneBot适配器启动中",
-      "模型加载中...",
-      "模型加载完成",
-      "成功连接到QQ服务器",
-      "警告: 接收到未知消息类型",
-      "错误: 消息发送失败",
-      "成功响应用户查询",
-      "处理群聊消息",
-      "处理私聊消息",
-      "执行定时任务",
-      "生成回复内容",
-    ],
-  };
 
   for (let i = 0; i < count; i++) {
     const level = levels[Math.floor(Math.random() * levels.length)];
-    const message =
-      messages[source][Math.floor(Math.random() * messages[source].length)];
-    const time = new Date(now - i * 60000); // 每条日志间隔1分钟
+    const time = new Date(now - i * 60000).toLocaleString();
+    let message = "";
+
+    switch (level) {
+      case "INFO":
+        message = `[${source}] 系统正常运行中...`;
+        break;
+      case "WARNING":
+        message = `[${source}] 检测到潜在问题，请注意观察`;
+        break;
+      case "ERROR":
+        message = `[${source}] 操作失败，请检查系统配置`;
+        break;
+      case "SUCCESS":
+        message = `[${source}] 操作成功完成`;
+        break;
+    }
 
     logs.push({
       level,
+      time,
       message,
-      time: time.toLocaleString("zh-CN"),
       source,
     });
   }
 
   return logs;
+};
+
+/**
+ * 生成模拟实例数据
+ * @param {number} count 要生成的实例数量
+ * @returns {Array} 模拟实例数组
+ */
+const generateMockInstances = (count = 3) => {
+  const statuses = ["running", "stopped"];
+  const versions = ["latest", "stable", "beta", "v0.6.3", "v0.6.2"];
+  const instances = [];
+
+  for (let i = 0; i < count; i++) {
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+    const version = versions[Math.floor(Math.random() * versions.length)];
+    const date = new Date();
+    date.setDate(date.getDate() - Math.floor(Math.random() * 30));
+
+    instances.push({
+      name: `maibot-${version}-${i + 1}`,
+      status: status,
+      installedAt: date.toISOString().split("T")[0],
+      path: `D:\\MaiBot\\${version}-${i + 1}`,
+      services: {
+        napcat: status,
+        nonebot: Math.random() > 0.5 ? status : "stopped",
+      },
+      version: version,
+    });
+  }
+
+  return instances;
 };
 
 // 创建通用API调用方法
