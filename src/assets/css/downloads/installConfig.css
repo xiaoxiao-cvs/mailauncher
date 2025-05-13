@@ -1,0 +1,217 @@
+.install-container {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.install-container .el-select {
+  flex-grow: 1;
+}
+
+.error-message {
+  color: #F56C6C;
+  font-size: 13px;
+  margin-top: 5px;
+}
+
+.repo-info {
+  font-size: 12px;
+  color: #888;
+  margin-top: 5px;
+}
+
+.repo-info a {
+  color: #409EFF;
+  text-decoration: none;
+}
+
+.repo-info a:hover {
+  text-decoration: underline;
+}
+
+/* Bot配置样式 */
+.bot-config {
+  margin-top: 15px;
+  background-color: #f9f9f9;
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid #eee;
+}
+
+/* 实例名称输入样式 */
+.instance-name-input {
+  margin-bottom: 20px;
+  animation: fadeSlideDown 0.5s ease-in-out;
+}
+
+@keyframes fadeSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.config-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.option-item {
+  flex: 1;
+  background: white;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #ebeef5;
+  transition: all 0.3s;
+  margin-bottom: 10px;
+}
+
+.option-item:hover {
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* 深色模式下的样式适配 */
+.dark-mode .option-item {
+  background: var(--card-bg-color);
+  border-color: var(--border-light);
+}
+
+/* 填加动画 */
+.config-fade-enter-active,
+.config-fade-leave-active {
+  transition: all 0.5s ease;
+  max-height: 2000px;
+  opacity: 1;
+  overflow: hidden;
+}
+
+.config-fade-enter-from,
+.config-fade-leave-to {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.instance-name-input {
+  margin-bottom: 20px;
+}
+
+.option-title {
+  font-weight: 500;
+}
+
+.option-desc {
+  font-size: 12px;
+  color: #666;
+  margin-top: 3px;
+}
+
+.qq-input {
+  margin-bottom: 20px;
+}
+
+.input-tip {
+  font-size: 12px;
+  color: #666;
+  margin-top: 5px;
+  margin-bottom: 0;
+}
+
+.ports-config {
+  margin-top: 15px;
+}
+
+.ports-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.port-item {
+  flex: 1;
+  margin-bottom: 10px;
+}
+
+.port-desc {
+  font-size: 12px;
+  color: #666;
+  margin-top: 3px;
+  margin-bottom: 5px;
+}
+
+.install-tips {
+  margin-top: 16px;
+}
+
+.progress-container {
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+.log-output {
+  margin-top: 15px;
+  margin-bottom: 10px;
+}
+
+.log-content {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #EBEEF5;
+  border-radius: 4px;
+  padding: 8px;
+  background-color: #FAFAFA;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.log-line {
+  margin-bottom: 3px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.log-time {
+  color: #999;
+  margin-right: 8px;
+}
+
+.log-line.error {
+  color: #F56C6C;
+}
+
+.log-line.warning {
+  color: #E6A23C;
+}
+
+.log-line.success {
+  color: #67C23A;
+}
+
+@media (max-width: 768px) {
+  .install-container, .config-options {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .ports-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 深色模式样式 */
+.dark-mode .option-desc,
+.dark-mode .input-tip,
+.dark-mode .port-desc {
+  color: rgba(255, 255, 255, 0.6);
+}

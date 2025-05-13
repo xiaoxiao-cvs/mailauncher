@@ -1,0 +1,123 @@
+.instances-tab {
+  width: 100%;
+  animation: slideInFromRight 0.5s ease;
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section {
+  margin-bottom: 24px;
+  background-color: var(--el-fill-color-blank);
+  border-radius: 8px;
+  padding: 16px;
+  color: var(--el-text-color-primary);
+}
+
+.section-title {
+  font-weight: bold;
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: var(--el-color-primary);
+  border-bottom: 1px solid var(--el-border-color-light);
+  padding-bottom: 8px;
+}
+
+.instance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.instance-card {
+  transition: all 0.3s ease;
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+  border-color: var(--el-border-color);
+}
+
+.instance-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+.instance-card.running {
+  border-left: 4px solid var(--el-color-success);
+}
+
+.instance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: inherit;
+}
+
+.instance-name {
+  font-weight: bold;
+}
+
+.instance-info {
+  font-size: 14px;
+  margin: 8px 0;
+  color: var(--el-text-color-secondary);
+}
+
+.instance-info p {
+  margin: 5px 0;
+  color: inherit;
+}
+
+.instance-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.service-status {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--el-border-color-light);
+}
+
+.service-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 4px 0;
+}
+
+.service-name {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.tip-section {
+  margin-top: 16px;
+}
+
+.starting-guide {
+  margin-top: 20px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .instance-grid {
+    grid-template-columns: 1fr;
+  }
+}

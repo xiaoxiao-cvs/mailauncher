@@ -1,0 +1,43 @@
+.system-status-card {
+  margin-bottom: 20px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.status-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
+}
+
+.status-item:last-child {
+  border-bottom: none;
+}
+
+.service-name {
+  font-weight: bold;
+  margin-bottom: 4px;
+  color: var(--el-text-color-primary);
+}
+
+.service-status {
+  display: flex;
+  align-items: center;
+}
+
+.service-info {
+  margin-left: 10px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}

@@ -1,0 +1,58 @@
+/* 应用容器样式 */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  background-color: var(--app-bg-color, #f5f7fa);
+  color: var(--el-text-color-primary);
+  transition: background-color 0.3s, color 0.3s;
+  overflow: hidden;
+}
+
+/* 内容区域 - 确保不会与侧边栏重叠 */
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  transition: all 0.3s ease;
+  height: 100vh; /* 占满整个视口高度 */
+  width: calc(100% - 64px); /* 减去侧边栏宽度 */
+  margin-left: 64px; /* 侧边栏宽度 */
+  z-index: 1; /* 确保内容在侧边栏之下 */
+}
+
+/* 当侧边栏展开时 */
+.content-area.sidebar-expanded {
+  width: calc(100% - 220px); /* 减去展开的侧边栏宽度 */
+  margin-left: 220px; /* 展开的侧边栏宽度 */
+}
+
+/* 页面切换动画 */
+.page-transition-enter-active,
+.page-transition-leave-active {
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.page-transition-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.page-transition-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .content-area {
+    width: 100%;
+    margin-left: 64px;
+  }
+
+  .content-area.sidebar-expanded {
+    width: 100%;
+    margin-left: 64px; /* 在移动端始终保持侧边栏折叠状态的宽度 */
+  }
+}

@@ -1,0 +1,29 @@
+/* 在:root中添加侧边栏半透明相关变量 */
+:root {
+  /* 侧边栏半透明效果相关变量 */
+  --sidebar-bg-opacity: 0.65;
+  --sidebar-bg-color: 18, 18, 18;
+  --sidebar-backdrop-filter: blur(12px);
+  --sidebar-bg: rgba(240, 245, 255, var(--sidebar-bg-opacity));
+  --sidebar-border-color: rgba(0, 0, 0, 0.05);
+  --sidebar-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
+  --sidebar-text-color: rgba(0, 0, 0, 0.8);
+  --sidebar-text-hover-color: rgba(0, 0, 0, 1);
+  --sidebar-active-bg: rgba(0, 0, 0, 0.08);
+  --sidebar-hover-bg: rgba(0, 0, 0, 0.05);
+}
+
+/* 深色模式下的变量 */
+html.dark-mode {
+  /* 侧边栏半透明效果相关变量 - 深色模式专用 */
+  --sidebar-bg-opacity: 0.65;
+  --sidebar-bg-color: 18, 18, 18;
+  --sidebar-backdrop-filter: blur(12px);
+  --sidebar-bg: rgba(22, 25, 30, var(--sidebar-bg-opacity));
+  --sidebar-border-color: rgba(255, 255, 255, 0.05);
+  --sidebar-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  --sidebar-text-color: rgba(255, 255, 255, 0.8);
+  --sidebar-text-hover-color: rgba(255, 255, 255, 1);
+  --sidebar-active-bg: rgba(255, 255, 255, 0.1);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.05);
+}

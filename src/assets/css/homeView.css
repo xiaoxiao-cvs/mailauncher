@@ -1,0 +1,312 @@
+/* 主页容器样式 */
+.home-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  /* 浅色模式下的渐变背景 */
+  background-image: linear-gradient(135deg, var(--el-color-primary-light-7) 0%, var(--el-color-primary-light-3) 100%);
+  color: var(--el-text-color-primary);
+  position: relative;
+  overflow: auto;
+}
+
+/* 深色模式下的主页背景渐变 */
+html.dark-mode .home-container {
+  background-image: linear-gradient(135deg, #1a2035 0%, #2c3e50 100%);
+}
+
+/* 侧边导航栏样式 */
+.side-nav {
+  width: 64px;
+  height: 100vh;
+  background: var(--sidebar-bg, rgba(0, 0, 0, 0.3));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0;
+  transition: all 0.3s ease; /* 修改为所有属性都有过渡效果 */
+  overflow: hidden;
+  z-index: 110;
+  flex-shrink: 0; /* 防止侧边栏被压缩 */
+  position: fixed; /* 改为固定定位 */
+  left: 0;
+  top: 0;
+}
+
+.side-nav.expanded {
+  width: 200px;
+  align-items: flex-start;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.home-content {
+  flex: 1;
+  padding: 20px;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  margin-left: calc(var(--sidebar-indicator-width, 3px) + 15px);
+  transition: margin-left 0.3s ease;
+}
+
+/* 顶部标题和控件区域 */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  position: relative;
+  width: 100%;
+}
+
+.title-section .main-title {
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.setting-icon {
+  font-size: 24px;
+  cursor: pointer;
+}
+
+/* 统计卡片样式 */
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.stat-card {
+  background-color: var(--el-bg-color);
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--el-border-color-light);
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+}
+
+.stat-title {
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.stat-value {
+  color: var(--el-text-color-primary);
+  font-size: 24px;
+  font-weight: bold;
+}
+
+/* 性能图表容器样式 */
+.performance-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.chart-container {
+  background-color: var(--el-bg-color);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+  padding: 16px;
+  transition: all 0.3s ease;
+  border: 1px solid var(--el-border-color-light);
+}
+
+html.dark-mode .chart-container {
+  background-color: rgba(30, 35, 42, 0.8);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chart-header {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.chart-header h3 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  color: var(--el-text-color-primary);
+}
+
+/* 系统信息展示框样式 */
+.system-info-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  background-color: rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  padding: 8px;
+  width: 100%;
+  box-sizing: border-box; /* 确保内边距不会增加总宽度 */
+}
+
+html.dark-mode .system-info-box {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.info-item {
+  padding: 3px 8px;
+  font-size: 0.85rem;
+  color: var(--el-text-color-secondary);
+  overflow: hidden;
+  min-width: 150px; /* 最小宽度确保有足够空间 */
+  flex: 1 0 auto; /* 允许元素根据内容增长 */
+  position: relative;
+  display: table; /* 使用表格布局实现两端对齐 */
+  width: 100%;
+}
+
+.info-item::before {
+  content: attr(data-label); /* 假设HTML中有data-label属性，如"型号:" */
+  font-weight: 500;
+  display: table-cell;
+  text-align: right;
+  padding-right: 10px;
+  width: 45%; /* 控制标签部分的宽度 */
+  white-space: nowrap;
+}
+
+.info-item::after {
+  content: attr(data-value); /* 假设HTML中有data-value属性，如"Unknown CPU" */
+  display: table-cell;
+  text-align: left;
+  width: 55%; /* 控制值部分的宽度 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 移除之前的::before伪元素，因为我们不再需要它 */
+.info-item::before {
+  content: none;
+}
+
+.info-item-label {
+  font-weight: 500;
+  white-space: nowrap;
+  text-align: right; /* 标签右对齐 */
+}
+
+.info-item-value {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left; /* 值左对齐 */
+}
+
+.chart {
+  height: 250px;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+/* 侧边栏指示器样式 */
+:root {
+  --sidebar-indicator-width: 3px;
+}
+
+.home-container {
+  position: relative;
+}
+
+.home-container:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--sidebar-indicator-width);
+  height: 30vh;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 0 4px 4px 0;
+  z-index: 5;
+  transition: all 0.3s ease;
+  opacity: 0;
+  margin-left: -1px;
+}
+
+.sidebar-collapsed .home-container:before {
+  opacity: 1;
+}
+
+/* 深色模式适配 */
+.dark-mode .home-container:before {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+.dark-mode .chart-container {
+  background-color: rgba(30, 35, 42, 0.8);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark-mode .system-info-box {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark-mode .stat-card {
+  background-color: rgba(30, 35, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 确保在侧边栏展开时隐藏指示器 */
+:not(.sidebar-collapsed) .home-container:before {
+  opacity: 0;
+}
+
+/* 响应式样式 */
+@media (max-width: 768px) {
+  .performance-section {
+    grid-template-columns: 1fr;
+  }
+  
+  .chart {
+    height: 200px;
+  }
+  
+  .system-info-box {
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .info-item {
+    width: 100%;
+  }
+  
+  .info-item::before,
+  .info-item::after {
+    display: block;
+    width: 100%;
+    text-align: left;
+  }
+  
+  .info-item::before {
+    margin-bottom: 2px;
+  }
+}
+
+

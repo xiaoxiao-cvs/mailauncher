@@ -1,0 +1,219 @@
+/* 侧边导航栏样式 - 重构以解决渲染重叠问题 */
+.side-nav {
+  width: 64px;
+  height: 100vh;
+  /* 使用简单的背景色和毛玻璃效果 */
+  background: rgba(30, 35, 42, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0;
+  transition: width 0.3s ease, padding 0.3s ease;
+  overflow: hidden;
+  z-index: 110;
+  flex-shrink: 0;
+  position: fixed;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  border-radius: 0 12px 12px 0;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* 移除可能导致重叠的伪元素 */
+.side-nav::after {
+  display: none;
+}
+
+/* 简化内部结构，减少嵌套 */
+.nav-logo {
+  display: flex;
+  align-items: center;
+  margin-bottom: 30px;
+  width: 100%;
+  padding: 8px 0;
+  border-radius: 8px;
+  justify-content: center;
+  transition: all 0.3s;
+  cursor: default;
+  color: rgb(255, 255, 255);
+}
+
+/* 添加logo图标样式 */
+.logo-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+/* 确保展开状态下的宽度固定 */
+.side-nav.expanded {
+  width: 220px;
+  align-items: flex-start;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.side-nav.expanded .nav-logo {
+  justify-content: flex-start;
+}
+
+.nav-logo .el-icon {
+  font-size: 24px;
+}
+
+.nav-text {
+  margin-left: 12px;
+  font-weight: bold;
+  opacity: 0;
+  white-space: nowrap;
+  transition: opacity 0.3s;
+  display: none;
+  color: white;
+}
+
+.side-nav.expanded .nav-text {
+  opacity: 1;
+  display: inline;
+}
+
+/* 导航项容器 - 简化结构 */
+.nav-items {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+  gap: 8px;
+  padding: 5px 0;
+}
+
+/* 导航项样式 - 修改为圆角方形，长宽等高 */
+.nav-item {
+  display: flex;
+  align-items: center;
+  height: 40px; /* 固定高度 */
+  cursor: pointer;
+  width: calc(100% - 10px); /* 留出一点边距 */
+  margin: 0 5px; /* 水平居中 */
+  justify-content: center;
+  border-radius: 8px; /* 圆角 */
+  color: rgba(255, 255, 255, 0.7);
+  transition: background-color 0.3s, color 0.3s;
+  position: relative;
+  z-index: 1;
+}
+
+.nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+.nav-item.active {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border-left: 3px solid var(--el-color-primary, #4a7eff); /* 左侧边框替代伪元素 */
+}
+
+/* 移除旧的伪元素指示器 */
+.nav-item.active::before {
+  display: none; /* 隐藏旧的选中指示器 */
+}
+
+.side-nav.expanded .nav-item {
+  justify-content: flex-start;
+  padding-left: 15px;
+}
+
+.nav-item .el-icon {
+  font-size: 20px;
+}
+
+/* 底部控制区样式 */
+.nav-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+  cursor: pointer;
+  width: 100%;
+  margin-top: auto;
+  border-radius: 8px;
+  transition: all 0.3s;
+  margin-bottom: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  z-index: 100; /* 提高z-index确保可点击 */
+  position: relative; /* 确保z-index生效 */
+  user-select: none; /* 防止文本被选择 */
+}
+
+.side-nav.expanded .nav-bottom {
+  justify-content: flex-start;
+  padding-left: 15px;
+}
+
+.nav-bottom:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+/* 添加鼠标悬停效果增强用户体验 */
+.nav-bottom:active {
+  background-color: rgba(255, 255, 255, 0.25);
+  transform: scale(0.98);
+}
+
+/* 浅色模式样式 */
+html:not(.dark-mode) .side-nav {
+  background: rgba(240, 245, 255, 0.85);
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+html:not(.dark-mode) .nav-text,
+html:not(.dark-mode) .nav-item,
+html:not(.dark-mode) .nav-bottom {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+html:not(.dark-mode) .nav-item:hover,
+html:not(.dark-mode) .nav-bottom:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 1);
+}
+
+html:not(.dark-mode) .nav-item.active {
+  background-color: rgba(0, 0, 0, 0.08);
+  color: var(--el-color-primary);
+  border-left-color: var(--el-color-primary); /* 保证边框颜色一致 */
+}
+
+/* 深色模式下的视觉效果 */
+html.dark-mode .side-nav {
+  background: rgba(22, 25, 30, 0.85);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .side-nav {
+    width: 64px !important;
+  }
+  
+  .nav-text {
+    display: none !important;
+    opacity: 0 !important;
+  }
+  
+  .side-nav.expanded {
+    padding-left: 0;
+    padding-right: 0;
+    align-items: center;
+  }
+  
+  .nav-item, .nav-bottom {
+    justify-content: center !important;
+    padding-left: 0 !important;
+  }
+}

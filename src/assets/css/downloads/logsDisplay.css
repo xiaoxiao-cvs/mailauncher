@@ -1,0 +1,213 @@
+.log-title-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.log-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.shell-container {
+  height: 300px;
+  overflow-y: auto;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.empty-logs {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.terminal {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--terminal-bg, #0d0d0d);
+  border-radius: 6px;
+  overflow: hidden;
+  font-family: 'Courier New', Courier, monospace;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.terminal-header {
+  background-color: #323232;
+  padding: 8px 10px;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.terminal-controls {
+  display: flex;
+  gap: 6px;
+  margin-right: 15px;
+}
+
+.control {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.close {
+  background-color: #ff5f56;
+}
+
+.minimize {
+  background-color: #ffbd2e;
+}
+
+.maximize {
+  background-color: #27c93f;
+}
+
+.terminal-title {
+  color: #ddd;
+  font-size: 14px;
+  font-weight: 500;
+  user-select: none;
+  flex: 1;
+  text-align: center;
+}
+
+.terminal-body {
+  flex: 1;
+  padding: 10px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-y: auto;
+  color: var(--terminal-text, #d9d9d9);
+}
+
+.terminal-line {
+  margin-bottom: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.command-prompt {
+  color: #77dd77;
+  margin-right: 5px;
+}
+
+.command-content {
+  color: #dcdcdc;
+}
+
+.command-line {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 2px 0;
+  color: #4ecdc4;
+}
+
+.important-line {
+  font-weight: 500;
+  color: #f0f0f0;
+  background-color: rgba(65, 105, 225, 0.1);
+  border-left: 2px solid #4169e1;
+  padding-left: 4px;
+}
+
+.timestamp {
+  color: #666;
+  margin-right: 8px;
+  font-size: 0.9em;
+  min-width: 80px;
+  display: inline-block;
+}
+
+.prefix {
+  color: #42b983;
+  margin-right: 5px;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 3px;
+  min-width: 70px;
+  display: inline-block;
+  text-align: center;
+  font-size: 12px;
+}
+
+.prefix.pip {
+  color: #ffce44;
+  background-color: rgba(34, 115, 195, 0.1);
+}
+
+.prefix.python {
+  color: #3572A5;
+  background-color: rgba(55, 118, 171, 0.1);
+}
+
+.prefix.napcat {
+  color: #ff8c00;
+  background-color: rgba(66, 185, 131, 0.1);
+}
+
+.prefix.nonebot {
+  color: #6a89cc;
+  background-color: rgba(100, 149, 237, 0.1);
+}
+
+.prefix.install {
+  color: #4ecdc4;
+  background-color: rgba(147, 112, 219, 0.1);
+}
+
+.prefix.system {
+  color: #888;
+  background-color: rgba(136, 136, 136, 0.1);
+}
+
+.content {
+  flex: 1;
+  word-break: break-word;
+  white-space: pre-wrap;
+  color: #dcdcdc;
+}
+
+.content.error {
+  color: #ff6b6b;
+}
+
+.content.warning {
+  color: #ffb347;
+}
+
+.content.success {
+  color: #77dd77;
+}
+
+.empty-logs {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.terminal-options {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 5px;
+}
+
+/* 深色模式下的空日志文本 */
+:deep(html.dark-mode) .el-empty__description p {
+  color: var(--el-text-color-secondary);
+}

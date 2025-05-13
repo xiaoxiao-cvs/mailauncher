@@ -1,0 +1,145 @@
+.status-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 8px;
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+  animation: slideIn 0.6s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.status-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: inherit;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.error-tag {
+  margin-right: 4px;
+}
+
+.refresh-btn {
+  font-size: 14px;
+  margin-left: auto;
+}
+
+/* 性能监控样式优化 */
+.performance-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  overflow: hidden; /* 防止溢出 */
+}
+
+.metric-item {
+  padding: 15px;
+  background: var(--card-bg-secondary, #f5f9ff);
+  border-radius: 8px;
+  color: var(--el-text-color-primary);
+  min-height: 160px;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  aspect-ratio: 4/3;
+  overflow: hidden; /* 防止内容溢出 */
+  transition: all 0.3s ease;
+}
+
+.metric-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  overflow: hidden; /* 防止内容溢出 */
+  justify-content: space-between;
+  width: 100%;
+}
+
+.metric-header .el-icon {
+  margin-right: 8px;
+  color: var(--el-color-primary);
+  flex-shrink: 0; /* 防止图标缩小 */
+}
+
+.metric-value {
+  margin-left: auto;
+  font-weight: bold;
+  white-space: nowrap; /* 防止数值换行 */
+  color: var(--text-color, #303133);
+}
+
+.metric-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: var(--secondary-text-color, #606266);
+  overflow: hidden; /* 防止内容溢出 */
+  text-overflow: ellipsis; /* 超出部分显示省略号 */
+  justify-content: space-between;
+}
+
+.network-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 0.9em;
+  overflow: hidden; /* 防止内容溢出 */
+  justify-content: space-between;
+}
+
+.missing-dep-warning {
+  margin-bottom: 15px;
+}
+
+/* 深色模式适配 */
+html.dark-mode .metric-item {
+  background-color: var(--card-bg-secondary, #252525);
+}
+
+html.dark-mode .metric-value {
+  color: var(--el-text-color-primary);
+}
+
+html.dark-mode .status-card {
+  background-color: rgba(30, 35, 42, 0.8);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+html.dark-mode .status-card:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+@media (max-width: 768px) {
+  .performance-dashboard {
+    grid-template-columns: 1fr;
+  }
+  
+  /* 手机端保持合适的高度比例 */
+  .metric-item {
+    aspect-ratio: 3/2;
+    min-height: 140px;
+  }
+}
