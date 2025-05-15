@@ -1,0 +1,113 @@
+name: Build Tauri App
+
+on:
+  push:
+    branches:
+      # 当推送到以下分支时触发构建
+      - main
+      # - master
+      # - dev # 示例：如果你有开发分支，也可以加上
+
+# 限制并发执行，防止不必要的资源消耗
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest # 使用最新的 Ubuntu runner
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4 # 检出代码
+
+    - name: Setup Node.js 22
+      uses: actions/setup-node@v4 # 设置 Node.js 环境
+      with:
+        node-version: 22 # 指定 Node.js 版本
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3 # 设置 pnpm
+      with:
+        version: latest # 你也可以指定一个固定的 pnpm 版本，例如 '8'
+        run_install: true # 运行 pnpm install 安装依赖
+        cache-dependency-path: pnpm-lock.yaml # 根据 lock 文件缓存依赖
+
+    # Tauri 在 Linux 上构建通常需要一些系统依赖，如 libwebkit2gtk-4.0-dev
+    # ubuntu-latest 通常预装了大部分，但添加这个步骤更保险
+    - name: Install Linux Dependencies (Optional but Recommended)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libwebkit2gtk-4.0-dev libayatana-appindicator3-dev librsvg2-dev
+
+    - name: Build Tauri (Linux)
+      # 使用 pnpm 执行 Tauri 构建命令
+      # 这会自动处理 Rust 工具链的安装
+      run: pnpm tauri build
+
+    - name: Upload Artifacts (Linux)
+      uses: actions/upload-artifact@v4 # 上传构建产物
+      with:
+        name: tauri-build-linux # Artifact 名称
+        path: src-tauri/target/release/bundle/ # 构建产物所在的目录（包含 .AppImage 等）
+
+  build-windows:
+    runs-on: windows-latest # 使用最新的 Windows runner
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: latest
+        run_install: true
+        cache-dependency-path: pnpm-lock.yaml
+
+    # Windows 构建通常需要 MSVC Build Tools，大部分预装在 windows-latest runner 上
+    # 如果遇到问题，可能需要单独安装或检查 Rust 工具链。
+
+    - name: Build Tauri (Windows)
+      run: pnpm tauri build
+
+    - name: Upload Artifacts (Windows)
+      uses: actions/upload-artifact@v4
+      with:
+        name: tauri-build-windows # Artifact 名称
+        path: src-tauri/target/release/bundle/ # 构建产物所在的目录（包含 .exe, .msi 等）
+
+  build-macos:
+    runs-on: macos-latest # 使用最新的 macOS runner
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: latest
+        run_install: true
+        cache-dependency-path: pnpm-lock.yaml
+
+    # macOS 构建需要 Xcode，预装在 macos-latest runner 上
+
+    - name: Build Tauri (macOS)
+      run: pnpm tauri build
+
+    - name: Upload Artifacts (macOS)
+      uses: actions/upload-artifact@v4
+      with:
+        name: tauri-build-macos # Artifact 名称
+        path: src-tauri/target/release/bundle/ # 构建产物所在的目录（包含 .app, .dmg 等）
