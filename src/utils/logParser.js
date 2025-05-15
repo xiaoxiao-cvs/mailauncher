@@ -82,8 +82,8 @@ export const getShellFormattedLog = (log) => {
 export const isInstallationComplete = (log) => {
   if (!log || !log.message) return false;
 
-  const msg = log.message.toLowerCase();
-  const completeKeywords = [
+  const message = log.message.toLowerCase();
+  const completionKeywords = [
     "安装完成！请运行启动脚本",
     "installation completed",
     "部署成功",
@@ -91,10 +91,18 @@ export const isInstallationComplete = (log) => {
     "all installation steps completed",
     "bot配置完成",
     "nonebot适配器安装完成",
+    "installation complete",
+    "安装完成",
+    "部署完成",
+    "配置完成",
+    "successfully installed",
+    "安装成功",
+    "deployment successful",
+    "setup finished",
   ];
 
-  return completeKeywords.some((keyword) =>
-    msg.includes(keyword.toLowerCase())
+  return completionKeywords.some((keyword) =>
+    message.includes(keyword.toLowerCase())
   );
 };
 
@@ -104,7 +112,7 @@ export const isInstallationComplete = (log) => {
  * @returns {Boolean} 是否为安装错误日志
  */
 export const isInstallationError = (log) => {
-  if (!log) return false;
+  if (!log || !log.message) return false;
 
   // 检查日志级别
   if (log.level && log.level.toLowerCase() === "error") {
@@ -120,18 +128,27 @@ export const isInstallationError = (log) => {
 
   // 检查消息内容
   if (log.message) {
-    const msg = log.message.toLowerCase();
+    const message = log.message.toLowerCase();
     const errorKeywords = [
       "installation failed",
       "安装失败",
-      "error occurred",
+      "部署失败",
+      "配置失败",
+      "error:",
       "exception",
+      "failed to",
+      "无法",
+      "失败",
+      "traceback",
+      "error occurred",
       "fatal error",
       "致命错误",
       "无法完成安装",
     ];
 
-    return errorKeywords.some((keyword) => msg.includes(keyword.toLowerCase()));
+    return errorKeywords.some((keyword) =>
+      message.includes(keyword.toLowerCase())
+    );
   }
 
   return false;
@@ -160,10 +177,70 @@ export const parseLogString = (logString) => {
   return { time, level, message };
 };
 
+/**
+ * 解析安装进度
+ * @param {Object} log - 日志对象
+ * @returns {number|null} 进度百分比或null
+ */
+export const parseInstallationProgress = (log) => {
+  if (!log || !log.message) return null;
+
+  const message = log.message;
+
+  // 匹配百分比格式，如 "50%", "Progress: 75%" 等
+  const percentMatch = message.match(/(\d+)%/);
+  if (percentMatch) {
+    return parseInt(percentMatch[1], 10);
+  }
+
+  // 匹配"X/Y"格式，如 "步骤 3/10 完成"
+  const fractionMatch = message.match(/(\d+)\/(\d+)/);
+  if (fractionMatch) {
+    const current = parseInt(fractionMatch[1], 10);
+    const total = parseInt(fractionMatch[2], 10);
+    if (total > 0) {
+      return Math.floor((current / total) * 100);
+    }
+  }
+
+  return null;
+};
+
+/**
+ * 根据日志级别获取日志颜色
+ * @param {string} level - 日志级别
+ * @returns {string} 对应的CSS颜色类
+ */
+export const getLogLevelClass = (level) => {
+  if (!level) return "log-info";
+
+  const levelLower = level.toLowerCase();
+
+  if (
+    levelLower === "error" ||
+    levelLower === "critical" ||
+    levelLower === "fatal"
+  ) {
+    return "log-error";
+  } else if (levelLower === "warning" || levelLower === "warn") {
+    return "log-warning";
+  } else if (levelLower === "info") {
+    return "log-info";
+  } else if (levelLower === "debug") {
+    return "log-debug";
+  } else if (levelLower === "success") {
+    return "log-success";
+  } else {
+    return "log-info";
+  }
+};
+
 export default {
   parseLogString,
   isImportantLog,
   isInstallationComplete,
   isInstallationError,
   getShellFormattedLog,
+  parseInstallationProgress,
+  getLogLevelClass,
 };

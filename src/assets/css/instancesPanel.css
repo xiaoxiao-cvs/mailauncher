@@ -162,6 +162,29 @@
   gap: 8px;
 }
 
+/* 新增方形圆角按钮样式 */
+.action-buttons .el-button.is-circle {
+  border-radius: 6px !important; /* 方形圆角 */
+}
+
+/* 实例卡片中的时间信息容器 */
+.time-info-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 15px;
+}
+
+.time-info-container .info-item {
+  margin-bottom: 5px;
+}
+
+.time-value {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* 深色模式适配 */
 html.dark-mode .instance-card {
   background-color: var(--card-bg-color);

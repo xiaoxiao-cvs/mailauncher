@@ -4,7 +4,11 @@
   height: 100%;
   display: flex;
   /* 浅色模式下的渐变背景 */
-  background-image: linear-gradient(135deg, var(--el-color-primary-light-7) 0%, var(--el-color-primary-light-3) 100%);
+  background-image: linear-gradient(
+    135deg,
+    var(--el-color-primary-light-7) 0%,
+    var(--el-color-primary-light-3) 100%
+  );
   color: var(--el-text-color-primary);
   position: relative;
   overflow: auto;
@@ -233,7 +237,7 @@ html.dark-mode .system-info-box {
 }
 
 .home-container:before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 50%;
@@ -283,30 +287,28 @@ html.dark-mode .system-info-box {
   .performance-section {
     grid-template-columns: 1fr;
   }
-  
+
   .chart {
     height: 200px;
   }
-  
+
   .system-info-box {
     flex-direction: column;
     gap: 5px;
   }
-  
+
   .info-item {
     width: 100%;
   }
-  
+
   .info-item::before,
   .info-item::after {
     display: block;
     width: 100%;
     text-align: left;
   }
-  
+
   .info-item::before {
     margin-bottom: 2px;
   }
 }
-
-

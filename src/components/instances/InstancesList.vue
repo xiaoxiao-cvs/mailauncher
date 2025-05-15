@@ -274,42 +274,42 @@ const fetchInstances = async () => {
 
 // 获取模拟实例数据
 const getMockInstances = () => {
-    // 扩展模拟数据，包含更多状态和案例
+    // 使用硬编码的数据而不是动态生成
     return [
         {
             name: '本地实例_1',
             status: 'stopped',
             createdAt: '2023-05-13 19:56:18',
             totalRunningTime: '48小时36分钟',
-            path: '/path/to/instance'
+            path: 'D:\\MaiBot\\本地实例_1'
         },
         {
             name: '本地实例_2',
             status: 'running',
             createdAt: '2023-05-12 10:30:00',
             totalRunningTime: '147小时12分钟',
-            path: '/path/to/another/instance'
+            path: 'D:\\MaiBot\\本地实例_2'
         },
         {
             name: '测试实例_3',
             status: 'starting',
             createdAt: '2023-05-11 08:15:00',
             totalRunningTime: '5小时23分钟',
-            path: '/path/to/mixed/instance'
+            path: 'D:\\MaiBot\\测试实例_3'
         },
         {
             name: '远程实例_4',
             status: 'stopping',
             createdAt: '2023-05-10 14:20:00',
             totalRunningTime: '72小时45分钟',
-            path: '/path/to/remote/instance'
+            path: 'D:\\MaiBot\\远程实例_4'
         },
         {
             name: '维护实例_5',
             status: 'maintenance',
             createdAt: '2023-05-09 09:45:00',
             totalRunningTime: '12小时08分钟',
-            path: '/path/to/maintenance/instance'
+            path: 'D:\\MaiBot\\维护实例_5'
         }
     ];
 };
@@ -364,7 +364,15 @@ const viewInstanceLogs = (instance) => {
 
 // 配置实例
 const configureInstance = (instance) => {
-    ElMessage.info(`配置实例: ${instance.name}`);
+    // 旧代码: ElMessage.info(`配置实例: ${instance.name}`);
+
+    // 新代码: 通过emitter触发实例配置抽屉打开事件
+    if (emitter) {
+        emitter.emit('open-instance-settings', {
+            instanceName: instance.name,
+            instancePath: instance.path || ''
+        });
+    }
 };
 
 // 创建新实例
@@ -530,7 +538,8 @@ onUnmounted(() => {
 </script>
 
 <style>
+/* 将@import语句移到最前面 */
 @import '../../assets/css/instancesList.css';
 
-/* 新增CSS样式将在instancesList.css文件中定义 */
+/* ...existing CSS rules... */
 </style>

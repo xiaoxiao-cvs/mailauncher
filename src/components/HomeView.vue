@@ -482,25 +482,25 @@ const fetchPerformanceData = async () => {
 
     // 如果上面的方式失败，使用模拟数据
     if (!metrics) {
-      console.log('使用模拟性能数据');
+      console.log('使用硬编码的性能数据');
       metrics = {
         cpu: {
-          usage: Math.random() * 30 + 20,
-          percent: Math.random() * 30 + 20,
+          usage: 25,
+          percent: 25,
           cores: 8,
           frequency: 3200, // 3.2 GHz
-          model: 'Intel Core i7-10700K'
+          model: 'Intel Core i7-10700K (固定数据)'
         },
         memory: {
           total: 32 * 1024 * 1024 * 1024, // 默认32GB总内存
-          used: (Math.random() * 16 + 8) * 1024 * 1024 * 1024,
-          free: 8 * 1024 * 1024 * 1024
+          used: 12 * 1024 * 1024 * 1024,
+          free: 20 * 1024 * 1024 * 1024
         },
         network: {
-          sent: Math.random() * 5000 * 1024,
-          received: Math.random() * 8000 * 1024,
-          sentRate: Math.random() * 300 * 1024,
-          receivedRate: Math.random() * 500 * 1024
+          sent: 5000 * 1024,
+          received: 8000 * 1024,
+          sentRate: 200 * 1024,
+          receivedRate: 350 * 1024
         }
       };
     }
@@ -651,6 +651,6 @@ const refreshCharts = () => {
 </script>
 
 <style>
-/* 移除所有内联CSS，改为引入外部CSS文件 */
+/* 移除内联CSS，确保@import在最前面 */
 @import '../assets/css/homeView.css';
 </style>

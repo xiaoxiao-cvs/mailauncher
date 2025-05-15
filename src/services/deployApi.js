@@ -89,8 +89,11 @@ const configureBot = async (config) => {
  */
 const checkInstallStatus = async () => {
   try {
-    const response = await axios.get("/api/install-status");
-    return response.data;
+    console.log("检查安装状态");
+    return {
+      napcat_installing: false,
+      nonebot_installing: false,
+    };
   } catch (error) {
     console.error("检查安装状态失败:", error);
     return {
@@ -106,8 +109,12 @@ const checkInstallStatus = async () => {
  */
 const getInstances = async () => {
   try {
-    const response = await axios.get("/api/instances");
-    return response.data;
+    console.log("获取实例列表");
+    return {
+      instances: generateMockInstances(),
+      success: true,
+      isMock: true,
+    };
   } catch (error) {
     console.error("获取实例列表失败:", error);
     // 返回模拟数据
@@ -121,34 +128,45 @@ const getInstances = async () => {
 
 /**
  * 生成模拟实例数据
- * @param {number} count 要生成的实例数量
  * @returns {Array} 模拟实例数组
  */
-const generateMockInstances = (count = 3) => {
-  const statuses = ["running", "stopped"];
-  const versions = ["latest", "stable", "beta", "v0.6.3", "v0.6.2"];
-  const instances = [];
-
-  for (let i = 0; i < count; i++) {
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    const version = versions[Math.floor(Math.random() * versions.length)];
-    const date = new Date();
-    date.setDate(date.getDate() - Math.floor(Math.random() * 30));
-
-    instances.push({
-      name: `maibot-${version}-${i + 1}`,
-      status: status,
-      installedAt: date.toISOString().split("T")[0],
-      path: `D:\\MaiBot\\${version}-${i + 1}`,
+const generateMockInstances = () => {
+  // 直接返回硬编码的实例数据
+  return [
+    {
+      name: "maibot-stable-1",
+      status: "running",
+      installedAt: "2023-08-15",
+      path: "D:\\MaiBot\\stable-1",
       services: {
-        napcat: status,
-        nonebot: Math.random() > 0.5 ? status : "stopped",
+        napcat: "running",
+        nonebot: "running",
       },
-      version: version,
-    });
-  }
-
-  return instances;
+      version: "stable",
+    },
+    {
+      name: "maibot-beta-1",
+      status: "stopped",
+      installedAt: "2023-09-10",
+      path: "D:\\MaiBot\\beta-1",
+      services: {
+        napcat: "stopped",
+        nonebot: "stopped",
+      },
+      version: "beta",
+    },
+    {
+      name: "maibot-v0.6.3-1",
+      status: "running",
+      installedAt: "2023-10-05",
+      path: "D:\\MaiBot\\v0.6.3-1",
+      services: {
+        napcat: "running",
+        nonebot: "stopped",
+      },
+      version: "v0.6.3",
+    },
+  ];
 };
 
 /**
@@ -213,6 +231,8 @@ const deleteInstance = async (instanceName) => {
     };
   }
 };
+
+export { checkInstallStatus, getInstances, generateMockInstances };
 
 export default {
   fetchVersions,

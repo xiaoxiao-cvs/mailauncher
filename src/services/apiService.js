@@ -96,18 +96,6 @@ const generateMockResponse = (url, method, params, data) => {
   // 基本模拟数据模板
   let response = { success: true, isMock: true };
 
-  // 解析数据体
-  let requestBody = {};
-  if (data && typeof data === "string") {
-    try {
-      requestBody = JSON.parse(data);
-    } catch (e) {
-      console.warn("无法解析请求数据体:", data);
-    }
-  } else if (data && typeof data === "object") {
-    requestBody = data;
-  }
-
   // 根据URL和方法生成不同的模拟数据
   if (url.includes("/versions")) {
     response = {
@@ -118,15 +106,48 @@ const generateMockResponse = (url, method, params, data) => {
     if (url.includes("/stats")) {
       response = {
         total: 3,
-        running: 1,
-        stopped: 2,
+        running: 2,
+        stopped: 1,
         isMock: true,
       };
     } else {
-      // 确保实例数据格式一致
-      const mockInstances = generateMockInstances(3);
+      // 返回硬编码的实例数据
       response = {
-        instances: mockInstances,
+        instances: [
+          {
+            name: "maibot-stable-1",
+            status: "running",
+            installedAt: "2023-08-15",
+            path: "D:\\MaiBot\\stable-1",
+            services: {
+              napcat: "running",
+              nonebot: "running",
+            },
+            version: "stable",
+          },
+          {
+            name: "maibot-beta-1",
+            status: "stopped",
+            installedAt: "2023-09-10",
+            path: "D:\\MaiBot\\beta-1",
+            services: {
+              napcat: "stopped",
+              nonebot: "stopped",
+            },
+            version: "beta",
+          },
+          {
+            name: "maibot-v0.6.3-1",
+            status: "running",
+            installedAt: "2023-10-05",
+            path: "D:\\MaiBot\\v0.6.3-1",
+            services: {
+              napcat: "running",
+              nonebot: "stopped",
+            },
+            version: "v0.6.3",
+          },
+        ],
         success: true,
         isMock: true,
       };
@@ -136,14 +157,14 @@ const generateMockResponse = (url, method, params, data) => {
     const instanceName = url.split("/start/")[1].split("/")[0];
     response = {
       success: true,
-      message: `实例 ${instanceName} 已启动（模拟）`,
+      message: `实例 ${instanceName} 已启动（固定数据）`,
       isMock: true,
     };
   } else if (url.includes("/stop")) {
     // 处理停止实例请求
     response = {
       success: true,
-      message: `实例已停止（模拟）`,
+      message: `实例已停止（固定数据）`,
       isMock: true,
     };
   } else if (url.match(/\/instance\/[^\/]+$/)) {
@@ -152,22 +173,53 @@ const generateMockResponse = (url, method, params, data) => {
       const instanceName = url.split("/instance/")[1];
       response = {
         success: true,
-        message: `实例 ${instanceName} 已删除（模拟）`,
+        message: `实例 ${instanceName} 已删除（固定数据）`,
         isMock: true,
       };
     }
   } else if (url.includes("/logs/instance/")) {
-    // 处理实例日志请求
+    // 处理实例日志请求 - 使用硬编码的日志数据
     const instanceName = url.split("/logs/instance/")[1];
     response = {
-      logs: generateMockLogs(instanceName, 20),
+      logs: [
+        {
+          time: "2023-10-15 10:00:00",
+          level: "INFO",
+          message: `${instanceName} 实例启动中`,
+          source: "system",
+        },
+        {
+          time: "2023-10-15 10:00:05",
+          level: "INFO",
+          message: "加载配置文件",
+          source: "system",
+        },
+        {
+          time: "2023-10-15 10:00:10",
+          level: "INFO",
+          message: "初始化数据库连接",
+          source: "system",
+        },
+        {
+          time: "2023-10-15 10:00:15",
+          level: "WARNING",
+          message: "某些功能可能不可用",
+          source: "system",
+        },
+        {
+          time: "2023-10-15 10:00:20",
+          level: "INFO",
+          message: `${instanceName} 启动完成`,
+          source: "system",
+        },
+      ],
       isMock: true,
     };
   } else if (url.includes("/deploy")) {
     // 处理部署请求
     response = {
       success: true,
-      message: "部署任务已提交（模拟）",
+      message: "部署任务已提交（固定数据）",
       isMock: true,
     };
   } else if (url.includes("/install-status")) {
@@ -183,6 +235,63 @@ const generateMockResponse = (url, method, params, data) => {
       success: true,
       isMock: true,
     };
+  } else if (url.includes("/instance-stats")) {
+    response = {
+      total: 3,
+      running: 2,
+      stopped: 1,
+      isMock: true,
+    };
+  } else if (url.includes("/status")) {
+    response = {
+      mongodb: { status: "running", info: "本地实例 (固定数据)" },
+      napcat: { status: "running", info: "端口 8095 (固定数据)" },
+      nonebot: { status: "stopped", info: "" },
+      maibot: { status: "stopped", info: "" },
+      isMock: true,
+    };
+  } else if (url.includes("/logs/system")) {
+    response = {
+      logs: [
+        {
+          time: "2023-10-15 12:00:00",
+          level: "INFO",
+          message: "系统启动完成",
+          source: "system",
+        },
+        {
+          time: "2023-10-15 12:01:00",
+          level: "WARNING",
+          message: "您正在使用固定数据模式",
+          source: "system",
+        },
+        {
+          time: "2023-10-15 12:02:00",
+          level: "INFO",
+          message: "启动后端服务可获取真实数据",
+          source: "system",
+        },
+        {
+          time: "2023-10-15 12:03:00",
+          level: "ERROR",
+          message: "连接数据库失败",
+          source: "system",
+        },
+        {
+          time: "2023-10-15 12:04:00",
+          level: "INFO",
+          message: "使用备用数据源",
+          source: "system",
+        },
+      ],
+      isMock: true,
+    };
+  } else if (url.includes("/health")) {
+    response = {
+      status: "ok",
+      time: "2023-10-15T12:00:00Z", // 固定时间，不使用new Date()
+      isMock: true,
+    };
   }
 
   return response;
@@ -195,46 +304,28 @@ const generateMockResponse = (url, method, params, data) => {
  * @returns {Array} 模拟日志数组
  */
 const generateMockLogs = (source, count = 10) => {
-  const levels = ["INFO", "WARNING", "ERROR", "SUCCESS"];
-  const logs = [];
+  const levels = ["INFO", "WARNING", "ERROR", "DEBUG"];
   const now = new Date();
+  const logs = [];
 
   for (let i = 0; i < count; i++) {
-    const level = levels[Math.floor(Math.random() * levels.length)];
-    const time = new Date(now - i * 60000).toLocaleString();
-    let message = "";
-
-    switch (level) {
-      case "INFO":
-        message = `[${source}] 系统正常运行中...`;
-        break;
-      case "WARNING":
-        message = `[${source}] 检测到潜在问题，请注意观察`;
-        break;
-      case "ERROR":
-        message = `[${source}] 操作失败，请检查系统配置`;
-        break;
-      case "SUCCESS":
-        message = `[${source}] 操作成功完成`;
-        break;
-    }
-
-    logs.push({
-      level,
-      time,
-      message,
-      source,
+    const time = new Date(now.getTime() - i * 60000);
+    logs.unshift({
+      time: time.toISOString().replace("T", " ").substring(0, 19),
+      level: levels[Math.floor(Math.random() * levels.length)],
+      message: `这是一条来自${source}的模拟日志消息 #${i + 1}`,
+      source: source,
     });
   }
 
   return logs;
 };
 
-/**
- * 生成模拟实例数据
- * @param {number} count 要生成的实例数量
- * @returns {Array} 模拟实例数组
- */
+// 导出更多函数来支持模拟
+export const getMockInstances = (count = 3) => {
+  return generateMockInstances(count);
+};
+
 const generateMockInstances = (count = 3) => {
   const statuses = ["running", "stopped"];
   const versions = ["latest", "stable", "beta", "v0.6.3", "v0.6.2"];

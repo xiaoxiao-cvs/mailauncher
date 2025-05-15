@@ -203,6 +203,28 @@ html:not(.dark-mode) .filter-button:hover {
   font-size: 14px;
 }
 
+/* 增加时间信息样式 */
+.time-info-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 确保时间值不换行 */
+.time-value {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--el-text-color-regular);
+}
+
+/* 时间标签样式 */
+.time-label {
+  color: var(--el-text-color-secondary);
+  width: 80px;
+  display: block;
+}
+
 .info-label {
   color: var(--el-text-color-secondary);
   width: 80px;
@@ -239,6 +261,25 @@ html:not(.dark-mode) .filter-button:hover {
   gap: 12px; /* 增加同组内按钮的间距 */
 }
 
+/* 修改按钮组样式为方形圆角 */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* 新增：将按钮修改为方形圆角 */
+.instance-actions-new .el-button {
+  font-size: 14px; /* 缩小字体 */
+  width: 32px !important; /* 调整为合适的按钮尺寸 */
+  height: 32px !important; /* 强制高度 - 确保完全相等 */
+  padding: 0 !important; /* 移除内边距 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  border-radius: 6px !important; /* 将圆形按钮改为方形圆角 */
+}
+
 /* 分隔线样式 */
 .action-divider {
   width: 1px;
@@ -251,7 +292,7 @@ html:not(.dark-mode) .filter-button:hover {
 .instance-actions-new .el-button {
   font-size: 14px; /* 缩小字体 */
   width: 32px !important; /* 调整为合适的按钮尺寸 */
-  height: 32px !important; /* 强制高度 - 确保完全相等 */
+  height: 32px ; /* 强制高度 - 确保完全相等 */
   padding: 0 !important; /* 移除内边距 */
   display: flex;
   align-items: center;
@@ -375,5 +416,21 @@ html:not(.dark-mode) .filter-button:hover {
   .new-app-btn {
     width: 100%;
     margin-top: 10px;
+  }
+
+  .instance-card {
+    height: auto; /* 允许卡片在小屏幕上自适应高度 */
+    min-height: 220px; /* 设置最小高度 */
+    padding: 15px; /* 减少内边距 */
+  }
+
+  /* 调整小屏幕上的时间布局 */
+  .time-info-container {
+    width: 100%;
+  }
+
+  .time-value {
+    max-width: 100%;
+    font-size: 13px; /* 小屏幕上减小字体 */
   }
 }

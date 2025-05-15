@@ -3,6 +3,8 @@ import App from "./App.vue";
 import ElementPlus, { ElMessage } from "element-plus";
 import "element-plus/dist/index.css";
 import "./assets/global.css";
+// 导入Tailwind CSS
+import "./assets/tailwind.css";
 import * as ElementPlusIconsVue from "@element-plus/icons-vue";
 import {
   checkBackendConnection,
@@ -179,8 +181,8 @@ function mockApiResponse(url, options = {}) {
       // 根据不同URL返回不同的模拟数据
       if (url.includes("/api/status")) {
         responseData = {
-          mongodb: { status: "running", info: "本地实例 (模拟)" },
-          napcat: { status: "running", info: "端口 8095 (模拟)" },
+          mongodb: { status: "running", info: "本地实例 (固定数据)" },
+          napcat: { status: "running", info: "端口 8095 (固定数据)" },
           nonebot: { status: "stopped", info: "" },
           maibot: { status: "stopped", info: "" },
         };
@@ -188,30 +190,43 @@ function mockApiResponse(url, options = {}) {
         responseData = {
           instances: [
             {
-              name: "maibot-latest",
+              name: "maibot-stable-1",
               status: "running",
-              installedAt: "2023-09-15",
-              path: "D:\\MaiBot\\latest",
+              installedAt: "2023-08-15",
+              path: "D:\\MaiBot\\stable-1",
               services: {
                 napcat: "running",
-                nonebot: "stopped",
+                nonebot: "running",
               },
+              version: "stable",
             },
             {
-              name: "maibot-stable",
+              name: "maibot-beta-1",
               status: "stopped",
               installedAt: "2023-09-10",
-              path: "D:\\MaiBot\\stable",
+              path: "D:\\MaiBot\\beta-1",
               services: {
                 napcat: "stopped",
                 nonebot: "stopped",
               },
+              version: "beta",
+            },
+            {
+              name: "maibot-v0.6.3-1",
+              status: "running",
+              installedAt: "2023-10-05",
+              path: "D:\\MaiBot\\v0.6.3-1",
+              services: {
+                napcat: "running",
+                nonebot: "stopped",
+              },
+              version: "v0.6.3",
             },
           ],
         };
       } else if (url.includes("/api/versions")) {
         responseData = {
-          versions: ["latest", "beta", "stable", "v1.0.0", "v0.9.0"],
+          versions: ["latest", "beta", "stable", "v0.6.3", "v0.6.2", "v0.6.1"],
         };
       } else if (url.includes("/api/deploy/")) {
         responseData = {
@@ -229,19 +244,19 @@ function mockApiResponse(url, options = {}) {
         responseData = {
           logs: [
             {
-              time: "2023-09-15 12:00:00",
+              time: "2023-10-15 12:00:00",
               level: "INFO",
-              message: "这是模拟日志数据",
+              message: "系统日志记录启动",
               source: "system",
             },
             {
-              time: "2023-09-15 12:01:00",
+              time: "2023-10-15 12:01:00",
               level: "WARNING",
-              message: "您正在使用模拟数据模式",
+              message: "您正在使用固定数据模式",
               source: "system",
             },
             {
-              time: "2023-09-15 12:02:00",
+              time: "2023-10-15 12:02:00",
               level: "INFO",
               message: "启动后端服务可获取真实数据",
               source: "system",
@@ -278,7 +293,7 @@ function mockApiResponse(url, options = {}) {
         status: 200,
         headers: new Headers({ "Content-Type": "application/json" }),
       });
-    }, 300);
+    }, 10); // 将延迟减少到最小，避免等待
   });
 }
 

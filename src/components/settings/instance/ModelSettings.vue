@@ -1,0 +1,239 @@
+<template>
+    <div class="settings-tab-content">
+        <h3 class="settings-section-title">模型配置</h3>
+
+        <el-card class="settings-card">
+            <div class="card-header">
+                <span>推理模型设置</span>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">推理模型</span>
+                <div class="setting-control">
+                    <el-select v-model="localConfig.llm_reasoning.name" placeholder="选择模型" style="width: 250px">
+                        <el-option v-for="model in reasoningModels" :key="model.value" :label="model.label"
+                            :value="model.value" />
+                    </el-select>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <span class="setting-label">服务提供商</span>
+                <div class="setting-control">
+                    <el-select v-model="localConfig.llm_reasoning.provider" placeholder="选择提供商" style="width: 250px">
+                        <el-option v-for="provider in providers" :key="provider.value" :label="provider.label"
+                            :value="provider.value" />
+                    </el-select>
+                </div>
+            </div>
+        </el-card>
+
+        <el-card class="settings-card">
+            <div class="card-header">
+                <span>常规模型设置</span>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">常规模型</span>
+                <div class="setting-control">
+                    <el-select v-model="localConfig.llm_normal.name" placeholder="选择模型" style="width: 250px">
+                        <el-option v-for="model in normalModels" :key="model.value" :label="model.label"
+                            :value="model.value" />
+                    </el-select>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <span class="setting-label">服务提供商</span>
+                <div class="setting-control">
+                    <el-select v-model="localConfig.llm_normal.provider" placeholder="选择提供商" style="width: 250px">
+                        <el-option v-for="provider in providers" :key="provider.value" :label="provider.label"
+                            :value="provider.value" />
+                    </el-select>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <span class="setting-label">温度系数</span>
+                <div class="setting-control slider-control">
+                    <el-slider v-model="localConfig.llm_normal.temp" :min="0" :max="1" :step="0.05"
+                        :format-tooltip="value => value.toFixed(2)" show-input />
+                </div>
+            </div>
+        </el-card>
+
+        <el-card class="settings-card">
+            <div class="card-header">
+                <span>情感流模型设置</span>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">情感流模型</span>
+                <div class="setting-control">
+                    <el-select v-model="localConfig.llm_heartflow.name" placeholder="选择模型" style="width: 250px">
+                        <el-option v-for="model in heartflowModels" :key="model.value" :label="model.label"
+                            :value="model.value" />
+                    </el-select>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <span class="setting-label">服务提供商</span>
+                <div class="setting-control">
+                    <el-select v-model="localConfig.llm_heartflow.provider" placeholder="选择提供商" style="width: 250px">
+                        <el-option v-for="provider in providers" :key="provider.value" :label="provider.label"
+                            :value="provider.value" />
+                    </el-select>
+                </div>
+            </div>
+        </el-card>
+
+        <div class="setting-description">
+            <el-alert type="info" :closable="false">
+                <p>推理模型用于需要深度思考的场景，常规模型用于日常对话，情感流模型用于增强情感表达</p>
+                <p>温度系数越高，回复越多样化但可能偏离主题；越低则回复更加确定和严谨</p>
+            </el-alert>
+        </div>
+    </div>
+</template>
+
+<script setup>
+import { reactive, ref, watch } from 'vue';
+
+const props = defineProps({
+    config: {
+        type: Object,
+        required: true
+    }
+});
+
+const emit = defineEmits(['update:config']);
+
+// 可用的模型列表
+const reasoningModels = ref([
+    { label: 'DeepSeek-R1', value: 'Pro/deepseek-ai/DeepSeek-R1' },
+    { label: 'GPT-4 Turbo', value: 'OpenAI/gpt-4-turbo' },
+    { label: 'GPT-3.5 Turbo', value: 'OpenAI/gpt-3.5-turbo' },
+    { label: 'Claude 3 Opus', value: 'Anthropic/claude-3-opus' },
+    { label: 'Claude 3 Sonnet', value: 'Anthropic/claude-3-sonnet' },
+    { label: 'Gemini Pro', value: 'Google/gemini-pro' }
+]);
+
+const normalModels = ref([
+    { label: 'DeepSeek-V3', value: 'Pro/deepseek-ai/DeepSeek-V3' },
+    { label: 'Qwen2.5-1.5B', value: 'Qwen/Qwen2.5-1.5B-Chat' },
+    { label: 'Qwen2.5-7B', value: 'Qwen/Qwen2.5-7B-Chat' },
+    { label: 'Qwen2.5-14B', value: 'Qwen/Qwen2.5-14B-Chat' },
+    { label: 'Baichuan3-7B', value: 'Baichuan/Baichuan3-7B-Chat' },
+    { label: 'ChatGLM4', value: 'THUDM/chatglm4' }
+]);
+
+const heartflowModels = ref([
+    { label: 'Qwen2.5-32B', value: 'Qwen/Qwen2.5-32B-Instruct' },
+    { label: 'Qwen2.5-72B', value: 'Qwen/Qwen2.5-72B-Instruct' },
+    { label: 'GPT-4o', value: 'OpenAI/gpt-4o' },
+    { label: 'Claude 3 Haiku', value: 'Anthropic/claude-3-haiku' }
+]);
+
+// 提供商列表
+const providers = ref([
+    { label: 'SILICONFLOW', value: 'SILICONFLOW' },
+    { label: '本地部署', value: 'LOCAL' },
+    { label: 'API代理', value: 'API_PROXY' },
+    { label: 'OpenAI', value: 'OPENAI' },
+    { label: '智谱AI', value: 'ZHIPU' }
+]);
+
+// 创建本地配置副本
+const localConfig = reactive({
+    llm_reasoning: {
+        name: props.config.model?.llm_reasoning?.name || 'Pro/deepseek-ai/DeepSeek-R1',
+        provider: props.config.model?.llm_reasoning?.provider || 'SILICONFLOW'
+    },
+    llm_normal: {
+        name: props.config.model?.llm_normal?.name || 'Pro/deepseek-ai/DeepSeek-V3',
+        provider: props.config.model?.llm_normal?.provider || 'SILICONFLOW',
+        temp: props.config.model?.llm_normal?.temp || 0.2
+    },
+    llm_heartflow: {
+        name: props.config.model?.llm_heartflow?.name || 'Qwen/Qwen2.5-32B-Instruct',
+        provider: props.config.model?.llm_heartflow?.provider || 'SILICONFLOW'
+    }
+});
+
+// 监听配置变化
+watch(localConfig, () => {
+    emit('update:config', {
+        ...props.config,
+        model: {
+            ...props.config.model,
+            llm_reasoning: { ...localConfig.llm_reasoning },
+            llm_normal: { ...localConfig.llm_normal },
+            llm_heartflow: { ...localConfig.llm_heartflow }
+        }
+    });
+}, { deep: true });
+</script>
+
+<style scoped>
+.settings-tab-content {
+    animation: fadeIn 0.5s ease;
+}
+
+.settings-section-title {
+    margin-bottom: 20px;
+    color: var(--el-text-color-primary);
+    font-weight: 500;
+}
+
+.settings-card {
+    margin-bottom: 20px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.card-header {
+    font-weight: 500;
+    margin-bottom: 15px;
+    color: var(--el-text-color-primary);
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.setting-item:last-child {
+    border-bottom: none;
+}
+
+.setting-label {
+    font-size: 14px;
+    color: var(--el-text-color-primary);
+}
+
+.setting-control {
+    display: flex;
+    align-items: center;
+}
+
+.slider-control {
+    width: 250px;
+}
+
+.setting-description {
+    margin-top: 20px;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
