@@ -1,6 +1,7 @@
 <template>
   <div class="app-container"
-    :class="{ 'dark-mode': darkMode, 'sidebar-expanded': sidebarExpanded, 'sidebar-collapsed': !sidebarExpanded }">
+    :class="{ 'dark-mode': darkMode, 'sidebar-expanded': sidebarExpanded, 'sidebar-collapsed': !sidebarExpanded }"
+    :data-theme="darkMode ? 'dark' : 'light'">
     <!-- 侧边栏 -->
     <AppSidebar :is-expanded="sidebarExpanded" @toggle="toggleSidebar" />
 
@@ -143,9 +144,11 @@ const updateDarkMode = (isDark) => {
   if (isDark) {
     document.documentElement.classList.add('dark-mode');
     document.documentElement.setAttribute('data-theme', 'dark');
+    document.querySelector('.app-container')?.setAttribute('data-theme', 'dark');
   } else {
     document.documentElement.classList.remove('dark-mode');
     document.documentElement.setAttribute('data-theme', 'light');
+    document.querySelector('.app-container')?.setAttribute('data-theme', 'light');
   }
 };
 

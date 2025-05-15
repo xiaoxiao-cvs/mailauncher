@@ -1,68 +1,158 @@
 <template>
-  <div class="home-container">
-    <!-- 主内容区域 -->
-    <div class="home-content">
-      <div class="header">
-        <div class="title-section">
-          <h1 class="main-title">仪表盘</h1>
-        </div>
-        <!-- 移除了 header-right 部分，包含主题切换和设置按钮 -->
+  <div class="bg-gradient-to-br from-primary/10 to-secondary/10 min-h-screen p-4 lg:p-6">
+    <div class="max-w-7xl mx-auto">
+      <!-- 页面标题 - 去除按钮 -->
+      <div class="mb-6">
+        <h1 class="text-2xl md:text-3xl font-bold text-base-content">控制台</h1>
       </div>
 
-      <div class="stats-cards">
-        <div class="stat-card">
-          <div class="stat-title">总实例数</div>
-          <div class="stat-value">{{ stats.totalInstances }}</div>
+      <!-- 不规则卡片布局 - 重新排列 -->
+      <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <!-- 消息数图表卡片 (占用更大区域) -->
+        <div class="card bg-base-100 shadow-xl md:col-span-3 lg:col-span-4">
+          <div class="card-body">
+            <h2 class="card-title">消息数量统计</h2>
+            <p class="text-sm text-base-content/70">本周发送消息总量达 {{ messageStats.total }} 条</p>
+            <div class="message-chart-container h-[250px]" ref="messageChartRef"></div>
+            <div class="flex justify-between text-sm mt-2">
+              <div class="flex gap-2">
+                <button class="btn btn-xs" :class="activeChart === 'day' ? 'btn-primary' : 'btn-ghost'"
+                  @click="switchChartPeriod('day')">日</button>
+                <button class="btn btn-xs" :class="activeChart === 'week' ? 'btn-primary' : 'btn-ghost'"
+                  @click="switchChartPeriod('week')">周</button>
+                <button class="btn btn-xs" :class="activeChart === 'month' ? 'btn-primary' : 'btn-ghost'"
+                  @click="switchChartPeriod('month')">月</button>
+              </div>
+              <!-- 删除图表和明细按钮 -->
+            </div>
+          </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-title">运行中实例</div>
-          <div class="stat-value">{{ stats.runningInstances }}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-title">日志异常数</div>
-          <div class="stat-value">{{ stats.errorLogs }}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-title">LLM 24h 使用量</div>
-          <div class="stat-value">{{ stats.usage24h }}</div>
-        </div>
-      </div>
 
-      <div class="performance-section">
-        <div class="chart-container">
-          <div class="chart-header">
-            <h3>CPU 性能</h3>
-            <div class="system-info-box">
-              <div class="info-item"><strong>型号:</strong> {{ cpuInfo.model || '获取中...' }}</div>
-              <div class="info-item"><strong>核心数:</strong> {{ cpuInfo.cores || '0' }}</div>
-              <div class="info-item"><strong>频率:</strong> {{ formatCpuFrequency(cpuInfo.frequency) }}</div>
+        <!-- 状态卡片 - 增强版 -->
+        <div class="card bg-base-100 shadow-xl md:col-span-1 lg:col-span-2">
+          <div class="card-body">
+            <div class="flex justify-between items-center">
+              <div class="indicator flex items-center">
+                <div class="status-dot"></div>
+                <div class="text-2xl font-bold ml-2">运行中</div>
+              </div>
+              <span class="text-success text-3xl">
+                <i class="fas fa-check-circle"></i>
+              </span>
             </div>
-          </div>
-          <div id="cpuChart" ref="cpuChartRef" class="chart"></div>
-        </div>
-        <div class="chart-container">
-          <div class="chart-header">
-            <h3>内存使用</h3>
-            <div class="system-info-box">
-              <div class="info-item"><strong>总内存:</strong> {{ formatBytes(memoryInfo.total || 0) }}</div>
-              <div class="info-item"><strong>已使用:</strong> {{ formatBytes(memoryInfo.used || 0) }}</div>
-              <div class="info-item"><strong>可用:</strong> {{ formatBytes(memoryInfo.free || 0) }}</div>
+            <p class="text-sm text-base-content/70">所有系统正常运行</p>
+
+            <!-- CPU信息 -->
+            <div class="mt-4 p-2 bg-base-200/50 rounded-lg border border-base-300">
+              <div class="flex justify-between items-center">
+                <div class="text-xs text-base-content/80">处理器</div>
+                <div class="text-xs font-medium">{{ systemStats.cpuModel }}</div>
+              </div>
+              <div class="flex justify-between items-center mt-1">
+                <div class="text-xs text-base-content/80">核心数</div>
+                <div class="text-xs font-medium">{{ systemStats.cpuCores }}核</div>
+              </div>
             </div>
-          </div>
-          <div id="memoryChart" ref="memoryChartRef" class="chart"></div>
-        </div>
-        <div class="chart-container">
-          <div class="chart-header">
-            <h3>网络流量</h3>
-            <div class="system-info-box">
-              <div class="info-item"><strong>上传速率:</strong> {{ formatBytes(networkInfo.sentRate || 0) }}/s</div>
-              <div class="info-item"><strong>下载速率:</strong> {{ formatBytes(networkInfo.receivedRate || 0) }}/s</div>
-              <div class="info-item"><strong>总流量:</strong> {{ formatBytes(networkInfo.sent + networkInfo.received) }}
+
+            <!-- CPU使用率 -->
+            <div class="mt-3">
+              <div class="flex justify-between text-sm">
+                <span>CPU使用率</span>
+                <span class="font-medium">{{ systemStats.cpu }}%</span>
+              </div>
+              <progress class="progress progress-success mt-1" :value="systemStats.cpu" max="100"></progress>
+            </div>
+
+            <!-- 内存使用率 -->
+            <div class="mt-3">
+              <div class="flex justify-between text-sm">
+                <span>内存使用率</span>
+                <span class="font-medium">{{ systemStats.memory }}%</span>
+              </div>
+              <progress class="progress progress-info mt-1" :value="systemStats.memory" max="100"></progress>
+              <div class="flex justify-between text-xs text-base-content/70 mt-1">
+                <span>已用: {{ formatMemory(systemStats.memoryUsed) }}</span>
+                <span>总计: {{ formatMemory(systemStats.memoryTotal) }}</span>
+              </div>
+            </div>
+
+            <!-- 网络状态 -->
+            <div class="mt-3">
+              <div class="flex justify-between text-sm">
+                <span>网络流量</span>
+                <span class="font-medium">{{ formatBandwidth(systemStats.networkRate) }}/s</span>
+              </div>
+              <div class="flex justify-between text-xs text-base-content/70 mt-1">
+                <span>上传: {{ formatData(systemStats.networkUp) }}</span>
+                <span>下载: {{ formatData(systemStats.networkDown) }}</span>
               </div>
             </div>
           </div>
-          <div id="networkChart" ref="networkChartRef" class="chart"></div>
         </div>
+
+        <!-- 通知卡片 -->
+        <div class="card bg-base-100 shadow-xl md:col-span-2 lg:col-span-3">
+          <div class="card-body p-5">
+            <h3 class="font-bold mb-4">最新通知</h3>
+            <div class="space-y-3">
+              <div v-for="(notice, i) in notifications" :key="i"
+                class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 transition-colors">
+                <div :class="`w-8 h-8 rounded-full flex items-center justify-center ${notice.iconBg}`">
+                  <i :class="`${notice.icon} text-white`"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-sm">{{ notice.title }}</p>
+                  <p class="text-xs text-base-content/70 truncate">{{ notice.desc }}</p>
+                </div>
+                <span class="text-xs text-base-content/50">{{ notice.time }}</span>
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-xs w-full mt-3">查看全部</button>
+          </div>
+        </div>
+
+        <!-- 实例状态卡片 - 修复表格对齐 -->
+        <div class="card bg-base-100 shadow-xl md:col-span-2 lg:col-span-3">
+          <div class="card-body p-5">
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="font-bold">实例状态</h3>
+              <span class="badge badge-primary">{{ instanceStats.running }}/{{ instanceStats.total }}</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="table table-xs w-full">
+                <thead>
+                  <tr>
+                    <th class="w-1/4">名称</th>
+                    <th class="w-1/4 text-center">状态</th>
+                    <th class="w-1/3 text-center">正常运行时间</th>
+                    <th class="w-1/6 text-center">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(instance, i) in instances" :key="i" class="hover">
+                    <td class="font-medium">{{ instance.name }}</td>
+                    <td class="text-center">
+                      <div class="badge" :class="getStatusBadgeClass(instance.status)">
+                        {{ getStatusText(instance.status) }}
+                      </div>
+                    </td>
+                    <td class="text-center">{{ instance.uptime || '-' }}</td>
+                    <td class="text-center">
+                      <button class="btn btn-xs btn-ghost rounded-md">
+                        <i :class="`fas fa-${getStatusActionIcon(instance.status)}`"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card-actions justify-end mt-2">
+              <button class="btn btn-xs btn-outline" @click="navigateToInstances">管理实例</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 终端卡片已移除 -->
       </div>
     </div>
   </div>
@@ -70,587 +160,327 @@
 
 <script setup>
 import { ref, onMounted, inject, watch, onBeforeUnmount, nextTick } from 'vue';
-import { HomeFilled, Monitor, Download, Document, Shop, Setting, Moon, Sunny } from '@element-plus/icons-vue';
 import * as echarts from 'echarts';
-import axios from 'axios';
-// 更改为正确的CSS导入路径
-import '../assets/css/homeView.css';
-import { fetchInstanceStats } from '../api/instances';
+import { initMessageChart } from '../services/charts';
 
-const emitter = inject('emitter', null);
-const isDarkMode = inject('darkMode', ref(false)); // 从App.vue注入
+const isDarkMode = inject('darkMode', ref(false));
 
-// 系统统计数据
-const stats = ref({
-  totalInstances: 0,
-  runningInstances: 0,
-  errorLogs: 0,
-  usage24h: '0.0h'
+// 图表引用
+const messageChartRef = ref(null);
+const messageChart = ref(null);
+
+// 消息统计数据
+const messageStats = ref({
+  total: '12,450',
+  increase: '15%'
 });
 
-// 图表引用 - 使用refs代替ID选择器
-const cpuChartRef = ref(null);
-const memoryChartRef = ref(null);
-const networkChartRef = ref(null);
-const cpuChart = ref(null);
-const memoryChart = ref(null);
-const networkChart = ref(null);
+// 系统状态
+const systemStats = ref({
+  cpu: 21,
+  memory: 36,
+  cpuModel: 'AMD EPYC 7K62',
+  cpuCores: 96,
+  memoryUsed: 5.8 * 1024 * 1024 * 1024, // 5.8 GB in bytes
+  memoryTotal: 1024 * 1024 * 1024 * 1024, // 16 GB in bytes
+  networkRate: 1.2 * 1024 * 1024, // 1.2 MB/s in bytes
+  networkUp: 128 * 1024 * 1024, // 128 MB in bytes
+  networkDown: 365 * 1024 * 1024 // 365 MB in bytes
+});
 
-// 系统信息详情
-const cpuInfo = ref({ model: '', cores: 0, frequency: 0 });
-const memoryInfo = ref({ total: 0, used: 0, free: 0 });
-const networkInfo = ref({ sent: 0, received: 0, sentRate: 0, receivedRate: 0 });
+// 实例统计
+const instanceStats = ref({
+  total: 5,
+  running: 3
+});
 
-// 统计数据历史
-const cpuHistory = ref([0, 0, 0, 0, 0, 0]);
-const memoryHistory = ref([0, 0, 0, 0, 0, 0]);
-const networkHistory = ref([0, 0, 0, 0, 0, 0]);
-const timeLabels = ref(['00:00', '00:00', '00:00', '00:00', '00:00', '00:00']);
+// 增强实例列表，添加运行时间和维护状态
+const instances = ref([
+  { name: '本地实例-1', status: 'running', uptime: '3天4小时' },
+  { name: '本地实例-2', status: 'running', uptime: '12小时30分' },
+  { name: '远程实例-1', status: 'running', uptime: '18小时15分' },
+  { name: '远程实例-2', status: 'stopped', uptime: null },
+  { name: '测试实例-1', status: 'maintenance', uptime: '2小时15分' }
+]);
 
-// 添加峰值追踪
-const maxMemoryGB = ref(8); // 默认8GB作为初始最大值
-const maxNetworkKBs = ref(1024); // 默认1MB/s (1024KB/s)
+// 通知列表
+const notifications = ref([
+  {
+    title: '系统更新',
+    desc: '系统已更新到最新版本v1.1.4',
+    time: '10分钟前',
+    icon: 'fas fa-sync',
+    iconBg: 'bg-info'
+  },
+]);
 
-// 切换深色模式
-const toggleDarkMode = (value) => {
-  localStorage.setItem('darkMode', value);
-
-  // 通知系统深色模式已更改
-  if (emitter) {
-    emitter.emit('dark-mode-changed', value);
+// 图表数据
+const chartData = {
+  day: {
+    data: [30, 40, 20, 50, 40, 80, 90, 95, 70, 75, 85, 95],
+    labels: ['9AM', '10AM', '11AM', '12PM', '1PM', '2PM', '3PM', '4PM', '5PM', '6PM', '7PM', '8PM']
+  },
+  week: {
+    data: [320, 420, 380, 520, 600, 720, 850],
+    labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+  },
+  month: {
+    data: [1200, 1900, 1500, 2100, 2500, 1800, 2800, 2200, 2400, 2000, 3000, 3200],
+    labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
   }
-
-  // 重绘图表以适应主题
-  refreshCharts();
 };
 
-// 处理标签页切换
-const handleTabChange = (tab) => {
-  if (emitter) {
-    emitter.emit('navigate-to-tab', tab);
-  }
+// 当前活跃图表
+const activeChart = ref('week');
+
+// 切换图表周期
+const switchChartPeriod = (period) => {
+  activeChart.value = period;
+  updateMessageChart();
 };
 
-// 初始化图表
+// 初始化消息图表
 const initCharts = () => {
-  // 确保DOM元素已经渲染完成
   nextTick(() => {
-    // 使用refs代替ID选择器确保找到DOM元素
-    if (cpuChartRef.value && !cpuChart.value) {
-      // 根据当前模式选择合适的配色方案
-      cpuChart.value = echarts.init(cpuChartRef.value);
-      const cpuOption = {
-        animation: false,
-        title: {
-          text: 'CPU使用率',
-          textStyle: { color: isDarkMode.value ? '#eee' : '#333', fontSize: 14 }
-        },
-        tooltip: { trigger: 'axis' },
-        xAxis: {
-          type: 'category',
-          data: timeLabels.value,
-          axisLabel: { color: isDarkMode.value ? '#eee' : '#333' }
-        },
-        yAxis: {
-          type: 'value',
-          max: 100,
-          axisLabel: { color: isDarkMode.value ? '#eee' : '#333', formatter: '{value}%' }
-        },
-        series: [{
-          data: cpuHistory.value,
-          type: 'line',
-          name: '使用率',
-          smooth: true,
-          lineStyle: {
-            width: 3,
-            color: '#4080ff'
-          },
-          itemStyle: {
-            color: '#4080ff'
-          },
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: isDarkMode.value ? 'rgba(64, 128, 255, 0.7)' : 'rgba(64, 128, 255, 0.5)' },
-              { offset: 1, color: isDarkMode.value ? 'rgba(64, 128, 255, 0.1)' : 'rgba(64, 128, 255, 0.05)' }
-            ])
-          }
-        }],
-        grid: {
-          left: '8%',
-          right: '5%',
-          bottom: '10%',
-          top: '15%',
-          containLabel: true
-        },
-        backgroundColor: isDarkMode.value ? 'rgba(40, 44, 52, 0.8)' : 'rgba(250, 250, 252, 0.8)'
-      };
-      cpuChart.value.setOption(cpuOption);
-    }
-
-    if (memoryChartRef.value && !memoryChart.value) {
-      memoryChart.value = echarts.init(memoryChartRef.value);
-
-      // 获取系统总内存并四舍五入到整数
-      const totalMemoryGB = memoryInfo.value.total
-        ? Math.round(memoryInfo.value.total / (1024 * 1024 * 1024))
-        : 16; // 默认为16GB
-
-      // 设置图表最大值为总内存
-      maxMemoryGB.value = totalMemoryGB;
-
-      const memoryOption = {
-        animation: false,
-        title: {
-          text: '内存使用',
-          textStyle: { color: isDarkMode.value ? '#eee' : '#333', fontSize: 14 }
-        },
-        tooltip: { trigger: 'axis' },
-        xAxis: {
-          type: 'category',
-          data: timeLabels.value,
-          axisLabel: { color: isDarkMode.value ? '#eee' : '#333' }
-        },
-        yAxis: {
-          type: 'value',
-          max: maxMemoryGB.value, // 使用系统总内存作为最大值
-          axisLabel: {
-            color: isDarkMode.value ? '#eee' : '#333',
-            formatter: '{value} GB'
-          }
-        },
-        series: [{
-          data: memoryHistory.value,
-          type: 'line',
-          name: '使用量',
-          smooth: true,
-          lineStyle: {
-            width: 3,
-            color: '#10b981'
-          },
-          itemStyle: {
-            color: '#10b981'
-          },
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: isDarkMode.value ? 'rgba(16, 185, 129, 0.7)' : 'rgba(16, 185, 129, 0.5)' },
-              { offset: 1, color: isDarkMode.value ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.05)' }
-            ])
-          }
-        }],
-        grid: {
-          left: '8%',
-          right: '5%',
-          bottom: '10%',
-          top: '15%',
-          containLabel: true
-        },
-        backgroundColor: isDarkMode.value ? 'rgba(40, 44, 52, 0.8)' : 'rgba(250, 250, 252, 0.8)'
-      };
-      memoryChart.value.setOption(memoryOption);
-    }
-
-    if (networkChartRef.value && !networkChart.value) {
-      networkChart.value = echarts.init(networkChartRef.value);
-      const networkOption = {
-        animation: false,
-        title: {
-          text: '网络流量',
-          textStyle: { color: isDarkMode.value ? '#eee' : '#333', fontSize: 14 }
-        },
-        tooltip: { trigger: 'axis' },
-        xAxis: {
-          type: 'category',
-          data: timeLabels.value,
-          axisLabel: { color: isDarkMode.value ? '#eee' : '#333' }
-        },
-        yAxis: {
-          type: 'value',
-          max: maxNetworkKBs.value, // 使用动态最大值 - 默认1MB/s (1024KB/s)
-          axisLabel: {
-            color: isDarkMode.value ? '#eee' : '#333',
-            formatter: function (value) {
-              return value >= 1024 ? (value / 1024).toFixed(1) + ' MB/s' : value + ' KB/s';
-            }
-          }
-        },
-        series: [{
-          data: networkHistory.value,
-          type: 'line',
-          name: '下载速率',
-          smooth: true,
-          lineStyle: {
-            width: 3,
-            color: '#f59e0b'
-          },
-          itemStyle: {
-            color: '#f59e0b'
-          },
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: isDarkMode.value ? 'rgba(245, 158, 11, 0.7)' : 'rgba(245, 158, 11, 0.5)' },
-              { offset: 1, color: isDarkMode.value ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.05)' }
-            ])
-          }
-        }],
-        grid: {
-          left: '8%',
-          right: '5%',
-          bottom: '10%',
-          top: '15%',
-          containLabel: true
-        },
-        backgroundColor: isDarkMode.value ? 'rgba(40, 44, 52, 0.8)' : 'rgba(250, 250, 252, 0.8)'
-      };
-      networkChart.value.setOption(networkOption);
+    // 消息图表
+    if (messageChartRef.value && !messageChart.value) {
+      messageChart.value = echarts.init(messageChartRef.value);
+      updateMessageChart();
     }
   });
 };
 
-// 格式化时间
-const formatTime = (date) => {
-  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-};
+// 更新消息图表数据
+const updateMessageChart = () => {
+  if (messageChart.value) {
+    const data = chartData[activeChart.value].data;
+    const labels = chartData[activeChart.value].labels;
 
-// 格式化CPU频率
-const formatCpuFrequency = (frequency) => {
-  if (!frequency || isNaN(frequency) || frequency === 0) {
-    return '未知';
-  }
-  // 如果frequency已经小于1000，则假设单位为GHz
-  if (frequency < 1000) {
-    return `${frequency.toFixed(2)} GHz`;
-  }
-  // 否则假设单位为MHz，转换为GHz
-  return `${(frequency / 1000).toFixed(2)} GHz`;
-};
-
-// 格式化字节
-const formatBytes = (bytes, decimals = 2) => {
-  if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(Math.abs(bytes)) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-};
-
-// 更新图表数据
-const updateChartData = (cpuUsage, memoryUsed, networkRate, metrics) => {
-  const now = new Date();
-  const timeLabel = formatTime(now);
-
-  // 更新时间标签
-  timeLabels.value.shift();
-  timeLabels.value.push(timeLabel);
-
-  // 更新CPU历史
-  cpuHistory.value.shift();
-  cpuHistory.value.push(Math.round(cpuUsage || 0));
-
-  // 更新内存历史 (转换为GB)
-  memoryHistory.value.shift();
-  const memGB = memoryUsed ? (memoryUsed / (1024 * 1024 * 1024)).toFixed(1) : 0;
-  const memGBValue = parseFloat(memGB);
-  memoryHistory.value.push(memGBValue);
-
-  // 更新系统信息详情
-  if (metrics) {
-    if (metrics.cpu) {
-      cpuInfo.value = {
-        model: metrics.cpu.model || 'Unknown CPU',
-        cores: metrics.cpu.cores || 0,
-        frequency: metrics.cpu.frequency || 0
-      };
-    }
-
-    if (metrics.memory) {
-      memoryInfo.value = {
-        total: metrics.memory.total || 0,
-        used: metrics.memory.used || 0,
-        free: metrics.memory.free || 0
-      };
-
-      // 获取系统总内存并四舍五入到最接近的整数
-      const totalMemoryGB = Math.round(metrics.memory.total / (1024 * 1024 * 1024));
-
-      // 如果总内存发生变化或者还未设置最大值，则更新图表最大值
-      if (totalMemoryGB > 0 && totalMemoryGB !== maxMemoryGB.value) {
-        maxMemoryGB.value = totalMemoryGB;
-
-        // 更新内存图表的Y轴最大值
-        if (memoryChart.value) {
-          memoryChart.value.setOption({
-            yAxis: {
-              max: maxMemoryGB.value
+    const option = {
+      tooltip: {
+        trigger: 'axis',
+        formatter: '{b}: {c} 条消息'
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        top: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: labels,
+        axisLine: {
+          lineStyle: {
+            color: isDarkMode.value ? '#555' : '#ddd'
+          }
+        },
+        axisLabel: {
+          color: isDarkMode.value ? '#ccc' : '#666',
+          fontSize: 10
+        }
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: {
+          lineStyle: {
+            color: isDarkMode.value ? '#555' : '#ddd'
+          }
+        },
+        axisLabel: {
+          color: isDarkMode.value ? '#ccc' : '#666',
+          fontSize: 10
+        },
+        splitLine: {
+          lineStyle: {
+            color: isDarkMode.value ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
+          }
+        }
+      },
+      series: [
+        {
+          data: data,
+          type: 'bar',
+          itemStyle: {
+            color: isDarkMode.value ? '#5983ff' : '#4a7eff'
+          },
+          emphasis: {
+            itemStyle: {
+              color: isDarkMode.value ? '#7a9dff' : '#6b93ff'
             }
-          });
+          }
         }
-      }
-    }
+      ]
+    };
 
-    if (metrics.network) {
-      networkInfo.value = {
-        sent: metrics.network.sent || 0,
-        received: metrics.network.received || 0,
-        sentRate: metrics.network.sentRate || 0,
-        receivedRate: metrics.network.receivedRate || 0
-      };
-    }
-  }
-
-  // 更新网络最大值 - 默认为1MB/s (1024KB/s)，超过时用峰值
-  const netKB = networkRate || 0; // 添加这一行来定义netKB变量
-  if (netKB > maxNetworkKBs.value) {
-    // 增加余量，让图表不会顶到头
-    maxNetworkKBs.value = Math.ceil(netKB * 1.2);
-
-    // 如果有网络图表，更新Y轴最大值
-    if (networkChart.value) {
-      networkChart.value.setOption({
-        yAxis: {
-          max: maxNetworkKBs.value
-        }
-      });
-    }
-  } else if (netKB < maxNetworkKBs.value * 0.3 && maxNetworkKBs.value > 1024) {
-    // 如果当前值远低于最大值，逐渐降低最大值，但不低于1MB/s
-    maxNetworkKBs.value = Math.max(1024, Math.floor(maxNetworkKBs.value * 0.9));
-
-    if (networkChart.value) {
-      networkChart.value.setOption({
-        yAxis: {
-          max: maxNetworkKBs.value
-        }
-      });
-    }
-  }
-
-  // 更新图表
-  if (cpuChart.value) {
-    cpuChart.value.setOption({
-      xAxis: { data: timeLabels.value },
-      series: [{ data: cpuHistory.value }]
-    });
-  }
-
-  if (memoryChart.value) {
-    memoryChart.value.setOption({
-      xAxis: { data: timeLabels.value },
-      series: [{ data: memoryHistory.value }]
-    });
-  }
-
-  if (networkChart.value) {
-    networkChart.value.setOption({
-      xAxis: { data: timeLabels.value },
-      series: [{ data: networkHistory.value }]
-    });
+    messageChart.value.setOption(option);
   }
 };
-
-// 获取系统状态
-const fetchSystemStatus = async () => {
-  try {
-    const response = await axios.get('/api/status');
-    if (response.data) {
-      // 解析服务状态
-      const services = response.data;
-      const running = Object.values(services).filter(s => s.status === 'running').length;
-      stats.value.runningInstances = running;
-    }
-  } catch (error) {
-    console.warn('获取系统状态失败:', error);
-    // 设置模拟数据，避免页面显示为0
-    stats.value.runningInstances = 1;
-  }
-};
-
-// 获取性能数据
-const fetchPerformanceData = async () => {
-  try {
-    // 修复：使用更安全的electronAPI访问方式
-    let metrics = null;
-
-    try {
-      // 尝试通过window.electronAPI获取
-      if (window.electronAPI && typeof window.electronAPI.getSystemMetrics === 'function') {
-        metrics = await window.electronAPI.getSystemMetrics();
-      }
-    } catch (electronErr) {
-      console.warn('通过window.electronAPI获取性能数据失败:', electronErr);
-    }
-
-    // 如果上面的方式失败，使用模拟数据
-    if (!metrics) {
-      console.log('使用硬编码的性能数据');
-      metrics = {
-        cpu: {
-          usage: 25,
-          percent: 25,
-          cores: 8,
-          frequency: 3200, // 3.2 GHz
-          model: 'Intel Core i7-10700K (固定数据)'
-        },
-        memory: {
-          total: 32 * 1024 * 1024 * 1024, // 默认32GB总内存
-          used: 12 * 1024 * 1024 * 1024,
-          free: 20 * 1024 * 1024 * 1024
-        },
-        network: {
-          sent: 5000 * 1024,
-          received: 8000 * 1024,
-          sentRate: 200 * 1024,
-          receivedRate: 350 * 1024
-        }
-      };
-    }
-
-    // 更新图表数据
-    const { cpu, memory, network } = metrics;
-    updateChartData(
-      cpu?.usage || cpu?.percent || 0,
-      memory?.used || 0,
-      network?.receivedRate || 0,
-      metrics
-    );
-  } catch (error) {
-    console.error('获取性能数据失败:', error);
-    // 使用模拟数据作为备用
-    updateChartData(
-      Math.round(Math.random() * 30 + 20),
-      Math.round(Math.random() * 4 + 6) * 1024 * 1024 * 1024,
-      Math.round(Math.random() * 500 + 100) * 1024
-    );
-  }
-};
-
-// 获取实例列表及统计数据
-const fetchInstances = async () => {
-  try {
-    // 修改：使用旧的API路径获取实例统计数据
-    const response = await axios.get('/api/instance-stats');
-    if (response.data) {
-      stats.value.totalInstances = response.data.total || 0;
-      stats.value.runningInstances = response.data.running || 0;
-    }
-  } catch (error) {
-    console.warn('获取实例统计数据失败:', error);
-    // 设置模拟数据
-    stats.value.totalInstances = 3;
-    stats.value.runningInstances = 1;
-  }
-};
-
-// 获取日志异常数量
-const fetchErrorLogs = async () => {
-  try {
-    const response = await axios.get('/api/logs/system');
-    if (response.data && response.data.logs) {
-      const logs = response.data.logs;
-      stats.value.errorLogs = logs.filter(log =>
-        log.level === 'ERROR' || log.level === 'WARNING'
-      ).length;
-    }
-  } catch (error) {
-    console.warn('获取日志失败:', error);
-    // 设置模拟数据
-    stats.value.errorLogs = 8;
-  }
-};
-
-// 计算24小时使用量
-const calculateUsage = () => {
-  // 这里可以根据需要实现真实的计算逻辑
-  // 目前使用示例数据
-  stats.value.usage24h = '21.61'; // 示例数据
-};
-
-// 更新性能定时器
-let performanceInterval = null;
-
-// 初始化
-onMounted(async () => {
-  // 获取初始数据
-  await Promise.all([
-    fetchInstances(),
-    fetchSystemStatus(),
-    fetchErrorLogs()
-  ]);
-
-  calculateUsage();
-
-  // 初始化图表
-  setTimeout(() => {
-    initCharts(); // 延迟初始化，确保DOM已渲染
-  }, 200);
-
-  // 立即获取第一次性能数据
-  fetchPerformanceData();
-
-  // 设置定期更新
-  performanceInterval = setInterval(() => {
-    fetchPerformanceData();
-  }, 10000); // 每10秒更新一次
-
-  // 监听窗口大小变化
-  window.addEventListener('resize', handleResize);
-
-  // 设置定期刷新实例状态
-  setInterval(() => {
-    fetchInstances();
-    fetchSystemStatus();
-  }, 30000); // 每30秒更新一次
-});
 
 // 窗口大小变化处理
 const handleResize = () => {
-  if (cpuChart.value) cpuChart.value.resize();
-  if (memoryChart.value) memoryChart.value.resize(); // 修复这里的错误，原来引用的是cpuChart
-  if (networkChart.value) networkChart.value.resize(); // 修复这里的错误，原来引用的是cpuChart
+  messageChart.value?.resize();
 };
 
 // 监听深色模式变化
-watch(() => isDarkMode.value, (newVal) => {
-  refreshCharts();
+watch(() => isDarkMode.value, () => {
+  nextTick(() => {
+    // 重新渲染图表
+    updateMessageChart();
+  });
+});
+
+// 格式化内存大小
+const formatMemory = (bytes) => {
+  if (!bytes) return '0 GB';
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
+
+// 格式化带宽
+const formatBandwidth = (bytes) => {
+  if (!bytes) return '0 KB/s';
+  const kb = bytes / 1024;
+  if (kb < 1024) {
+    return `${kb.toFixed(1)} KB`;
+  }
+  return `${(kb / 1024).toFixed(1)} MB`;
+};
+
+// 格式化数据大小
+const formatData = (bytes) => {
+  if (!bytes) return '0 KB';
+  const kb = bytes / 1024;
+  if (kb < 1024) {
+    return `${kb.toFixed(0)} KB`;
+  } else if (kb < 1024 * 1024) {
+    return `${(kb / 1024).toFixed(1)} MB`;
+  }
+  return `${(kb / 1024 / 1024).toFixed(2)} GB`;
+};
+
+// 获取状态样式
+const getStatusBadgeClass = (status) => {
+  switch (status) {
+    case 'running': return 'badge-success text-white';
+    case 'stopped': return 'badge-warning text-white';
+    case 'error': return 'badge-error text-white';
+    case 'maintenance': return 'badge-info text-white';
+    default: return 'badge-ghost';
+  }
+};
+
+// 获取状态文本
+const getStatusText = (status) => {
+  switch (status) {
+    case 'running': return '运行中';
+    case 'stopped': return '已停止';
+    case 'error': return '错误';
+    case 'maintenance': return '维护中';
+    default: return '未知';
+  }
+};
+
+// 获取状态操作按钮图标
+const getStatusActionIcon = (status) => {
+  switch (status) {
+    case 'running': return 'stop';
+    case 'stopped': return 'play';
+    case 'maintenance': return 'wrench';
+    case 'error': return 'exclamation-circle';
+    default: return 'question-circle';
+  }
+};
+
+// 添加到脚本部分，用于导航到实例管理页面
+const navigateToInstances = () => {
+  if (emitter) {
+    emitter.emit('navigate-to-tab', 'instances');
+  }
+};
+
+// 初始化
+onMounted(() => {
+  initCharts();
+
+  window.addEventListener('resize', handleResize);
+
+  // 定期更新数据示例
+  setInterval(() => {
+    // 随机更新CPU和内存使用率
+    systemStats.value = {
+      ...systemStats.value,
+      cpu: Math.floor(Math.random() * 10) + 15, // 15-25% 范围
+      memory: Math.floor(Math.random() * 10) + 30, // 30-40% 范围
+      networkRate: (0.8 + Math.random() * 0.8) * 1024 * 1024, // 0.8-1.6 MB/s
+      networkUp: systemStats.value.networkUp + (Math.random() * 1024 * 512), // 增加一些上传数据
+      networkDown: systemStats.value.networkDown + (Math.random() * 1024 * 1024) // 增加一些下载数据
+    };
+  }, 10000);
 });
 
 // 清理
 onBeforeUnmount(() => {
-  if (performanceInterval) {
-    clearInterval(performanceInterval);
-  }
   window.removeEventListener('resize', handleResize);
-
-  // 销毁图表实例
-  cpuChart.value?.dispose();
-  memoryChart.value?.dispose();
-  networkChart.value?.dispose();
+  messageChart.value?.dispose();
 });
-
-// 重构图表刷新方法，避免重叠问题
-const refreshCharts = () => {
-  if (cpuChart.value) {
-    cpuChart.value.dispose();
-    cpuChart.value = null;
-  }
-
-  if (memoryChart.value) {
-    memoryChart.value.dispose();
-    memoryChart.value = null;
-  }
-
-  if (networkChart.value) {
-    networkChart.value.dispose();
-    networkChart.value = null;
-  }
-
-  setTimeout(() => {
-    initCharts();
-  }, 100);
-};
 </script>
 
-<style>
-/* 移除内联CSS，确保@import在最前面 */
-@import '../assets/css/homeView.css';
+<style scoped>
+.card-stats {
+  @apply bg-base-100 shadow-lg transition-all duration-300 p-5;
+}
+
+.card-stats:hover {
+  @apply shadow-xl translate-y-[-2px];
+}
+
+.message-chart-container {
+  width: 100%;
+  min-height: 250px;
+}
+
+/* 适应深色模式 */
+:deep(.dark-mode) .message-chart-container {
+  filter: brightness(1.05);
+}
+
+/* 设置全部卡片过渡效果 */
+.card {
+  @apply transition-all duration-300;
+}
+
+.card:hover {
+  @apply shadow-xl translate-y-[-2px];
+}
+
+/* 状态卡片样式增强 */
+.badge {
+  @apply px-3 py-1;
+}
+
+/* 表格对齐修复 */
+.table th {
+  @apply text-base-content/70 font-medium;
+}
+
+.table td {
+  @apply py-2;
+}
+
+/* 确保圆形按钮居中 */
+.btn-ghost {
+  @apply flex items-center justify-center;
+}
+
+/* 状态指示点样式修复 */
+.status-dot {
+  @apply w-3 h-3 rounded-full bg-success animate-pulse;
+  box-shadow: 0 0 5px 1px rgba(72, 199, 116, 0.5);
+}
+
+/* 使用自定义dot而不是DaisyUI的indicator-item */
+.indicator {
+  position: relative;
+}
 </style>

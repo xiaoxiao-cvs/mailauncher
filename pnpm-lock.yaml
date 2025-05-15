@@ -8,15 +8,9 @@ importers:
 
   .:
     dependencies:
-      '@heroicons/vue':
-        specifier: ^2.0.18
-        version: 2.2.0(vue@3.5.13(typescript@5.6.3))
       '@nuxt/ui':
         specifier: ^3.1.1
         version: 3.1.1(@babel/parser@7.27.2)(async-validator@4.2.5)(axios@1.9.0)(embla-carousel@8.6.0)(typescript@5.6.3)(vite@6.3.5(@types/node@22.15.17)(jiti@2.4.2)(lightningcss@1.29.2)(yaml@2.7.1))(vue@3.5.13(typescript@5.6.3))
-      '@tailwindcss/forms':
-        specifier: ^0.5.6
-        version: 0.5.10(tailwindcss@3.4.17)
       '@tauri-apps/api':
         specifier: ^2
         version: 2.5.0
@@ -29,6 +23,9 @@ importers:
       axios:
         specifier: ^1.9.0
         version: 1.9.0
+      daisyui:
+        specifier: ^4.5.0
+        version: 4.12.24(postcss@8.5.3)
       echarts:
         specifier: ^5.6.0
         version: 5.6.0
@@ -36,7 +33,7 @@ importers:
         specifier: ^2.9.10
         version: 2.9.10(vue@3.5.13(typescript@5.6.3))
       tailwindcss:
-        specifier: ^3.3.3
+        specifier: ^3.4.1
         version: 3.4.17
       vue:
         specifier: ^3.5.13
@@ -52,11 +49,14 @@ importers:
         specifier: ^5.2.1
         version: 5.2.4(vite@6.3.5(@types/node@22.15.17)(jiti@2.4.2)(lightningcss@1.29.2)(yaml@2.7.1))(vue@3.5.13(typescript@5.6.3))
       autoprefixer:
-        specifier: 10.4.16
-        version: 10.4.16(postcss@8.5.3)
+        specifier: ^10.4.17
+        version: 10.4.21(postcss@8.5.3)
       concurrently:
         specifier: ^8.0.1
         version: 8.2.2
+      postcss:
+        specifier: ^8.4.35
+        version: 8.5.3
       postcss-preset-env:
         specifier: 10.1.6
         version: 10.1.6(postcss@8.5.3)
@@ -536,11 +536,6 @@ packages:
   '@floating-ui/vue@1.1.6':
     resolution: {integrity: sha512-XFlUzGHGv12zbgHNk5FN2mUB7ROul3oG2ENdTpWdE+qMFxyNxWSRmsoyhiEnpmabNm6WnUvR1OvJfUfN4ojC1A==}
 
-  '@heroicons/vue@2.2.0':
-    resolution: {integrity: sha512-G3dbSxoeEKqbi/DFalhRxJU4mTXJn7GwZ7ae8NuEQzd1bqdd0jAbdaBZlHPcvPD2xI1iGzNVB4k20Un2AguYPw==}
-    peerDependencies:
-      vue: '>= 3'
-
   '@iconify/collections@1.0.547':
     resolution: {integrity: sha512-BkCp6bW6uJIfBTNTR4721swGYY7hKsUYo1De89QEPcRpRvtz0CtJoKxKjz/PDG/Gn4NqwKExvlGh5NvbBgzDng==}
 
@@ -764,11 +759,6 @@ packages:
 
   '@sxzz/popperjs-es@2.11.7':
     resolution: {integrity: sha512-Ccy0NlLkzr0Ex2FKvh2X+OyERHXJ88XJ1MXtsI9y9fGexlaXaVTPzBCRBwIxFkORuOb+uBqeu+RqnpgYTEZRUQ==}
-
-  '@tailwindcss/forms@0.5.10':
-    resolution: {integrity: sha512-utI1ONF6uf/pPNO68kmN1b8rEwNXv3czukalo8VtJH8ksIkZXr3Q3VYudZLkCsDd4Wku120uF02hYK25XGPorw==}
-    peerDependencies:
-      tailwindcss: '>=3.0.0 || >= 3.0.0-alpha.1 || >= 4.0.0-alpha.20 || >= 4.0.0-beta.1'
 
   '@tailwindcss/node@4.1.6':
     resolution: {integrity: sha512-ed6zQbgmKsjsVvodAS1q1Ld2BolEuxJOSyyNc+vhkjdmfNUDCmQnlXBfQkHrlzNmslxHsQU/bFmzcEbv4xXsLg==}
@@ -1166,13 +1156,6 @@ packages:
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
 
-  autoprefixer@10.4.16:
-    resolution: {integrity: sha512-7vd3UC6xKp0HLfua5IjZlcXvGAGy7cBAXTg2lyQ/8WpNhd6SiZ8Be+xm3FyBSYJx5GKcpRCzBh7RH4/0dnY+uQ==}
-    engines: {node: ^10 || ^12 || >=14}
-    hasBin: true
-    peerDependencies:
-      postcss: ^8.1.0
-
   autoprefixer@10.4.21:
     resolution: {integrity: sha512-O+A6LWV5LDHSJD3LjHYoNi4VLsj/Whi7k6zG12xTYaU4cQ8oxQGckXNX8cRHK5yOZ/ppVHe0ZBXGzSV9jXdVbQ==}
     engines: {node: ^10 || ^12 || >=14}
@@ -1321,6 +1304,9 @@ packages:
     peerDependencies:
       postcss: ^8.4
 
+  css-selector-tokenizer@0.8.0:
+    resolution: {integrity: sha512-Jd6Ig3/pe62/qe5SBPTN8h8LeUg/pT4lLgtavPf7updwwHpvFzxvOQBHYj2LZDMjUnBzgvIUSjRcf6oT5HzHFg==}
+
   css-tree@3.1.0:
     resolution: {integrity: sha512-0eW44TGN5SQXU1mWSkKwFstI/22X2bG1nYzZTYMAWjylYURhse752YgbE4Cx46AC+bAvI+/dYTPRk1LqSUnu6w==}
     engines: {node: ^10 || ^12.20.0 || ^14.13.0 || >=15.0.0}
@@ -1335,6 +1321,14 @@ packages:
 
   csstype@3.1.3:
     resolution: {integrity: sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw==}
+
+  culori@3.3.0:
+    resolution: {integrity: sha512-pHJg+jbuFsCjz9iclQBqyL3B2HLCBF71BwVNujUYEvCeQMvV97R59MNK3R2+jgJ3a1fcZgI9B3vYgz8lzr/BFQ==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+
+  daisyui@4.12.24:
+    resolution: {integrity: sha512-JYg9fhQHOfXyLadrBrEqCDM6D5dWCSSiM6eTNCRrBRzx/VlOCrLS8eDfIw9RVvs64v2mJdLooKXY8EwQzoszAA==}
+    engines: {node: '>=16.9.0'}
 
   date-fns@2.30.0:
     resolution: {integrity: sha512-fnULvOpxnC5/Vg3NCiWelDsLiUc9bRwAPs/+LfTLNvetFCtCTN+yQz15C/fs4AwX1R9K5GLtLfn8QW+dWisaAw==}
@@ -1512,6 +1506,9 @@ packages:
   fast-glob@3.3.3:
     resolution: {integrity: sha512-7MptL8U0cqcFdzIzwOTHoilX9x5BrNqye7Z/LuC7kCMRio1EMSyqRK3BEAUD7sXRq4iT4AzTVuZdhgQ2TCvYLg==}
     engines: {node: '>=8.6.0'}
+
+  fastparse@1.1.2:
+    resolution: {integrity: sha512-483XLLxTVIwWK3QTrMGRqUfUpoOs/0hbQrl2oz4J0pAcm3A3bu84wxTFqGqkJzewCLdME38xJLJAxBABfQT8sQ==}
 
   fastq@1.19.1:
     resolution: {integrity: sha512-GwLTyxkCXjXbxqIhTsMI2Nui8huMPtnxg7krajPJAjnEG/iiOS7i+zCtWGZR9G0NBKbXKh6X9m9UIsYX/N6vvQ==}
@@ -1830,10 +1827,6 @@ packages:
   mimic-fn@4.0.0:
     resolution: {integrity: sha512-vqiC06CuhBTUdZH+RYl8sFrL096vA45Ok5ISO6sE/Mr1jRbGH4Csnhi8f3wKVl7x8mO4Au7Ir9D3Oyv1VYMFJw==}
     engines: {node: '>=12'}
-
-  mini-svg-data-uri@1.4.4:
-    resolution: {integrity: sha512-r9deDe9p5FJUPZAk3A59wGH7Ii9YrjjWw0jmw/liSbHl2CHiyXj6FcDXDu2K3TjVAXqiJdaw3xxwlZZr9E6nHg==}
-    hasBin: true
 
   minimatch@9.0.5:
     resolution: {integrity: sha512-G6T0ZX48xgozx7587koeX9Ys2NYy6Gmv//P89sEte9V9whIapMNF4idKxnW2QtCcLiTWlb/wfCabAtAFWhhBow==}
@@ -3063,10 +3056,6 @@ snapshots:
       - '@vue/composition-api'
       - vue
 
-  '@heroicons/vue@2.2.0(vue@3.5.13(typescript@5.6.3))':
-    dependencies:
-      vue: 3.5.13(typescript@5.6.3)
-
   '@iconify/collections@1.0.547':
     dependencies:
       '@iconify/types': 2.0.0
@@ -3416,11 +3405,6 @@ snapshots:
       tslib: 2.8.1
 
   '@sxzz/popperjs-es@2.11.7': {}
-
-  '@tailwindcss/forms@0.5.10(tailwindcss@3.4.17)':
-    dependencies:
-      mini-svg-data-uri: 1.4.4
-      tailwindcss: 3.4.17
 
   '@tailwindcss/node@4.1.6':
     dependencies:
@@ -3790,16 +3774,6 @@ snapshots:
 
   asynckit@0.4.0: {}
 
-  autoprefixer@10.4.16(postcss@8.5.3):
-    dependencies:
-      browserslist: 4.24.5
-      caniuse-lite: 1.0.30001717
-      fraction.js: 4.3.7
-      normalize-range: 0.1.2
-      picocolors: 1.1.1
-      postcss: 8.5.3
-      postcss-value-parser: 4.2.0
-
   autoprefixer@10.4.21(postcss@8.5.3):
     dependencies:
       browserslist: 4.24.5
@@ -3970,6 +3944,11 @@ snapshots:
     dependencies:
       postcss: 8.5.3
 
+  css-selector-tokenizer@0.8.0:
+    dependencies:
+      cssesc: 3.0.0
+      fastparse: 1.1.2
+
   css-tree@3.1.0:
     dependencies:
       mdn-data: 2.12.2
@@ -3980,6 +3959,17 @@ snapshots:
   cssesc@3.0.0: {}
 
   csstype@3.1.3: {}
+
+  culori@3.3.0: {}
+
+  daisyui@4.12.24(postcss@8.5.3):
+    dependencies:
+      css-selector-tokenizer: 0.8.0
+      culori: 3.3.0
+      picocolors: 1.1.1
+      postcss-js: 4.0.1(postcss@8.5.3)
+    transitivePeerDependencies:
+      - postcss
 
   date-fns@2.30.0:
     dependencies:
@@ -4173,6 +4163,8 @@ snapshots:
       glob-parent: 5.1.2
       merge2: 1.4.1
       micromatch: 4.0.8
+
+  fastparse@1.1.2: {}
 
   fastq@1.19.1:
     dependencies:
@@ -4465,8 +4457,6 @@ snapshots:
       mime-db: 1.52.0
 
   mimic-fn@4.0.0: {}
-
-  mini-svg-data-uri@1.4.4: {}
 
   minimatch@9.0.5:
     dependencies:

@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 自定义Tailwind类 */
+@layer components {
+  .card-stats {
+    @apply bg-base-100 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 p-5;
+  }
+
+  .chart-container {
+    @apply bg-base-100 rounded-lg shadow-md p-4 mb-5 border border-base-200;
+  }
+
+  .system-info-box {
+    @apply flex flex-wrap gap-2 bg-base-200/50 border border-base-300 rounded-md p-2 w-full;
+  }
+
+  .info-item {
+    @apply text-sm text-base-content/70 p-1 overflow-hidden min-w-[150px] flex-1;
+  }
+}
+
+/* 支持深色模式的过渡 */
+html.dark-mode {
+  color-scheme: dark;
+}
+
+/* 确保echarts容器正确显示 */
+.chart {
+  height: 250px;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+/* 过渡效果 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}

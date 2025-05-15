@@ -24,6 +24,8 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 // =======================================
 // CSS变量初始化
 // =======================================
+import "./assets/css/tailwind.css"; // 添加Tailwind CSS导入
+
 const initCssVariables = () => {
   // 获取侧边栏状态
   const sidebarCollapsed = localStorage.getItem("sidebarCollapsed") === "true";
