@@ -1,15 +1,31 @@
 <template>
   <div class="bg-gradient-to-br from-primary/10 to-secondary/10 min-h-screen p-4 lg:p-6">
     <div class="max-w-7xl mx-auto">
-      <!-- 页面标题 - 去除按钮 -->
-      <div class="mb-6">
+      <!-- 页面标题 - 添加编辑按钮 -->
+      <div class="mb-6 flex justify-between items-center">
         <h1 class="text-2xl md:text-3xl font-bold text-base-content">控制台</h1>
+
+        <!-- 添加编辑布局按钮 -->
+        <div class="flex items-center gap-3">
+          <!-- 保存按钮，仅在编辑模式显示 -->
+          <transition name="fade">
+            <button v-if="isEditMode" @click="saveLayout" class="edit-btn save-btn" title="保存布局">
+              <SimpleIcons name="save" />
+            </button>
+          </transition>
+
+          <!-- 编辑/退出按钮 -->
+          <button @click="toggleEditMode" :class="['edit-btn', isEditMode ? 'exit-btn' : '']"
+            :title="isEditMode ? '退出编辑模式' : '编辑布局'">
+            <SimpleIcons :name="isEditMode ? 'close' : 'edit'" />
+          </button>
+        </div>
       </div>
 
-      <!-- 不规则卡片布局 - 重新排列 -->
-      <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <!-- 不规则卡片布局 - 添加可拖拽功能 -->
+      <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4" :class="{ 'edit-layout-mode': isEditMode }">
         <!-- 消息数图表卡片 (占用更大区域) -->
-        <div class="card bg-base-100 shadow-xl md:col-span-3 lg:col-span-4">
+        <div :class="['card bg-base-100 shadow-xl', msgChartSize]" :data-size="msgChartSize" ref="chartCard">
           <div class="card-body">
             <h2 class="card-title">消息数量统计</h2>
             <p class="text-sm text-base-content/70">本周发送消息总量达 {{ messageStats.total }} 条</p>
@@ -26,10 +42,12 @@
               <!-- 删除图表和明细按钮 -->
             </div>
           </div>
+          <!-- 编辑模式下显示的拖拽手柄 -->
+          <div v-if="isEditMode" class="resize-handle right" @mousedown="startResize($event, 'chart', 'right')"></div>
         </div>
 
         <!-- 状态卡片 - 增强版 -->
-        <div class="card bg-base-100 shadow-xl md:col-span-1 lg:col-span-2">
+        <div :class="['card bg-base-100 shadow-xl', statusCardSize]" :data-size="statusCardSize" ref="statusCard">
           <div class="card-body">
             <div class="flex justify-between items-center">
               <div class="indicator flex items-center">
@@ -88,10 +106,12 @@
               </div>
             </div>
           </div>
+          <!-- 编辑模式下显示的拖拽手柄 -->
+          <div v-if="isEditMode" class="resize-handle left" @mousedown="startResize($event, 'status', 'left')"></div>
         </div>
 
         <!-- 通知卡片 -->
-        <div class="card bg-base-100 shadow-xl md:col-span-2 lg:col-span-3">
+        <div :class="['card bg-base-100 shadow-xl', noticeCardSize]" :data-size="noticeCardSize" ref="noticeCard">
           <div class="card-body p-5">
             <h3 class="font-bold mb-4">最新通知</h3>
             <div class="space-y-3">
@@ -109,10 +129,12 @@
             </div>
             <button class="btn btn-ghost btn-xs w-full mt-3">查看全部</button>
           </div>
+          <!-- 编辑模式下显示的拖拽手柄 -->
+          <div v-if="isEditMode" class="resize-handle right" @mousedown="startResize($event, 'notice', 'right')"></div>
         </div>
 
         <!-- 实例状态卡片 - 修复表格对齐 -->
-        <div class="card bg-base-100 shadow-xl md:col-span-2 lg:col-span-3">
+        <div :class="['card bg-base-100 shadow-xl', instanceCardSize]" :data-size="instanceCardSize" ref="instanceCard">
           <div class="card-body p-5">
             <div class="flex justify-between items-center mb-3">
               <h3 class="font-bold">实例状态</h3>
@@ -150,9 +172,15 @@
               <button class="btn btn-xs btn-outline" @click="navigateToInstances">管理实例</button>
             </div>
           </div>
+          <!-- 编辑模式下显示的拖拽手柄 -->
+          <div v-if="isEditMode" class="resize-handle left" @mousedown="startResize($event, 'instance', 'left')"></div>
         </div>
+      </div>
 
-        <!-- 终端卡片已移除 -->
+      <!-- 编辑模式提示 -->
+      <div v-if="isEditMode"
+        class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-primary text-white py-2 px-4 rounded-full shadow-lg z-50">
+        拖动卡片边缘调整大小
       </div>
     </div>
   </div>
@@ -162,12 +190,225 @@
 import { ref, onMounted, inject, watch, onBeforeUnmount, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { initMessageChart } from '../services/charts';
+import { ElMessageBox } from 'element-plus';
+import SimpleIcons from './common/SimpleIcons.vue'; // 导入简单图标组件
 
 const isDarkMode = inject('darkMode', ref(false));
+const emitter = inject('emitter', null);
 
 // 图表引用
 const messageChartRef = ref(null);
 const messageChart = ref(null);
+
+// 编辑模式状态
+const isEditMode = ref(false);
+const chartCard = ref(null);
+const statusCard = ref(null);
+const noticeCard = ref(null);
+const instanceCard = ref(null);
+let resizeTarget = null;
+let startX = 0;
+let startWidth = 0;
+let currentCard = '';
+
+// 卡片尺寸状态
+const msgChartSize = ref('md:col-span-3 lg:col-span-4');
+const statusCardSize = ref('md:col-span-1 lg:col-span-2');
+const noticeCardSize = ref('md:col-span-2 lg:col-span-3');
+const instanceCardSize = ref('md:col-span-2 lg:col-span-3');
+
+// 加载保存的布局
+onMounted(() => {
+  // 尝试从localStorage加载保存的布局设置
+  try {
+    const savedLayout = localStorage.getItem('dashboard-layout');
+    if (savedLayout) {
+      const layout = JSON.parse(savedLayout);
+      msgChartSize.value = layout.msgChartSize || msgChartSize.value;
+      statusCardSize.value = layout.statusCardSize || statusCardSize.value;
+      noticeCardSize.value = layout.noticeCardSize || noticeCardSize.value;
+      instanceCardSize.value = layout.instanceCardSize || instanceCardSize.value;
+    }
+  } catch (e) {
+    console.error('无法加载保存的布局', e);
+  }
+});
+
+// 切换编辑模式
+const toggleEditMode = async () => {
+  if (isEditMode.value) {
+    // 退出编辑模式，询问是否保存
+    try {
+      await ElMessageBox.confirm(
+        '是否保存当前布局设置？',
+        '退出编辑模式',
+        {
+          confirmButtonText: '保存并退出',
+          cancelButtonText: '不保存退出',
+          type: 'warning',
+          distinguishCancelAndClose: true,
+        }
+      );
+      // 用户点击了"保存并退出"
+      saveLayout();
+    } catch (action) {
+      // 用户点击了"不保存退出"，什么都不做
+      console.log('不保存布局退出编辑模式');
+    }
+    isEditMode.value = false;
+  } else {
+    // 进入编辑模式
+    isEditMode.value = true;
+  }
+};
+
+// 保存布局设置
+const saveLayout = () => {
+  try {
+    const layout = {
+      msgChartSize: msgChartSize.value,
+      statusCardSize: statusCardSize.value,
+      noticeCardSize: noticeCardSize.value,
+      instanceCardSize: instanceCardSize.value,
+    };
+    localStorage.setItem('dashboard-layout', JSON.stringify(layout));
+    ElMessageBox.alert('布局设置已保存', '成功', {
+      confirmButtonText: '确定',
+      type: 'success',
+    });
+    isEditMode.value = false;  // 保存后退出编辑模式
+
+    // 触发窗口resize事件，以便图表可以正确调整大小
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 300);
+  } catch (e) {
+    console.error('保存布局设置失败', e);
+    ElMessageBox.alert('保存布局设置失败: ' + e.message, '错误', {
+      confirmButtonText: '确定',
+      type: 'error',
+    });
+  }
+};
+
+// 开始调整大小 - 修复拖拽功能
+const startResize = (e, cardType, handleType) => {
+  e.preventDefault();
+  currentCard = cardType;
+  startX = e.clientX;
+  handleDirection = handleType; // 'left' 或 'right'
+
+  // 详细日志便于调试
+  console.log(`开始调整卡片: ${cardType}, 方向: ${handleType}, 初始位置: ${startX}px`);
+
+  document.addEventListener('mousemove', handleResizeMove);
+  document.addEventListener('mouseup', stopResize);
+
+  // 添加调整中的视觉提示
+  document.body.style.cursor = 'col-resize';
+  document.body.classList.add('select-none');
+  document.body.classList.add('resizing');
+
+  // 标记正在调整的卡片
+  if (cardType === 'chart') chartCard.value.classList.add('resizing-card');
+  if (cardType === 'status') statusCard.value.classList.add('resizing-card');
+  if (cardType === 'notice') noticeCard.value.classList.add('resizing-card');
+  if (cardType === 'instance') instanceCard.value.classList.add('resizing-card');
+};
+
+// 处理拖动中的调整 - 修复拖拽功能
+const handleResizeMove = (e) => {
+  if (!currentCard) return;
+
+  const deltaX = e.clientX - startX;
+  console.log(`拖动中: ${currentCard}, 位移: ${deltaX}px, 方向: ${handleDirection}`);
+
+  const RESIZE_THRESHOLD = 30; // 降低阈值使拖动更灵敏
+
+  // 根据不同的卡片类型和手柄方向调整布局类
+  switch (currentCard) {
+    case 'chart':
+      if (handleDirection === 'right' && deltaX > RESIZE_THRESHOLD) {
+        // 向右拖动，增加图表宽度
+        msgChartSize.value = 'md:col-span-4 lg:col-span-5';
+        statusCardSize.value = 'md:col-span-1 lg:col-span-1';
+        startX = e.clientX;
+      } else if (handleDirection === 'right' && deltaX < -RESIZE_THRESHOLD) {
+        // 向左拖动，减少图表宽度
+        msgChartSize.value = 'md:col-span-2 lg:col-span-3';
+        statusCardSize.value = 'md:col-span-2 lg:col-span-3';
+        startX = e.clientX;
+      }
+      break;
+    case 'status':
+      if (handleDirection === 'left' && deltaX < -RESIZE_THRESHOLD) {
+        // 向左拖动左侧手柄，增加状态卡片宽度
+        msgChartSize.value = 'md:col-span-2 lg:col-span-3';
+        statusCardSize.value = 'md:col-span-2 lg:col-span-3';
+        startX = e.clientX;
+      } else if (handleDirection === 'left' && deltaX > RESIZE_THRESHOLD) {
+        // 向右拖动左侧手柄，减少状态卡片宽度
+        msgChartSize.value = 'md:col-span-4 lg:col-span-5';
+        statusCardSize.value = 'md:col-span-1 lg:col-span-1';
+        startX = e.clientX;
+      }
+      break;
+    case 'notice':
+      if (handleDirection === 'right' && deltaX > RESIZE_THRESHOLD) {
+        // 向右拖动，增加通知卡片宽度
+        noticeCardSize.value = 'md:col-span-3 lg:col-span-4';
+        instanceCardSize.value = 'md:col-span-1 lg:col-span-2';
+        startX = e.clientX;
+      } else if (handleDirection === 'right' && deltaX < -RESIZE_THRESHOLD) {
+        // 向左拖动，减少通知卡片宽度
+        noticeCardSize.value = 'md:col-span-1 lg:col-span-2';
+        instanceCardSize.value = 'md:col-span-3 lg:col-span-4';
+        startX = e.clientX;
+      }
+      break;
+    case 'instance':
+      if (handleDirection === 'left' && deltaX < -RESIZE_THRESHOLD) {
+        // 向左拖动左侧手柄，增加实例卡片宽度
+        noticeCardSize.value = 'md:col-span-1 lg:col-span-2';
+        instanceCardSize.value = 'md:col-span-3 lg:col-span-4';
+        startX = e.clientX;
+      } else if (handleDirection === 'left' && deltaX > RESIZE_THRESHOLD) {
+        // 向右拖动左侧手柄，减少实例卡片宽度
+        noticeCardSize.value = 'md:col-span-3 lg:col-span-4';
+        instanceCardSize.value = 'md:col-span-1 lg:col-span-2';
+        startX = e.clientX;
+      }
+      break;
+  }
+
+  // 更新后重新绘制图表
+  nextTick(() => {
+    messageChart.value?.resize();
+  });
+};
+
+// 停止调整大小
+const stopResize = () => {
+  document.removeEventListener('mousemove', handleResizeMove);
+  document.removeEventListener('mouseup', stopResize);
+  document.body.style.cursor = '';
+  document.body.classList.remove('select-none');
+  document.body.classList.remove('resizing'); // 移除正在调整的类
+
+  // 移除卡片上的调整标记
+  chartCard.value?.classList.remove('resizing-card');
+  statusCard.value?.classList.remove('resizing-card');
+  noticeCard.value?.classList.remove('resizing-card');
+  instanceCard.value?.classList.remove('resizing-card');
+
+  currentCard = '';
+  handleDirection = ''; // 清除方向
+
+  console.log('调整完成，布局已更新');
+};
+
+// 添加变量存储手柄方向
+let handleDirection = '';
 
 // 消息统计数据
 const messageStats = ref({
@@ -318,8 +559,8 @@ const updateMessageChart = () => {
   }
 };
 
-// 窗口大小变化处理
-const handleResize = () => {
+// 窗口大小变化处理 - 重命名为handleWindowResize
+const handleWindowResize = () => {
   messageChart.value?.resize();
 };
 
@@ -403,41 +644,173 @@ const navigateToInstances = () => {
 onMounted(() => {
   initCharts();
 
-  window.addEventListener('resize', handleResize);
+  window.addEventListener('resize', handleWindowResize);
 
-  // 定期更新数据示例
-  setInterval(() => {
-    // 随机更新CPU和内存使用率
-    systemStats.value = {
-      ...systemStats.value,
-      cpu: Math.floor(Math.random() * 10) + 15, // 15-25% 范围
-      memory: Math.floor(Math.random() * 10) + 30, // 30-40% 范围
-      networkRate: (0.8 + Math.random() * 0.8) * 1024 * 1024, // 0.8-1.6 MB/s
-      networkUp: systemStats.value.networkUp + (Math.random() * 1024 * 512), // 增加一些上传数据
-      networkDown: systemStats.value.networkDown + (Math.random() * 1024 * 1024) // 增加一些下载数据
-    };
-  }, 10000);
+  // 强行同步布局状态，以防止可能的状态不一致
+  msgChartSize.value = 'md:col-span-3 lg:col-span-4';
+  statusCardSize.value = 'md:col-span-1 lg:col-span-2';
+  noticeCardSize.value = 'md:col-span-2 lg:col-span-3';
+  instanceCardSize.value = 'md:col-span-2 lg:col-span-3';
+
+  // 然后尝试加载保存的布局
+  try {
+    const savedLayout = localStorage.getItem('dashboard-layout');
+    if (savedLayout) {
+      const layout = JSON.parse(savedLayout);
+      msgChartSize.value = layout.msgChartSize || msgChartSize.value;
+      statusCardSize.value = layout.statusCardSize || statusCardSize.value;
+      noticeCardSize.value = layout.noticeCardSize || noticeCardSize.value;
+      instanceCardSize.value = layout.instanceCardSize || instanceCardSize.value;
+    }
+  } catch (e) {
+    console.error('无法加载保存的布局', e);
+  }
 });
 
 // 清理
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleResize);
+  window.removeEventListener('resize', handleWindowResize);
   messageChart.value?.dispose();
+  document.removeEventListener('mousemove', handleResizeMove);
+  document.removeEventListener('mouseup', stopResize);
 });
 </script>
 
 <style scoped>
-.card-stats {
-  @apply bg-base-100 shadow-lg transition-all duration-300 p-5;
+/* 添加编辑按钮样式 */
+.edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background-color: var(--el-color-primary);
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  outline: none;
+  position: relative;
 }
 
-.card-stats:hover {
-  @apply shadow-xl translate-y-[-2px];
+.edit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.message-chart-container {
-  width: 100%;
-  min-height: 250px;
+.exit-btn {
+  background-color: var(--el-color-danger);
+}
+
+.save-btn {
+  /* 更改为无填充按钮 */
+  background-color: transparent;
+  border: 1px solid var(--el-color-success);
+  color: var(--el-color-success);
+}
+
+.save-btn:hover {
+  background-color: rgba(var(--el-color-success-rgb), 0.1);
+}
+
+/* 确保图标在按钮中居中显示 */
+.edit-btn .simple-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+/* 编辑模式下的布局样式 */
+.edit-layout-mode .card {
+  position: relative;
+  transition: all 0.5s ease;
+  /* 增加过渡动画时间和平滑度 */
+  border: 2px dashed transparent;
+}
+
+/* 修复卡片大小变化的动画 */
+.card {
+  transition: all 0.5s ease !important;
+  /* 强制应用过渡动画 */
+}
+
+.edit-layout-mode .card:hover {
+  border-color: var(--el-color-primary);
+}
+
+/* 拖拽手柄样式增强 - 提高可见性 */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  width: 12px;
+  /* 加宽手柄 */
+  height: 100%;
+  cursor: col-resize;
+  z-index: 100;
+  /* 提高z-index确保能够点击 */
+  background-color: transparent;
+  transition: background-color 0.3s;
+}
+
+.resize-handle:hover,
+.resize-handle:active {
+  background-color: rgba(var(--el-color-primary-rgb), 0.3);
+  /* 增强悬停时的视觉效果 */
+}
+
+.resize-handle.right {
+  right: -6px;
+  /* 向外延伸以便更容易抓取 */
+}
+
+.resize-handle.left {
+  left: -6px;
+  /* 向外延伸以便更容易抓取 */
+}
+
+/* 正在调整大小时的视觉反馈 */
+.resizing-card {
+  box-shadow: 0 0 0 2px var(--el-color-primary) !important;
+  /* 高亮正在调整大小的卡片 */
+  z-index: 10;
+}
+
+/* 正在调整大小时的动画效果 */
+body.resizing .card {
+  transition: none !important;
+  /* 拖动时禁用过渡效果，使拖动更流畅 */
+}
+
+/* 淡入淡出动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* 确保所有卡片在编辑模式下都有可见的边界 */
+.edit-layout-mode .card {
+  border: 2px dashed rgba(var(--el-color-primary-rgb), 0.3);
+  animation: pulse-border 2s infinite;
+  /* 添加边框脉冲动画 */
+}
+
+/* 添加边框脉冲动画 */
+@keyframes pulse-border {
+
+  0%,
+  100% {
+    border-color: rgba(var(--el-color-primary-rgb), 0.3);
+  }
+
+  50% {
+    border-color: rgba(var(--el-color-primary-rgb), 0.8);
+  }
 }
 
 /* 适应深色模式 */

@@ -114,6 +114,86 @@
   margin-bottom: 15px;
 }
 
+/* 性能监控组件样式 */
+.performance-monitor-container {
+  width: 100%;
+  background-color: var(--el-bg-color);
+  border-radius: 8px;
+  box-shadow: var(--el-box-shadow-light);
+  transition: all 0.3s ease;
+}
+
+/* 暗色模式适配 */
+html.dark-mode .performance-monitor-container {
+  background-color: var(--card-bg-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* 卡片头部 */
+.monitor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+/* 指标卡片容器 */
+.metrics-grid {
+  display: grid;
+  padding: 16px;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+/* 图表容器样式 */
+.chart-wrapper {
+  height: 250px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 加载动画 */
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+.loading {
+  animation: pulse 1.5s infinite;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+  .performance-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  /* 手机端保持合适的高度比例 */
+  .metric-item {
+    aspect-ratio: 3/2;
+    min-height: 140px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 高对比度主题支持 */
+@media (prefers-contrast: high) {
+  .monitor-header {
+    border-bottom-width: 2px;
+  }
+}
+
 /* 深色模式适配 */
 html.dark-mode .metric-item {
   background-color: var(--card-bg-secondary, #252525);
@@ -130,16 +210,4 @@ html.dark-mode .status-card {
 
 html.dark-mode .status-card:hover {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3) !important;
-}
-
-@media (max-width: 768px) {
-  .performance-dashboard {
-    grid-template-columns: 1fr;
-  }
-  
-  /* 手机端保持合适的高度比例 */
-  .metric-item {
-    aspect-ratio: 3/2;
-    min-height: 140px;
-  }
 }

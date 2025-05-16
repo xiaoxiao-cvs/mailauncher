@@ -47,7 +47,6 @@ export const throttle = (fn, limit = 300) => {
  * @returns {string} 格式化后的错误消息
  */
 export const handleApiError = (error, options = {}) => {
-  const { showMessage = true, duration = 5000 } = options;
   let errorMessage = "未知错误";
 
   if (error.response) {
@@ -90,15 +89,16 @@ export const handleApiError = (error, options = {}) => {
   console.error("格式化的错误信息:", errorMessage);
 
   // 显示错误消息
-  if (showMessage) {
+  if (options.showMessage) {
     ElMessage({
       message: errorMessage,
       type: "error",
-      duration: duration,
+      duration: options.duration || 5000,
       showClose: true,
     });
   }
 
+  // 返回错误消息，使调用方可以处理
   return errorMessage;
 };
 

@@ -13,11 +13,31 @@
     <!-- 添加FontAwesome -->
     <link
       rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-      integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css"
     />
+    <!-- 备用CDN -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"
+    />
+    <script>
+      // 检测Font Awesome是否加载成功
+      window.addEventListener("DOMContentLoaded", function () {
+        setTimeout(function () {
+          const span = document.createElement("span");
+          span.className = "fas fa-check";
+          span.style.visibility = "hidden";
+          document.body.appendChild(span);
+
+          const computed = window.getComputedStyle(span);
+          if (computed.fontFamily.indexOf("Font Awesome") === -1) {
+            // Font Awesome加载失败，添加备用字符样式
+            document.body.classList.add("icon-fallback");
+          }
+          document.body.removeChild(span);
+        }, 1000);
+      });
+    </script>
   </head>
   <body>
     <div id="app" data-theme="light"></div>

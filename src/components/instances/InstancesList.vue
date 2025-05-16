@@ -86,11 +86,8 @@
 
                     <div class="instance-status">
                         <div class="status-indicator">
-                            <el-icon class="status-icon" :class="getInstanceStatusClass(instance)">
-                                <Loading v-if="instance.status === 'starting' || instance.status === 'stopping'" />
-                                <CircleCheck v-else-if="instance.status === 'running'" />
-                                <CircleClose v-else />
-                            </el-icon>
+                            <!-- 替换为简单状态圆点 -->
+                            <span class="status-dot" :class="getInstanceStatusClass(instance)"></span>
                             <span class="status-text" :class="getInstanceStatusClass(instance)">
                                 {{ getInstanceStatusText(instance) }}
                             </span>
@@ -100,25 +97,21 @@
                     <!-- 重新设计的实例操作按钮区域 - 移至卡片右下角 -->
                     <div class="instance-actions-new">
                         <div class="action-group">
-                            <!-- 启动/停止按钮 - 改为圆形按钮 -->
+                            <!-- 启动/停止按钮 - 使用纯文本符号 -->
                             <el-tooltip :content="instance.status === 'running' ? '停止' : '启动'" placement="top"
                                 :show-after="500">
                                 <el-button :type="instance.status === 'running' ? 'danger' : 'success'" circle
                                     @click="toggleInstanceRunning(instance)">
-                                    <el-icon>
-                                        <VideoPlay v-if="instance.status !== 'running'" />
-                                        <VideoPause v-else />
-                                    </el-icon>
+                                    <span v-if="instance.status !== 'running'" class="action-symbol">▶</span>
+                                    <span v-else class="action-symbol">■</span>
                                 </el-button>
                             </el-tooltip>
 
-                            <!-- 重启按钮 - 改为圆形按钮 -->
+                            <!-- 重启按钮 - 使用纯文本符号 -->
                             <el-tooltip content="重启" placement="top" :show-after="500">
                                 <el-button circle :disabled="instance.status !== 'running'"
                                     @click="restartInstance(instance)">
-                                    <el-icon>
-                                        <RefreshRight />
-                                    </el-icon>
+                                    <span class="action-symbol">↻</span>
                                 </el-button>
                             </el-tooltip>
                         </div>
@@ -127,21 +120,17 @@
                         <div class="action-divider"></div>
 
                         <div class="action-group">
-                            <!-- 终端按钮 -->
+                            <!-- 终端按钮 - 使用纯文本符号 -->
                             <el-tooltip content="终端" placement="top" :show-after="500">
                                 <el-button circle @click="openTerminal(instance)">
-                                    <el-icon>
-                                        <Monitor />
-                                    </el-icon>
+                                    <span class="action-symbol">⌨</span>
                                 </el-button>
                             </el-tooltip>
 
-                            <!-- 设置按钮 -->
+                            <!-- 设置按钮 - 使用纯文本符号 -->
                             <el-tooltip content="设置" placement="top" :show-after="500">
                                 <el-button circle @click="configureInstance(instance)">
-                                    <el-icon>
-                                        <Setting />
-                                    </el-icon>
+                                    <span class="action-symbol">⚙</span>
                                 </el-button>
                             </el-tooltip>
                         </div>
@@ -154,20 +143,7 @@
 
 <script setup>
 import { ref, computed, onMounted, inject, onUnmounted, watch } from 'vue';
-import {
-    Search,
-    List,
-    Monitor,
-    Setting,
-    Loading,
-    CircleCheck,
-    CircleClose,
-    ArrowDown,
-    VideoPlay,
-    VideoPause,
-    RefreshRight,
-    Refresh
-} from '@element-plus/icons-vue';
+// 移除可能导致问题的图标导入
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { instancesApi } from '@/services/api';
 
@@ -538,8 +514,61 @@ onUnmounted(() => {
 </script>
 
 <style>
-/* 将@import语句移到最前面 */
 @import '../../assets/css/instancesList.css';
 
-/* ...existing CSS rules... */
+/* 添加纯文本图标样式 */
+.action-symbol {
+    font-size: 14px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+/* 状态点样式 */
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.status-running .status-dot {
+    background-color: var(--el-color-success);
+    box-shadow: 0 0 5px var(--el-color-success);
+}
+
+.status-starting .status-dot {
+    background-color: var(--el-color-warning);
+    animation: pulse 1.5s infinite;
+}
+
+.status-stopping .status-dot {
+    background-color: var(--el-color-danger);
+    animation: pulse 1.5s infinite;
+}
+
+.status-maintenance .status-dot {
+    background-color: var(--el-color-info);
+}
+
+.status-stopped .status-dot {
+    background-color: var(--el-color-info);
+    opacity: 0.5;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
 </style>

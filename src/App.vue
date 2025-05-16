@@ -15,6 +15,9 @@
 
     <!-- 设置抽屉 -->
     <SettingsDrawer :is-open="isSettingsOpen" @close="closeSettings" />
+
+    <!-- 编辑模式覆盖层 - 当任何组件进入编辑模式时显示 -->
+    <div v-if="isAnyEditModeActive" class="dashboard-edit-overlay"></div>
   </div>
 </template>
 
@@ -25,7 +28,7 @@ import DownloadsPanel from './components/DownloadsPanel.vue'
 import InstancesPanel from './components/InstancesPanel.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import SettingsDrawer from './components/settings/SettingsDrawer.vue'
-import PluginsView from './views/PluginsView.vue' // 引入新创建的插件视图组件
+import PluginsView from './views/PluginsView.vue'
 import { HomeFilled, List, Download, Document, Setting, Grid } from '@element-plus/icons-vue'
 import settingsService from './services/settingsService'
 import { initTheme, applyThemeColor } from './services/theme'
@@ -36,6 +39,8 @@ const darkMode = ref(false);
 const sidebarExpanded = ref(false);
 // 设置面板状态
 const isSettingsOpen = ref(false);
+// 任何编辑模式状态
+const isAnyEditModeActive = ref(false);
 
 // 创建更完整的事件总线
 const emitter = {
@@ -73,6 +78,9 @@ provide('darkMode', darkMode);
 
 // 提供侧边栏状态给所有组件
 provide('sidebarExpanded', sidebarExpanded);
+
+// 提供编辑模式状态给所有组件
+provide('isAnyEditModeActive', isAnyEditModeActive);
 
 // 日志面板引用
 const logsPanel = ref(null);
@@ -309,6 +317,11 @@ onMounted(() => {
       updateDarkMode(e.matches);
     }
   });
+
+  // 添加编辑模式事件监听
+  emitter.on('edit-mode-changed', (isActive) => {
+    isAnyEditModeActive.value = isActive;
+  });
 });
 
 // 初始化主题色
@@ -406,6 +419,9 @@ onBeforeUnmount(() => {
 
   // 移除系统深色模式监听
   window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', () => { });
+
+  // 移除编辑模式事件监听
+  emitter.off('edit-mode-changed');
 });
 
 // 检查API连接 - 修改为始终使用模拟数据
@@ -422,6 +438,10 @@ const checkApiConnection = async () => {
 
 <style>
 @import './assets/css/app.css';
+@import './assets/css/dashboard-layout.css';
+@import './assets/css/simple-icons.css';
+@import './assets/css/icon-fixes.css';
+/* 添加图标修复样式 */
 
 /* 修改为使用CSS变量实现一致的边距 */
 .content-area {

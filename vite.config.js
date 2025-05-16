@@ -1,31 +1,28 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
-import path from "path";
+import { fileURLToPath, URL } from "url";
 
 export default defineConfig({
   plugins: [vue()],
+  server: {
+    host: "0.0.0.0", // 设置为0.0.0.0使服务器可从局域网访问
+    port: 5173, // 设置默认端口
+    strictPort: false, // 如果端口被占用，自动尝试下一个可用端口
+    open: true, // 启动时自动打开浏览器
+  },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
-  // 服务器配置
-  server: {
-    port: 1420,
-    strictPort: true,
-    // 添加代理配置以支持模拟后端API
-    proxy: {
-      // 如果需要代理API请求到其他服务器，可以在这里配置
-    },
-  },
-  // 构建选项
   build: {
     outDir: "dist",
     assetsDir: "assets",
-    // 确保能够正确处理动态导入
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
         manualChunks: {
+          echarts: ["echarts"],
           "element-plus": ["element-plus"],
         },
       },

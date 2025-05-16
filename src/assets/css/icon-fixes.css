@@ -1,0 +1,26 @@
+/* 图标修复 */
+.simple-icon,
+.icon-edit,
+.icon-close,
+.icon-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 确保按钮中的图标居中 */
+button .simple-icon,
+.el-button .simple-icon {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: inherit;
+}
+
+/* 根据大小调整图标边距 */
+.edit-btn.save-btn .simple-icon {
+  margin: 0;
+  padding: 0;
+}
