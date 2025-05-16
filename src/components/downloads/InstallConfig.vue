@@ -114,6 +114,7 @@ import { ElMessage, ElNotification } from 'element-plus';
 import { User, Download } from '@element-plus/icons-vue';
 // 导入统一的API服务
 import { deployApi } from '@/services/api';
+import axios from 'axios'; // 添加axios导入，因为代码中使用了axios
 
 /**
  * 组件属性

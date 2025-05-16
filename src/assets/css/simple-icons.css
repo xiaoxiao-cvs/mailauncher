@@ -1,0 +1,130 @@
+/* 简约纯色图标样式 */
+
+/* 基础图标样式 */
+.simple-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  line-height: 1;
+  font-style: normal;
+}
+
+/* 编辑按钮图标 - 修复绘制 */
+.icon-edit {
+  position: relative;
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+}
+
+.icon-edit::before {
+  content: "";
+  position: absolute;
+  top: 0.1em;
+  left: 0.1em;
+  width: 0.6em;
+  height: 0.6em;
+  border: 0.1em solid currentColor;
+  transform: rotate(45deg);
+  border-radius: 0.05em;
+}
+
+.icon-edit::after {
+  content: "";
+  position: absolute;
+  top: 0.65em;
+  left: 0.1em;
+  width: 0.3em;
+  height: 0.3em;
+  background-color: currentColor;
+  transform: rotate(45deg);
+}
+
+/* 保存图标 - 修复绘制 */
+.icon-save {
+  position: relative;
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+}
+
+.icon-save::before {
+  content: "";
+  position: absolute;
+  top: 0.15em;
+  left: 0.15em;
+  width: 0.7em;
+  height: 0.7em;
+  border: 0.1em solid currentColor;
+  border-radius: 0.1em;
+}
+
+.icon-save::after {
+  content: "";
+  position: absolute;
+  top: 0.3em;
+  left: 0.3em;
+  width: 0.4em;
+  height: 0.25em;
+  background-color: currentColor;
+  border-radius: 0.05em;
+}
+
+/* 关闭按钮图标 - 修复绘制 */
+.icon-close {
+  position: relative;
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+}
+
+.icon-close::before,
+.icon-close::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.8em;
+  height: 0.1em;
+  background-color: currentColor;
+  border-radius: 0.05em;
+}
+
+.icon-close::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.icon-close::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+/* 备用简单文本图标 - 保留以防CSS失效 */
+.text-icon-edit::before {
+  content: "✎";
+}
+
+.text-icon-save::before {
+  content: "💾";
+}
+
+.text-icon-close::before {
+  content: "✖";
+}
+
+.text-icon-play::before {
+  content: "▶";
+}
+
+.text-icon-stop::before {
+  content: "■";
+}
+
+.text-icon-refresh::before {
+  content: "↻";
+}
+
+.text-icon-settings::before {
+  content: "⚙";
+}

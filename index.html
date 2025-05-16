@@ -8,11 +8,39 @@
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' http://localhost:* ws://localhost:*; frame-src 'none';"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="/assets/icon.ico" />
+    <link rel="icon" type="image/png" href="/favicon.ico" />
     <title>X² Launcher</title>
+    <!-- 添加FontAwesome -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css"
+    />
+    <!-- 备用CDN -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"
+    />
+    <script>
+      // 检测Font Awesome是否加载成功
+      window.addEventListener("DOMContentLoaded", function () {
+        setTimeout(function () {
+          const span = document.createElement("span");
+          span.className = "fas fa-check";
+          span.style.visibility = "hidden";
+          document.body.appendChild(span);
+
+          const computed = window.getComputedStyle(span);
+          if (computed.fontFamily.indexOf("Font Awesome") === -1) {
+            // Font Awesome加载失败，添加备用字符样式
+            document.body.classList.add("icon-fallback");
+          }
+          document.body.removeChild(span);
+        }, 1000);
+      });
+    </script>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app" data-theme="light"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

@@ -1,0 +1,72 @@
+/* 图标兼容层，确保 Element Plus 图标和 Font Awesome 图标正常工作 */
+
+/* Font Awesome 备用类 */
+.fas.fa-pen:before {
+  content: "\f304";
+}
+
+.fas.fa-times:before {
+  content: "\f00d";
+}
+
+.fas.fa-save:before {
+  content: "\f0c7";
+}
+
+/* Element Plus 图标兼容 */
+.el-icon-edit:before {
+  font-family: "element-icons" !important;
+  content: "\e906";
+}
+
+.el-icon-close:before {
+  font-family: "element-icons" !important;
+  content: "\e79d";
+}
+
+.el-icon-save:before {
+  font-family: "element-icons" !important;
+  content: "\e605";
+}
+
+/* 确保按钮内的图标居中 */
+button .fas,
+button .el-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* 确保 Element Plus 图标正确显示 */
+.el-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1em;
+  width: 1em;
+  line-height: 1em;
+}
+
+/* 编辑按钮图标样式 */
+.edit-btn .el-icon,
+.edit-btn .fas {
+  font-size: 16px;
+}
+
+/* 无图标的情况下使用Unicode字符作为后备 */
+.edit-btn:not(:has(.el-icon)):not(:has(.fas)):after {
+  content: "\270E"; /* 笔符号 */
+  font-size: 16px;
+}
+
+.exit-btn:not(:has(.el-icon)):not(:has(.fas)):after {
+  content: "\2715"; /* X符号 */
+  font-size: 16px;
+}
+
+.save-btn:not(:has(.el-icon)):not(:has(.fas)):after {
+  content: "\1F4BE"; /* 软盘符号 */
+  font-size: 16px;
+}

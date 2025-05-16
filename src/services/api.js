@@ -60,6 +60,22 @@ export const instancesApi = {
       return response;
     } catch (error) {
       console.error("获取实例列表失败:", error);
+
+      // 在模拟模式下自动返回模拟数据
+      if (
+        window._useMockData ||
+        localStorage.getItem("useMockData") === "true"
+      ) {
+        console.log("在模拟模式下返回模拟数据");
+        return {
+          data: {
+            instances: generateMockInstances(5),
+            success: true,
+            isMock: true,
+          },
+        };
+      }
+
       throw error;
     }
   },
@@ -124,34 +140,45 @@ export const instancesApi = {
 
 /**
  * 生成模拟实例数据
- * @param {number} count 要生成的实例数量
  * @returns {Array} 模拟实例数组
  */
-function generateMockInstances(count = 3) {
-  const statuses = ["running", "stopped"];
-  const versions = ["latest", "stable", "beta", "v0.6.3", "v0.6.2"];
-  const instances = [];
-
-  for (let i = 0; i < count; i++) {
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    const version = versions[Math.floor(Math.random() * versions.length)];
-    const date = new Date();
-    date.setDate(date.getDate() - Math.floor(Math.random() * 30));
-
-    instances.push({
-      name: `maibot-${version}-${i + 1}`,
-      status: status,
-      installedAt: date.toISOString().split("T")[0],
-      path: `D:\\MaiBot\\${version}-${i + 1}`,
+function generateMockInstances() {
+  // 直接返回硬编码的实例数据
+  return [
+    {
+      name: "maibot-stable-1",
+      status: "running",
+      installedAt: "2023-08-15",
+      path: "D:\\MaiBot\\stable-1",
       services: {
-        napcat: status,
-        nonebot: Math.random() > 0.5 ? status : "stopped",
+        napcat: "running",
+        nonebot: "running",
       },
-      version: version,
-    });
-  }
-
-  return instances;
+      version: "stable",
+    },
+    {
+      name: "maibot-beta-1",
+      status: "stopped",
+      installedAt: "2023-09-10",
+      path: "D:\\MaiBot\\beta-1",
+      services: {
+        napcat: "stopped",
+        nonebot: "stopped",
+      },
+      version: "beta",
+    },
+    {
+      name: "maibot-v0.6.3-1",
+      status: "running",
+      installedAt: "2023-10-05",
+      path: "D:\\MaiBot\\v0.6.3-1",
+      services: {
+        napcat: "running",
+        nonebot: "stopped",
+      },
+      version: "v0.6.3",
+    },
+  ];
 }
 
 /**

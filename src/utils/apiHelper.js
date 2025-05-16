@@ -56,14 +56,14 @@ export const buildApiUrl = (path, params = null) => {
  */
 export const handleApiError = (error) => {
   let errorMessage = "未知错误";
+  let status, data;
 
   if (error.response) {
-    // 服务器响应了，但状态码不在2xx范围
-    const status = error.response.status;
-    const data = error.response.data;
+    status = error.response.status;
+    data = error.response.data;
 
     if (status === 404) {
-      errorMessage = "API端点不存在 (404)";
+      errorMessage = "请求的资源不存在 (404)";
     } else if (status === 500) {
       errorMessage = "服务器内部错误 (500)";
     } else {

@@ -322,117 +322,130 @@ export const useCharts = (options = {}) => {
     timeLabels: ref(["00:00", "00:00", "00:00", "00:00", "00:00", "00:00"]),
   };
 
-  const initCharts = (isDarkMode) => {
-    if (chartRefs.cpu.value && !charts.cpu) {
-      charts.cpu = chartService.initCpuChart(
-        chartRefs.cpu.value,
+  // 初始化图表
+  const initializeCharts = (isDarkMode) => {
+    const { cpu, memory, network } = chartRefs;
+
+    if (cpu.value && !charts.cpu) {
+      charts.cpu = echarts.init(cpu.value);
+      const cpuOption = initCpuChart(
+        cpu.value,
         chartData.cpu.value,
         chartData.timeLabels.value,
         isDarkMode
       );
+      charts.cpu.setOption(cpuOption);
     }
 
-    if (chartRefs.memory.value && !charts.memory) {
-      charts.memory = chartService.initMemoryChart(
-        chartRefs.memory.value,
+    if (memory.value && !charts.memory) {
+      charts.memory = echarts.init(memory.value);
+      const memoryOption = initMemoryChart(
+        memory.value,
         chartData.memory.value,
         chartData.timeLabels.value,
-        options.maxMemoryGB || 8,
-        isDarkMode
+        isDarkMode,
+        options.maxMemoryGB || 16
       );
+      charts.memory.setOption(memoryOption);
     }
 
-    if (chartRefs.network.value && !charts.network) {
-      charts.network = chartService.initNetworkChart(
-        chartRefs.network.value,
+    if (network.value && !charts.network) {
+      charts.network = echarts.init(network.value);
+      const networkOption = initNetworkChart(
+        network.value,
         chartData.network.value,
         chartData.timeLabels.value,
-        options.maxNetworkKBs || 1024,
-        isDarkMode
+        isDarkMode,
+        options.maxNetworkKBs || 1024
       );
+      charts.network.setOption(networkOption);
     }
   };
 
-  const updateCharts = (cpuUsage, memoryUsed, networkRate) => {
-    const now = new Date();
-    const timeLabel = formatTime(now);
-
+  // 更新图表数据
+  const updateChartData = (newData) => {
     // 更新时间标签
-    chartData.timeLabels.value.shift();
-    chartData.timeLabels.value.push(timeLabel);
+    if (newData.timeLabel) {
+      chartData.timeLabels.value.shift();
+      chartData.timeLabels.value.push(newData.timeLabel);
+    }
 
     // 更新CPU数据
-    chartData.cpu.value.shift();
-    chartData.cpu.value.push(Math.round(cpuUsage || 0));
+    if (newData.cpu !== undefined) {
+      chartData.cpu.value.shift();
+      chartData.cpu.value.push(newData.cpu);
+    }
 
-    // 更新内存数据 (转换为GB)
-    chartData.memory.value.shift();
-    const memGB = memoryUsed
-      ? (memoryUsed / (1024 * 1024 * 1024)).toFixed(1)
-      : 0;
-    chartData.memory.value.push(parseFloat(memGB));
+    // 更新内存数据
+    if (newData.memory !== undefined) {
+      chartData.memory.value.shift();
+      chartData.memory.value.push(newData.memory);
+    }
 
     // 更新网络数据
-    chartData.network.value.shift();
-    chartData.network.value.push(networkRate);
+    if (newData.network !== undefined) {
+      chartData.network.value.shift();
+      chartData.network.value.push(newData.network);
+    }
 
     // 更新图表
-    chartService.updateChartData(
-      charts.cpu,
-      chartData.cpu.value,
-      chartData.timeLabels.value
-    );
-    chartService.updateChartData(
-      charts.memory,
-      chartData.memory.value,
-      chartData.timeLabels.value
-    );
-    chartService.updateChartData(
-      charts.network,
-      chartData.network.value,
-      chartData.timeLabels.value
-    );
+    refreshCharts();
   };
 
-  const updateChartsTheme = (isDarkMode) => {
-    Object.values(charts).forEach((chart) => {
-      if (chart) {
-        chartService.updateChartTheme(chart, isDarkMode);
-      }
-    });
+  // 刷新图表
+  const refreshCharts = () => {
+    if (charts.cpu) {
+      charts.cpu.setOption({
+        xAxis: { data: chartData.timeLabels.value },
+        series: [{ data: chartData.cpu.value }],
+      });
+    }
+
+    if (charts.memory) {
+      charts.memory.setOption({
+        xAxis: { data: chartData.timeLabels.value },
+        series: [{ data: chartData.memory.value }],
+      });
+    }
+
+    if (charts.network) {
+      charts.network.setOption({
+        xAxis: { data: chartData.timeLabels.value },
+        series: [{ data: chartData.network.value }],
+      });
+    }
   };
 
-  const resizeCharts = chartService.debounce(() => {
-    Object.values(charts).forEach((chart) => {
-      if (chart) chart.resize();
-    });
-  }, 200);
+  // 调整图表大小
+  const resizeCharts = () => {
+    Object.values(charts).forEach((chart) => chart?.resize());
+  };
 
+  // 清理图表
+  const disposeCharts = () => {
+    Object.values(charts).forEach((chart) => chart?.dispose());
+    Object.keys(charts).forEach((key) => (charts[key] = null));
+  };
+
+  // 监听窗口大小变化
   onMounted(() => {
-    // 添加窗口大小变化监听器
     window.addEventListener("resize", resizeCharts);
   });
 
+  // 组件销毁时清理
   onBeforeUnmount(() => {
-    // 移除窗口大小变化监听器
     window.removeEventListener("resize", resizeCharts);
-
-    // 销毁图表实例
-    Object.values(charts).forEach((chart) => {
-      if (chart) {
-        chart.dispose();
-      }
-    });
+    disposeCharts();
   });
 
   return {
     chartRefs,
-    charts,
     chartData,
-    initCharts,
-    updateCharts,
-    updateChartsTheme,
+    initializeCharts,
+    updateChartData,
+    refreshCharts,
     resizeCharts,
+    disposeCharts,
   };
 };
 
