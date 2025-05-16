@@ -63,5 +63,5 @@ onBeforeUnmount(() => {
   border-radius: 6px !important;
 }
 
-@import '../assets/css/instancesList.css';
+
 </style>
