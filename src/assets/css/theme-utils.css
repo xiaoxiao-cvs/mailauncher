@@ -1,0 +1,35 @@
+/* 主题切换过渡效果 */
+html {
+  transition: color 0.3s, background-color 0.3s;
+}
+
+html[data-theme] {
+  color-scheme: light dark;
+}
+
+/* 针对DaisyUI主题的相关修复 */
+[data-theme="dark"] .shadow {
+  --tw-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] {
+  background-color: #f8f9fa;
+}
+
+/* 主题预览颜色块 */
+.theme-preview-block {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  margin-right: 8px;
+}
+
+/* 修复某些DaisyUI主题下的颜色对比度问题 */
+[data-theme="cupcake"] .text-base-content,
+[data-theme="pastel"] .text-base-content,
+[data-theme="fantasy"] .text-base-content,
+[data-theme="wireframe"] .text-base-content {
+  color: hsl(var(--bc) / 0.9);
+}

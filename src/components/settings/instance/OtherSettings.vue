@@ -2,84 +2,89 @@
     <div class="settings-tab-content">
         <h3 class="settings-section-title">其他与调试设置</h3>
 
-        <el-card class="settings-card">
-            <div class="card-header">
-                <span>调试选项</span>
-            </div>
-            <div class="setting-item">
-                <span class="setting-label">启用详细日志</span>
-                <div class="setting-control">
-                    <el-switch v-model="localConfig.debug.enable_verbose_logging" />
+        <div class="card bg-base-100 shadow mb-4">
+            <div class="card-body">
+                <h3 class="card-title text-base font-medium">调试选项</h3>
+                <div class="setting-item">
+                    <span class="setting-label">启用详细日志</span>
+                    <div class="setting-control">
+                        <input type="checkbox" class="toggle toggle-primary"
+                            v-model="localConfig.debug.enable_verbose_logging" />
+                    </div>
                 </div>
-            </div>
 
-            <div class="setting-item">
-                <span class="setting-label">保存模型调用记录</span>
-                <div class="setting-control">
-                    <el-switch v-model="localConfig.debug.save_model_calls" />
+                <div class="setting-item">
+                    <span class="setting-label">保存模型调用记录</span>
+                    <div class="setting-control">
+                        <input type="checkbox" class="toggle toggle-primary"
+                            v-model="localConfig.debug.save_model_calls" />
+                    </div>
                 </div>
             </div>
-        </el-card>
+        </div>
 
-        <el-card class="settings-card">
-            <div class="card-header">
-                <span>通用设置</span>
-            </div>
-            <div class="setting-item vertical-item">
-                <span class="setting-label">自定义初始化脚本</span>
-                <div class="setting-control full-width">
-                    <el-input v-model="localConfig.other.init_script" type="textarea" :rows="3"
-                        placeholder="可以在此填写实例启动时要执行的Python代码" maxlength="500" />
+        <div class="card bg-base-100 shadow mb-4">
+            <div class="card-body">
+                <h3 class="card-title text-base font-medium">通用设置</h3>
+                <div class="setting-item vertical-item">
+                    <span class="setting-label">自定义初始化脚本</span>
+                    <div class="setting-control full-width">
+                        <textarea v-model="localConfig.other.init_script" class="textarea textarea-bordered w-full h-24"
+                            placeholder="可以在此填写实例启动时要执行的Python代码" maxlength="500"></textarea>
+                    </div>
+                    <p class="setting-description">此脚本将在机器人启动时执行，请确保代码安全</p>
                 </div>
-                <p class="setting-description">此脚本将在机器人启动时执行，请确保代码安全</p>
-            </div>
 
-            <div class="setting-item">
-                <span class="setting-label">API监听端口</span>
-                <div class="setting-control">
-                    <el-input-number v-model="localConfig.other.api_port" :min="1000" :max="65535" />
+                <div class="setting-item">
+                    <span class="setting-label">API监听端口</span>
+                    <div class="setting-control">
+                        <input type="number" v-model="localConfig.other.api_port" class="input input-bordered w-24"
+                            min="1000" max="65535" />
+                    </div>
                 </div>
             </div>
-        </el-card>
+        </div>
 
-        <el-card class="settings-card">
-            <div class="card-header">
-                <span>高级操作</span>
-            </div>
-            <div class="setting-item">
-                <span class="setting-label">清除记忆数据库</span>
-                <div class="setting-control">
-                    <el-button type="danger" @click="confirmClearMemory">清除记忆</el-button>
+        <div class="card bg-base-100 shadow mb-4">
+            <div class="card-body">
+                <h3 class="card-title text-base font-medium">高级操作</h3>
+                <div class="setting-item">
+                    <span class="setting-label">清除记忆数据库</span>
+                    <div class="setting-control">
+                        <button class="btn btn-error btn-sm" @click="confirmClearMemory">清除记忆</button>
+                    </div>
                 </div>
-            </div>
 
-            <div class="setting-item">
-                <span class="setting-label">导出配置</span>
-                <div class="setting-control">
-                    <el-button type="primary" @click="exportConfig">导出配置</el-button>
+                <div class="setting-item">
+                    <span class="setting-label">导出配置</span>
+                    <div class="setting-control">
+                        <button class="btn btn-primary btn-sm" @click="exportConfig">导出配置</button>
+                    </div>
                 </div>
-            </div>
 
-            <div class="setting-item">
-                <span class="setting-label">重置配置</span>
-                <div class="setting-control">
-                    <el-button type="warning" @click="confirmResetConfig">重置</el-button>
+                <div class="setting-item">
+                    <span class="setting-label">重置配置</span>
+                    <div class="setting-control">
+                        <button class="btn btn-warning btn-sm" @click="confirmResetConfig">重置</button>
+                    </div>
                 </div>
             </div>
-        </el-card>
+        </div>
 
         <div class="setting-description">
-            <el-alert type="warning" :closable="false">
-                <p>高级操作区域的功能可能会导致数据丢失，请谨慎使用</p>
-                <p>特别是清除记忆功能会删除所有历史记忆数据，无法恢复</p>
-            </el-alert>
+            <div class="alert alert-warning">
+                <div>
+                    <i class="icon icon-warning"></i>
+                    <p>高级操作区域的功能可能会导致数据丢失，请谨慎使用</p>
+                    <p>特别是清除记忆功能会删除所有历史记忆数据，无法恢复</p>
+                </div>
+            </div>
         </div>
     </div>
 </template>
 
 <script setup>
 import { reactive, watch } from 'vue';
-import { ElMessageBox, ElMessage } from 'element-plus';
 
 const props = defineProps({
     config: {
@@ -104,22 +109,12 @@ const localConfig = reactive({
 
 // 确认清除记忆
 const confirmClearMemory = () => {
-    ElMessageBox.confirm(
-        '此操作将清除实例的所有记忆数据，这些数据将无法恢复。是否继续?',
-        '警告',
-        {
-            confirmButtonText: '确认清除',
-            cancelButtonText: '取消',
-            type: 'warning',
-        }
-    ).then(() => {
+    if (window.confirm('此操作将清除实例的所有记忆数据，这些数据将无法恢复。是否继续?')) {
         // 模拟清除记忆操作
         setTimeout(() => {
-            ElMessage.success('记忆数据已清除');
+            showToast('记忆数据已清除', 'success');
         }, 1000);
-    }).catch(() => {
-        // 用户取消操作
-    });
+    }
 };
 
 // 导出配置
@@ -138,31 +133,42 @@ const exportConfig = () => {
         URL.revokeObjectURL(url);
         document.body.removeChild(a);
 
-        ElMessage.success('配置已导出');
+        showToast('配置已导出', 'success');
     } catch (error) {
         console.error('导出配置失败:', error);
-        ElMessage.error('导出配置失败');
+        showToast('导出配置失败', 'error');
     }
 };
 
 // 确认重置配置
 const confirmResetConfig = () => {
-    ElMessageBox.confirm(
-        '此操作将重置所有配置为默认值，确定继续吗?',
-        '警告',
-        {
-            confirmButtonText: '确认重置',
-            cancelButtonText: '取消',
-            type: 'warning',
-        }
-    ).then(() => {
+    if (window.confirm('此操作将重置所有配置为默认值，确定继续吗?')) {
         // 模拟重置操作
         setTimeout(() => {
-            ElMessage.success('配置已重置为默认值');
+            showToast('配置已重置为默认值', 'success');
         }, 1000);
-    }).catch(() => {
-        // 用户取消操作
-    });
+    }
+};
+
+// 显示提醒消息，使用DaisyUI Toast组件
+const showToast = (message, type = 'info') => {
+    // 创建一个toast元素
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type} fixed top-4 right-4 z-50`;
+    toast.innerHTML = `
+        <div class="alert ${type === 'success' ? 'alert-success' : type === 'error' ? 'alert-error' : 'alert-info'}">
+            <span>${message}</span>
+        </div>
+    `;
+    document.body.appendChild(toast);
+
+    // 3秒后移除
+    setTimeout(() => {
+        toast.classList.add('opacity-0');
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 300);
+    }, 3000);
 };
 
 // 监听配置变化
@@ -186,28 +192,17 @@ watch(localConfig, () => {
 
 .settings-section-title {
     margin-bottom: 20px;
-    color: var(--el-text-color-primary);
     font-weight: 500;
-}
-
-.settings-card {
-    margin-bottom: 20px;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.card-header {
-    font-weight: 500;
-    margin-bottom: 15px;
-    color: var(--el-text-color-primary);
+    font-size: 1.2rem;
 }
 
 .setting-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 0;
-    border-bottom: 1px solid var(--el-border-color-lighter);
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--bc, currentColor);
+    border-opacity: 0.2;
 }
 
 .setting-item:last-child {
@@ -215,8 +210,7 @@ watch(localConfig, () => {
 }
 
 .setting-label {
-    font-size: 14px;
-    color: var(--el-text-color-primary);
+    font-size: 0.875rem;
 }
 
 .setting-control {
@@ -230,7 +224,7 @@ watch(localConfig, () => {
 }
 
 .vertical-item .setting-control {
-    margin-top: 10px;
+    margin-top: 0.5rem;
 }
 
 .full-width {
@@ -238,13 +232,18 @@ watch(localConfig, () => {
 }
 
 p.setting-description {
-    margin-top: 5px;
-    font-size: 12px;
-    color: var(--el-text-color-secondary);
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    opacity: 0.7;
 }
 
 .setting-description {
-    margin-top: 20px;
+    margin-top: 1rem;
+}
+
+/* Toast动画 */
+.toast {
+    transition: opacity 0.3s;
 }
 
 @keyframes fadeIn {

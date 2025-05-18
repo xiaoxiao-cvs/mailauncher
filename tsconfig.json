@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ESNext",
     "useDefineForClassFields": true,
     "module": "ESNext",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
 
     /* Bundler mode */
@@ -24,8 +24,9 @@
   "exclude": [
     "node_modules",
     "dist",
-    "src/components/SettingsPanel.vue", // 添加已删除的文件到排除列表
-    "src/components/LogsPanel.vue" // 添加另一个不存在的文件到排除列表
+    "src/components/SettingsPanel.vue",
+    "src/components/LogsPanel.vue",
+    "src/components/InstallConfig.vue"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -1,219 +1,151 @@
-/* 侧边导航栏样式 - 重构以解决渲染重叠问题 */
-.side-nav {
-  width: 64px;
-  height: 100vh;
-  /* 使用简单的背景色和毛玻璃效果 */
-  background: rgba(30, 35, 42, 0.65);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 20px 0;
-  transition: width 0.3s ease, padding 0.3s ease;
-  overflow: hidden;
-  z-index: 110;
-  flex-shrink: 0;
+/* DaisyUI侧边栏样式 - 专为MaiLauncher定制 */
+
+/* 侧边栏基础样式 */
+.sidebar {
+  --sidebar-width-collapsed: 64px;
+  --sidebar-width-expanded: 220px;
+  --sidebar-transition: width 0.3s ease;
+  --sidebar-bg-opacity: 0.85;
+  --sidebar-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+
+  width: var(--sidebar-width-collapsed);
   position: fixed;
   left: 0;
   top: 0;
-  box-sizing: border-box;
-  border-radius: 0 12px 12px 0;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* 移除可能导致重叠的伪元素 */
-.side-nav::after {
-  display: none;
-}
-
-/* 简化内部结构，减少嵌套 */
-.nav-logo {
-  display: flex;
-  align-items: center;
-  margin-bottom: 30px;
-  width: 100%;
-  padding: 8px 0;
-  border-radius: 8px;
-  justify-content: center;
-  transition: all 0.3s;
-  cursor: default;
-  color: rgb(255, 255, 255);
-}
-
-/* 添加logo图标样式 */
-.logo-icon {
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
-}
-
-/* 确保展开状态下的宽度固定 */
-.side-nav.expanded {
-  width: 220px;
-  align-items: flex-start;
-  padding-left: 20px;
-  padding-right: 20px;
-}
-
-.side-nav.expanded .nav-logo {
-  justify-content: flex-start;
-}
-
-.nav-logo .el-icon {
-  font-size: 24px;
-}
-
-.nav-text {
-  margin-left: 12px;
-  font-weight: bold;
-  opacity: 0;
-  white-space: nowrap;
-  transition: opacity 0.3s;
-  display: none;
-  color: white;
-}
-
-.side-nav.expanded .nav-text {
-  opacity: 1;
-  display: inline;
-}
-
-/* 导航项容器 - 简化结构 */
-.nav-items {
+  height: 100vh;
+  transition: var(--sidebar-transition);
   display: flex;
   flex-direction: column;
-  width: 100%;
-  flex: 1;
-  gap: 8px;
-  padding: 5px 0;
+  background-color: hsl(var(--b1) / var(--sidebar-bg-opacity));
+  backdrop-filter: blur(10px);
+  box-shadow: var(--sidebar-shadow);
+  border-right: 1px solid hsl(var(--b3) / 0.2);
+  overflow-x: hidden;
+  z-index: 100;
 }
 
-/* 导航项样式 - 修改为圆角方形，长宽等高 */
-.nav-item {
+/* 展开状态 */
+.sidebar-expanded {
+  width: var(--sidebar-width-expanded);
+}
+
+/* 头部Logo区域 */
+.sidebar-header {
+  padding: 1rem;
   display: flex;
   align-items: center;
-  height: 40px; /* 固定高度 */
-  cursor: pointer;
-  width: calc(100% - 10px); /* 留出一点边距 */
-  margin: 0 5px; /* 水平居中 */
   justify-content: center;
-  border-radius: 8px; /* 圆角 */
-  color: rgba(255, 255, 255, 0.7);
-  transition: background-color 0.3s, color 0.3s;
-  position: relative;
-  z-index: 1;
+  border-bottom: 1px solid hsl(var(--b3) / 0.1);
 }
 
-.nav-item:hover {
-  background-color: rgba(255, 255, 255, 0.15);
-  color: white;
-}
-
-.nav-item.active {
-  background-color: rgba(255, 255, 255, 0.2);
-  color: white;
-  border-left: 3px solid var(--el-color-primary, #4a7eff); /* 左侧边框替代伪元素 */
-}
-
-/* 移除旧的伪元素指示器 */
-.nav-item.active::before {
-  display: none; /* 隐藏旧的选中指示器 */
-}
-
-.side-nav.expanded .nav-item {
+.sidebar-expanded .sidebar-header {
   justify-content: flex-start;
-  padding-left: 15px;
 }
 
-.nav-item .el-icon {
-  font-size: 20px;
+/* 菜单部分 */
+.sidebar .menu {
+  padding: 0.5rem;
+  overflow-y: auto;
 }
 
-/* 底部控制区样式 */
-.nav-bottom {
+/* 控制菜单项的图标和文本对齐 */
+.sidebar .menu a {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 12px 0;
-  cursor: pointer;
-  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: var(--rounded-btn, 0.5rem);
+  transition: all 0.2s;
+}
+
+/* 图标和文本的间距 */
+.sidebar .menu a svg,
+.sidebar .menu a .icon {
+  margin-right: 0; /* 收起状态下不需要间距 */
+}
+
+.sidebar-expanded .menu a svg,
+.sidebar-expanded .menu a .icon {
+  margin-right: 0.75rem; /* 展开状态下添加间距 */
+}
+
+/* 激活状态 */
+.sidebar .menu a.active {
+  background-color: hsl(var(--p) / 0.2);
+  color: hsl(var(--pc));
+}
+
+/* 悬停状态 */
+.sidebar .menu a:hover {
+  background-color: hsl(var(--p) / 0.1);
+  color: hsl(var(--pc));
+}
+
+/* 文本显示控制 */
+.sidebar-text {
+  opacity: 0;
+  width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-expanded .sidebar-text {
+  opacity: 1;
+  width: auto;
+}
+
+/* 底部控制区域 */
+.sidebar-footer {
   margin-top: auto;
-  border-radius: 8px;
-  transition: all 0.3s;
-  margin-bottom: 10px;
-  color: rgba(255, 255, 255, 0.7);
-  z-index: 100; /* 提高z-index确保可点击 */
-  position: relative; /* 确保z-index生效 */
-  user-select: none; /* 防止文本被选择 */
+  padding: 1rem;
+  border-top: 1px solid hsl(var(--b3) / 0.1);
 }
 
-.side-nav.expanded .nav-bottom {
-  justify-content: flex-start;
-  padding-left: 15px;
-}
-
-.nav-bottom:hover {
-  background-color: rgba(255, 255, 255, 0.15);
-  color: white;
-}
-
-/* 添加鼠标悬停效果增强用户体验 */
-.nav-bottom:active {
-  background-color: rgba(255, 255, 255, 0.25);
-  transform: scale(0.98);
-}
-
-/* 浅色模式样式 */
-html:not(.dark-mode) .side-nav {
-  background: rgba(240, 245, 255, 0.85);
-  border-right: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-html:not(.dark-mode) .nav-text,
-html:not(.dark-mode) .nav-item,
-html:not(.dark-mode) .nav-bottom {
-  color: rgba(0, 0, 0, 0.8);
-}
-
-html:not(.dark-mode) .nav-item:hover,
-html:not(.dark-mode) .nav-bottom:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  color: rgba(0, 0, 0, 1);
-}
-
-html:not(.dark-mode) .nav-item.active {
-  background-color: rgba(0, 0, 0, 0.08);
-  color: var(--el-color-primary);
-  border-left-color: var(--el-color-primary); /* 保证边框颜色一致 */
-}
-
-/* 深色模式下的视觉效果 */
-html.dark-mode .side-nav {
-  background: rgba(22, 25, 30, 0.85);
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
+/* 深色模式调整 */
+html.dark-mode .sidebar {
+  --sidebar-bg-opacity: 0.75;
+  --sidebar-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
 }
 
 /* 响应式调整 */
 @media (max-width: 768px) {
-  .side-nav {
-    width: 64px !important;
+  .sidebar,
+  .sidebar.sidebar-expanded {
+    width: var(--sidebar-width-collapsed);
   }
-  
-  .nav-text {
+
+  .sidebar-text {
     display: none !important;
-    opacity: 0 !important;
   }
-  
-  .side-nav.expanded {
-    padding-left: 0;
-    padding-right: 0;
-    align-items: center;
+
+  .sidebar-title {
+    display: none !important;
   }
-  
-  .nav-item, .nav-bottom {
-    justify-content: center !important;
-    padding-left: 0 !important;
-  }
+}
+
+/* 确保菜单项是可点击的 */
+.menu li a {
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+/* 点击菜单项时的反馈效果 */
+.menu li a:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+/* 确保菜单项有足够的垂直间距 */
+.menu li {
+  margin-bottom: 4px;
+}
+
+/* 确保图标总是显示 */
+.menu a .icon,
+.menu a svg {
+  flex-shrink: 0;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
 }

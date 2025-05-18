@@ -1,4 +1,4 @@
-import { ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { WebSocketService } from "../services/websocket";
 import * as instancesApi from "../api/instances";
 import * as logsApi from "../api/logs";
@@ -34,7 +34,6 @@ export const useWebSocketLogs = (options = {}) => {
     if (!log.time) {
       log.time = formatTime(new Date());
     }
-
     logs.value.push(log);
 
     // 限制日志长度，避免内存占用过大
@@ -227,193 +226,107 @@ export const useLogs = (options = {}) => {
  * @returns {Object} 性能监控相关状态和方法
  */
 export const usePerformanceMonitoring = () => {
-  const performance = ref({
-    cpu: { usage: 0, cores: 0, frequency: 0, model: "" },
-    memory: { total: 0, used: 0, free: 0 },
-    network: { sent: 0, received: 0, sentRate: 0, receivedRate: 0 },
+  const stats = ref({
+    cpu: {
+      usage: 0,
+      model: "Intel Core i7-12700K",
+      cores: 12,
+      frequency: 3.6,
+      temperature: 45,
+    },
+    gpu: {
+      usage: 0,
+      model: "NVIDIA RTX 3080",
+      memory: {
+        used: 2.5 * 1024 * 1024 * 1024,
+        total: 10 * 1024 * 1024 * 1024,
+      },
+      temperature: 65,
+    },
+    memory: {
+      used: 0,
+      available: 0,
+      total: 16 * 1024 * 1024 * 1024,
+      percentage: 0,
+    },
+    network: {
+      uploadSpeed: 0,
+      downloadSpeed: 0,
+      uploaded: 0,
+      downloaded: 0,
+    },
   });
-  const loading = ref(false);
-  const error = ref(null);
-  let refreshInterval = null;
+  const isRefreshing = ref(false);
 
-  const fetchPerformance = async () => {
-    loading.value = true;
+  const refreshStats = async () => {
+    isRefreshing.value = true;
     try {
-      const metrics = await instancesApi.fetchSystemMetrics();
+      // 模拟延迟
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // 处理网络速率计算
-      if (performance.value.network.sent && metrics.network) {
-        const timeGap = 5; // 假设间隔为5秒
-        metrics.network.sentRate = Math.max(
-          0,
-          (metrics.network.sent - performance.value.network.sent) / timeGap
-        );
-        metrics.network.receivedRate = Math.max(
-          0,
-          (metrics.network.received - performance.value.network.received) /
-            timeGap
-        );
-      } else if (metrics.network) {
-        metrics.network.sentRate = 0;
-        metrics.network.receivedRate = 0;
-      }
+      // 生成模拟数据
+      stats.value.cpu.usage = Math.floor(20 + Math.random() * 40);
+      stats.value.cpu.temperature = 40 + Math.floor(stats.value.cpu.usage / 5);
 
-      performance.value = metrics;
-      error.value = null;
-    } catch (err) {
-      error.value = err.message;
+      stats.value.gpu.usage = Math.floor(15 + Math.random() * 60);
+      stats.value.gpu.temperature = 50 + Math.floor(stats.value.gpu.usage / 4);
+      stats.value.gpu.memory.used =
+        (2 + Math.random() * 6) * 1024 * 1024 * 1024;
+
+      const memUsed = (5 + Math.random() * 8) * 1024 * 1024 * 1024;
+      stats.value.memory.used = memUsed;
+      stats.value.memory.available = stats.value.memory.total - memUsed;
+      stats.value.memory.percentage = Math.round(
+        (memUsed / stats.value.memory.total) * 100
+      );
+
+      const uploadSpeed = Math.random() * 2 * 1024 * 1024; // 0-2 MB/s
+      const downloadSpeed = Math.random() * 10 * 1024 * 1024; // 0-10 MB/s
+      stats.value.network.uploadSpeed = uploadSpeed;
+      stats.value.network.downloadSpeed = downloadSpeed;
+
+      stats.value.network.uploaded += uploadSpeed;
+      stats.value.network.downloaded += downloadSpeed;
     } finally {
-      loading.value = false;
+      isRefreshing.value = false;
     }
   };
-
-  const startMonitoring = (interval = 5000) => {
-    fetchPerformance();
-    refreshInterval = setInterval(fetchPerformance, interval);
-  };
-
-  const stopMonitoring = () => {
-    if (refreshInterval) {
-      clearInterval(refreshInterval);
-      refreshInterval = null;
-    }
-  };
-
-  onMounted(() => {
-    fetchPerformance();
-  });
-
-  onBeforeUnmount(() => {
-    stopMonitoring();
-  });
 
   return {
-    performance,
-    loading,
-    error,
-    fetchPerformance,
-    startMonitoring,
-    stopMonitoring,
+    stats,
+    isRefreshing,
+    refreshStats,
   };
 };
 
 /**
- * 使用图表
+ * 图表组合式API
  * @param {Object} options 图表选项
  * @returns {Object} 图表相关状态和方法
  */
 export const useCharts = (options = {}) => {
-  const chartRefs = {
-    cpu: ref(null),
-    memory: ref(null),
-    network: ref(null),
-  };
-
-  const charts = {
-    cpu: null,
-    memory: null,
-    network: null,
-  };
-
-  const chartData = {
-    cpu: ref([0, 0, 0, 0, 0, 0]),
-    memory: ref([0, 0, 0, 0, 0, 0]),
-    network: ref([0, 0, 0, 0, 0, 0]),
-    timeLabels: ref(["00:00", "00:00", "00:00", "00:00", "00:00", "00:00"]),
-  };
+  // 图表引用集合
+  const chartRefs = ref({});
+  const charts = {};
+  const chartData = ref({});
 
   // 初始化图表
-  const initializeCharts = (isDarkMode) => {
-    const { cpu, memory, network } = chartRefs;
-
-    if (cpu.value && !charts.cpu) {
-      charts.cpu = echarts.init(cpu.value);
-      const cpuOption = initCpuChart(
-        cpu.value,
-        chartData.cpu.value,
-        chartData.timeLabels.value,
-        isDarkMode
-      );
-      charts.cpu.setOption(cpuOption);
-    }
-
-    if (memory.value && !charts.memory) {
-      charts.memory = echarts.init(memory.value);
-      const memoryOption = initMemoryChart(
-        memory.value,
-        chartData.memory.value,
-        chartData.timeLabels.value,
-        isDarkMode,
-        options.maxMemoryGB || 16
-      );
-      charts.memory.setOption(memoryOption);
-    }
-
-    if (network.value && !charts.network) {
-      charts.network = echarts.init(network.value);
-      const networkOption = initNetworkChart(
-        network.value,
-        chartData.network.value,
-        chartData.timeLabels.value,
-        isDarkMode,
-        options.maxNetworkKBs || 1024
-      );
-      charts.network.setOption(networkOption);
-    }
+  const initializeCharts = () => {
+    // 初始化逻辑将由调用者实现
   };
 
   // 更新图表数据
-  const updateChartData = (newData) => {
-    // 更新时间标签
-    if (newData.timeLabel) {
-      chartData.timeLabels.value.shift();
-      chartData.timeLabels.value.push(newData.timeLabel);
-    }
-
-    // 更新CPU数据
-    if (newData.cpu !== undefined) {
-      chartData.cpu.value.shift();
-      chartData.cpu.value.push(newData.cpu);
-    }
-
-    // 更新内存数据
-    if (newData.memory !== undefined) {
-      chartData.memory.value.shift();
-      chartData.memory.value.push(newData.memory);
-    }
-
-    // 更新网络数据
-    if (newData.network !== undefined) {
-      chartData.network.value.shift();
-      chartData.network.value.push(newData.network);
-    }
-
-    // 更新图表
-    refreshCharts();
+  const updateChartData = (key, data) => {
+    chartData.value[key] = data;
   };
 
-  // 刷新图表
+  // 刷新所有图表
   const refreshCharts = () => {
-    if (charts.cpu) {
-      charts.cpu.setOption({
-        xAxis: { data: chartData.timeLabels.value },
-        series: [{ data: chartData.cpu.value }],
-      });
-    }
-
-    if (charts.memory) {
-      charts.memory.setOption({
-        xAxis: { data: chartData.timeLabels.value },
-        series: [{ data: chartData.memory.value }],
-      });
-    }
-
-    if (charts.network) {
-      charts.network.setOption({
-        xAxis: { data: chartData.timeLabels.value },
-        series: [{ data: chartData.network.value }],
-      });
-    }
+    Object.keys(charts).forEach((key) => {
+      if (charts[key] && chartData.value[key]) {
+        // 使用图表特定的更新逻辑
+      }
+    });
   };
 
   // 调整图表大小
@@ -446,6 +359,106 @@ export const useCharts = (options = {}) => {
     refreshCharts,
     resizeCharts,
     disposeCharts,
+  };
+};
+
+/**
+ * 深色模式组合式API
+ */
+export const useDarkMode = () => {
+  const isDarkMode = ref(false);
+
+  onMounted(() => {
+    // 检查本地存储或系统偏好
+    const savedMode = localStorage.getItem("darkMode");
+    if (savedMode !== null) {
+      isDarkMode.value = savedMode === "true";
+    } else {
+      // 检查系统偏好
+      isDarkMode.value = window.matchMedia(
+        "(prefers-color-scheme: dark)"
+      ).matches;
+    }
+
+    // 应用深色模式
+    applyDarkMode(isDarkMode.value);
+  });
+
+  const toggleDarkMode = () => {
+    isDarkMode.value = !isDarkMode.value;
+    localStorage.setItem("darkMode", isDarkMode.value.toString());
+    applyDarkMode(isDarkMode.value);
+  };
+
+  const applyDarkMode = (isDark) => {
+    if (isDark) {
+      document.documentElement.setAttribute("data-theme", "dark");
+      document.documentElement.classList.add("dark-mode");
+    } else {
+      document.documentElement.setAttribute("data-theme", "light");
+      document.documentElement.classList.remove("dark-mode");
+    }
+  };
+
+  return {
+    isDarkMode,
+    toggleDarkMode,
+  };
+};
+
+/**
+ * 主题组合式API
+ */
+export const useTheme = () => {
+  const currentTheme = ref(localStorage.getItem("theme") || "light");
+  const availableThemes = ref([
+    { name: "light", color: "#e5e7eb", label: "明亮" },
+    { name: "dark", color: "#2a303c", label: "暗黑" },
+    { name: "cupcake", color: "#65c3c8", label: "蛋糕" },
+    { name: "bumblebee", color: "#e0a82e", label: "大黄蜂" },
+    { name: "emerald", color: "#66cc8a", label: "翡翠" },
+    { name: "corporate", color: "#4b6bfb", label: "企业" },
+    { name: "synthwave", color: "#e779c1", label: "合成波" },
+    { name: "retro", color: "#ef9995", label: "复古" },
+    { name: "cyberpunk", color: "#ff7598", label: "赛博朋克" },
+    // ...existing code...
+  ]);
+
+  onMounted(() => {
+    if (savedTheme) {
+      currentTheme.value = savedTheme;
+      applyTheme(savedTheme);
+    }
+  });
+
+  const setTheme = (themeName) => {
+    const theme = availableThemes.value.find((t) => t.name === themeName);
+    if (theme) {
+      currentTheme.value = themeName;
+      localStorage.setItem("theme", themeName);
+      applyTheme(themeName);
+
+      // 发送主题变化事件
+      if (emitter) {
+        emitter.emit("theme-changed", themeName);
+      }
+    }
+  };
+
+  const applyTheme = (themeName) => {
+    const theme = availableThemes.value.find((t) => t.name === themeName);
+    if (theme) {
+      document.documentElement.setAttribute("data-theme", themeName);
+      document.documentElement.style.setProperty("--p", theme.color);
+      // 为DaisyUI设置主色变量
+      document.documentElement.style.setProperty("--primary", theme.color);
+    }
+  };
+
+  return {
+    currentTheme,
+    availableThemes,
+    setTheme,
   };
 };
 

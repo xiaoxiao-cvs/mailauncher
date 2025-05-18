@@ -13,6 +13,10 @@ const props = defineProps({
     size: {
         type: String,
         default: 'normal'
+    },
+    title: {
+        type: String,
+        default: ''
     }
 });
 

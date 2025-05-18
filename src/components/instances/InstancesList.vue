@@ -3,9 +3,7 @@
         <!-- 顶部导航栏 - 修改样式以匹配侧边栏 -->
         <div class="header-bar">
             <div class="title-area">
-                <el-icon class="app-icon">
-                    <List />
-                </el-icon>
+                <IconifyIcon icon="mdi:view-list" color="primary" size="lg" />
                 <span class="header-title">应用实例</span>
             </div>
 
@@ -13,9 +11,7 @@
                 <el-dropdown trigger="click" @command="handleFilterChange">
                     <div class="filter-button">
                         {{ filterLabel }}
-                        <el-icon>
-                            <ArrowDown />
-                        </el-icon>
+                        <IconifyIcon icon="mdi:chevron-down" size="sm" />
                     </div>
                     <template #dropdown>
                         <el-dropdown-menu>
@@ -32,9 +28,7 @@
                 <div class="search-box">
                     <el-input v-model="searchQuery" placeholder="根据应用名字搜索" clearable>
                         <template #suffix>
-                            <el-icon class="search-icon">
-                                <Search />
-                            </el-icon>
+                            <IconifyIcon icon="mdi:magnify" />
                         </template>
                     </el-input>
                 </div>
@@ -42,9 +36,7 @@
 
             <div class="action-area">
                 <el-button plain size="default" @click="refreshInstances" class="action-btn">
-                    <el-icon>
-                        <Refresh />
-                    </el-icon>
+                    <IconifyIcon icon="mdi:refresh" />
                     刷新
                 </el-button>
                 <el-button plain size="default" @click="batchOperation" class="action-btn">批量操作</el-button>
@@ -97,21 +89,20 @@
                     <!-- 重新设计的实例操作按钮区域 - 移至卡片右下角 -->
                     <div class="instance-actions-new">
                         <div class="action-group">
-                            <!-- 启动/停止按钮 - 使用纯文本符号 -->
+                            <!-- 启动/停止按钮 - 使用Iconify图标 -->
                             <el-tooltip :content="instance.status === 'running' ? '停止' : '启动'" placement="top"
                                 :show-after="500">
                                 <el-button :type="instance.status === 'running' ? 'danger' : 'success'" circle
                                     @click="toggleInstanceRunning(instance)">
-                                    <span v-if="instance.status !== 'running'" class="action-symbol">▶</span>
-                                    <span v-else class="action-symbol">■</span>
+                                    <IconifyIcon :icon="instance.status === 'running' ? 'mdi:stop' : 'mdi:play'" />
                                 </el-button>
                             </el-tooltip>
 
-                            <!-- 重启按钮 - 使用纯文本符号 -->
+                            <!-- 重启按钮 - 使用Iconify图标 -->
                             <el-tooltip content="重启" placement="top" :show-after="500">
                                 <el-button circle :disabled="instance.status !== 'running'"
                                     @click="restartInstance(instance)">
-                                    <span class="action-symbol">↻</span>
+                                    <IconifyIcon icon="mdi:refresh" />
                                 </el-button>
                             </el-tooltip>
                         </div>
@@ -120,17 +111,17 @@
                         <div class="action-divider"></div>
 
                         <div class="action-group">
-                            <!-- 终端按钮 - 使用纯文本符号 -->
+                            <!-- 终端按钮 - 使用Iconify图标 -->
                             <el-tooltip content="终端" placement="top" :show-after="500">
                                 <el-button circle @click="openTerminal(instance)">
-                                    <span class="action-symbol">⌨</span>
+                                    <IconifyIcon icon="mdi:console" />
                                 </el-button>
                             </el-tooltip>
 
-                            <!-- 设置按钮 - 使用纯文本符号 -->
+                            <!-- 设置按钮 - 使用Iconify图标 -->
                             <el-tooltip content="设置" placement="top" :show-after="500">
                                 <el-button circle @click="configureInstance(instance)">
-                                    <span class="action-symbol">⚙</span>
+                                    <IconifyIcon icon="mdi:cog" />
                                 </el-button>
                             </el-tooltip>
                         </div>
@@ -146,6 +137,7 @@ import { ref, computed, onMounted, inject, onUnmounted, watch } from 'vue';
 // 移除可能导致问题的图标导入
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { instancesApi } from '@/services/api';
+import IconifyIcon from '../common/IconifyIcon.vue';
 
 // 事件总线，用于与其他组件通信
 const emitter = inject('emitter');

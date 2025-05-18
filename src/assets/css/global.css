@@ -11,6 +11,12 @@
   --sidebar-text-hover-color: rgba(0, 0, 0, 1);
   --sidebar-active-bg: rgba(0, 0, 0, 0.08);
   --sidebar-hover-bg: rgba(0, 0, 0, 0.05);
+
+  /* 添加图表相关变量 */
+  --chart-bg-color: rgba(255, 255, 255, 0.7);
+  --chart-text-color: #333;
+  --chart-grid-color: #eee;
+  --chart-axis-color: #ddd;
 }
 
 /* 深色模式下的变量 */
@@ -26,4 +32,10 @@ html.dark-mode {
   --sidebar-text-hover-color: rgba(255, 255, 255, 1);
   --sidebar-active-bg: rgba(255, 255, 255, 0.1);
   --sidebar-hover-bg: rgba(255, 255, 255, 0.05);
+
+  /* 添加图表深色模式相关变量 */
+  --chart-bg-color: rgba(40, 44, 52, 0.8);
+  --chart-text-color: #eee;
+  --chart-grid-color: #333;
+  --chart-axis-color: #444;
 }

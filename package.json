@@ -18,7 +18,11 @@
     "element-plus": "^2.9.10",
     "vue": "^3.5.13",
     "daisyui": "^4.5.0",
-    "tailwindcss": "^3.4.1"
+    "tailwindcss": "^3.4.1",
+    "@iconify/vue": "^4.1.1",
+    "@iconify-json/mdi": "^1.1.52",
+    "@iconify-json/fa-solid": "^1.1.5",
+    "@iconify-json/carbon": "^1.1.18"
   },
   "devDependencies": {
     "@element-plus/icons-vue": "2.3.1",

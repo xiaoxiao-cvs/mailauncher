@@ -3,19 +3,24 @@
     <div class="header-section">
       <h3>安装管理</h3>
       <div class="header-actions">
-        <el-button type="primary" @click="refreshDownloads" size="small">刷新</el-button>
+        <button class="btn btn-primary btn-sm" @click="refreshDownloads">刷新</button>
       </div>
     </div>
-
-    <!-- 安装配置组件 -->
-    <InstallConfig @refresh-instances="refreshInstances" @add-log="addLog" />
 
     <!-- 日志显示组件 -->
     <LogsDisplay :logs="allLogs" @clear-logs="clearLogs">
       <template #before-logs>
-        <div v-if="isGlobalMockMode" style="padding: 10px;">
-          <el-alert title="模拟模式提示" type="info" description="当前处于模拟数据模式，安装过程的实时日志可能不完整或为模拟信息。" show-icon
-            :closable="false" />
+        <div v-if="isGlobalMockMode" class="p-4">
+          <div class="alert alert-info">
+            <div>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                class="stroke-current shrink-0 w-6 h-6">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <span>当前处于模拟数据模式，安装过程的实时日志可能不完整或为模拟信息。</span>
+            </div>
+          </div>
         </div>
       </template>
     </LogsDisplay>
@@ -32,14 +37,11 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, inject, nextTick } from 'vue';
-import { ElMessage, ElAlert } from 'element-plus'; // 引入 ElAlert
-// 导入统一的API服务
 import { instancesApi, deployApi } from '@/services/api';
 import { WebSocketService } from '../services/websocket';
-import { isMockModeActive } from '../services/apiService'; // 引入模拟模式检查
-import { handleApiError } from '../utils/vue-utils'; // 添加这行导入
+import { isMockModeActive } from '../services/apiService';
+import { handleApiError } from '../utils/vue-utils';
 
-import InstallConfig from './downloads/InstallConfig.vue';
 import LogsDisplay from './downloads/LogsDisplay.vue';
 import InstancesList from './downloads/InstancesList.vue';
 import ConsoleDialog from './downloads/ConsoleDialog.vue';
@@ -105,15 +107,32 @@ const refreshDownloads = async () => {
     }));
     console.log('使用模拟数据:', mockInstances.length, '个实例');
 
-    // 可以添加一个提示，但不抛出错误
-    ElMessage({
-      message: '使用模拟实例数据',
-      type: 'info',
-      duration: 3000
-    });
+    // 显示Toast代替ElMessage
+    showToast('使用模拟实例数据', 'info');
   } finally {
     loading.value = false;
   }
+};
+
+// 显示Toast消息
+const showToast = (message, type = 'info') => {
+  // 创建Toast元素
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type === 'error' ? 'error' : type === 'success' ? 'success' : 'info'} fixed top-4 right-4 z-50`;
+  toast.innerHTML = `
+    <div class="alert ${type === 'error' ? 'alert-error' : type === 'success' ? 'alert-success' : 'alert-info'}">
+      <span>${message}</span>
+    </div>
+  `;
+  document.body.appendChild(toast);
+
+  // 3秒后移除
+  setTimeout(() => {
+    toast.classList.add('opacity-0');
+    setTimeout(() => {
+      document.body.removeChild(toast);
+    }, 300);
+  }, 3000);
 };
 
 // 添加获取模拟实例数据的函数
@@ -147,7 +166,7 @@ const toggleInstance = async (instance) => {
       // 停止实例
       const response = await instancesApi.stopInstance();
       if (response.data && response.data.success) {
-        ElMessage.success(`${instance.name} 已停止`);
+        showToast(`${instance.name} 已停止`, 'success');
         instance.status = 'stopped';
 
         // 如果有正在查看的终端，关闭他
@@ -155,19 +174,19 @@ const toggleInstance = async (instance) => {
           closeConsole();
         }
       } else {
-        ElMessage.error('停止实例失败');
+        showToast('停止实例失败', 'error');
       }
     } else {
       // 启动实例
       const response = await instancesApi.startInstance(instance.id);
       if (response.data && response.data.success) {
-        ElMessage.success(`${instance.name} 已启动`);
+        showToast(`${instance.name} 已启动`, 'success');
         instance.status = 'running';
 
         // 显示控制台
         showConsole(instance);
       } else {
-        ElMessage.error('启动实例失败');
+        showToast('启动实例失败', 'error');
       }
     }
 
@@ -176,7 +195,7 @@ const toggleInstance = async (instance) => {
 
   } catch (error) {
     console.error('控制实例失败:', error);
-    ElMessage.error('控制实例失败: ' + (error.response?.data?.message || error.message));
+    showToast('控制实例失败: ' + (error.response?.data?.message || error.message), 'error');
   }
 };
 
@@ -212,42 +231,73 @@ const handleInstanceStopped = () => {
   }
 };
 
-// 开始日志轮询
-const startLogPolling = () => {
-  if (logPollingInterval) {
-    clearInterval(logPollingInterval);
-  }
-
-  fetchInstanceLogs();
-  logPollingInterval = setInterval(fetchInstanceLogs, 2000);
+// 添加新安装界面显示方法
+const showNewInstallInterface = () => {
+  // 通知用户使用新的安装界面
+  showToast('新版安装界面即将推出，敬请期待！', 'info');
 };
 
-// 停止日志轮询
-const stopLogPolling = () => {
-  if (logPollingInterval) {
-    clearInterval(logPollingInterval);
-    logPollingInterval = null;
+// 开始下载
+const startDownload = async () => {
+  if (!config.value.name) {
+    ElMessage.error('请输入实例名称');
+    return;
   }
-};
 
-// 获取实例日志
-const fetchInstanceLogs = async () => {
-  if (!runningInstanceId.value) return;
+  downloading.value = true;
+  addLog({
+    time: formatTime(new Date()),
+    level: 'INFO',
+    message: `开始下载 MaiBot ${config.value.version}`
+  });
 
   try {
-    const response = await instancesApi.getLogs(runningInstanceId.value);
-    if (response.data && response.data.logs) {
-      // 更新日志，保持最多显示1000条
-      const newLogs = response.data.logs;
-      if (newLogs.length > 0) {
-        instanceLogs.value = newLogs.slice(-1000);
+    const response = await axios.post('/api/download', {
+      name: config.value.name,
+      version: config.value.version,
+      options: {
+        napcat: config.value.installNapcat,
+        adapter: config.value.installAdapter
       }
-    }
+    });
+
+    // ...existing code...
   } catch (error) {
-    console.error('获取实例日志失败:', error);
-    // 不在界面上显示错误，避免干扰用户
+    // ...existing code...
   }
 };
+
+// 添加日志
+const addLog = (log) => {
+  allLogs.value.push(log);
+
+  // 限制日志条数
+  if (allLogs.value.length > 1000) {
+    allLogs.value = allLogs.value.slice(-900);
+  }
+};
+
+// 清空日志
+const clearLogs = () => {
+  allLogs.value = [];
+};
+
+// 刷新实例列表
+const refreshInstances = () => {
+  refreshDownloads();
+  if (emitter) {
+    emitter.emit('refresh-instances');
+  }
+};
+
+// 格式化时间展示
+function formatTime(date) {
+  return date.toLocaleString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
 
 // WebSocket连接
 const setupWebSocket = () => {
@@ -429,68 +479,6 @@ const setupWebSocket = () => {
   }
 };
 
-// 添加日志
-const addLog = (log) => {
-  allLogs.value.push(log);
-
-  // 限制日志条数
-  if (allLogs.value.length > 1000) {
-    allLogs.value = allLogs.value.slice(-900);
-  }
-};
-
-// 清空日志
-const clearLogs = () => {
-  allLogs.value = [];
-};
-
-// 刷新实例列表
-const refreshInstances = () => {
-  refreshDownloads();
-  if (emitter) {
-    emitter.emit('refresh-instances');
-  }
-};
-
-// 格式化时间展示
-function formatTime(date) {
-  return date.toLocaleString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
-}
-
-// 开始下载
-const startDownload = async () => {
-  if (!config.value.name) {
-    ElMessage.error('请输入实例名称');
-    return;
-  }
-
-  downloading.value = true;
-  addLog({
-    time: formatTime(new Date()),
-    level: 'INFO',
-    message: `开始下载 MaiBot ${config.value.version}`
-  });
-
-  try {
-    const response = await axios.post('/api/download', {
-      name: config.value.name,
-      version: config.value.version,
-      options: {
-        napcat: config.value.installNapcat,
-        adapter: config.value.installAdapter
-      }
-    });
-
-    // ...existing code...
-  } catch (error) {
-    // ...existing code...
-  }
-};
-
 // 生命周期钩子
 onMounted(() => {
   isGlobalMockMode.value = isMockModeActive(); // 初始化时检查
@@ -522,6 +510,27 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
-/* 将@import移到样式最前面 */
 @import '../assets/css/downloadsPanel.css';
+
+/* 添加DaisyUI相关样式调整 */
+.downloads-tab {
+  padding: 1rem;
+}
+
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+/* Toast动画 */
+.toast {
+  transition: opacity 0.3s;
+}
+
+/* 卡片样式增强 */
+.card-title {
+  margin-bottom: 0.5rem;
+}
 </style>

@@ -101,10 +101,8 @@ export const adjustColorBrightness = (hex, percent) => {
   g = Math.min(255, Math.max(0, Math.round(g + (g * percent) / 100)));
   b = Math.min(255, Math.max(0, Math.round(b + (b * percent) / 100)));
 
-  // 转换回十六进制
-  return `#${r.toString(16).padStart(2, "0")}${g
-    .toString(16)
-    .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+  // 返回调整后的颜色值
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 };
 
 // 添加RGBA颜色转换函数，更方便处理透明度

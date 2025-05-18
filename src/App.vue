@@ -1,7 +1,7 @@
 <template>
-  <div class="app-container"
+  <div id="app" class="app-container"
     :class="{ 'dark-mode': darkMode, 'sidebar-expanded': sidebarExpanded, 'sidebar-collapsed': !sidebarExpanded }"
-    :data-theme="darkMode ? 'dark' : 'light'">
+    :data-theme="currentTheme">
     <!-- 侧边栏 -->
     <AppSidebar :is-expanded="sidebarExpanded" @toggle="toggleSidebar" />
 
@@ -29,7 +29,6 @@ import InstancesPanel from './components/InstancesPanel.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import SettingsDrawer from './components/settings/SettingsDrawer.vue'
 import PluginsView from './views/PluginsView.vue'
-import { HomeFilled, List, Download, Document, Setting, Grid } from '@element-plus/icons-vue'
 import settingsService from './services/settingsService'
 import { initTheme, applyThemeColor } from './services/theme'
 
@@ -41,6 +40,9 @@ const sidebarExpanded = ref(false);
 const isSettingsOpen = ref(false);
 // 任何编辑模式状态
 const isAnyEditModeActive = ref(false);
+
+// 当前主题
+const currentTheme = ref(localStorage.getItem('theme') || 'light');
 
 // 创建更完整的事件总线
 const emitter = {
@@ -76,22 +78,22 @@ provide('emitter', emitter);
 // 提供深色模式状态给所有组件
 provide('darkMode', darkMode);
 
+// 提供当前主题给所有组件
+provide('currentTheme', currentTheme);
+
 // 提供侧边栏状态给所有组件
 provide('sidebarExpanded', sidebarExpanded);
 
 // 提供编辑模式状态给所有组件
 provide('isAnyEditModeActive', isAnyEditModeActive);
 
-// 日志面板引用
-const logsPanel = ref(null);
-
-// 侧边栏菜单项 - 移除logs菜单项
+// 侧边栏菜单项，更新为DaisyUI风格的图标
 const menuItems = {
-  home: { title: '仪表盘', icon: HomeFilled },
-  instances: { title: '实例管理', icon: List },
-  downloads: { title: '下载中心', icon: Download },
-  settings: { title: '系统设置', icon: Setting },
-  plugins: { title: '插件广场', icon: Grid }
+  home: { title: '仪表盘', icon: 'mdi:home' },
+  instances: { title: '实例管理', icon: 'mdi:server' },
+  downloads: { title: '下载中心', icon: 'mdi:download' },
+  settings: { title: '系统设置', icon: 'mdi:cog' },
+  plugins: { title: '插件广场', icon: 'mdi:puzzle' }
 }
 
 // 提供菜单项给侧边栏组件
@@ -121,7 +123,7 @@ const currentComponent = computed(() => {
     case 'plugins':
       return PluginsView; // 使用导入的组件而非动态创建模板
     default:
-      // 创建一个通用的"正在构建"页面组件
+      // 返回通用的"正在构建"页面组件
       return {
         render() {
           return h('div', { class: 'tab-content' }, [
@@ -136,7 +138,8 @@ const currentComponent = computed(() => {
 // 提供处理安装事件 - 添加实例名称验证
 provide('handleInstall', (installConfig) => {
   if (!installConfig.instanceName || installConfig.instanceName.trim() === '') {
-    ElMessage.error('安装失败: 缺少实例名称');
+    // 使用原生警告代替ElMessage
+    alert('安装失败: 缺少实例名称');
     return false;
   }
   // 处理安装逻辑
@@ -151,12 +154,20 @@ const updateDarkMode = (isDark) => {
   // 应用深色模式到根文档
   if (isDark) {
     document.documentElement.classList.add('dark-mode');
-    document.documentElement.setAttribute('data-theme', 'dark');
-    document.querySelector('.app-container')?.setAttribute('data-theme', 'dark');
+
+    // 更新与主题相关的状态
+    if (['light', 'cupcake', 'bumblebee', 'corporate', 'emerald'].includes(currentTheme.value)) {
+      // 如果当前主题是明亮系主题，自动切换到dark主题
+      changeTheme('dark');
+    }
   } else {
     document.documentElement.classList.remove('dark-mode');
-    document.documentElement.setAttribute('data-theme', 'light');
-    document.querySelector('.app-container')?.setAttribute('data-theme', 'light');
+
+    // 更新与主题相关的状态
+    if (['dark', 'night', 'dracula', 'black'].includes(currentTheme.value)) {
+      // 如果当前主题是暗色系主题，自动切换到light主题
+      changeTheme('light');
+    }
   }
 };
 
@@ -174,7 +185,7 @@ const initDarkMode = () => {
   updateDarkMode(darkMode.value);
 };
 
-// 切换侧边栏状态 - 增加日志和调试信息
+// 切换侧边栏状态 - 更新为DaisyUI兼容的处理
 const toggleSidebar = () => {
   console.log('侧边栏切换被触发，当前状态:', sidebarExpanded.value);
 
@@ -263,6 +274,9 @@ onMounted(() => {
   // 初始化侧边栏状态
   checkSidebarState();
 
+  // 应用保存的主题 (确保在mounted中只设置一次)
+  document.documentElement.setAttribute('data-theme', currentTheme.value);
+
   // 监听侧边栏状态变化
   window.addEventListener('storage', (e) => {
     if (e.key === 'sidebarExpanded') {
@@ -275,15 +289,21 @@ onMounted(() => {
     checkSidebarState();
   });
 
-  // 移除对 show-instance-logs 事件的监听处理
-  // 添加导航事件处理
+  // 重写导航事件处理,添加调试日志
   emitter.on('navigate-to-tab', (tabName) => {
+    console.log(`接收到导航事件: ${tabName}`);
+
+    // 清除已有处理器并重新绑定
     if (tabName === 'settings') {
+      console.log('正在打开设置抽屉');
       // 如果是导航到设置，打开设置抽屉
       openSettings();
     } else if (menuItems[tabName] || tabName === 'home') {
+      console.log(`切换标签页到: ${tabName}`);
       // 如果是其他有效选项卡，切换标签页
       activeTab.value = tabName;
+    } else {
+      console.warn(`未知标签页: ${tabName}`);
     }
   });
 
@@ -305,6 +325,11 @@ onMounted(() => {
     window.dispatchEvent(new Event('resize'));
   });
 
+  // 添加主题变化监听
+  emitter.on('theme-changed', (themeName) => {
+    changeTheme(themeName);
+  });
+
   // 应用初始化
   checkApiConnection().then(() => {
     console.log("应用初始化完成：使用模拟数据模式");
@@ -323,48 +348,6 @@ onMounted(() => {
     isAnyEditModeActive.value = isActive;
   });
 });
-
-// 初始化主题色
-const initThemeColor = () => {
-  const savedTheme = localStorage.getItem('themeColor');
-  if (savedTheme) {
-    const themeColors = {
-      blue: '#4a7eff',
-      green: '#42b983',
-      purple: '#9370db',
-      orange: '#e67e22',
-      pink: '#e84393',
-      teal: '#00b894'
-    };
-
-    if (themeColors[savedTheme]) {
-      // 保存当前主题色到全局变量，供图表等组件使用
-      window.currentThemeColor = themeColors[savedTheme];
-
-      document.documentElement.style.setProperty('--el-color-primary', themeColors[savedTheme]);
-      document.documentElement.style.setProperty('--primary-color', themeColors[savedTheme]);
-
-      // 生成主题色的亮色和暗色变体
-      const lightenColor = adjustColorBrightness(themeColors[savedTheme], 20);
-      const darkenColor = adjustColorBrightness(themeColors[savedTheme], -20);
-
-      document.documentElement.style.setProperty('--primary-light', lightenColor);
-      document.documentElement.style.setProperty('--primary-dark', darkenColor);
-
-      // 图表颜色绑定到主题色
-      document.documentElement.style.setProperty('--chart-line', themeColors[savedTheme]);
-      document.documentElement.style.setProperty('--chart-secondary', lightenColor);
-
-      // 更新侧边栏颜色变量 - 基于当前主题色
-      updateSidebarColorVariable(themeColors[savedTheme], darkMode.value);
-    }
-  } else {
-    // 设置默认主题色到全局变量
-    window.currentThemeColor = '#4a7eff';
-    // 更新侧边栏颜色变量 - 使用默认主题
-    updateSidebarColorVariable('#4a7eff', darkMode.value);
-  }
-};
 
 // 颜色亮度调整工具函数
 const adjustColorBrightness = (hex, percent) => {
@@ -412,6 +395,19 @@ watch(darkMode, (newValue) => {
   }
 });
 
+// 监听主题变化
+watch(currentTheme, (newValue) => {
+  // 当主题变化时，更新data-theme属性
+  document.documentElement.setAttribute('data-theme', newValue);
+
+  // 根据新主题判断是否为深色主题，并更新darkMode状态
+  const isDarkTheme = ['dark', 'night', 'dracula', 'black'].includes(newValue);
+  if (isDarkTheme !== darkMode.value) {
+    darkMode.value = isDarkTheme;
+    localStorage.setItem('darkMode', isDarkTheme);
+  }
+});
+
 // 组件卸载时清理
 onBeforeUnmount(() => {
   // 清理事件总线
@@ -433,6 +429,16 @@ const checkApiConnection = async () => {
   localStorage.setItem("useMockData", "true");
 
   return false; // 返回false表示没有真实后端连接
+};
+
+// 切换主题方法
+const changeTheme = (themeName) => {
+  currentTheme.value = themeName;
+  localStorage.setItem('theme', themeName);
+  document.documentElement.setAttribute('data-theme', themeName);
+
+  // 发送主题变化事件
+  emitter.emit('theme-changed', themeName);
 };
 </script>
 
@@ -472,5 +478,12 @@ const checkApiConnection = async () => {
 /* 当设置面板打开时禁止滚动 */
 body.settings-open {
   overflow: hidden;
+}
+
+/* 确保没有重复的CSS类定义 */
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 </style>

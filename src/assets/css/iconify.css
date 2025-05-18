@@ -1,0 +1,68 @@
+/* Iconify样式 */
+
+/* 颜色预设 */
+.iconify-color-primary svg {
+  color: var(--p, var(--primary, #570df8));
+}
+
+.iconify-color-secondary svg {
+  color: var(--s, var(--secondary, #f000b8));
+}
+
+.iconify-color-accent svg {
+  color: var(--a, var(--accent, #1dcdbc));
+}
+
+.iconify-color-neutral svg {
+  color: var(--n, var(--neutral, #3d4451));
+}
+
+.iconify-color-success svg {
+  color: var(--su, var(--success, #36d399));
+}
+
+.iconify-color-warning svg {
+  color: var(--wa, var(--warning, #fbbd23));
+}
+
+.iconify-color-error svg {
+  color: var(--er, var(--error, #f87272));
+}
+
+.iconify-color-info svg {
+  color: var(--in, var(--info, #3abff8));
+}
+
+/* 按钮中的图标样式 */
+button .iconify,
+.el-button .iconify,
+.btn .iconify {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+
+/* 补充样式修复 */
+.icon-button .iconify {
+  margin: 0 auto;
+}
+
+/* 动画效果 */
+.iconify-spin svg {
+  animation: iconify-spin 2s infinite linear;
+}
+
+@keyframes iconify-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* 主题切换过渡效果 */
+html {
+  transition: color 0.3s, background-color 0.3s;
+}
