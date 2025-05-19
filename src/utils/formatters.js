@@ -75,26 +75,10 @@ export const formatDateForFile = (date) => {
  * @returns {string} 调整后的颜色值
  */
 export const adjustColorBrightness = (hex, percent) => {
-  // 确保hex是有效的十六进制颜色
-  if (!hex || typeof hex !== "string") {
-    return "#000000";
-  }
-
-  // 去除#前缀
-  hex = hex.replace("#", "");
-
-  // 处理简写形式
-  if (hex.length === 3) {
-    hex = hex
-      .split("")
-      .map((c) => c + c)
-      .join("");
-  }
-
-  // 解析RGB值
-  let r = parseInt(hex.substring(0, 2), 16);
-  let g = parseInt(hex.substring(2, 4), 16);
-  let b = parseInt(hex.substring(4, 6), 16);
+  // 提取RGB颜色值
+  let r = parseInt(hex.substring(1, 3), 16);
+  let g = parseInt(hex.substring(3, 5), 16);
+  let b = parseInt(hex.substring(5, 7), 16);
 
   // 调整亮度
   r = Math.min(255, Math.max(0, Math.round(r + (r * percent) / 100)));

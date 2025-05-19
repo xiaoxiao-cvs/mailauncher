@@ -82,7 +82,8 @@
             <!-- 实例卡片网格 -->
             <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-2">
                 <div v-for="instance in filteredInstances" :key="instance.name"
-                    class="card bg-base-100 shadow-md hover:shadow-lg transition-all">
+                    class="card bg-base-100 shadow-md hover:shadow-lg transition-all cursor-pointer"
+                    @click="viewInstance(instance)">
                     <div class="card-body p-5">
                         <!-- 实例标题与描述 -->
                         <div class="mb-3">
@@ -116,31 +117,9 @@
                             </span>
                         </div>
 
-                        <!-- 操作按钮区 - 缩小图标并将终端改为重启 -->
+                        <!-- 操作按钮区 -->
                         <div class="card-actions justify-end mt-2">
-                            <div class="flex gap-2">
-                                <!-- 停止/启动按钮 - 显示加载状态 -->
-                                <button class="btn btn-sm btn-square"
-                                    :class="[getActionButtonClass(instance), 'status-btn']"
-                                    @click="toggleInstanceRunning(instance)" :disabled="instance.isLoading"
-                                    :title="instance.status === 'running' ? '停止' : '启动'">
-                                    <span v-if="instance.isLoading" class="loading loading-spinner loading-xs"></span>
-                                    <Icon v-else :icon="instance.status === 'running' ? 'ri:stop-line' : 'ri:play-line'"
-                                        width="12" height="12" />
-                                </button>
-                                <!-- 重启按钮 - 尽量小的图标 -->
-                                <button class="btn btn-sm btn-ghost btn-square" @click="restartInstance(instance)"
-                                    :disabled="instance.isLoading" title="重启实例">
-                                    <span v-if="instance.isRestarting"
-                                        class="loading loading-spinner loading-xs"></span>
-                                    <Icon v-else icon="ri:restart-line" width="12" height="12" />
-                                </button>
-                                <!-- 设置按钮 - 尽量小的图标 -->
-                                <button class="btn btn-sm btn-ghost btn-square" @click="configureInstance(instance)"
-                                    title="设置">
-                                    <Icon icon="ri:settings-3-line" width="12" height="12" />
-                                </button>
-                            </div>
+                            <!-- 添加操作按钮 -->
                         </div>
                     </div>
                 </div>
@@ -153,9 +132,13 @@
 import { ref, computed, onMounted, inject, onUnmounted, watch } from 'vue';
 import { instancesApi } from '@/services/api';
 import { Icon } from '@iconify/vue';
+import toastService from '@/services/toastService';
 
 // 事件总线，用于与其他组件通信
 const emitter = inject('emitter');
+
+// 定义组件的emit
+const emit = defineEmits(['refresh-instances', 'toggle-instance', 'view-instance']);
 
 // 获取当前活动的标签页
 const activeTab = inject('activeTab', ref(''));
@@ -462,37 +445,17 @@ const openTerminal = (instance) => {
     showToast(`打开实例终端: ${instance.name}`, 'info');
 };
 
-// 显示提示消息
+// 显示提示消息 - 替换为toastService
 const showToast = (message, type = 'info') => {
-    // 创建一个toast元素
-    const toast = document.createElement('div');
-    toast.className = `toast toast-end z-50`;
+    try {
+        // 使用服务显示toast
+        toastService[type](message);
+    } catch (error) {
+        console.error('显示Toast失败:', error);
 
-    // 根据类型选择样式
-    let alertClass;
-    switch (type) {
-        case 'success': alertClass = 'alert-success'; break;
-        case 'error': alertClass = 'alert-error'; break;
-        case 'warning': alertClass = 'alert-warning'; break;
-        default: alertClass = 'alert-info';
+        // 备用方案：使用原生alert
+        alert(message);
     }
-
-    toast.innerHTML = `
-    <div class="alert ${alertClass}">
-      <span>${message}</span>
-    </div>
-  `;
-
-    document.body.appendChild(toast);
-
-    // 3秒后移除
-    setTimeout(() => {
-        toast.classList.add('opacity-0');
-        toast.style.transition = 'opacity 0.3s';
-        setTimeout(() => {
-            document.body.removeChild(toast);
-        }, 300);
-    }, 3000);
 };
 
 // 初始化
@@ -512,71 +475,15 @@ onUnmounted(() => {
         emitter.off('refresh-instances', fetchInstances);
     }
 });
+
+// 修复viewInstance方法，正确使用emit
+const viewInstance = (instance) => {
+    emit('view-instance', instance);
+};
 </script>
 
 <style scoped>
-/* Toast动画 */
-.toast {
-    position: fixed;
-    top: 1rem;
-    right: 1rem;
-    transition: opacity 0.3s;
-    opacity: 1;
-}
-
-/* 卡片动画效果 */
-.card {
-    transition: all 0.3s ease;
-}
-
-.card:hover {
-    transform: translateY(-5px);
-}
-
-/* 移除之前的徽章样式 */
-.badge {
-    @apply py-1 px-2;
-    font-size: 0.7rem;
-    background-color: transparent;
-    color: inherit;
-    border: none;
-}
-
-/* 状态指示器样式 */
-.status-indicator {
-    display: flex;
-    align-items: center;
-    padding: 0.25rem 0;
-}
-
-/* 图标颜色 */
-.text-success {
-    color: var(--success);
-}
-
-.text-warning {
-    color: var(--warning);
-}
-
-.text-info {
-    color: var(--info);
-}
-
-/* 添加旋转动画 */
-.animate-spin {
-    animation: spin 2s linear infinite;
-}
-
-@keyframes spin {
-    from {
-        transform: rotate(0deg);
-    }
-
-    to {
-        transform: rotate(360deg);
-    }
-}
-
+/* 移除旧的Toast样式 */
 /* 调整按钮为非常小的尺寸 */
 .btn-square {
     width: 28px !important;

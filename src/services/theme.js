@@ -1,4 +1,5 @@
 import { ref, watch } from "vue";
+import { adjustColorBrightness } from "../utils/formatters";
 
 // 使用深色模式
 export const useDarkMode = (emitter = null) => {
@@ -81,24 +82,9 @@ export const applyThemeColor = (color) => {
 // 更新主题相关颜色变量
 const updateThemeColorVariables = (color, isDark) => {
   try {
-    // 引入颜色亮度调整函数
-    const adjustColor = (hex, percent) => {
-      let r = parseInt(hex.substring(1, 3), 16);
-      let g = parseInt(hex.substring(3, 5), 16);
-      let b = parseInt(hex.substring(5, 7), 16);
-
-      r = Math.min(255, Math.max(0, Math.round(r + (r * percent) / 100)));
-      g = Math.min(255, Math.max(0, Math.round(g + (g * percent) / 100)));
-      b = Math.min(255, Math.max(0, Math.round(b + (b * percent) / 100)));
-
-      return `#${r.toString(16).padStart(2, "0")}${g
-        .toString(16)
-        .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-    };
-
-    // 生成主题色的亮色和暗色变体
-    const lightenColor = adjustColor(color, 20);
-    const darkenColor = adjustColor(color, -20);
+    // 使用导入的颜色亮度调整函数
+    const lightenColor = adjustColorBrightness(color, 20);
+    const darkenColor = adjustColorBrightness(color, -20);
 
     document.documentElement.style.setProperty("--primary-light", lightenColor);
     document.documentElement.style.setProperty("--primary-dark", darkenColor);

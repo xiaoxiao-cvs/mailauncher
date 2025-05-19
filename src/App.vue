@@ -31,6 +31,8 @@ import SettingsDrawer from './components/settings/SettingsDrawer.vue'
 import PluginsView from './views/PluginsView.vue'
 import settingsService from './services/settingsService'
 import { initTheme, applyThemeColor, useDarkMode } from './services/theme'
+import toastService from './services/toastService';
+import { exposeToastForDebugging } from './utils/debugUtils';
 
 // 深色模式状态 - 应用级别的中心管理
 const { darkMode, toggleDarkMode } = useDarkMode();
@@ -90,6 +92,14 @@ provide('sidebarExpanded', sidebarExpanded);
 
 // 提供编辑模式状态给所有组件
 provide('isAnyEditModeActive', isAnyEditModeActive);
+
+// 提供Toast服务给所有组件
+provide('toast', toastService);
+
+// 在开发环境下暴露toast服务到全局用于调试
+if (process.env.NODE_ENV !== 'production') {
+  exposeToastForDebugging(toastService);
+}
 
 // 侧边栏菜单项，更新为DaisyUI风格的图标
 const menuItems = {

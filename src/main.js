@@ -1,12 +1,8 @@
 import { createApp } from "vue";
 import App from "./App.vue";
+import "./assets/css/tailwind.css";
 import "./assets/global.css";
-// 导入Tailwind CSS
-import "./assets/tailwind.css";
-import {
-  checkBackendConnection,
-  startConnectionRetry,
-} from "./utils/backendChecker";
+import toastService from "./services/toastService";
 
 // 导入Iconify
 import { Icon } from "@iconify/vue";
@@ -16,6 +12,12 @@ const app = createApp(App);
 
 // 全局注册Iconify组件
 app.component("Icon", Icon);
+
+// 全局提供toast服务
+app.provide("toast", toastService);
+
+// 也作为全局属性
+app.config.globalProperties.$toast = toastService;
 
 // =======================================
 // CSS变量初始化
@@ -65,6 +67,3 @@ initCssVariables();
 
 // 挂载应用
 app.mount("#app");
-
-// 检查后端连接 - 保留后端检查功能
-checkBackendConnection();

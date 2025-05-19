@@ -1,8 +1,11 @@
 <template>
   <div class="instances-tab">
-    <!-- 实例列表组件 -->
-    <InstancesList :instances="instancesData" @refresh-instances="loadInstances"
-      @toggle-instance="handleToggleInstance" />
+    <!-- 实例详情视图 - 当showInstanceDetail为true时显示 -->
+    <InstanceDetailView v-if="showInstanceDetail" :instance="currentInstance" @back="closeInstanceDetail" />
+
+    <!-- 实例列表组件 - 当showInstanceDetail为false时显示 -->
+    <InstancesList v-else :instances="instancesData" @refresh-instances="loadInstances"
+      @toggle-instance="handleToggleInstance" @view-instance="openInstanceDetail" />
 
     <!-- 实例配置抽屉组件 -->
     <InstanceSettingsDrawer :is-open="isSettingsOpen" :instance-name="currentInstance.name"
@@ -14,6 +17,7 @@
 import { ref, inject, onMounted, onBeforeUnmount } from 'vue';
 import InstancesList from './instances/InstancesList.vue';
 import InstanceSettingsDrawer from './settings/InstanceSettingsDrawer.vue';
+import InstanceDetailView from './instances/InstanceDetailView.vue';
 
 // 获取事件总线
 const emitter = inject('emitter');
@@ -28,6 +32,20 @@ const instancesData = ref([
 // 实例设置抽屉状态
 const isSettingsOpen = ref(false);
 const currentInstance = ref({ name: '', path: '' });
+
+// 实例详情视图状态
+const showInstanceDetail = ref(false);
+
+// 打开实例详情
+const openInstanceDetail = (instance) => {
+  currentInstance.value = instance;
+  showInstanceDetail.value = true;
+};
+
+// 关闭实例详情
+const closeInstanceDetail = () => {
+  showInstanceDetail.value = false;
+};
 
 // 打开实例设置
 const openInstanceSettings = (instance) => {

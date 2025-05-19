@@ -1,0 +1,93 @@
+/* 终端面板样式 */
+.terminal-panel {
+  @apply h-full;
+}
+
+/* 终端标题栏 */
+.terminal-header {
+  @apply p-2 flex items-center justify-between;
+}
+
+/* 终端控制按钮 */
+.terminal-controls {
+  @apply flex gap-1.5;
+}
+
+.control {
+  @apply w-3 h-3 rounded-full;
+}
+
+.close {
+  @apply bg-error;
+}
+
+.minimize {
+  @apply bg-warning;
+}
+
+.maximize {
+  @apply bg-success;
+}
+
+/* 终端标题 */
+.terminal-title {
+  @apply text-sm font-medium select-none flex-1 ml-2;
+}
+
+/* 终端内容区 */
+.terminal-content {
+  @apply flex-1 p-3 font-mono text-sm overflow-y-auto;
+  font-family: "Fira Code", "Courier New", monospace;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  min-height: 400px;
+  max-height: 600px;
+}
+
+/* 终端空状态 */
+.terminal-empty {
+  @apply h-full flex flex-col items-center justify-center text-base-content/50;
+  min-height: 300px;
+}
+
+/* 终端行 */
+.terminal-line {
+  @apply mb-1.5 whitespace-pre-wrap break-all;
+}
+
+/* 时间戳 */
+.terminal-timestamp {
+  @apply text-base-content/40 mr-2 text-xs;
+}
+
+/* 输入区 */
+.terminal-input {
+  @apply mt-auto border-t border-base-content/10;
+}
+
+/* 输入提示符 */
+.terminal-prompt {
+  @apply text-primary font-bold;
+}
+
+/* 标签栏 */
+.terminal-tabs {
+  @apply flex;
+}
+
+.tab {
+  @apply px-4 py-1.5 text-xs rounded-t-lg;
+}
+
+.tab-active {
+  @apply bg-neutral text-neutral-content;
+}
+
+/* 响应式样式 */
+@media (max-width: 768px) {
+  .terminal-content {
+    min-height: 300px;
+    max-height: 400px;
+  }
+}

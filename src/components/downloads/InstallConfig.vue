@@ -56,17 +56,29 @@
         <!-- 调整复选框顺序: 先适配器，后NapCat -->
         <div class="config-options">
           <div class="option-item">
-            <el-checkbox v-model="installAdapter">
-              <div class="option-title">安装 NapCat 适配器</div>
-              <div class="option-desc">安装 MaiBot 的 NapCat 适配器</div>
-            </el-checkbox>
+            <!-- 将 el-checkbox 替换为 DaisyUI checkbox -->
+            <div class="form-control">
+              <label class="label cursor-pointer justify-start gap-2">
+                <input type="checkbox" v-model="installAdapter" class="checkbox checkbox-primary" />
+                <div>
+                  <div class="option-title">安装 NapCat 适配器</div>
+                  <div class="option-desc">安装 MaiBot 的 NapCat 适配器</div>
+                </div>
+              </label>
+            </div>
           </div>
 
           <div class="option-item">
-            <el-checkbox v-model="installNapcat">
-              <div class="option-title">安装 NapCat</div>
-              <div class="option-desc">安装 NapCat 作为机器人连接器</div>
-            </el-checkbox>
+            <!-- 将 el-checkbox 替换为 DaisyUI checkbox -->
+            <div class="form-control">
+              <label class="label cursor-pointer justify-start gap-2">
+                <input type="checkbox" v-model="installNapcat" class="checkbox checkbox-primary" />
+                <div>
+                  <div class="option-title">安装 NapCat</div>
+                  <div class="option-desc">安装 NapCat 作为机器人连接器</div>
+                </div>
+              </label>
+            </div>
           </div>
         </div>
 
