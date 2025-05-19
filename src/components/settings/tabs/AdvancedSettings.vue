@@ -2,50 +2,55 @@
     <div class="settings-tab-content">
         <h3 class="settings-section-title">高级设置</h3>
 
-        <el-card class="settings-card">
-            <div class="setting-item">
-                <span class="setting-label">开发者模式</span>
-                <div class="setting-control">
-                    <el-switch v-model="developerMode" />
+        <div class="card bg-base-100 shadow mb-4">
+            <div class="card-body">
+                <div class="setting-item">
+                    <span class="setting-label">开发者模式</span>
+                    <div class="setting-control">
+                        <input type="checkbox" class="toggle toggle-primary" v-model="developerMode" />
+                    </div>
                 </div>
-            </div>
 
-            <div class="setting-item">
-                <span class="setting-label">API端点</span>
-                <div class="setting-control">
-                    <el-input v-model="apiEndpoint" placeholder="API地址" :disabled="!developerMode" />
+                <div class="setting-item">
+                    <span class="setting-label">API端点</span>
+                    <div class="setting-control">
+                        <input type="text" class="input input-bordered w-full" v-model="apiEndpoint" placeholder="API地址"
+                            :disabled="!developerMode" />
+                    </div>
                 </div>
-            </div>
 
-            <div class="setting-item">
-                <span class="setting-label">使用模拟数据</span>
-                <div class="setting-control">
-                    <el-switch v-model="useMockData" :disabled="!developerMode" />
+                <div class="setting-item">
+                    <span class="setting-label">使用模拟数据</span>
+                    <div class="setting-control">
+                        <input type="checkbox" class="toggle toggle-primary" v-model="useMockData"
+                            :disabled="!developerMode" />
+                    </div>
                 </div>
             </div>
-        </el-card>
+        </div>
 
-        <el-card class="settings-card" v-if="developerMode">
-            <div class="setting-item">
-                <span class="setting-label">打开开发工具</span>
-                <div class="setting-control">
-                    <el-button type="warning" @click="openDevTools">打开开发工具</el-button>
+        <div class="card bg-base-100 shadow" v-if="developerMode">
+            <div class="card-body">
+                <div class="setting-item">
+                    <span class="setting-label">打开开发工具</span>
+                    <div class="setting-control">
+                        <button class="btn btn-warning" @click="openDevTools">打开开发工具</button>
+                    </div>
                 </div>
-            </div>
 
-            <div class="setting-item">
-                <span class="setting-label">导出日志</span>
-                <div class="setting-control">
-                    <el-button type="primary" @click="exportLogs">导出日志</el-button>
+                <div class="setting-item">
+                    <span class="setting-label">导出日志</span>
+                    <div class="setting-control">
+                        <button class="btn btn-primary" @click="exportLogs">导出日志</button>
+                    </div>
                 </div>
             </div>
-        </el-card>
+        </div>
     </div>
 </template>
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
-import { ElMessage } from 'element-plus';
 
 // 设置状态
 const developerMode = ref(false);
@@ -59,9 +64,9 @@ onMounted(() => {
         developerMode.value = savedDevMode === 'true';
     }
 
-    const savedEndpoint = localStorage.getItem('apiEndpoint');
-    if (savedEndpoint) {
-        apiEndpoint.value = savedEndpoint;
+    const savedApiEndpoint = localStorage.getItem('apiEndpoint');
+    if (savedApiEndpoint) {
+        apiEndpoint.value = savedApiEndpoint;
     }
 
     const savedMockData = localStorage.getItem('useMockData');
@@ -70,62 +75,67 @@ onMounted(() => {
     }
 });
 
-// 监听设置变化
-watch(developerMode, (newValue) => {
-    localStorage.setItem('developerMode', newValue);
+// 保存设置变更
+watch([developerMode, apiEndpoint, useMockData], () => {
+    localStorage.setItem('developerMode', developerMode.value);
+    localStorage.setItem('apiEndpoint', apiEndpoint.value);
+    localStorage.setItem('useMockData', useMockData.value);
 });
 
-watch(apiEndpoint, (newValue) => {
-    localStorage.setItem('apiEndpoint', newValue);
-});
-
-watch(useMockData, (newValue) => {
-    localStorage.setItem('useMockData', newValue);
-    window._useMockData = newValue;
-});
-
-// 打开开发工具
+// 打开开发者工具
 const openDevTools = () => {
-    // 模拟打开开发者工具的操作
-    if (window.electronAPI && window.electronAPI.openDevTools) {
-        window.electronAPI.openDevTools();
-        ElMessage.success('开发者工具已打开');
+    if (window.electron) {
+        window.electron.openDevTools();
     } else {
-        ElMessage.warning('开发者工具在Web环境中不可用');
-        window.open('about:blank', '_blank');
+        // 如果不在Electron环境，用浏览器console代替
+        console.log('开发者工具在浏览器中可通过F12或右键检查打开');
+        showToast('请使用F12打开浏览器开发者工具');
     }
 };
 
 // 导出日志
 const exportLogs = () => {
-    // 模拟导出日志的操作
-    ElMessage.success('日志导出功能模拟成功');
+    // 实现日志导出功能
+    showToast('日志导出成功');
+};
+
+// 显示Toast消息
+const showToast = (message) => {
+    // 创建Toast元素
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-top toast-end';
+    toast.innerHTML = `
+        <div class="alert alert-info">
+            <span>${message}</span>
+        </div>
+    `;
+    document.body.appendChild(toast);
+
+    // 3秒后移除
+    setTimeout(() => {
+        document.body.removeChild(toast);
+    }, 3000);
 };
 </script>
 
 <style scoped>
 .settings-tab-content {
     animation: fadeIn 0.5s ease;
+    padding: 1rem;
 }
 
 .settings-section-title {
-    margin-bottom: 20px;
-    color: var(--el-text-color-primary);
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
     font-weight: 500;
-}
-
-.settings-card {
-    margin-bottom: 20px;
-    border-radius: 8px;
-    overflow: hidden;
 }
 
 .setting-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 0;
-    border-bottom: 1px solid var(--el-border-color-lighter);
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(var(--b3, var(--fallback-b3, 0, 0, 0)), 0.1);
 }
 
 .setting-item:last-child {
@@ -133,33 +143,13 @@ const exportLogs = () => {
 }
 
 .setting-label {
-    font-size: 14px;
-    color: var(--el-text-color-primary);
+    font-size: 0.95rem;
 }
 
 .setting-control {
     display: flex;
     align-items: center;
-}
-
-.setting-control .el-input {
-    width: 250px;
-}
-
-@media (max-width: 768px) {
-    .setting-item {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .setting-control {
-        margin-top: 10px;
-        width: 100%;
-    }
-
-    .setting-control .el-input {
-        width: 100%;
-    }
+    gap: 0.5rem;
 }
 
 @keyframes fadeIn {
@@ -167,10 +157,16 @@ const exportLogs = () => {
         opacity: 0;
         transform: translateY(20px);
     }
-
     to {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+.toast {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
 }
 </style>

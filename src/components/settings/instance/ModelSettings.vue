@@ -2,94 +2,105 @@
     <div class="settings-tab-content">
         <h3 class="settings-section-title">模型配置</h3>
 
-        <el-card class="settings-card">
-            <div class="card-header">
-                <span>推理模型设置</span>
-            </div>
-            <div class="setting-item">
-                <span class="setting-label">推理模型</span>
-                <div class="setting-control">
-                    <el-select v-model="localConfig.llm_reasoning.name" placeholder="选择模型" style="width: 250px">
-                        <el-option v-for="model in reasoningModels" :key="model.value" :label="model.label"
-                            :value="model.value" />
-                    </el-select>
+        <div class="card bg-base-100 shadow mb-4">
+            <div class="card-body">
+                <h3 class="card-title">推理模型设置</h3>
+                <div class="setting-item">
+                    <span class="setting-label">推理模型</span>
+                    <div class="setting-control">
+                        <select class="select select-bordered w-full max-w-xs" v-model="localConfig.llm_reasoning.name">
+                            <option v-for="model in reasoningModels" :key="model.value" :value="model.value">{{
+                                model.label }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <span class="setting-label">服务提供商</span>
+                    <div class="setting-control">
+                        <select class="select select-bordered w-full max-w-xs"
+                            v-model="localConfig.llm_reasoning.provider">
+                            <option v-for="provider in providers" :key="provider.value" :value="provider.value">{{
+                                provider.label }}</option>
+                        </select>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <div class="setting-item">
-                <span class="setting-label">服务提供商</span>
-                <div class="setting-control">
-                    <el-select v-model="localConfig.llm_reasoning.provider" placeholder="选择提供商" style="width: 250px">
-                        <el-option v-for="provider in providers" :key="provider.value" :label="provider.label"
-                            :value="provider.value" />
-                    </el-select>
+        <div class="card bg-base-100 shadow mb-4">
+            <div class="card-body">
+                <h3 class="card-title">常规模型设置</h3>
+                <div class="setting-item">
+                    <span class="setting-label">常规模型</span>
+                    <div class="setting-control">
+                        <select class="select select-bordered w-full max-w-xs" v-model="localConfig.llm_normal.name">
+                            <option v-for="model in normalModels" :key="model.value" :value="model.value">{{ model.label
+                                }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <span class="setting-label">服务提供商</span>
+                    <div class="setting-control">
+                        <select class="select select-bordered w-full max-w-xs"
+                            v-model="localConfig.llm_normal.provider">
+                            <option v-for="provider in providers" :key="provider.value" :value="provider.value">{{
+                                provider.label }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="setting-item vertical-item">
+                    <span class="setting-label">温度系数</span>
+                    <div class="setting-control slider-control">
+                        <input type="range" min="0" max="1" step="0.05" class="range range-primary w-full"
+                            v-model.number="localConfig.llm_normal.temp" />
+                        <div class="flex justify-between w-full px-2">
+                            <span>{{ localConfig.llm_normal.temp.toFixed(2) }}</span>
+                            <span>0.5</span>
+                            <span>1.0</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </el-card>
+        </div>
 
-        <el-card class="settings-card">
-            <div class="card-header">
-                <span>常规模型设置</span>
-            </div>
-            <div class="setting-item">
-                <span class="setting-label">常规模型</span>
-                <div class="setting-control">
-                    <el-select v-model="localConfig.llm_normal.name" placeholder="选择模型" style="width: 250px">
-                        <el-option v-for="model in normalModels" :key="model.value" :label="model.label"
-                            :value="model.value" />
-                    </el-select>
+        <div class="card bg-base-100 shadow mb-4">
+            <div class="card-body">
+                <h3 class="card-title">情感流模型设置</h3>
+                <div class="setting-item">
+                    <span class="setting-label">情感流模型</span>
+                    <div class="setting-control">
+                        <select class="select select-bordered w-full max-w-xs" v-model="localConfig.llm_heartflow.name">
+                            <option v-for="model in heartflowModels" :key="model.value" :value="model.value">{{
+                                model.label }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <span class="setting-label">服务提供商</span>
+                    <div class="setting-control">
+                        <select class="select select-bordered w-full max-w-xs"
+                            v-model="localConfig.llm_heartflow.provider">
+                            <option v-for="provider in providers" :key="provider.value" :value="provider.value">{{
+                                provider.label }}</option>
+                        </select>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <div class="setting-item">
-                <span class="setting-label">服务提供商</span>
-                <div class="setting-control">
-                    <el-select v-model="localConfig.llm_normal.provider" placeholder="选择提供商" style="width: 250px">
-                        <el-option v-for="provider in providers" :key="provider.value" :label="provider.label"
-                            :value="provider.value" />
-                    </el-select>
+        <div class="alert alert-info mt-4">
+            <div>
+                <i class="i-mdi-information-outline"></i>
+                <div>
+                    <p>推理模型用于需要深度思考的场景，常规模型用于日常对话，情感流模型用于增强情感表达。</p>
+                    <p>温度系数越高，回复越多样化但可能偏离主题；越低则回复更加确定和严谨。</p>
                 </div>
             </div>
-
-            <div class="setting-item">
-                <span class="setting-label">温度系数</span>
-                <div class="setting-control slider-control">
-                    <el-slider v-model="localConfig.llm_normal.temp" :min="0" :max="1" :step="0.05"
-                        :format-tooltip="value => value.toFixed(2)" show-input />
-                </div>
-            </div>
-        </el-card>
-
-        <el-card class="settings-card">
-            <div class="card-header">
-                <span>情感流模型设置</span>
-            </div>
-            <div class="setting-item">
-                <span class="setting-label">情感流模型</span>
-                <div class="setting-control">
-                    <el-select v-model="localConfig.llm_heartflow.name" placeholder="选择模型" style="width: 250px">
-                        <el-option v-for="model in heartflowModels" :key="model.value" :label="model.label"
-                            :value="model.value" />
-                    </el-select>
-                </div>
-            </div>
-
-            <div class="setting-item">
-                <span class="setting-label">服务提供商</span>
-                <div class="setting-control">
-                    <el-select v-model="localConfig.llm_heartflow.provider" placeholder="选择提供商" style="width: 250px">
-                        <el-option v-for="provider in providers" :key="provider.value" :label="provider.label"
-                            :value="provider.value" />
-                    </el-select>
-                </div>
-            </div>
-        </el-card>
-
-        <div class="setting-description">
-            <el-alert type="info" :closable="false">
-                <p>推理模型用于需要深度思考的场景，常规模型用于日常对话，情感流模型用于增强情感表达</p>
-                <p>温度系数越高，回复越多样化但可能偏离主题；越低则回复更加确定和严谨</p>
-            </el-alert>
         </div>
     </div>
 </template>
@@ -175,32 +186,26 @@ watch(localConfig, () => {
 <style scoped>
 .settings-tab-content {
     animation: fadeIn 0.5s ease;
+    padding: 1rem;
 }
 
 .settings-section-title {
-    margin-bottom: 20px;
-    color: var(--el-text-color-primary);
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
     font-weight: 500;
 }
 
-.settings-card {
-    margin-bottom: 20px;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.card-header {
-    font-weight: 500;
-    margin-bottom: 15px;
-    color: var(--el-text-color-primary);
+.vertical-item {
+    flex-direction: column;
+    align-items: flex-start;
 }
 
 .setting-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 0;
-    border-bottom: 1px solid var(--el-border-color-lighter);
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(var(--b3, var(--fallback-b3, 0, 0, 0)), 0.1);
 }
 
 .setting-item:last-child {
@@ -208,8 +213,7 @@ watch(localConfig, () => {
 }
 
 .setting-label {
-    font-size: 14px;
-    color: var(--el-text-color-primary);
+    font-size: 0.95rem;
 }
 
 .setting-control {
@@ -218,11 +222,8 @@ watch(localConfig, () => {
 }
 
 .slider-control {
-    width: 250px;
-}
-
-.setting-description {
-    margin-top: 20px;
+    width: 100%;
+    max-width: 16rem;
 }
 
 @keyframes fadeIn {

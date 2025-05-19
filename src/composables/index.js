@@ -3,7 +3,10 @@ import { WebSocketService } from "../services/websocket";
 import * as instancesApi from "../api/instances";
 import * as logsApi from "../api/logs";
 import * as chartService from "../services/charts";
-import { useDarkMode, useTheme } from "../services/theme";
+import {
+  useDarkMode as useThemeDarkMode,
+  useTheme as useThemeService,
+} from "../services/theme";
 import { formatTime } from "../utils/formatters";
 import eventBus from "../services/eventBus";
 
@@ -363,106 +366,18 @@ export const useCharts = (options = {}) => {
 };
 
 /**
- * 深色模式组合式API
+ * 深色模式组合式API - 移除重复代码，使用服务中的实现
  */
-export const useDarkMode = () => {
-  const isDarkMode = ref(false);
-
-  onMounted(() => {
-    // 检查本地存储或系统偏好
-    const savedMode = localStorage.getItem("darkMode");
-    if (savedMode !== null) {
-      isDarkMode.value = savedMode === "true";
-    } else {
-      // 检查系统偏好
-      isDarkMode.value = window.matchMedia(
-        "(prefers-color-scheme: dark)"
-      ).matches;
-    }
-
-    // 应用深色模式
-    applyDarkMode(isDarkMode.value);
-  });
-
-  const toggleDarkMode = () => {
-    isDarkMode.value = !isDarkMode.value;
-    localStorage.setItem("darkMode", isDarkMode.value.toString());
-    applyDarkMode(isDarkMode.value);
-  };
-
-  const applyDarkMode = (isDark) => {
-    if (isDark) {
-      document.documentElement.setAttribute("data-theme", "dark");
-      document.documentElement.classList.add("dark-mode");
-    } else {
-      document.documentElement.setAttribute("data-theme", "light");
-      document.documentElement.classList.remove("dark-mode");
-    }
-  };
-
-  return {
-    isDarkMode,
-    toggleDarkMode,
-  };
+export const useDarkMode = (emitter) => {
+  return useThemeDarkMode(emitter);
 };
 
 /**
- * 主题组合式API
+ * 主题组合式API - 移除重复代码，使用服务中的实现
  */
 export const useTheme = () => {
-  const currentTheme = ref(localStorage.getItem("theme") || "light");
-  const availableThemes = ref([
-    { name: "light", color: "#e5e7eb", label: "明亮" },
-    { name: "dark", color: "#2a303c", label: "暗黑" },
-    { name: "cupcake", color: "#65c3c8", label: "蛋糕" },
-    { name: "bumblebee", color: "#e0a82e", label: "大黄蜂" },
-    { name: "emerald", color: "#66cc8a", label: "翡翠" },
-    { name: "corporate", color: "#4b6bfb", label: "企业" },
-    { name: "synthwave", color: "#e779c1", label: "合成波" },
-    { name: "retro", color: "#ef9995", label: "复古" },
-    { name: "cyberpunk", color: "#ff7598", label: "赛博朋克" },
-    // ...existing code...
-  ]);
-
-  onMounted(() => {
-    if (savedTheme) {
-      currentTheme.value = savedTheme;
-      applyTheme(savedTheme);
-    }
-  });
-
-  const setTheme = (themeName) => {
-    const theme = availableThemes.value.find((t) => t.name === themeName);
-    if (theme) {
-      currentTheme.value = themeName;
-      localStorage.setItem("theme", themeName);
-      applyTheme(themeName);
-
-      // 发送主题变化事件
-      if (emitter) {
-        emitter.emit("theme-changed", themeName);
-      }
-    }
-  };
-
-  const applyTheme = (themeName) => {
-    const theme = availableThemes.value.find((t) => t.name === themeName);
-    if (theme) {
-      document.documentElement.setAttribute("data-theme", themeName);
-      document.documentElement.style.setProperty("--p", theme.color);
-      // 为DaisyUI设置主色变量
-      document.documentElement.style.setProperty("--primary", theme.color);
-    }
-  };
-
-  return {
-    currentTheme,
-    availableThemes,
-    setTheme,
-  };
+  return useThemeService();
 };
-
-export { useDarkMode, useTheme };
 
 export default {
   useWebSocketLogs,

@@ -105,12 +105,27 @@ const resetSettings = () => {
     "animationsEnabled",
     "sidebarExpanded",
     "dashboard-layout",
+    "themeColor",
+    "fontSize",
+    "layoutDensity",
   ];
 
   // 逐项重置
   settingsToReset.forEach((key) => {
     localStorage.removeItem(key);
   });
+
+  // 重置主题为light
+  document.documentElement.setAttribute("data-theme", "light");
+  document.documentElement.classList.remove("dark-mode");
+
+  // 移除自定义主题色
+  document.documentElement.style.removeProperty("--p");
+  document.documentElement.style.removeProperty("--primary");
+  document.documentElement.style.removeProperty("--primary-color");
+
+  // 触发主题重置事件
+  window.dispatchEvent(new CustomEvent("theme-reset"));
 
   // 返回true表示重置成功
   return true;

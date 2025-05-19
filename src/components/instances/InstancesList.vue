@@ -1,132 +1,130 @@
 <template>
     <div class="instances-container">
-        <!-- 顶部导航栏 - 修改样式以匹配侧边栏 -->
-        <div class="header-bar">
-            <div class="title-area">
-                <IconifyIcon icon="mdi:view-list" color="primary" size="lg" />
-                <span class="header-title">应用实例</span>
-            </div>
-
-            <div class="search-area">
-                <el-dropdown trigger="click" @command="handleFilterChange">
-                    <div class="filter-button">
-                        {{ filterLabel }}
-                        <IconifyIcon icon="mdi:chevron-down" size="sm" />
-                    </div>
-                    <template #dropdown>
-                        <el-dropdown-menu>
-                            <el-dropdown-item command="all">所有</el-dropdown-item>
-                            <el-dropdown-item command="not_running">未运行</el-dropdown-item>
-                            <el-dropdown-item command="stopping">停止中</el-dropdown-item>
-                            <el-dropdown-item command="starting">启动中</el-dropdown-item>
-                            <el-dropdown-item command="running">运行中</el-dropdown-item>
-                            <el-dropdown-item command="maintenance">维护中</el-dropdown-item>
-                        </el-dropdown-menu>
-                    </template>
-                </el-dropdown>
-
-                <div class="search-box">
-                    <el-input v-model="searchQuery" placeholder="根据应用名字搜索" clearable>
-                        <template #suffix>
-                            <IconifyIcon icon="mdi:magnify" />
-                        </template>
-                    </el-input>
+        <!-- 顶部导航栏 -->
+        <div class="navbar bg-base-200 rounded-box shadow-sm mb-6">
+            <div class="navbar-start">
+                <div class="flex items-center gap-3">
+                    <i class="icon icon-list text-primary text-xl"></i>
+                    <h2 class="text-xl font-bold">应用实例</h2>
                 </div>
             </div>
+            <div class="navbar-center">
+                <div class="flex items-center gap-3">
+                    <!-- 过滤下拉菜单 -->
+                    <div class="dropdown dropdown-hover">
+                        <div tabindex="0" role="button" class="btn btn-sm">
+                            {{ filterLabel }} <i class="icon icon-chevron-down"></i>
+                        </div>
+                        <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                            <li><a @click="handleFilterChange('all')">所有</a></li>
+                            <li><a @click="handleFilterChange('not_running')">未运行</a></li>
+                            <li><a @click="handleFilterChange('stopping')">停止中</a></li>
+                            <li><a @click="handleFilterChange('starting')">启动中</a></li>
+                            <li><a @click="handleFilterChange('running')">运行中</a></li>
+                            <li><a @click="handleFilterChange('maintenance')">维护中</a></li>
+                        </ul>
+                    </div>
 
-            <div class="action-area">
-                <el-button plain size="default" @click="refreshInstances" class="action-btn">
-                    <IconifyIcon icon="mdi:refresh" />
-                    刷新
-                </el-button>
-                <el-button plain size="default" @click="batchOperation" class="action-btn">批量操作</el-button>
-                <el-button type="primary" class="new-app-btn" @click="createNewInstance">新建应用</el-button>
+                    <!-- 搜索框 -->
+                    <div class="form-control">
+                        <div class="input-group">
+                            <input v-model="searchQuery" type="text" placeholder="根据应用名字搜索"
+                                class="input input-bordered input-sm w-64" />
+                            <button class="btn btn-sm btn-square">
+                                <i class="icon icon-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="navbar-end">
+                <div class="flex items-center gap-2">
+                    <button class="btn btn-sm btn-outline" @click="refreshInstances">
+                        <i class="icon icon-refresh"></i> 刷新
+                    </button>
+                    <button class="btn btn-sm btn-outline" @click="batchOperation">批量操作</button>
+                    <button class="btn btn-sm btn-primary" @click="createNewInstance">新建应用</button>
+                </div>
             </div>
         </div>
 
         <!-- 实例列表区域 -->
         <div class="instances-list">
             <!-- 加载状态 -->
-            <div v-if="loading" class="loading-container">
-                <el-skeleton :rows="3" animated />
+            <div v-if="loading" class="w-full p-8">
+                <div class="flex flex-col gap-4">
+                    <div class="skeleton h-12 w-full"></div>
+                    <div class="skeleton h-32 w-full"></div>
+                    <div class="skeleton h-32 w-full"></div>
+                </div>
             </div>
 
             <!-- 空状态 -->
-            <el-empty v-else-if="filteredInstances.length === 0" description="没有找到应用实例" class="empty-state">
-                <el-button type="primary" @click="goToDownloads">新建应用</el-button>
-            </el-empty>
+            <div v-else-if="filteredInstances.length === 0"
+                class="empty-state flex flex-col items-center justify-center p-12">
+                <div class="text-center">
+                    <i class="icon icon-alert-circle text-4xl opacity-30 mb-4"></i>
+                    <h3 class="font-bold text-lg mb-2">没有找到应用实例</h3>
+                    <p class="text-sm opacity-60 mb-4">尝试调整过滤条件或创建新的实例</p>
+                    <button class="btn btn-primary" @click="goToDownloads">新建应用</button>
+                </div>
+            </div>
 
-            <!-- 实例卡片列表 - 卡片式布局 -->
-            <div v-else class="instances-grid">
-                <el-card v-for="instance in filteredInstances" :key="instance.name" class="instance-card"
-                    shadow="hover">
-                    <div class="instance-header">
-                        <span class="instance-name">{{ instance.name }}</span>
-                        <span class="instance-desc">Maibot-Napcat_ada</span>
-                    </div>
-
-                    <div class="instance-info">
-                        <div class="info-item">
-                            <span class="info-label">安装时间:</span>
-                            <span class="info-value">{{ instance.createdAt || instance.installedAt || '2023-05-13 19:56:18' }}</span>
+            <!-- 实例卡片网格 -->
+            <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-2">
+                <div v-for="instance in filteredInstances" :key="instance.name"
+                    class="card bg-base-100 shadow-md hover:shadow-lg transition-all">
+                    <div class="card-body p-5">
+                        <!-- 实例标题与描述 -->
+                        <div class="mb-3">
+                            <h3 class="card-title text-lg">{{ instance.name }}</h3>
+                            <p class="text-sm opacity-70">Maibot-Napcat_ada</p>
                         </div>
-                        <div class="info-item">
-                            <span class="info-label">总运行时长:</span>
-                            <span class="info-value">{{ instance.totalRunningTime || '48小时36分钟' }}</span>
-                        </div>
-                    </div>
 
-                    <div class="instance-status">
-                        <div class="status-indicator">
-                            <!-- 替换为简单状态圆点 -->
-                            <span class="status-dot" :class="getInstanceStatusClass(instance)"></span>
-                            <span class="status-text" :class="getInstanceStatusClass(instance)">
-                                {{ getInstanceStatusText(instance) }}
+                        <!-- 实例信息 -->
+                        <div class="space-y-2 mb-4 text-sm">
+                            <div class="flex justify-between">
+                                <span class="opacity-70">安装时间:</span>
+                                <span>{{ instance.createdAt || instance.installedAt || '2023-05-13 19:56:18' }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="opacity-70">总运行时长:</span>
+                                <span>{{ instance.totalRunningTime || '48小时36分钟' }}</span>
+                            </div>
+                        </div>
+
+                        <!-- 状态指示器 -->
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="badge" :class="getStatusBadgeClass(instance.status)">
+                                {{ getStatusText(instance.status) }}
                             </span>
                         </div>
-                    </div>
 
-                    <!-- 重新设计的实例操作按钮区域 - 移至卡片右下角 -->
-                    <div class="instance-actions-new">
-                        <div class="action-group">
-                            <!-- 启动/停止按钮 - 使用Iconify图标 -->
-                            <el-tooltip :content="instance.status === 'running' ? '停止' : '启动'" placement="top"
-                                :show-after="500">
-                                <el-button :type="instance.status === 'running' ? 'danger' : 'success'" circle
+                        <!-- 操作按钮区 -->
+                        <div class="card-actions justify-between">
+                            <div class="btn-group">
+                                <button class="btn btn-sm"
+                                    :class="instance.status === 'running' ? 'btn-error' : 'btn-success'"
                                     @click="toggleInstanceRunning(instance)">
-                                    <IconifyIcon :icon="instance.status === 'running' ? 'mdi:stop' : 'mdi:play'" />
-                                </el-button>
-                            </el-tooltip>
-
-                            <!-- 重启按钮 - 使用Iconify图标 -->
-                            <el-tooltip content="重启" placement="top" :show-after="500">
-                                <el-button circle :disabled="instance.status !== 'running'"
+                                    {{ instance.status === 'running' ? '停止' : '启动' }}
+                                </button>
+                                <button class="btn btn-sm btn-outline" :disabled="instance.status !== 'running'"
                                     @click="restartInstance(instance)">
-                                    <IconifyIcon icon="mdi:refresh" />
-                                </el-button>
-                            </el-tooltip>
-                        </div>
+                                    重启
+                                </button>
+                            </div>
 
-                        <!-- 分隔线 -->
-                        <div class="action-divider"></div>
-
-                        <div class="action-group">
-                            <!-- 终端按钮 - 使用Iconify图标 -->
-                            <el-tooltip content="终端" placement="top" :show-after="500">
-                                <el-button circle @click="openTerminal(instance)">
-                                    <IconifyIcon icon="mdi:console" />
-                                </el-button>
-                            </el-tooltip>
-
-                            <!-- 设置按钮 - 使用Iconify图标 -->
-                            <el-tooltip content="设置" placement="top" :show-after="500">
-                                <el-button circle @click="configureInstance(instance)">
-                                    <IconifyIcon icon="mdi:cog" />
-                                </el-button>
-                            </el-tooltip>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline" @click="openTerminal(instance)">
+                                    <i class="icon icon-terminal"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline" @click="configureInstance(instance)">
+                                    <i class="icon icon-settings"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </el-card>
+                </div>
             </div>
         </div>
     </div>
@@ -134,10 +132,7 @@
 
 <script setup>
 import { ref, computed, onMounted, inject, onUnmounted, watch } from 'vue';
-// 移除可能导致问题的图标导入
-import { ElMessage, ElMessageBox } from 'element-plus';
 import { instancesApi } from '@/services/api';
-import IconifyIcon from '../common/IconifyIcon.vue';
 
 // 事件总线，用于与其他组件通信
 const emitter = inject('emitter');
@@ -287,20 +282,20 @@ const refreshInstances = () => {
     fetchInstances();
 };
 
-// 获取实例状态类
-const getInstanceStatusClass = (instance) => {
-    switch (instance.status) {
-        case 'running': return 'status-running';
-        case 'starting': return 'status-starting';
-        case 'stopping': return 'status-stopping';
-        case 'maintenance': return 'status-maintenance';
-        default: return 'status-stopped';
+// 获取状态徽章类
+const getStatusBadgeClass = (status) => {
+    switch (status) {
+        case 'running': return 'badge-success';
+        case 'starting': return 'badge-warning';
+        case 'stopping': return 'badge-error';
+        case 'maintenance': return 'badge-info';
+        default: return 'badge-ghost';
     }
 };
 
 // 获取实例状态文本
-const getInstanceStatusText = (instance) => {
-    switch (instance.status) {
+const getStatusText = (status) => {
+    switch (status) {
         case 'running': return '运行中';
         case 'starting': return '启动中';
         case 'stopping': return '停止中';
@@ -317,28 +312,15 @@ const handleFilterChange = (command) => {
 
 // 批量操作
 const batchOperation = () => {
-    ElMessage.info('批量操作功能开发中');
-};
-
-// 查看实例详情
-const viewInstanceDetail = (instance) => {
-    ElMessage.info(`查看实例详情: ${instance.name}`);
-};
-
-// 查看日志
-const viewInstanceLogs = (instance) => {
-    ElMessage.info(`查看实例日志: ${instance.name}`);
+    showToast('批量操作功能开发中', 'info');
 };
 
 // 配置实例
 const configureInstance = (instance) => {
-    // 旧代码: ElMessage.info(`配置实例: ${instance.name}`);
-
-    // 新代码: 通过emitter触发实例配置抽屉打开事件
     if (emitter) {
         emitter.emit('open-instance-settings', {
-            instanceName: instance.name,
-            instancePath: instance.path || ''
+            name: instance.name,
+            path: instance.path || ''
         });
     }
 };
@@ -350,47 +332,6 @@ const createNewInstance = () => {
     }
 };
 
-// 确认删除实例
-const confirmDeleteInstance = (instance) => {
-    ElMessageBox.confirm(
-        `确定要删除实例 "${instance.name}" 吗？此操作不可逆。`,
-        '删除确认',
-        {
-            confirmButtonText: '确认删除',
-            cancelButtonText: '取消',
-            type: 'warning',
-        }
-    )
-        .then(() => {
-            deleteInstance(instance);
-        })
-        .catch(() => {
-            // 用户取消
-        });
-};
-
-// 删除实例
-const deleteInstance = async (instance) => {
-    try {
-        const response = await instancesApi.deleteInstance(instance.name);
-        if (response.data && response.data.success) {
-            ElMessage.success(`实例 ${instance.name} 已删除`);
-            instances.value = instances.value.filter(i => i.name !== instance.name);
-        } else {
-            ElMessage.error('删除实例失败');
-        }
-    } catch (error) {
-        console.error('删除实例失败:', error);
-        ElMessage.error('删除实例失败: ' + (error.response?.data?.message || error.message));
-
-        // 在模拟模式下模拟删除成功
-        if (localStorage.getItem('useMockData') === 'true') {
-            ElMessage.success(`(模拟模式) 实例 ${instance.name} 已删除`);
-            instances.value = instances.value.filter(i => i.name !== instance.name);
-        }
-    }
-};
-
 // 跳转到下载页面
 const goToDownloads = () => {
     if (emitter) {
@@ -398,7 +339,7 @@ const goToDownloads = () => {
     }
 };
 
-// 添加新方法: 切换实例运行状态
+// 切换实例运行状态
 const toggleInstanceRunning = (instance) => {
     if (instance.status === 'running') {
         stopInstance(instance);
@@ -407,10 +348,10 @@ const toggleInstanceRunning = (instance) => {
     }
 };
 
-// 添加新方法: 启动实例
+// 启动实例
 const startInstance = async (instance) => {
     try {
-        ElMessage.info(`正在启动实例: ${instance.name}`);
+        showToast(`正在启动实例: ${instance.name}`, 'info');
 
         // 模拟实例状态改变
         instance.status = 'starting';
@@ -418,21 +359,21 @@ const startInstance = async (instance) => {
         // 模拟延迟
         setTimeout(() => {
             instance.status = 'running';
-            ElMessage.success(`实例 ${instance.name} 已启动`);
+            showToast(`实例 ${instance.name} 已启动`, 'success');
         }, 2000);
 
         // 在真实环境中应该调用API
         // await instancesApi.startInstance(instance.name);
     } catch (error) {
         console.error('启动实例失败:', error);
-        ElMessage.error(`启动实例失败: ${error.message}`);
+        showToast(`启动实例失败: ${error.message}`, 'error');
     }
 };
 
-// 添加新方法: 停止实例
+// 停止实例
 const stopInstance = async (instance) => {
     try {
-        ElMessage.info(`正在停止实例: ${instance.name}`);
+        showToast(`正在停止实例: ${instance.name}`, 'info');
 
         // 模拟实例状态改变
         instance.status = 'stopping';
@@ -440,26 +381,26 @@ const stopInstance = async (instance) => {
         // 模拟延迟
         setTimeout(() => {
             instance.status = 'stopped';
-            ElMessage.success(`实例 ${instance.name} 已停止`);
+            showToast(`实例 ${instance.name} 已停止`, 'success');
         }, 2000);
 
         // 在真实环境中应该调用API
         // await instancesApi.stopInstance(instance.name);
     } catch (error) {
         console.error('停止实例失败:', error);
-        ElMessage.error(`停止实例失败: ${error.message}`);
+        showToast(`停止实例失败: ${error.message}`, 'error');
     }
 };
 
-// 添加新方法: 重启实例
+// 重启实例
 const restartInstance = async (instance) => {
     try {
         if (instance.status !== 'running') {
-            ElMessage.warning('只能重启运行中的实例');
+            showToast('只能重启运行中的实例', 'warning');
             return;
         }
 
-        ElMessage.info(`正在重启实例: ${instance.name}`);
+        showToast(`正在重启实例: ${instance.name}`, 'info');
 
         // 模拟实例状态改变
         instance.status = 'stopping';
@@ -469,7 +410,7 @@ const restartInstance = async (instance) => {
             instance.status = 'starting';
             setTimeout(() => {
                 instance.status = 'running';
-                ElMessage.success(`实例 ${instance.name} 已重启`);
+                showToast(`实例 ${instance.name} 已重启`, 'success');
             }, 1500);
         }, 1500);
 
@@ -477,13 +418,46 @@ const restartInstance = async (instance) => {
         // await instancesApi.restartInstance(instance.name);
     } catch (error) {
         console.error('重启实例失败:', error);
-        ElMessage.error(`重启实例失败: ${error.message}`);
+        showToast(`重启实例失败: ${error.message}`, 'error');
     }
 };
 
-// 添加新方法: 打开终端
+// 打开终端
 const openTerminal = (instance) => {
-    ElMessage.info(`打开实例终端: ${instance.name}`);
+    showToast(`打开实例终端: ${instance.name}`, 'info');
+};
+
+// 显示提示消息
+const showToast = (message, type = 'info') => {
+    // 创建一个toast元素
+    const toast = document.createElement('div');
+    toast.className = `toast toast-end z-50`;
+
+    // 根据类型选择样式
+    let alertClass;
+    switch (type) {
+        case 'success': alertClass = 'alert-success'; break;
+        case 'error': alertClass = 'alert-error'; break;
+        case 'warning': alertClass = 'alert-warning'; break;
+        default: alertClass = 'alert-info';
+    }
+
+    toast.innerHTML = `
+    <div class="alert ${alertClass}">
+      <span>${message}</span>
+    </div>
+  `;
+
+    document.body.appendChild(toast);
+
+    // 3秒后移除
+    setTimeout(() => {
+        toast.classList.add('opacity-0');
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 300);
+    }, 3000);
 };
 
 // 初始化
@@ -505,62 +479,27 @@ onUnmounted(() => {
 });
 </script>
 
-<style>
-@import '../../assets/css/instancesList.css';
-
-/* 添加纯文本图标样式 */
-.action-symbol {
-    font-size: 14px;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
+<style scoped>
+/* Toast动画 */
+.toast {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    transition: opacity 0.3s;
+    opacity: 1;
 }
 
-/* 状态点样式 */
-.status-dot {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    margin-right: 6px;
+/* 卡片动画效果 */
+.card {
+    transition: all 0.3s ease;
 }
 
-.status-running .status-dot {
-    background-color: var(--el-color-success);
-    box-shadow: 0 0 5px var(--el-color-success);
+.card:hover {
+    transform: translateY(-5px);
 }
 
-.status-starting .status-dot {
-    background-color: var(--el-color-warning);
-    animation: pulse 1.5s infinite;
-}
-
-.status-stopping .status-dot {
-    background-color: var(--el-color-danger);
-    animation: pulse 1.5s infinite;
-}
-
-.status-maintenance .status-dot {
-    background-color: var(--el-color-info);
-}
-
-.status-stopped .status-dot {
-    background-color: var(--el-color-info);
-    opacity: 0.5;
-}
-
-@keyframes pulse {
-
-    0%,
-    100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.5;
-    }
+/* 状态徽章样式定制 */
+.badge {
+    @apply py-2 px-3;
 }
 </style>

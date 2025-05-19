@@ -1,5 +1,3 @@
-import { ElMessage } from "element-plus";
-
 /**
  * Vue 工具函数
  * 这个文件主要用于处理Vue 3相关的辅助函数和工具方法
@@ -90,12 +88,20 @@ export const handleApiError = (error, options = {}) => {
 
   // 显示错误消息
   if (options.showMessage) {
-    ElMessage({
-      message: errorMessage,
-      type: "error",
-      duration: options.duration || 5000,
-      showClose: true,
-    });
+    // 使用自定义toast而不是Element UI
+    const toast = document.createElement("div");
+    toast.className = "toast toast-top toast-end";
+    toast.innerHTML = `
+      <div class="alert alert-error">
+        <span>${errorMessage}</span>
+      </div>
+    `;
+    document.body.appendChild(toast);
+
+    // 设置显示时长
+    setTimeout(() => {
+      document.body.removeChild(toast);
+    }, options.duration || 5000);
   }
 
   // 返回错误消息，使调用方可以处理

@@ -33,3 +33,52 @@ html[data-theme] {
 [data-theme="wireframe"] .text-base-content {
   color: hsl(var(--bc) / 0.9);
 }
+
+/* 为组件添加主题变量 */
+:root {
+  /* 主题基本颜色变量 */
+  --theme-color: hsl(var(--p));
+  --theme-color-light: hsl(var(--p) / 0.7);
+  --theme-color-dark: hsl(var(--p) / 1.2);
+
+  /* 边框颜色 */
+  --border-light: hsl(var(--b2) / 0.2);
+  --border-normal: hsl(var(--b2) / 0.4);
+  --border-dark: hsl(var(--b2) / 0.8);
+
+  /* 文本颜色 */
+  --text-color: hsl(var(--bc));
+  --text-color-light: hsl(var(--bc) / 0.7);
+  --text-color-dark: hsl(var(--bc) / 1.2);
+
+  /* 卡片背景色 */
+  --card-bg-color: hsl(var(--b1));
+  --card-bg-hover: hsl(var(--b2));
+}
+
+/* 为组件提供统一的主题过渡 */
+.card,
+.btn,
+.dropdown,
+.modal,
+.alert,
+.toast,
+.menu,
+.collapse {
+  transition: background-color 0.3s, border-color 0.3s, color 0.3s,
+    box-shadow 0.3s;
+}
+
+/* 修复各种主题下的表单和输入框样式 */
+[data-theme] input:focus,
+[data-theme] select:focus,
+[data-theme] textarea:focus {
+  outline-color: hsl(var(--p));
+  border-color: hsl(var(--p));
+}
+
+/* 各主题下表格样式统一 */
+[data-theme] table th {
+  background-color: hsl(var(--b2));
+  color: hsl(var(--bc));
+}

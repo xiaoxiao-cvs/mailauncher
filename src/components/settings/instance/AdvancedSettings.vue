@@ -2,119 +2,136 @@
     <div class="settings-tab-content">
         <h3 class="settings-section-title">高级功能与实验性设置</h3>
 
-        <el-card class="settings-card">
+        <div class="card bg-base-100 shadow-xl mb-6">
             <div class="card-header">
                 <span>关键词反应设置</span>
             </div>
-            <div class="setting-item">
-                <span class="setting-label">启用关键词反应</span>
-                <div class="setting-control">
-                    <el-switch v-model="localConfig.keywords_reaction.enable" />
-                </div>
-            </div>
-
-            <el-divider content-position="left">关键词规则</el-divider>
-
-            <div v-for="(rule, index) in localConfig.keywords_reaction.rules" :key="index" class="keyword-rule-card">
-                <div class="rule-header">
-                    <div class="rule-title">规则 #{{ index + 1 }}</div>
-                    <div class="rule-actions">
-                        <el-switch v-model="rule.enable" />
-                        <el-button type="danger" :icon="Delete" circle size="small" @click="removeKeywordRule(index)" />
+            <div class="card-body">
+                <div class="setting-item">
+                    <span class="setting-label">启用关键词反应</span>
+                    <div class="setting-control">
+                        <input type="checkbox" class="toggle" v-model="localConfig.keywords_reaction.enable" />
                     </div>
                 </div>
 
-                <div class="rule-content">
-                    <div class="rule-item" v-if="!rule.regex">
-                        <div class="rule-label">关键词列表</div>
-                        <el-tag v-for="(keyword, kidx) in rule.keywords" :key="kidx" closable
-                            @close="removeKeyword(rule, kidx)" class="keyword-tag">
-                            {{ keyword }}
-                        </el-tag>
-                        <el-input v-if="keywordInputVisible[index]" ref="keywordInputRefs"
-                            v-model="keywordInputValue[index]" class="keyword-input" size="small"
-                            @keyup.enter="confirmKeywordInput(rule, index)" @blur="confirmKeywordInput(rule, index)" />
-                        <el-button v-else class="button-new-keyword" size="small" @click="showKeywordInput(index)">
-                            + 添加关键词
-                        </el-button>
+                <div class="divider">关键词规则</div>
+
+                <div v-for="(rule, index) in localConfig.keywords_reaction.rules" :key="index"
+                    class="keyword-rule-card">
+                    <div class="rule-header">
+                        <div class="rule-title">规则 #{{ index + 1 }}</div>
+                        <div class="rule-actions">
+                            <input type="checkbox" class="toggle" v-model="rule.enable" />
+                            <button class="btn btn-circle btn-xs btn-error" @click="removeKeywordRule(index)">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="rule-item" v-else>
-                        <div class="rule-label">正则表达式</div>
-                        <div class="regex-list">
-                            <div v-for="(regex, ridx) in rule.regex" :key="ridx" class="regex-item">
-                                <el-input v-model="rule.regex[ridx]" placeholder="正则表达式">
-                                    <template #append>
-                                        <el-button @click="removeRegex(rule, ridx)" :icon="Delete" />
-                                    </template>
-                                </el-input>
+                    <div class="rule-content">
+                        <div class="rule-item" v-if="!rule.regex">
+                            <div class="rule-label">关键词列表</div>
+                            <div class="flex flex-wrap gap-2">
+                                <div v-for="(keyword, kidx) in rule.keywords" :key="kidx"
+                                    class="badge badge-primary gap-1">
+                                    {{ keyword }}
+                                    <button class="btn-close" @click="removeKeyword(rule, kidx)">&times;</button>
+                                </div>
+
+                                <div v-if="keywordInputVisible[index]">
+                                    <input ref="keywordInputRefs" v-model="keywordInputValue[index]"
+                                        class="input input-sm" @keyup.enter="confirmKeywordInput(rule, index)"
+                                        @blur="confirmKeywordInput(rule, index)" />
+                                </div>
+                                <button v-else class="btn btn-sm btn-outline" @click="showKeywordInput(index)">+
+                                    添加关键词</button>
                             </div>
-                            <el-button type="primary" size="small" @click="addRegex(rule)" :icon="Plus">添加正则</el-button>
                         </div>
-                        <div class="rule-description">
-                            <p>将匹配到的词汇命名为n，反应中对应的[n]会被替换为匹配到的内容，若不了解正则表达式请勿编写</p>
-                        </div>
-                    </div>
 
-                    <div class="rule-item">
-                        <div class="rule-label">触发反应</div>
-                        <el-input v-model="rule.reaction" type="textarea" :rows="3" placeholder="触发时添加的提示词"
-                            maxlength="500" show-word-limit />
+                        <div class="rule-item" v-else>
+                            <div class="rule-label">正则表达式</div>
+                            <div class="regex-list">
+                                <div v-for="(regex, ridx) in rule.regex" :key="ridx" class="regex-item">
+                                    <div class="join">
+                                        <input v-model="rule.regex[ridx]" class="input input-bordered join-item"
+                                            placeholder="正则表达式" />
+                                        <button class="btn join-item" @click="removeRegex(rule, ridx)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary btn-sm" @click="addRegex(rule)">
+                                    <i class="fas fa-plus"></i> 添加正则
+                                </button>
+                            </div>
+                            <div class="rule-description">
+                                <p>将匹配到的词汇命名为n，反应中对应的[n]会被替换为匹配到的内容，若不了解正则表达式请勿编写</p>
+                            </div>
+                        </div>
+
+                        <div class="rule-item">
+                            <div class="rule-label">触发反应</div>
+                            <textarea v-model="rule.reaction" class="textarea textarea-bordered" rows="3"
+                                placeholder="触发时添加的提示词" maxlength="500"></textarea>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="rule-actions-container">
-                <el-button type="primary" @click="addKeywordRule">添加关键词规则</el-button>
-                <el-button type="primary" @click="addRegexRule">添加正则规则</el-button>
+                <div class="rule-actions-container">
+                    <button class="btn btn-primary" @click="addKeywordRule">添加关键词规则</button>
+                    <button class="btn btn-primary" @click="addRegexRule">添加正则规则</button>
+                </div>
             </div>
-        </el-card>
+        </div>
 
-        <el-card class="settings-card">
+        <div class="card bg-base-100 shadow-xl mb-6">
             <div class="card-header">
                 <span>实验性功能</span>
             </div>
-            <div class="setting-item">
-                <span class="setting-label">启用好友聊天</span>
-                <div class="setting-control">
-                    <el-switch v-model="localConfig.experimental.enable_friend_chat" />
+            <div class="card-body">
+                <div class="setting-item">
+                    <span class="setting-label">启用好友聊天</span>
+                    <div class="setting-control">
+                        <input type="checkbox" class="toggle" v-model="localConfig.experimental.enable_friend_chat" />
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <span class="setting-label">启用PFC聊天</span>
+                    <div class="setting-control">
+                        <input type="checkbox" class="toggle" v-model="localConfig.experimental.pfc_chatting" />
+                    </div>
+                </div>
+                <div class="setting-description">
+                    <div class="alert alert-info">
+                        <p>PFC聊天功能仅作用于私聊，与回复模式独立</p>
+                    </div>
                 </div>
             </div>
-            <div class="setting-item">
-                <span class="setting-label">启用PFC聊天</span>
-                <div class="setting-control">
-                    <el-switch v-model="localConfig.experimental.pfc_chatting" />
-                </div>
-            </div>
-            <div class="setting-description">
-                <el-alert type="info" :closable="false">
-                    <p>PFC聊天功能仅作用于私聊，与回复模式独立</p>
-                </el-alert>
-            </div>
-        </el-card>
+        </div>
 
-        <el-card class="settings-card">
+        <div class="card bg-base-100 shadow-xl">
             <div class="card-header">
                 <span>远程统计</span>
             </div>
-            <div class="setting-item">
-                <span class="setting-label">发送统计信息</span>
-                <div class="setting-control">
-                    <el-switch v-model="localConfig.remote.enable" />
+            <div class="card-body">
+                <div class="setting-item">
+                    <span class="setting-label">发送统计信息</span>
+                    <div class="setting-control">
+                        <input type="checkbox" class="toggle" v-model="localConfig.remote.enable" />
+                    </div>
+                </div>
+                <div class="setting-description">
+                    <div class="alert alert-info">
+                        <p>开启后会发送匿名统计信息，主要用于了解全球有多少只麦麦</p>
+                    </div>
                 </div>
             </div>
-            <div class="setting-description">
-                <el-alert type="info" :closable="false">
-                    <p>开启后会发送匿名统计信息，主要用于了解全球有多少只麦麦</p>
-                </el-alert>
-            </div>
-        </el-card>
+        </div>
     </div>
 </template>
 
 <script setup>
 import { reactive, ref, computed, watch, nextTick } from 'vue';
-import { Delete, Plus } from '@element-plus/icons-vue';
 
 const props = defineProps({
     config: {
@@ -256,7 +273,7 @@ watch(localConfig, () => {
 
 .settings-section-title {
     margin-bottom: 20px;
-    color: var(--el-text-color-primary);
+    color: var(--color-text-primary);
     font-weight: 500;
 }
 
@@ -264,8 +281,13 @@ watch(localConfig, () => {
     margin-top: 15px;
 }
 
+.card-header {
+    font-weight: 600;
+    padding: 1rem 1rem 0 1rem;
+}
+
 .keyword-rule-card {
-    border: 1px solid var(--el-border-color);
+    border: 1px solid var(--color-border);
     border-radius: 8px;
     padding: 15px;
     margin-bottom: 15px;
@@ -281,7 +303,6 @@ watch(localConfig, () => {
 .rule-title {
     font-weight: 500;
     font-size: 16px;
-    color: var(--el-text-color-primary);
 }
 
 .rule-actions {
@@ -304,19 +325,13 @@ watch(localConfig, () => {
 
 .rule-label {
     font-size: 14px;
-    color: var(--el-text-color-primary);
     margin-bottom: 4px;
 }
 
-.keyword-tag {
-    margin-right: 6px;
-    margin-bottom: 6px;
-}
-
-.keyword-input {
-    width: 150px;
-    margin-right: 8px;
-    vertical-align: bottom;
+.btn-close {
+    background: none;
+    border: none;
+    cursor: pointer;
 }
 
 .regex-list {
@@ -329,6 +344,7 @@ watch(localConfig, () => {
     display: flex;
     align-items: center;
     gap: 10px;
+    margin-bottom: 8px;
 }
 
 .rule-actions-container {
@@ -340,7 +356,7 @@ watch(localConfig, () => {
 
 .rule-description {
     font-size: 12px;
-    color: var(--el-text-color-secondary);
+    color: var(--color-text-secondary);
     margin-top: 5px;
 }
 </style>

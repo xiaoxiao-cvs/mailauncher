@@ -46,7 +46,7 @@
           <div v-if="isEditMode" class="resize-handle right" @mousedown="startResize($event, 'chart', 'right')"></div>
         </div>
 
-        <!-- 状态卡片 - 增强版 -->
+        <!-- 状态卡片 -->
         <div :class="['card bg-base-100 shadow-xl', statusCardSize]" :data-size="statusCardSize" ref="statusCard">
           <div class="card-body">
             <div class="flex justify-between items-center">

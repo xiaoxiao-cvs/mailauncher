@@ -11,22 +11,9 @@
                     <div class="setting-control">
                         <label class="swap swap-rotate">
                             <input type="checkbox" v-model="darkMode" @change="toggleDarkMode" />
-                            <i class="icon icon-sun swap-on"></i>
-                            <i class="icon icon-moon swap-off"></i>
+                            <IconifyIcon class="swap-on" icon="mdi:weather-sunny" size="lg" />
+                            <IconifyIcon class="swap-off" icon="mdi:weather-night" size="lg" />
                         </label>
-                    </div>
-                </div>
-
-                <!-- 主题色选择 -->
-                <div class="setting-item">
-                    <div class="setting-label">主题色</div>
-                    <div class="setting-control">
-                        <div class="color-theme-selector">
-                            <div v-for="(color, key) in themeColors" :key="key" class="color-item cursor-pointer"
-                                :class="{ active: currentTheme === key }" :style="{ backgroundColor: color }"
-                                @click="selectTheme(key)">
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -43,10 +30,10 @@
                 <div class="setting-item">
                     <div class="setting-label">布局密度</div>
                     <div class="setting-control">
-                        <div class="btn-group">
-                            <button class="btn btn-sm" :class="{ 'btn-active': layoutDensity === 'comfortable' }"
+                        <div class="join">
+                            <button class="btn join-item" :class="{ 'btn-primary': layoutDensity === 'comfortable' }"
                                 @click="setLayoutDensity('comfortable')">舒适</button>
-                            <button class="btn btn-sm" :class="{ 'btn-active': layoutDensity === 'compact' }"
+                            <button class="btn join-item" :class="{ 'btn-primary': layoutDensity === 'compact' }"
                                 @click="setLayoutDensity('compact')">紧凑</button>
                         </div>
                     </div>
@@ -81,10 +68,10 @@
                             </div>
                             <ul tabindex="0"
                                 class="dropdown-content z-[999] menu p-2 shadow bg-base-100 rounded-box w-52 max-h-[60vh] overflow-y-auto">
-                                <li v-for="theme in themes" :key="theme.name">
+                                <li v-for="theme in availableThemes" :key="theme.name">
                                     <a @click="setTheme(theme.name)" :class="{ 'active': theme.name === currentTheme }">
                                         <span class="theme-color-preview"
-                                            :style="{ backgroundColor: theme.primaryColor }"></span>
+                                            :style="{ backgroundColor: theme.color }"></span>
                                         {{ theme.label }}
                                     </a>
                                 </li>
@@ -103,6 +90,17 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 重置主题设置 -->
+                <div class="setting-item border-t mt-4 pt-4">
+                    <div class="setting-label">重置主题设置</div>
+                    <div class="setting-control">
+                        <button class="btn btn-sm btn-error" @click="resetThemeSettings">
+                            <IconifyIcon icon="mdi:refresh" size="sm" />
+                            重置
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -110,8 +108,9 @@
 
 <script setup>
 import { ref, inject, onMounted, computed, onBeforeUnmount } from 'vue';
-import { useDarkMode } from '../../../services/theme';
+import { useDarkMode, useTheme } from '../../../services/theme';
 import IconifyIcon from '../../common/IconifyIcon.vue';
+import settingsService from '../../../services/settingsService';
 
 // 获取事件总线
 const emitter = inject('emitter', null);
@@ -119,100 +118,37 @@ const emitter = inject('emitter', null);
 // 使用深色模式
 const { darkMode, toggleDarkMode } = useDarkMode(emitter);
 
+// 使用主题
+const { currentTheme, availableThemes, setTheme } = useTheme();
+
 // 主题状态
-const currentTheme = ref(localStorage.getItem('theme') || 'light');
 const isDarkMode = computed(() => {
     return currentTheme.value === 'dark' || currentTheme.value === 'night' ||
         currentTheme.value === 'dracula' || currentTheme.value === 'black';
 });
 
-// 主题列表定义
-const themes = ref([
-    { name: 'light', label: '明亮', primaryColor: '#e5e7eb', icon: 'mdi:weather-sunny' },
-    { name: 'dark', label: '暗黑', primaryColor: '#2a303c', icon: 'mdi:weather-night' },
-    { name: 'cupcake', label: '蛋糕', primaryColor: '#65c3c8', icon: 'mdi:cake' },
-    { name: 'bumblebee', label: '大黄蜂', primaryColor: '#e0a82e', icon: 'mdi:bee' },
-    { name: 'emerald', label: '翡翠', primaryColor: '#66cc8a', icon: 'mdi:diamond' },
-    { name: 'corporate', label: '企业', primaryColor: '#4b6bfb', icon: 'mdi:office-building' },
-    { name: 'synthwave', label: '合成波', primaryColor: '#e779c1', icon: 'mdi:synthesizer' },
-    { name: 'retro', label: '复古', primaryColor: '#ef9995', icon: 'mdi:alarm' },
-    { name: 'cyberpunk', label: '赛博朋克', primaryColor: '#ff7598', icon: 'mdi:robot' },
-    { name: 'valentine', label: '情人节', primaryColor: '#e96d7b', icon: 'mdi:heart' },
-    { name: 'halloween', label: '万圣节', primaryColor: '#f28c18', icon: 'mdi:pumpkin' },
-    { name: 'garden', label: '花园', primaryColor: '#5c7f67', icon: 'mdi:flower' },
-    { name: 'forest', label: '森林', primaryColor: '#1eb854', icon: 'mdi:pine-tree' },
-    { name: 'aqua', label: '水色', primaryColor: '#09ecf3', icon: 'mdi:water' },
-    { name: 'lofi', label: '低保真', primaryColor: '#808080', icon: 'mdi:music-note' },
-    { name: 'pastel', label: '粉彩', primaryColor: '#d1c1d7', icon: 'mdi:palette-swatch' },
-    { name: 'fantasy', label: '幻想', primaryColor: '#6e0b75', icon: 'mdi:castle' },
-    { name: 'wireframe', label: '线框', primaryColor: '#b8b8b8', icon: 'mdi:vector-square' },
-    { name: 'black', label: '纯黑', primaryColor: '#333333', icon: 'mdi:circle' },
-    { name: 'luxury', label: '奢华', primaryColor: '#ffffff', icon: 'mdi:crown' },
-    { name: 'dracula', label: '德古拉', primaryColor: '#ff79c6', icon: 'mdi:vampire' },
-    { name: 'cmyk', label: '印刷', primaryColor: '#45aeee', icon: 'mdi:printer' },
-    { name: 'autumn', label: '秋天', primaryColor: '#8C0327', icon: 'mdi:leaf-maple' },
-    { name: 'business', label: '商务', primaryColor: '#1C4E80', icon: 'mdi:briefcase' },
-    { name: 'acid', label: '酸性', primaryColor: '#FF00F4', icon: 'mdi:flask' },
-    { name: 'lemonade', label: '柠檬水', primaryColor: '#FFFF00', icon: 'mdi:fruit-citrus' },
-    { name: 'night', label: '夜晚', primaryColor: '#38bdf8', icon: 'mdi:moon-waning-crescent' },
-    { name: 'coffee', label: '咖啡', primaryColor: '#DB924B', icon: 'mdi:coffee' },
-    { name: 'winter', label: '冬季', primaryColor: '#0EA5E9', icon: 'mdi:snowflake' }
-]);
+// 动画效果状态
+const enableAnimations = ref(localStorage.getItem('enableAnimations') !== 'false');
+
+// 布局密度
+const layoutDensity = ref(localStorage.getItem('layoutDensity') || 'comfortable');
+
+// 字体大小
+const fontSize = ref(parseInt(localStorage.getItem('fontSize') || '14'));
 
 // 当前主题的色彩值
 const themeColors = ref({});
 
-// 预定义主题色
-const predefinedThemeColors = {
-    primary: '#570df8',
-    secondary: '#f000b8',
-    accent: '#1dcdbc',
-    neutral: '#2b3440',
-    info: '#3abff8',
-    success: '#36d399',
-    warning: '#fbbd23',
-    error: '#f87272'
-};
-
-// 动画效果状态
-const enableAnimations = ref(true);
-
-// 布局密度
-const layoutDensity = ref('comfortable');
-
-// 字体大小
-const fontSize = ref(14);
-
-// 设置主题
-const setTheme = (themeName) => {
-    currentTheme.value = themeName;
-    localStorage.setItem('theme', themeName);
-    document.documentElement.setAttribute('data-theme', themeName);
-    updateThemeColors();
-
-    // 根据主题设置暗黑模式状态
-    darkMode.value = isDarkMode.value;
-};
-
 // 获取当前主题名称
 const getCurrentThemeName = () => {
-    const theme = themes.value.find(t => t.name === currentTheme.value);
+    const theme = availableThemes.value.find(t => t.name === currentTheme.value);
     return theme ? theme.label : '默认';
 };
 
 // 获取当前主题颜色
 const getCurrentThemeColor = () => {
-    const theme = themes.value.find(t => t.name === currentTheme.value);
-    return theme ? theme.primaryColor : '#570df8';
-};
-
-// 设置明暗模式
-const setColorMode = (mode) => {
-    if (mode === 'dark' && currentTheme.value === 'light') {
-        setTheme('dark');
-    } else if (mode === 'light' && currentTheme.value === 'dark') {
-        setTheme('light');
-    }
+    const theme = availableThemes.value.find(t => t.name === currentTheme.value);
+    return theme ? theme.color : '#570df8';
 };
 
 // 应用动画状态
@@ -246,13 +182,6 @@ const changeFontSize = () => {
     localStorage.setItem('fontSize', fontSize.value);
 };
 
-// 选择主题色
-const selectTheme = (key) => {
-    const newTheme = predefinedThemeColors[key] || key;
-    document.documentElement.style.setProperty('--primary-color', newTheme);
-    localStorage.setItem('themeColor', newTheme);
-};
-
 // 更新当前主题的色彩值
 const updateThemeColors = () => {
     // 获取CSS变量
@@ -269,33 +198,45 @@ const updateThemeColors = () => {
     };
 };
 
+// 重置主题设置
+const resetThemeSettings = () => {
+    if (confirm('确定要重置所有主题设置吗？这将恢复默认的颜色、字体大小和布局密度。')) {
+        settingsService.resetSettings();
+
+        // 更新当前状态
+        currentTheme.value = 'light';
+        darkMode.value = false;
+        enableAnimations.value = true;
+        layoutDensity.value = 'comfortable';
+        fontSize.value = 14;
+
+        // 应用变更
+        applyAnimationsState(true);
+        document.documentElement.setAttribute('data-density', 'comfortable');
+        document.documentElement.style.setProperty('--base-font-size', '14px');
+
+        // 更新主题色展示
+        setTimeout(() => {
+            updateThemeColors();
+        }, 100);
+
+        // 显示成功消息
+        alert('主题设置已重置');
+    }
+};
+
 // 初始化设置
 onMounted(() => {
     // 从本地存储加载动画设置
-    const savedAnimations = localStorage.getItem('enableAnimations');
-    if (savedAnimations !== null) {
-        enableAnimations.value = savedAnimations === 'true';
-        applyAnimationsState(enableAnimations.value);
-    }
+    applyAnimationsState(enableAnimations.value);
 
-    // 从本地存储加载布局密度
-    const savedDensity = localStorage.getItem('layoutDensity');
-    if (savedDensity) {
-        layoutDensity.value = savedDensity;
-        document.documentElement.setAttribute('data-density', savedDensity);
-    }
+    // 加载布局密度
+    document.documentElement.setAttribute('data-density', layoutDensity.value);
 
-    // 从本地存储加载字体大小
-    const savedFontSize = localStorage.getItem('fontSize');
-    if (savedFontSize) {
-        fontSize.value = parseInt(savedFontSize);
-        document.documentElement.style.setProperty('--base-font-size', `${fontSize.value}px`);
-    } else {
-        document.documentElement.style.setProperty('--base-font-size', '14px');
-    }
+    // 加载字体大小
+    document.documentElement.style.setProperty('--base-font-size', `${fontSize.value}px`);
 
     // 初始化当前主题
-    document.documentElement.setAttribute('data-theme', currentTheme.value);
     updateThemeColors();
 
     // 设置监听器，当主题变量变化时更新显示
@@ -309,9 +250,21 @@ onMounted(() => {
 
     observer.observe(document.documentElement, { attributes: true });
 
+    // 监听主题变更事件
+    window.addEventListener('theme-changed', () => {
+        updateThemeColors();
+    });
+
+    // 监听主题色变更事件
+    window.addEventListener('theme-color-changed', () => {
+        updateThemeColors();
+    });
+
     // 组件销毁时断开监听
     onBeforeUnmount(() => {
         observer.disconnect();
+        window.removeEventListener('theme-changed', () => { });
+        window.removeEventListener('theme-color-changed', () => { });
     });
 });
 </script>
@@ -346,55 +299,6 @@ onMounted(() => {
 }
 
 /* 主题色选择器样式 */
-.color-theme-selector {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.color-item {
-    width: 1.75rem;
-    height: 1.75rem;
-    border-radius: 50%;
-    transition: all 0.3s;
-    border: 2px solid transparent;
-}
-
-.color-item.active {
-    border-color: var(--text-color);
-    transform: scale(1.1);
-    position: relative;
-}
-
-.color-item.active::after {
-    content: "✓";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: white;
-    text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
-}
-
-.color-item:hover {
-    transform: scale(1.1);
-    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.2);
-}
-
-/* 图标样式 */
-.icon {
-    font-size: 1.25rem;
-}
-
-.icon-sun::before {
-    content: "\f185";
-}
-
-.icon-moon::before {
-    content: "\f186";
-}
-
-/* 主题选择样式 */
 .theme-color-preview {
     display: inline-block;
     width: 16px;
@@ -402,11 +306,6 @@ onMounted(() => {
     border-radius: 50%;
     margin-right: 8px;
     border: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.color-mode-selector {
-    display: flex;
-    gap: 8px;
 }
 
 .theme-colors-preview {
@@ -464,10 +363,6 @@ onMounted(() => {
     .setting-control {
         margin-top: 0.625rem;
         width: 100%;
-    }
-
-    .color-theme-selector {
-        justify-content: flex-start;
     }
 }
 </style>

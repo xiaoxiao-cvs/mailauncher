@@ -11,7 +11,6 @@
 
 <script setup>
 import { ref, inject, onMounted, onBeforeUnmount } from 'vue';
-import { ElMessage } from 'element-plus';
 import InstancesList from './instances/InstancesList.vue';
 import InstanceSettingsDrawer from './settings/InstanceSettingsDrawer.vue';
 
@@ -35,7 +34,20 @@ const closeInstanceSettings = () => {
 
 // 处理保存设置
 const handleInstanceSettingsSave = (config) => {
-  ElMessage.success(`实例 ${currentInstance.value.name} 配置已保存`);
+  // 创建toast提示
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-top toast-center';
+  toast.innerHTML = `
+    <div class="alert alert-success">
+      <span>实例 ${currentInstance.value.name} 配置已保存</span>
+    </div>
+  `;
+  document.body.appendChild(toast);
+
+  // 设置显示时长
+  setTimeout(() => {
+    document.body.removeChild(toast);
+  }, 3000);
 };
 
 // 设置事件监听
@@ -59,9 +71,11 @@ onBeforeUnmount(() => {
   overflow-y: auto;
 }
 
-.square-rounded-button {
-  border-radius: 6px !important;
+.toast {
+  position: fixed;
+  top: 2rem;
+  z-index: 100;
+  left: 50%;
+  transform: translateX(-50%);
 }
-
-
 </style>

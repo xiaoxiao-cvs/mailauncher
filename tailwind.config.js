@@ -2,7 +2,15 @@
 export default {
   content: ["./index.html", "./src/**/*.{vue,js,ts,jsx,tsx}"],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        // 扩展颜色系统以更好地适应daisyui主题
+        "primary-light": "var(--primary-light)",
+        "primary-dark": "var(--primary-dark)",
+        "chart-line": "var(--chart-line)",
+        "chart-secondary": "var(--chart-secondary)",
+      },
+    },
   },
   plugins: [require("daisyui")],
   daisyui: {

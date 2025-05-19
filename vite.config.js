@@ -23,7 +23,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           echarts: ["echarts"],
-          "element-plus": ["element-plus"],
         },
       },
     },

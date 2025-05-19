@@ -1,5 +1,4 @@
 import axios from "axios";
-import { ElMessage, ElNotification } from "element-plus";
 
 // API基础URL配置
 const API_BASE_URL = "/api";

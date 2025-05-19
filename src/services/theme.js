@@ -20,6 +20,9 @@ export const useDarkMode = (emitter = null) => {
       if (!["dark", "night", "dracula", "black"].includes(currentTheme)) {
         document.documentElement.setAttribute("data-theme", "dark");
         localStorage.setItem("theme", "dark");
+
+        // 重新获取主题色并应用
+        setTimeout(() => updateThemeColors(), 50);
       }
     } else {
       document.documentElement.classList.remove("dark-mode");
@@ -28,6 +31,9 @@ export const useDarkMode = (emitter = null) => {
       if (["dark", "night", "dracula", "black"].includes(currentTheme)) {
         document.documentElement.setAttribute("data-theme", "light");
         localStorage.setItem("theme", "light");
+
+        // 重新获取主题色并应用
+        setTimeout(() => updateThemeColors(), 50);
       }
     }
 
@@ -62,6 +68,14 @@ export const applyThemeColor = (color) => {
   // 为深色和浅色模式更新其他相关变量
   const isDark = document.documentElement.classList.contains("dark-mode");
   updateThemeColorVariables(color, isDark);
+
+  // 保存当前主题色
+  window.currentThemeColor = color;
+
+  // 分发全局主题色变化事件
+  window.dispatchEvent(
+    new CustomEvent("theme-color-changed", { detail: color })
+  );
 };
 
 // 更新主题相关颜色变量
@@ -95,8 +109,36 @@ const updateThemeColorVariables = (color, isDark) => {
       "--chart-secondary",
       lightenColor
     );
+
+    // 更新应用其他区域的主题色变量
+    document.documentElement.style.setProperty("--theme-color", color);
+    document.documentElement.style.setProperty(
+      "--theme-color-light",
+      lightenColor
+    );
+    document.documentElement.style.setProperty(
+      "--theme-color-dark",
+      darkenColor
+    );
   } catch (error) {
     console.error("更新主题色变量失败:", error);
+  }
+};
+
+// 获取当前主题颜色
+const updateThemeColors = () => {
+  try {
+    const computedStyle = getComputedStyle(document.documentElement);
+    const primaryColor = computedStyle.getPropertyValue("--p").trim();
+
+    if (primaryColor) {
+      // 如果获取到颜色，应用它
+      applyThemeColor(
+        primaryColor.startsWith("#") ? primaryColor : `#${primaryColor}`
+      );
+    }
+  } catch (error) {
+    console.error("获取主题色失败:", error);
   }
 };
 
@@ -114,21 +156,14 @@ export const initTheme = () => {
   );
   if (isDarkTheme) {
     document.documentElement.classList.add("dark-mode");
+  } else {
+    document.documentElement.classList.remove("dark-mode");
   }
 
   // 初始化主题色，可以从CSS变量中获取
   setTimeout(() => {
     // 等待DOM加载完成后获取计算后的CSS变量值
-    const computedStyle = getComputedStyle(document.documentElement);
-    const primaryColor =
-      computedStyle.getPropertyValue("--p").trim() ||
-      computedStyle.getPropertyValue("--primary").trim();
-
-    // 如果能获取到主色，就应用它
-    if (primaryColor) {
-      window.currentThemeColor = primaryColor;
-      applyThemeColor(primaryColor);
-    }
+    updateThemeColors();
   }, 100);
 };
 
@@ -167,8 +202,6 @@ export const useTheme = () => {
     { name: "winter", color: "#0EA5E9", label: "冬季" },
   ]);
 
-  const savedTheme = localStorage.getItem("themeColor");
-
   const setTheme = (themeName) => {
     currentTheme.value = themeName;
     localStorage.setItem("theme", themeName);
@@ -178,6 +211,20 @@ export const useTheme = () => {
     const theme = availableThemes.value.find((t) => t.name === themeName);
     if (theme) {
       applyThemeColor(theme.color);
+    } else {
+      // 如果没有找到匹配的主题，重新从CSS变量获取颜色
+      setTimeout(() => updateThemeColors(), 50);
+    }
+
+    // 深色模式同步
+    const isDarkTheme = ["dark", "night", "dracula", "black"].includes(
+      themeName
+    );
+    localStorage.setItem("darkMode", isDarkTheme);
+    if (isDarkTheme) {
+      document.documentElement.classList.add("dark-mode");
+    } else {
+      document.documentElement.classList.remove("dark-mode");
     }
   };
 

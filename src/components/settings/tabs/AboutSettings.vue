@@ -2,43 +2,63 @@
     <div class="settings-tab-content">
         <h3 class="settings-section-title">关于</h3>
 
-        <el-card class="settings-card about-card">
-            <div class="app-info">
-                <img src="/assets/icon.ico" alt="App Logo" class="app-logo">
-                <div class="app-details">
-                    <h2>MaiLauncher</h2>
-                    <p class="app-version">版本: 0.1.1</p>
-                    <p class="app-description">MaiBot 管理器</p>
+        <div class="card bg-base-100 shadow about-card">
+            <div class="card-body">
+                <div class="app-info">
+                    <img src="/assets/icon.ico" alt="App Logo" class="app-logo">
+                    <div class="app-details">
+                        <h2>MaiLauncher</h2>
+                        <p class="app-version">版本: 0.1.1</p>
+                        <p class="app-description">MaiBot 管理器</p>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" @click="checkForUpdates" :class="{ 'loading': checkingUpdates }">
+                        检查更新
+                    </button>
+                    <button class="btn btn-info" @click="openGitHub">
+                        GitHub
+                    </button>
                 </div>
             </div>
+        </div>
 
-            <div class="action-buttons">
-                <el-button type="primary" @click="checkForUpdates" :loading="checkingUpdates">
-                    检查更新
-                </el-button>
-                <el-button type="info" @click="openGitHub">
-                    GitHub
-                </el-button>
-            </div>
-        </el-card>
+        <div class="card bg-base-100 shadow mt-4">
+            <div class="card-body">
+                <div class="credits-section">
+                    <h4>开发团队</h4>
+                    <p>Developed by Team Mai.To.The.Gate</p>
+                </div>
 
-        <el-card class="settings-card">
-            <div class="credits-section">
-                <h4>开发团队</h4>
-                <p>Developed by Team Mai.To.The.Gate</p>
-                <h4>致谢</h4>
-                <p>感谢所有为此项目做出贡献的开发者们</p>
-                <h4>许可协议</h4>
-                <p>开源许可: GPL V3 License</p>
+                <div class="divider"></div>
+
+                <div class="license-section">
+                    <h4>许可证</h4>
+                    <p>MIT License</p>
+                    <p class="text-sm opacity-75">Copyright (c) 2023 Team Mai.To.The.Gate</p>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="third-party-section">
+                    <h4>第三方组件</h4>
+                    <ul>
+                        <li>Vue.js</li>
+                        <li>DaisyUI</li>
+                        <li>Tailwind CSS</li>
+                        <li>Iconify</li>
+                    </ul>
+                </div>
             </div>
-        </el-card>
+        </div>
     </div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
-import { ElMessage } from 'element-plus';
 
+// 更新检查状态
 const checkingUpdates = ref(false);
 
 // 检查更新
@@ -46,13 +66,13 @@ const checkForUpdates = async () => {
     checkingUpdates.value = true;
 
     try {
-        // 模拟检查更新的过程
+        // 模拟检查更新
         await new Promise(resolve => setTimeout(resolve, 1500));
 
-        ElMessage.success('您的应用已是最新版本');
+        // 显示结果
+        showToast('您已经在使用最新版本');
     } catch (error) {
-        ElMessage.error('检查更新时出错');
-        console.error('检查更新失败:', error);
+        showToast('检查更新失败: ' + error.message, 'error');
     } finally {
         checkingUpdates.value = false;
     }
@@ -60,93 +80,97 @@ const checkForUpdates = async () => {
 
 // 打开GitHub页面
 const openGitHub = () => {
-    window.open('https://github.com/MaiM-with-u/MaiBot', '_blank');
+    window.open('https://github.com/MaiM-with-u/MaiLauncher', '_blank');
+};
+
+// 显示Toast消息
+const showToast = (message, type = 'info') => {
+    // 创建Toast元素
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-top toast-center';
+    toast.innerHTML = `
+        <div class="alert alert-${type}">
+            <span>${message}</span>
+        </div>
+    `;
+    document.body.appendChild(toast);
+
+    // 3秒后移除
+    setTimeout(() => {
+        document.body.removeChild(toast);
+    }, 3000);
 };
 </script>
 
 <style scoped>
 .settings-tab-content {
     animation: fadeIn 0.5s ease;
+    padding: 1rem;
 }
 
 .settings-section-title {
-    margin-bottom: 20px;
-    color: var(--el-text-color-primary);
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
     font-weight: 500;
-}
-
-.settings-card {
-    margin-bottom: 20px;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.about-card {
-    padding: 20px;
 }
 
 .app-info {
     display: flex;
     align-items: center;
-    margin-bottom: 20px;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
 }
 
 .app-logo {
     width: 64px;
     height: 64px;
-    margin-right: 20px;
+    border-radius: 12px;
 }
 
 .app-details h2 {
-    margin: 0 0 8px 0;
-    font-weight: 500;
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
 }
 
 .app-version {
-    color: var(--el-text-color-secondary);
-    margin: 0 0 5px 0;
+    font-size: 1rem;
+    opacity: 0.8;
+    margin-bottom: 0.25rem;
 }
 
 .app-description {
-    color: var(--el-text-color-regular);
-    margin: 0;
+    font-size: 0.9rem;
+    opacity: 0.7;
 }
 
 .action-buttons {
     display: flex;
-    gap: 10px;
-    margin-top: 20px;
+    gap: 1rem;
+    margin-top: 1rem;
 }
 
-.credits-section {
-    padding: 10px 0;
+.credits-section,
+.license-section,
+.third-party-section {
+    margin-bottom: 1rem;
 }
 
-.credits-section h4 {
-    margin: 15px 0 5px 0;
+.credits-section h4,
+.license-section h4,
+.third-party-section h4 {
+    font-size: 1.1rem;
     font-weight: 500;
-    color: var(--el-text-color-primary);
+    margin-bottom: 0.5rem;
 }
 
-.credits-section p {
-    margin: 0 0 10px 0;
-    color: var(--el-text-color-regular);
+.third-party-section ul {
+    list-style-type: disc;
+    padding-left: 1.5rem;
 }
 
-@media (max-width: 768px) {
-    .app-info {
-        flex-direction: column;
-        text-align: center;
-    }
-
-    .app-logo {
-        margin-right: 0;
-        margin-bottom: 15px;
-    }
-
-    .action-buttons {
-        flex-direction: column;
-    }
+.third-party-section li {
+    margin-bottom: 0.25rem;
 }
 
 @keyframes fadeIn {

@@ -30,10 +30,11 @@ import AppSidebar from './components/AppSidebar.vue'
 import SettingsDrawer from './components/settings/SettingsDrawer.vue'
 import PluginsView from './views/PluginsView.vue'
 import settingsService from './services/settingsService'
-import { initTheme, applyThemeColor } from './services/theme'
+import { initTheme, applyThemeColor, useDarkMode } from './services/theme'
 
 // 深色模式状态 - 应用级别的中心管理
-const darkMode = ref(false);
+const { darkMode, toggleDarkMode } = useDarkMode();
+
 // 侧边栏展开状态
 const sidebarExpanded = ref(false);
 // 设置面板状态
@@ -347,6 +348,19 @@ onMounted(() => {
   emitter.on('edit-mode-changed', (isActive) => {
     isAnyEditModeActive.value = isActive;
   });
+
+  // 监听主题变化事件
+  window.addEventListener('theme-changed', (event) => {
+    if (event.detail && event.detail.name) {
+      currentTheme.value = event.detail.name;
+    }
+  });
+
+  // 监听主题重置事件
+  window.addEventListener('theme-reset', () => {
+    currentTheme.value = 'light';
+    darkMode.value = false;
+  });
 });
 
 // 颜色亮度调整工具函数
@@ -418,6 +432,9 @@ onBeforeUnmount(() => {
 
   // 移除编辑模式事件监听
   emitter.off('edit-mode-changed');
+
+  window.removeEventListener('theme-changed', () => { });
+  window.removeEventListener('theme-reset', () => { });
 });
 
 // 检查API连接 - 修改为始终使用模拟数据
@@ -447,6 +464,7 @@ const changeTheme = (themeName) => {
 @import './assets/css/dashboard-layout.css';
 @import './assets/css/simple-icons.css';
 @import './assets/css/icon-fixes.css';
+@import './assets/css/theme-utils.css';
 /* 添加图标修复样式 */
 
 /* 修改为使用CSS变量实现一致的边距 */

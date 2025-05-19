@@ -2,36 +2,39 @@
     <div class="settings-tab-content">
         <h3 class="settings-section-title">隐私设置</h3>
 
-        <el-card class="settings-card">
-            <div class="setting-item">
-                <span class="setting-label">启用匿名数据收集</span>
-                <div class="setting-control">
-                    <el-switch v-model="collectAnonymousData" />
+        <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+                <div class="setting-item">
+                    <span class="setting-label">启用匿名数据收集</span>
+                    <div class="setting-control">
+                        <input type="checkbox" class="toggle" v-model="collectAnonymousData" />
+                    </div>
                 </div>
-            </div>
 
-            <div class="setting-item">
-                <span class="setting-label">自动发送错误报告</span>
-                <div class="setting-control">
-                    <el-switch v-model="autoSendErrorReports" />
+                <div class="setting-item">
+                    <span class="setting-label">自动发送错误报告</span>
+                    <div class="setting-control">
+                        <input type="checkbox" class="toggle" v-model="autoSendErrorReports" />
+                    </div>
                 </div>
             </div>
-        </el-card>
+        </div>
 
-        <el-card class="settings-card">
-            <div class="setting-item">
-                <span class="setting-label">清除所有本地数据</span>
-                <div class="setting-control">
-                    <el-button type="danger" @click="confirmClearData">清除数据</el-button>
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <div class="setting-item">
+                    <span class="setting-label">清除所有本地数据</span>
+                    <div class="setting-control">
+                        <button class="btn btn-error" @click="confirmClearData">清除数据</button>
+                    </div>
                 </div>
             </div>
-        </el-card>
+        </div>
     </div>
 </template>
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
-import { ElMessageBox, ElMessage } from 'element-plus';
 
 // 设置状态
 const collectAnonymousData = ref(false);
@@ -61,25 +64,24 @@ watch(autoSendErrorReports, (newValue) => {
 
 // 清除所有数据确认
 const confirmClearData = () => {
-    ElMessageBox.confirm(
-        '确定要清除所有本地存储的数据吗？此操作不可撤销！',
-        '清除数据',
-        {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning'
-        }
-    ).then(() => {
+    if (confirm('确定要清除所有本地存储的数据吗？此操作不可撤销！')) {
         // 清除所有与用户数据相关的本地存储
-        // 这里仅作示例，实际应用中可能需要更精细的控制
         localStorage.clear();
 
-        ElMessage.success('所有本地数据已清除，应用将在3秒后重启');
+        // 显示成功消息
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-top toast-center';
+        toast.innerHTML = `
+            <div class="alert alert-success">
+                <span>所有本地数据已清除，应用将在3秒后重启</span>
+            </div>
+        `;
+        document.body.appendChild(toast);
 
         setTimeout(() => {
             window.location.reload();
         }, 3000);
-    }).catch(() => { });
+    }
 };
 </script>
 
@@ -90,14 +92,8 @@ const confirmClearData = () => {
 
 .settings-section-title {
     margin-bottom: 20px;
-    color: var(--el-text-color-primary);
+    color: var(--color-text-primary);
     font-weight: 500;
-}
-
-.settings-card {
-    margin-bottom: 20px;
-    border-radius: 8px;
-    overflow: hidden;
 }
 
 .setting-item {
@@ -105,7 +101,7 @@ const confirmClearData = () => {
     justify-content: space-between;
     align-items: center;
     padding: 15px 0;
-    border-bottom: 1px solid var(--el-border-color-lighter);
+    border-bottom: 1px solid var(--color-border-light);
 }
 
 .setting-item:last-child {
@@ -114,12 +110,20 @@ const confirmClearData = () => {
 
 .setting-label {
     font-size: 14px;
-    color: var(--el-text-color-primary);
 }
 
 .setting-control {
     display: flex;
     align-items: center;
+}
+
+/* 提示框样式 */
+.toast {
+    position: fixed;
+    top: 2rem;
+    z-index: 100;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 @media (max-width: 768px) {
