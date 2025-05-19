@@ -18,12 +18,7 @@ html[data-theme] {
 
 /* 主题预览颜色块 */
 .theme-preview-block {
-  display: inline-block;
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  margin-right: 8px;
+  @apply inline-block w-6 h-6 rounded border border-base-300/20 mr-2;
 }
 
 /* 修复某些DaisyUI主题下的颜色对比度问题 */
@@ -54,6 +49,16 @@ html[data-theme] {
   /* 卡片背景色 */
   --card-bg-color: hsl(var(--b1));
   --card-bg-hover: hsl(var(--b2));
+
+  /* Iconify相关变量 */
+  --icon-color: hsl(var(--bc));
+  --icon-primary: hsl(var(--p));
+  --icon-secondary: hsl(var(--s));
+  --icon-accent: hsl(var(--a));
+  --icon-success: hsl(var(--su));
+  --icon-warning: hsl(var(--wa));
+  --icon-error: hsl(var(--er));
+  --icon-info: hsl(var(--in));
 }
 
 /* 为组件提供统一的主题过渡 */
@@ -81,4 +86,179 @@ html[data-theme] {
 [data-theme] table th {
   background-color: hsl(var(--b2));
   color: hsl(var(--bc));
+}
+
+/* Iconify图标主题集成 */
+.iconify {
+  color: var(--icon-color);
+  transition: color 0.3s ease;
+}
+
+/* 主题色图标 */
+.iconify-primary {
+  color: var(--icon-primary);
+}
+
+.iconify-secondary {
+  color: var(--icon-secondary);
+}
+
+.iconify-accent {
+  color: var(--icon-accent);
+}
+
+.iconify-success {
+  color: var(--icon-success);
+}
+
+.iconify-warning {
+  color: var(--icon-warning);
+}
+
+.iconify-error {
+  color: var(--icon-error);
+}
+
+.iconify-info {
+  color: var(--icon-info);
+}
+
+/* 图标尺寸 */
+.iconify-xs {
+  font-size: 0.75rem;
+}
+
+.iconify-sm {
+  font-size: 0.875rem;
+}
+
+.iconify-md {
+  font-size: 1.125rem;
+}
+
+.iconify-lg {
+  font-size: 1.5rem;
+}
+
+.iconify-xl {
+  font-size: 2rem;
+}
+
+/* 图标动画效果 */
+@keyframes icon-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.iconify-spin {
+  animation: icon-spin 2s infinite linear;
+}
+
+/* 主题预览样式增强 */
+.theme-preview {
+  @apply p-3 rounded-lg border border-base-300 flex items-center gap-3 mb-2 transition-colors duration-300;
+}
+
+.theme-preview-title {
+  @apply font-medium;
+}
+
+/* 主题切换器容器 */
+.theme-switcher-container {
+  @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2;
+}
+
+/* 支持深色与浅色主题之间无缝切换 */
+[data-theme].theme-transition,
+[data-theme].theme-transition * {
+  transition: background-color 0.5s ease !important;
+}
+
+/* 针对特定主题的图标颜色调整 */
+[data-theme="dark"] .icon-subtle,
+[data-theme="night"] .icon-subtle,
+[data-theme="black"] .icon-subtle {
+  opacity: 0.8;
+}
+
+[data-theme="light"] .icon-subtle,
+[data-theme="cupcake"] .icon-subtle,
+[data-theme="bumblebee"] .icon-subtle {
+  opacity: 0.7;
+}
+
+/* 统一的背景渐变样式 */
+.app-gradient-bg {
+  background-image: linear-gradient(
+    135deg,
+    hsl(var(--p) / 0.2) 0%,
+    hsl(var(--p) / 0.5) 100%
+  );
+}
+
+/* 深色模式下的背景渐变 */
+[data-theme="dark"] .app-gradient-bg,
+[data-theme="night"] .app-gradient-bg,
+[data-theme="black"] .app-gradient-bg {
+  background-image: linear-gradient(
+    135deg,
+    hsl(var(--n) / 0.8) 0%,
+    hsl(var(--n) / 0.6) 100%
+  );
+}
+
+/* 半透明卡片样式 */
+.app-card {
+  @apply bg-base-100/80 backdrop-blur-sm shadow-sm rounded-lg p-4;
+  transition: all 0.3s ease;
+}
+
+.app-card:hover {
+  @apply shadow-md bg-base-100/90;
+}
+
+/* 深色模式下的卡片样式 */
+[data-theme="dark"] .app-card,
+[data-theme="night"] .app-card,
+[data-theme="black"] .app-card {
+  @apply bg-base-200/70;
+}
+
+[data-theme="dark"] .app-card:hover,
+[data-theme="night"] .app-card:hover,
+[data-theme="black"] .app-card:hover {
+  @apply bg-base-200/80;
+}
+
+/* 半透明页面头部 */
+.app-header {
+  @apply bg-base-100/70 p-4 rounded-lg backdrop-blur-sm shadow-sm;
+}
+
+/* 内容区块布局 */
+.app-content-block {
+  @apply mb-6;
+}
+
+/* 统一的过渡动画 */
+.app-transition {
+  transition: all 0.3s ease;
+}
+
+/* 添加通用的滚动条样式 */
+.app-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.app-scrollbar::-webkit-scrollbar-track {
+  @apply bg-base-300/50 rounded-full;
+}
+
+.app-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-base-content/20 rounded-full hover:bg-base-content/30;
 }

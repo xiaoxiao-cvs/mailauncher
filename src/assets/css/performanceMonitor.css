@@ -1,8 +1,5 @@
 .status-card {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  border-radius: 8px;
-  background-color: var(--el-bg-color);
-  color: var(--el-text-color-primary);
+  @apply transition-all duration-300 rounded-lg bg-base-100 text-base-content;
   animation: slideIn 0.6s ease-out;
 }
 
@@ -18,139 +15,78 @@
 }
 
 .status-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  @apply -translate-y-[3px] shadow-md;
 }
 
 .card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: inherit;
+  @apply flex justify-between items-center text-inherit;
 }
 
 .header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  @apply flex items-center gap-2.5;
 }
 
 .error-tag {
-  margin-right: 4px;
+  @apply mr-1 badge badge-error badge-sm;
 }
 
 .refresh-btn {
-  font-size: 14px;
-  margin-left: auto;
+  @apply text-sm ml-auto btn btn-ghost btn-sm;
 }
 
 /* 性能监控样式优化 */
 .performance-dashboard {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  overflow: hidden; /* 防止溢出 */
+  @apply flex flex-col gap-4 overflow-hidden;
 }
 
 .metric-item {
-  padding: 15px;
-  background: var(--card-bg-secondary, #f5f9ff);
-  border-radius: 8px;
-  color: var(--el-text-color-primary);
-  min-height: 160px;
-  height: auto;
-  display: flex;
-  flex-direction: column;
+  @apply p-4 bg-base-200 rounded-lg text-base-content min-h-[160px] h-auto flex flex-col overflow-hidden transition-all duration-300;
   aspect-ratio: 4/3;
-  overflow: hidden; /* 防止内容溢出 */
-  transition: all 0.3s ease;
 }
 
 .metric-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 10px;
-  overflow: hidden; /* 防止内容溢出 */
-  justify-content: space-between;
-  width: 100%;
+  @apply flex items-center mb-2.5 overflow-hidden justify-between w-full;
 }
 
-.metric-header .el-icon {
-  margin-right: 8px;
-  color: var(--el-color-primary);
-  flex-shrink: 0; /* 防止图标缩小 */
+.metric-header .iconify {
+  @apply mr-2 text-primary flex-shrink-0;
 }
 
 .metric-value {
-  margin-left: auto;
-  font-weight: bold;
-  white-space: nowrap; /* 防止数值换行 */
-  color: var(--text-color, #303133);
+  @apply ml-auto font-bold whitespace-nowrap text-base-content;
 }
 
 .metric-details {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 10px;
-  font-size: 0.9rem;
-  color: var(--secondary-text-color, #606266);
-  overflow: hidden; /* 防止内容溢出 */
-  text-overflow: ellipsis; /* 超出部分显示省略号 */
-  justify-content: space-between;
+  @apply flex flex-col gap-1.5 mt-2.5 text-sm text-base-content/70 overflow-hidden text-ellipsis justify-between;
 }
 
 .network-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 10px;
-  font-size: 0.9em;
-  overflow: hidden; /* 防止内容溢出 */
-  justify-content: space-between;
+  @apply flex flex-col gap-1.5 mt-2.5 text-sm overflow-hidden justify-between;
 }
 
 .missing-dep-warning {
-  margin-bottom: 15px;
+  @apply mb-4 alert alert-warning text-sm;
 }
 
 /* 性能监控组件样式 */
 .performance-monitor-container {
-  width: 100%;
-  background-color: var(--el-bg-color);
-  border-radius: 8px;
-  box-shadow: var(--el-box-shadow-light);
-  transition: all 0.3s ease;
-}
-
-/* 暗色模式适配 */
-html.dark-mode .performance-monitor-container {
-  background-color: var(--card-bg-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  @apply w-full bg-base-100 rounded-lg shadow-sm transition-all duration-300;
 }
 
 /* 卡片头部 */
 .monitor-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  @apply flex justify-between items-center p-3 border-b border-base-300/20;
 }
 
 /* 指标卡片容器 */
 .metrics-grid {
-  display: grid;
-  padding: 16px;
-  gap: 16px;
+  @apply grid p-4 gap-4;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
 
 /* 图表容器样式 */
 .chart-wrapper {
-  height: 250px;
-  position: relative;
-  overflow: hidden;
+  @apply h-[250px] relative overflow-hidden;
 }
 
 /* 加载动画 */
@@ -168,6 +104,16 @@ html.dark-mode .performance-monitor-container {
 
 .loading {
   animation: pulse 1.5s infinite;
+}
+
+/* 图标支持 */
+.iconify {
+  @apply inline-flex align-middle;
+}
+
+/* 刷新按钮图标 */
+.refresh-btn .iconify {
+  @apply mr-1;
 }
 
 /* 响应式布局 */
@@ -190,24 +136,8 @@ html.dark-mode .performance-monitor-container {
 /* 高对比度主题支持 */
 @media (prefers-contrast: high) {
   .monitor-header {
-    border-bottom-width: 2px;
+    @apply border-b-2;
   }
 }
 
-/* 深色模式适配 */
-html.dark-mode .metric-item {
-  background-color: var(--card-bg-secondary, #252525);
-}
-
-html.dark-mode .metric-value {
-  color: var(--el-text-color-primary);
-}
-
-html.dark-mode .status-card {
-  background-color: rgba(30, 35, 42, 0.8);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
-}
-
-html.dark-mode .status-card:hover {
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3) !important;
-}
+/* DaisyUI会自动处理深色模式，无需手动适配 */

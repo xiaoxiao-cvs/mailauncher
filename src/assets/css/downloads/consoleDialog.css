@@ -1,69 +1,74 @@
 .console-container {
   position: relative;
   height: 400px;
-  background-color: #1e1e1e;
-  color: #f0f0f0;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 15px;
+  /* 使用DaisyUI变量和类 */
+  @apply card bg-base-300 shadow-xl relative overflow-hidden mb-4;
 }
 
 .console-output {
   height: 100%;
   overflow-y: auto;
-  background: #1e1e1e;
-  border-radius: 4px;
-  padding: 10px;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   font-size: 14px;
-  color: #d4d4d4;
   white-space: pre-wrap;
   word-break: break-all;
   line-height: 1.4;
+  /* 使用DaisyUI代码样式 */
+  @apply card-body p-4 mockup-code bg-base-300 text-base-content;
 }
 
 .console-input {
-  margin-top: 16px;
-  margin-bottom: 15px;
+  /* 使用DaisyUI表单输入样式 */
+  @apply form-control mt-4 mb-4;
+}
+
+.console-input input {
+  @apply input input-bordered w-full;
 }
 
 .commands-help {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #666;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  @apply text-xs text-base-content/60 flex items-center gap-2 mt-2;
+}
+
+.commands-help i {
+  /* 支持Iconify图标 */
+  @apply inline-flex align-middle;
 }
 
 .log-item {
-  margin-bottom: 4px;
-  padding: 2px 0;
-  white-space: pre-wrap;
-  word-break: break-all;
+  @apply mb-1 py-0.5 break-all whitespace-pre-wrap;
 }
 
 .log-content {
-  color: #dcdcdc;
+  @apply text-base-content;
 }
 
 .log-content.error {
-  color: #ff6b6b;
+  @apply text-error;
 }
 
 .log-content.warning {
-  color: #ffb347;
+  @apply text-warning;
 }
 
 .log-content.success {
-  color: #77dd77;
+  @apply text-success;
 }
 
 .log-content.info {
-  color: #d4d4d4;
+  @apply text-info;
 }
 
 .log-content.command {
-  color: #4ecdc4;
-  font-weight: bold;
+  @apply text-primary font-bold;
+}
+
+/* Iconify图标样式 */
+.iconify {
+  @apply inline-flex align-middle;
+}
+
+/* 确保命令按钮样式正确 */
+.commands-help .btn-xs {
+  @apply btn-link no-underline px-1;
 }

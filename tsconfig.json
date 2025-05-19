@@ -26,7 +26,8 @@
     "dist",
     "src/components/SettingsPanel.vue",
     "src/components/LogsPanel.vue",
-    "src/components/InstallConfig.vue"
+    "src/components/InstallConfig.vue",
+    "src/components/settings/SettingsPanel.vue"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

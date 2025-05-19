@@ -91,24 +91,32 @@ export const initMemoryChart = (
   maxMemoryGB,
   isDarkMode
 ) => {
-  const chart = echarts.init(container);
+  // 确保echarts已导入
+  if (typeof echarts === "undefined") {
+    console.error("echarts is not defined");
+    return null;
+  }
+
   const option = {
     animation: false,
     title: {
       text: "内存使用",
-      textStyle: { color: isDarkMode ? "#eee" : "#333", fontSize: 14 },
+      textStyle: {
+        color: isDarkMode ? "hsl(var(--bc))" : "hsl(var(--bc))",
+        fontSize: 14,
+      },
     },
     tooltip: { trigger: "axis" },
     xAxis: {
       type: "category",
       data: timeLabels,
-      axisLabel: { color: isDarkMode ? "#eee" : "#333" },
+      axisLabel: { color: isDarkMode ? "hsl(var(--bc))" : "hsl(var(--bc))" },
     },
     yAxis: {
       type: "value",
       max: maxMemoryGB,
       axisLabel: {
-        color: isDarkMode ? "#eee" : "#333",
+        color: isDarkMode ? "hsl(var(--bc))" : "hsl(var(--bc))",
         formatter: "{value} GB",
       },
     },
@@ -120,24 +128,22 @@ export const initMemoryChart = (
         smooth: true,
         lineStyle: {
           width: 3,
-          color: isDarkMode ? "#50c894" : "#42b983",
+          color: isDarkMode ? "hsl(var(--p))" : "hsl(var(--p))",
         },
         itemStyle: {
-          color: isDarkMode ? "#50c894" : "#42b983",
+          color: isDarkMode ? "hsl(var(--p))" : "hsl(var(--p))",
         },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
             {
               offset: 0,
-              color: isDarkMode
-                ? "rgba(80, 200, 148, 0.7)"
-                : "rgba(66, 185, 131, 0.5)",
+              color: isDarkMode ? "hsla(var(--p), 0.7)" : "hsla(var(--p), 0.5)",
             },
             {
               offset: 1,
               color: isDarkMode
-                ? "rgba(80, 200, 148, 0.1)"
-                : "rgba(66, 185, 131, 0.05)",
+                ? "hsla(var(--p), 0.1)"
+                : "hsla(var(--p), 0.05)",
             },
           ]),
         },
@@ -151,11 +157,11 @@ export const initMemoryChart = (
       containLabel: true,
     },
     backgroundColor: isDarkMode
-      ? "rgba(29, 29, 29, 0.6)"
-      : "rgba(255, 255, 255, 0.6)",
+      ? "hsl(var(--b1) / 0.6)"
+      : "hsl(var(--b1) / 0.6)",
   };
-  chart.setOption(option);
-  return chart;
+
+  return option;
 };
 
 /**

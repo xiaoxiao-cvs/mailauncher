@@ -19,6 +19,7 @@
 ### 长期计划 (v2.0+)
 
 - [ ] 插件系统
+- [ ] 多节点的实例管理
 
 ## 贡献指南 🤝
 
@@ -34,7 +35,9 @@
 
 ## 作者 👨‍💻
 
-XiaoXiao - [@xiaoxiao-cvs](https://github.com/xiaoxiao-cvs)
+筱筱 - [@xiaoxiao-cvs](https://github.com/xiaoxiao-cvs)  
+墨梓柒 - [@DrSmoothl](https://github.com/DrSmoothl)
+
 
 ## 致谢 🙏
 

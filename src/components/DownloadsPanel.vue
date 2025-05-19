@@ -36,7 +36,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, inject, nextTick } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, inject, nextTick, watch } from 'vue';
 import { instancesApi, deployApi } from '@/services/api';
 import { WebSocketService } from '../services/websocket';
 import { isMockModeActive } from '../services/apiService';
@@ -118,21 +118,40 @@ const refreshDownloads = async () => {
 const showToast = (message, type = 'info') => {
   // 创建Toast元素
   const toast = document.createElement('div');
-  toast.className = `toast toast-${type === 'error' ? 'error' : type === 'success' ? 'success' : 'info'} fixed top-4 right-4 z-50`;
-  toast.innerHTML = `
-    <div class="alert ${type === 'error' ? 'alert-error' : type === 'success' ? 'alert-success' : 'alert-info'}">
-      <span>${message}</span>
-    </div>
-  `;
+  toast.className = `toast toast-end ${getToastClass(type)}`;
+
+  const alertDiv = document.createElement('div');
+  alertDiv.className = `alert ${getAlertClass(type)}`;
+  alertDiv.textContent = message;
+
+  toast.appendChild(alertDiv);
   document.body.appendChild(toast);
 
-  // 3秒后移除
   setTimeout(() => {
     toast.classList.add('opacity-0');
     setTimeout(() => {
       document.body.removeChild(toast);
     }, 300);
   }, 3000);
+};
+
+// 添加辅助函数，根据消息类型返回相应的DaisyUI类
+const getToastClass = (type) => {
+  switch (type) {
+    case 'success': return 'toast-success';
+    case 'warning': return 'toast-warning';
+    case 'error': return 'toast-error';
+    default: return 'toast-info';
+  }
+};
+
+const getAlertClass = (type) => {
+  switch (type) {
+    case 'success': return 'alert-success';
+    case 'warning': return 'alert-warning';
+    case 'error': return 'alert-error';
+    default: return 'alert-info';
+  }
 };
 
 // 添加获取模拟实例数据的函数
@@ -479,6 +498,27 @@ const setupWebSocket = () => {
   }
 };
 
+// 添加导航事件响应函数
+const handleNavigationEvents = () => {
+  if (!emitter) return;
+
+  // 移除之前可能存在的导航事件监听器，防止重复监听
+  emitter.off('navigate-to-tab');
+
+  // 添加新的导航事件处理器，确保能正确响应
+  emitter.on('navigate-to-tab', (tabName) => {
+    console.log('下载面板接收到导航事件:', tabName);
+
+    // 转发到应用根组件处理
+    if (window._originalEmitterEmit) {
+      window._originalEmitterEmit.call(emitter, 'navigate-to-tab', tabName);
+    } else {
+      // 通过自定义事件分发
+      window.dispatchEvent(new CustomEvent('force-navigate', { detail: { tab: tabName } }));
+    }
+  });
+};
+
 // 生命周期钩子
 onMounted(() => {
   isGlobalMockMode.value = isMockModeActive(); // 初始化时检查
@@ -491,6 +531,14 @@ onMounted(() => {
   // 监听实例列表更新事件
   if (emitter) {
     emitter.on('refresh-instances', refreshDownloads);
+
+    // 确保导航事件不被阻塞
+    handleNavigationEvents();
+
+    // 保存原始emit函数
+    if (emitter.emit && !window._originalEmitterEmit) {
+      window._originalEmitterEmit = emitter.emit;
+    }
   }
 });
 
@@ -505,32 +553,11 @@ onBeforeUnmount(() => {
   // 移除事件监听
   if (emitter) {
     emitter.off('refresh-instances', refreshDownloads);
+    emitter.off('navigate-to-tab');
   }
 });
 </script>
 
 <style>
 @import '../assets/css/downloadsPanel.css';
-
-/* 添加DaisyUI相关样式调整 */
-.downloads-tab {
-  padding: 1rem;
-}
-
-.header-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-/* Toast动画 */
-.toast {
-  transition: opacity 0.3s;
-}
-
-/* 卡片样式增强 */
-.card-title {
-  margin-bottom: 0.5rem;
-}
 </style>

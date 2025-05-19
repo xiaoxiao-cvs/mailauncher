@@ -3,7 +3,7 @@
     <!-- Logo区域 -->
     <div class="sidebar-header pt-4 pb-2 px-4">
       <div class="flex items-center gap-3">
-        <img src="/assets/icon.ico" alt="MaiLauncher" class="w-8 h-8" />
+        <img src="/assets/icon.ico" alt="MaiLauncher" class="w-6 h-6" />
         <div class="sidebar-title font-bold text-lg transition-opacity duration-300"
           :class="{ 'opacity-0': !isExpanded }">
           MaiLauncher
@@ -15,7 +15,7 @@
     <ul class="menu menu-md menu-vertical py-2 px-2 gap-1">
       <li v-for="(item, key) in filteredMenuItems" :key="key">
         <a href="#" @click.prevent="selectTab(key)" :class="{ 'active': activeTab === key }">
-          <Icon :icon="getIconName(key)" width="20" height="20" />
+          <Icon :icon="getIconName(key)" width="18" height="18" />
           <span class="sidebar-text">{{ item.title }}</span>
         </a>
       </li>
@@ -23,21 +23,23 @@
 
     <div class="flex-grow"></div>
 
-    <!-- 设置菜单项 - 移至底部，在展开按钮上方 -->
-    <ul class="menu menu-md menu-vertical py-2 px-2">
-      <!-- 设置项 -->
-      <li>
-        <a href="#" @click.prevent="selectTab('settings')" :class="{ 'active': activeTab === 'settings' }">
-          <Icon icon="mdi:cog" width="20" height="20" />
-          <span class="sidebar-text">{{ menuItems.settings?.title }}</span>
-        </a>
-      </li>
-    </ul>
+    <!-- 设置菜单项 - 确保在收起按钮上方 -->
+    <div class="sidebar-footer-section px-2 pb-2">
+      <ul class="menu menu-md menu-vertical">
+        <!-- 设置项 -->
+        <li>
+          <a href="#" @click.prevent="selectTab('settings')" :class="{ 'active': activeTab === 'settings' }">
+            <Icon icon="ri:settings-3-line" width="18" height="18" />
+            <span class="sidebar-text">{{ menuItems.settings?.title }}</span>
+          </a>
+        </li>
+      </ul>
+    </div>
 
     <!-- 底部收起按钮 -->
     <div class="sidebar-footer p-3">
       <button class="btn btn-sm btn-ghost w-full" @click="toggleSidebar">
-        <Icon :icon="isExpanded ? 'mdi:chevron-left' : 'mdi:chevron-right'" width="20" height="20" />
+        <Icon :icon="isExpanded ? 'ri:arrow-left-s-line' : 'ri:arrow-right-s-line'" width="18" height="18" />
         <span class="sidebar-text ml-2">{{ isExpanded ? '收起' : '' }}</span>
       </button>
     </div>
@@ -94,12 +96,17 @@ const toggleSidebar = () => {
 // 选择选项卡方法 - 修复导航功能
 const selectTab = (tab) => {
   console.log(`尝试导航到: ${tab}`);
+
+  // 使用全局强制导航事件
+  window.dispatchEvent(new CustomEvent('force-navigate', {
+    detail: { tab: tab }
+  }));
+
+  // 同时尝试使用emitter
   if (emitter) {
-    // 确保总是发送导航事件，不再检查是否与当前标签相同
-    emitter.emit('navigate-to-tab', tab);
-    console.log(`已发送导航事件: navigate-to-tab ${tab}`);
-  } else {
-    console.error('找不到事件总线 emitter');
+    const timestamp = new Date().getTime();
+    emitter.emit('navigate-to-tab', tab, timestamp);
+    console.log(`已发送导航事件: navigate-to-tab ${tab} (${timestamp})`);
   }
 };
 
@@ -112,92 +119,5 @@ onMounted(() => {
 </script>
 
 <style>
-/* 侧边栏基础样式 */
-.sidebar {
-  width: 64px;
-  transition: width 0.3s ease;
-  display: flex;
-  flex-direction: column;
-  background-color: hsl(var(--b1) / var(--tw-bg-opacity, 0.8));
-  backdrop-filter: blur(10px);
-  box-shadow: var(--sidebar-shadow, 0 2px 10px rgba(0, 0, 0, 0.1));
-  border-right: 1px solid hsl(var(--b3) / 0.2);
-  overflow-x: hidden;
-  z-index: 100;
-}
-
-/* 展开状态 */
-.sidebar-expanded {
-  width: 220px;
-}
-
-/* 菜单项样式 */
-.menu a {
-  border-radius: var(--rounded-btn, 0.5rem);
-  display: flex;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  color: hsl(var(--bc) / 0.8);
-  transition: all 0.2s ease;
-}
-
-.menu a:hover {
-  background-color: hsl(var(--p) / 0.1);
-  color: hsl(var(--pc));
-}
-
-.menu a.active {
-  background-color: hsl(var(--p) / 0.2);
-  color: hsl(var(--pc));
-  font-weight: 500;
-}
-
-/* 导航文本，在收起状态下隐藏 */
-.sidebar-text {
-  white-space: nowrap;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  display: none;
-}
-
-.sidebar-expanded .sidebar-text {
-  opacity: 1;
-  margin-left: 0.75rem;
-  display: inline;
-}
-
-/* 标题文本，在收起状态下隐藏 */
-.sidebar-title {
-  white-space: nowrap;
-}
-
-/* 在小屏幕上始终显示紧凑版本 */
-@media (max-width: 768px) {
-  .sidebar {
-    width: 64px !important;
-  }
-
-  .sidebar-expanded {
-    width: 64px !important;
-  }
-
-  .sidebar-text,
-  .sidebar-title {
-    display: none !important;
-  }
-}
-
-/* 确保按钮内容正确展示 */
-.sidebar-footer .btn {
-  justify-content: center;
-}
-
-.sidebar-expanded .sidebar-footer .btn {
-  justify-content: flex-start;
-}
-
-/* 分割线样式 */
-.divider {
-  opacity: 0.4;
-}
+@import '../assets/css/appSidebar.css';
 </style>

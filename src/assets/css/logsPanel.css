@@ -1,9 +1,13 @@
 .logs-tab {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  @apply w-full flex flex-col h-full;
   animation: fadeIn 0.5s ease-out;
+  /* 添加与主页一致的渐变背景 */
+  background-image: linear-gradient(
+    135deg,
+    hsl(var(--p) / 0.2) 0%,
+    hsl(var(--p) / 0.5) 100%
+  );
+  @apply pb-6;
 }
 
 @keyframes fadeIn {
@@ -16,73 +20,117 @@
 }
 
 .log-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  color: var(--el-text-color-primary);
+  @apply flex justify-between items-center mb-5 text-base-content;
+  /* 添加半透明背景增强可读性 */
+  @apply bg-base-100/70 p-4 rounded-lg backdrop-blur-sm shadow-sm;
 }
 
 .header-actions {
-  display: flex;
-  align-items: center;
+  @apply flex items-center gap-2;
 }
 
 .log-container {
-  background: var(--el-fill-color-lighter);
-  border-radius: 8px;
-  padding: 12px;
-  flex: 1;
-  overflow-y: auto;
+  @apply rounded-lg p-3 flex-1 overflow-y-auto shadow-sm;
+  /* 更新为半透明背景，增强深度感 */
+  @apply bg-base-200/80 backdrop-blur-sm;
   max-height: calc(100vh - 240px); /* 确保不超出视口 */
 }
 
+/* 适配深色模式 */
+[data-theme="dark"] .logs-tab,
+[data-theme="night"] .logs-tab,
+[data-theme="black"] .logs-tab {
+  background-image: linear-gradient(
+    135deg,
+    hsl(var(--n) / 0.8) 0%,
+    hsl(var(--n) / 0.6) 100%
+  );
+}
+
+[data-theme="dark"] .log-container,
+[data-theme="night"] .log-container,
+[data-theme="black"] .log-container {
+  @apply bg-neutral/70;
+}
+
+/* 日志项样式与背景协调 */
 .log-item {
-  display: flex;
-  padding: 8px;
-  border-bottom: 1px solid var(--el-border-color-light);
-  align-items: flex-start;
+  @apply flex p-2 border-b border-base-300/30 items-start;
 }
 
 .log-icon {
-  margin-right: 10px;
-  padding-top: 2px;
+  @apply mr-2.5 pt-0.5;
 }
 
 .log-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+  @apply flex-1 flex flex-col;
 }
 
 .log-time {
-  font-size: 0.8em;
-  color: var(--el-text-color-secondary);
-  margin-bottom: 4px;
+  @apply text-xs text-base-content/70 mb-1;
 }
 
 .log-message {
-  word-break: break-word;
-  white-space: pre-wrap;
-  color: var(--el-text-color-primary);
+  @apply break-words whitespace-pre-wrap text-base-content;
 }
 
 .log-action {
-  margin-left: 8px;
+  @apply ml-2;
 }
 
 .empty-logs {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 200px;
+  @apply flex justify-center items-center min-h-[200px] text-base-content/50;
 }
 
 .log-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 10px;
-  padding: 6px;
-  color: var(--el-text-color-primary);
+  @apply flex justify-between items-center mt-2.5 p-1.5 text-base-content;
+}
+
+/* 日志级别样式 */
+.log-level-info {
+  @apply text-info;
+}
+
+.log-level-warning {
+  @apply text-warning;
+}
+
+.log-level-error {
+  @apply text-error;
+}
+
+.log-level-success {
+  @apply text-success;
+}
+
+/* Iconify图标支持 */
+.iconify {
+  @apply inline-flex align-middle;
+}
+
+/* 日志操作按钮 */
+.log-action .btn {
+  @apply btn-sm btn-ghost;
+}
+
+/* 日志过滤器下拉菜单 */
+.log-filter .dropdown-content {
+  @apply p-2 shadow-md;
+}
+
+.log-filter .dropdown-item {
+  @apply p-2 hover:bg-base-200 rounded-md cursor-pointer;
+}
+
+/* 增强可读性 */
+.log-container::-webkit-scrollbar {
+  @apply w-2;
+}
+
+.log-container::-webkit-scrollbar-track {
+  @apply bg-base-300/50 rounded-full;
+}
+
+.log-container::-webkit-scrollbar-thumb {
+  @apply bg-base-content/20 rounded-full hover:bg-base-content/30;
 }

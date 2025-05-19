@@ -1,48 +1,53 @@
 <template>
     <div class="settings-tab-content">
-        <h3 class="settings-section-title">情绪与互动设置</h3>
+        <div class="card bg-base-100 shadow">
+            <div class="card-body">
+                <h3 class="settings-section-title">情绪与互动设置</h3>
 
-        <el-card class="settings-card">
-            <div class="card-header">
-                <span>情绪系统设置</span>
-            </div>
-            <div class="setting-item">
-                <span class="setting-label">情绪更新间隔</span>
-                <div class="setting-control">
-                    <el-input-number v-model="localConfig.mood_update_interval" :min="0.1" :max="10" :step="0.1" />
-                    <span class="unit-label">分钟</span>
+                <div class="settings-card">
+                    <div class="card-header">
+                        <span>情绪系统设置</span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">情绪更新间隔</span>
+                        <div class="setting-control">
+                            <el-input-number v-model="localConfig.mood_update_interval" :min="0.1" :max="10"
+                                :step="0.1" />
+                            <span class="unit-label">分钟</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <span class="setting-label">情绪衰减率</span>
+                        <div class="setting-control slider-control">
+                            <el-slider v-model="localConfig.mood_decay_rate" :min="0.5" :max="0.99" :step="0.01"
+                                :format-tooltip="value => value.toFixed(2)" show-input />
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <span class="setting-label">情绪强度因子</span>
+                        <div class="setting-control slider-control">
+                            <el-slider v-model="localConfig.mood_intensity_factor" :min="0.5" :max="2.0" :step="0.1"
+                                :format-tooltip="value => value.toFixed(1)" show-input />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-card">
+                    <div class="card-header">
+                        <span>情绪与性格互动</span>
+                    </div>
+                    <div class="setting-item vertical-item">
+                        <div class="setting-description">
+                            <el-alert type="info" :closable="false">
+                                <p>情绪系统会影响回复内容的语气和表达方式，使机器人表现出更自然的情感变化</p>
+                            </el-alert>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            <div class="setting-item">
-                <span class="setting-label">情绪衰减率</span>
-                <div class="setting-control slider-control">
-                    <el-slider v-model="localConfig.mood_decay_rate" :min="0.5" :max="0.99" :step="0.01"
-                        :format-tooltip="value => value.toFixed(2)" show-input />
-                </div>
-            </div>
-
-            <div class="setting-item">
-                <span class="setting-label">情绪强度因子</span>
-                <div class="setting-control slider-control">
-                    <el-slider v-model="localConfig.mood_intensity_factor" :min="0.5" :max="2.0" :step="0.1"
-                        :format-tooltip="value => value.toFixed(1)" show-input />
-                </div>
-            </div>
-        </el-card>
-
-        <el-card class="settings-card">
-            <div class="card-header">
-                <span>情绪与性格互动</span>
-            </div>
-            <div class="setting-item vertical-item">
-                <div class="setting-description">
-                    <el-alert type="info" :closable="false">
-                        <p>情绪系统会影响回复内容的语气和表达方式，使机器人表现出更自然的情感变化</p>
-                    </el-alert>
-                </div>
-            </div>
-        </el-card>
+        </div>
     </div>
 </template>
 

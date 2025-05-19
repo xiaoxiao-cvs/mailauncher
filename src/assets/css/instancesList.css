@@ -1,82 +1,54 @@
-/* 实例管理页面样式 */
+/* 实例管理页面样式 - 使用DaisyUI */
 .instances-container {
-  height: 100%;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--el-bg-color);
-  color: var(--el-text-color-primary);
+  @apply h-full w-full flex flex-col bg-base-100 text-base-content;
 }
 
 /* 顶部导航栏样式 */
 .header-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 24px; /* 增加水平内边距 */
-  border-radius: 12px; /* 增加圆角 */
+  @apply flex items-center justify-between p-3 rounded-xl mb-6 mt-2 mx-2 w-[calc(100%-16px)];
   background: var(--sidebar-bg, rgba(30, 35, 42, 0.65));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  margin-bottom: 24px; /* 增加与下方间距 */
-  margin-top: 8px; /* 增加上方间距 */
-  width: calc(100% - 16px); /* 确保宽度填满容器，减去两边的margin */
-  margin-left: 8px;
-  margin-right: 8px;
   color: var(--sidebar-text-color, rgba(255, 255, 255, 0.8));
 }
 
 /* 深色模式下头部导航栏 */
-html.dark-mode .header-bar {
+[data-theme="dark"] .header-bar,
+[data-theme="night"] .header-bar,
+[data-theme="black"] .header-bar,
+[data-theme="dracula"] .header-bar {
   background: rgba(22, 25, 30, 0.85);
   color: rgba(255, 255, 255, 0.8);
 }
 
 /* 浅色模式下头部导航栏 */
-html:not(.dark-mode) .header-bar {
+[data-theme="light"] .header-bar,
+[data-theme="cupcake"] .header-bar,
+[data-theme="bumblebee"] .header-bar,
+[data-theme="corporate"] .header-bar {
   background: rgba(240, 245, 255, 0.85);
   color: rgba(0, 0, 0, 0.8);
 }
 
 .title-area {
-  display: flex;
-  align-items: center;
-  gap: 12px; /* 增加图标和文字间距 */
-  padding-top: 4px; /* 标题向下移动 */
-  padding-left: 8px; /* 标题向右移动 */
+  @apply flex items-center gap-3 pt-1 pl-2;
 }
 
 .app-icon {
-  font-size: 22px; /* 放大图标 */
-  margin-right: 10px;
-  color: var(--el-color-primary);
+  @apply text-xl text-primary mr-2.5;
 }
 
 .header-title {
-  font-size: 18px;
-  font-weight: 600; /* 加粗一点 */
-  color: var(--el-text-color-primary);
+  @apply text-lg font-semibold text-base-content;
 }
 
 .search-area {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-grow: 1;
-  justify-content: center;
-  max-width: 600px;
+  @apply flex gap-2.5 items-center flex-grow justify-center max-w-[600px];
 }
 
 .filter-button {
-  padding: 8px 12px;
+  @apply p-2 rounded cursor-pointer flex items-center gap-1.5 transition-colors mr-2.5;
   background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  transition: background-color 0.3s;
-  margin-right: 10px;
 }
 
 .filter-button:hover {
@@ -84,353 +56,335 @@ html:not(.dark-mode) .header-bar {
 }
 
 /* 浅色模式下的过滤按钮 */
-html:not(.dark-mode) .filter-button {
+[data-theme="light"] .filter-button,
+[data-theme="cupcake"] .filter-button,
+[data-theme="bumblebee"] .filter-button,
+[data-theme="corporate"] .filter-button {
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-html:not(.dark-mode) .filter-button:hover {
+[data-theme="light"] .filter-button:hover,
+[data-theme="cupcake"] .filter-button:hover,
+[data-theme="bumblebee"] .filter-button:hover,
+[data-theme="corporate"] .filter-button:hover {
   background-color: rgba(0, 0, 0, 0.1);
 }
 
-.filter-button .el-icon {
-  margin-left: 5px;
+.filter-button .iconify {
+  @apply ml-1.5;
 }
 
 .search-box {
-  flex-grow: 1;
-  max-width: 450px;
+  @apply flex-grow max-w-[450px];
 }
 
 .search-icon {
-  color: var(--el-text-color-placeholder);
+  @apply text-base-content/50;
 }
 
 .action-area {
-  display: flex;
-  align-items: center;
-  gap: 12px; /* 添加按钮之间的间距 */
+  @apply flex items-center gap-3;
 }
 
 .new-app-btn {
-  border: none;
+  @apply border-none;
 }
 
 /* 操作按钮栏样式 */
 .operation-bar {
-  display: none; /* 隐藏原来的操作栏 */
+  @apply hidden; /* 隐藏原来的操作栏 */
 }
 
 .left-buttons {
-  display: flex;
-  gap: 10px;
+  @apply flex gap-2.5;
 }
 
 /* 实例列表样式 */
 .instances-list {
-  flex-grow: 1;
-  padding: 16px;
-  overflow-y: auto;
-  background-color: var(--el-fill-color-light);
+  @apply flex-grow p-4 overflow-y-auto bg-base-200;
 }
 
 /* 卡片式布局 */
 .instances-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 24px; /* 增加卡片之间的间距 */
-  margin-top: 16px; /* 增加顶部间距 */
-  padding: 0 8px; /* 添加左右内边距 */
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-4 px-2;
 }
 
 .instance-card {
-  background-color: var(--el-bg-color);
-  border-radius: 12px !important; /* 增加卡片圆角并使用!important确保生效 */
-  padding: 18px 20px; /* 增加内边距 */
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--el-border-color-lighter);
-  box-shadow: var(--el-box-shadow-light);
-  position: relative;
-  transition: transform 0.3s, box-shadow 0.3s;
-  height: 220px; /* 稍微减小高度 */
-  overflow: hidden; /* 确保内容不会溢出圆角 */
+  @apply bg-base-100 rounded-xl p-5 flex flex-col border border-base-300 shadow-sm relative transition-all duration-300 h-[220px] overflow-hidden;
 }
 
-/* 覆盖element-plus的卡片样式 */
-.instances-grid .el-card {
-  border-radius: 12px; /* 确保卡片的圆角生效 */
-}
-
-.el-card.instance-card .el-card__body {
-  padding: 0; /* 移除el-card默认内边距，使用我们自己定义的padding */
-}
-
-.el-card.instance-card .el-card__body {
-  padding: 0; /* 移除el-card默认内边距，使用我们自己定义的padding */
-  height: 100%;
+/* 使用DaisyUI卡片样式 */
+.instance-card {
+  @apply card bg-base-100;
 }
 
 .instance-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1) !important; /* 增强悬浮效果 */
+  @apply -translate-y-[3px] shadow-md;
 }
 
 .instance-header {
-  margin-bottom: 20px; /* 增加下边距 */
+  @apply mb-5;
 }
 
 .instance-name {
-  font-size: 16px;
-  font-weight: bold;
-  display: block;
-  margin-bottom: 8px; /* 增加标题与描述的间距 */
-  color: var(--el-text-color-primary);
+  @apply text-base font-bold block mb-2 text-base-content;
 }
 
 .instance-desc {
-  font-size: 14px;
-  display: block;
-  color: var(--el-text-color-secondary);
+  @apply text-sm block text-base-content/70;
 }
 
 .instance-info {
-  margin-bottom: 20px; /* 增加与下方元素的间距 */
+  @apply mb-5;
 }
 
 .info-item {
-  margin-bottom: 10px; /* 增加每个信息项之间的间距 */
-  display: flex;
-  font-size: 14px;
+  @apply mb-2.5 flex text-sm;
 }
 
 /* 增加时间信息样式 */
 .time-info-container {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  @apply flex flex-col gap-1.5;
 }
 
 /* 确保时间值不换行 */
 .time-value {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--el-text-color-regular);
+  @apply whitespace-nowrap overflow-hidden text-ellipsis text-base-content/80;
 }
 
 /* 时间标签样式 */
 .time-label {
-  color: var(--el-text-color-secondary);
-  width: 80px;
-  display: block;
+  @apply text-base-content/60 w-20 block;
 }
 
 .info-label {
-  color: var(--el-text-color-secondary);
-  width: 80px;
+  @apply text-base-content/60 w-20;
 }
 
 .info-value {
-  color: var(--el-text-color-regular);
+  @apply text-base-content/80;
 }
 
 .instance-actions {
-  display: flex;
-  gap: 8px;
-  position: absolute;
-  right: 16px;
-  top: 16px;
+  @apply flex gap-2 absolute right-4 top-4;
 }
 
 /* 新增: 重新设计的操作按钮区域 - 位于卡片右下角 */
 .instance-actions-new {
-  position: absolute;
-  bottom: 15px;
-  right: 15px;
-  display: flex;
-  align-items: center;
-  gap: 15px; /* 增加按钮组之间的间距 */
-  background: transparent;
-  padding: 5px;
-  border-radius: 4px;
+  @apply absolute bottom-4 right-4 flex items-center gap-4 bg-transparent p-1 rounded;
   box-shadow: none;
 }
 
 .action-group {
-  display: flex;
-  gap: 12px; /* 增加同组内按钮的间距 */
+  @apply flex gap-3;
 }
 
-/* 修改按钮组样式为方形圆角 */
+/* 修改按钮组样式 */
 .action-buttons {
-  display: flex;
-  gap: 8px;
+  @apply flex gap-2;
 }
 
-/* 新增：将按钮修改为方形圆角 */
-.instance-actions-new .el-button {
-  font-size: 14px; /* 缩小字体 */
-  width: 32px !important; /* 调整为合适的按钮尺寸 */
-  height: 32px !important; /* 强制高度 - 确保完全相等 */
-  padding: 0 !important; /* 移除内边距 */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s;
-  border-radius: 6px !important; /* 将圆形按钮改为方形圆角 */
+/* 使用DaisyUI按钮样式 */
+.instance-actions-new .btn {
+  @apply btn-sm btn-square btn-ghost text-sm w-8 h-8 p-0 flex items-center justify-center transition-all duration-300;
 }
 
 /* 分隔线样式 */
 .action-divider {
-  width: 1px;
-  height: 20px; /* 缩小高度 */
-  background-color: var(--el-border-color-lighter);
-  margin: 0 5px;
+  @apply w-px h-5 bg-base-300 mx-1;
 }
 
-/* 统一按钮大小，确保对齐和完美圆形 */
-.instance-actions-new .el-button {
-  font-size: 14px; /* 缩小字体 */
-  width: 32px !important; /* 调整为合适的按钮尺寸 */
-  height: 32px ; /* 强制高度 - 确保完全相等 */
-  padding: 0 !important; /* 移除内边距 */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s;
-  border-radius: 50% !important; /* 确保是圆形 */
-}
-
-/* 按钮内的图标大小 */
-.instance-actions-new .el-button .el-icon {
-  font-size: 14px !important; /* 缩小图标大小 */
+/* 按钮内的图标样式 */
+.instance-actions-new .btn .iconify {
+  @apply text-sm;
 }
 
 /* 按钮悬停效果 */
-.instance-actions-new .el-button:hover:not(.is-disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+.instance-actions-new .btn:hover:not(:disabled) {
+  @apply -translate-y-0.5 shadow-sm;
 }
 
 /* 禁用状态的按钮样式 */
-.instance-actions-new .el-button.is-disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.instance-actions-new .btn:disabled {
+  @apply opacity-60 cursor-not-allowed;
 }
 
 .instance-status {
-  margin-top: auto;
-  margin-bottom: 18px; /* 增加与卡片底部的间距 */
-  display: flex;
-  align-items: center;
+  @apply mt-auto mb-5 flex items-center;
 }
 
 .status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  @apply flex items-center gap-1;
 }
 
 .status-icon {
-  font-size: 16px;
+  @apply text-base;
 }
 
 .status-text {
-  font-size: 14px;
+  @apply text-sm;
 }
 
-/* 状态颜色 */
+/* 状态颜色 - 使用DaisyUI颜色 */
 .status-running {
-  color: var(--el-color-success);
+  @apply text-success;
 }
 
 .status-starting {
-  color: var(--el-color-warning);
+  @apply text-warning;
 }
 
 .status-stopping {
-  color: var(--el-color-danger);
+  @apply text-error;
 }
 
 .status-stopped {
-  color: var(--el-text-color-secondary);
+  @apply text-base-content/60;
 }
 
 .status-maintenance {
-  color: var(--el-color-info);
+  @apply text-info;
+}
+
+/* 状态指示点样式 */
+.status-dot {
+  @apply w-2.5 h-2.5 rounded-full inline-block;
+}
+
+/* 运行状态 - 绿色脉冲 */
+.status-dot.status-running {
+  @apply bg-success;
+  animation: pulse 1.5s infinite;
+  box-shadow: 0 0 5px 1px rgba(72, 199, 116, 0.5);
+}
+
+/* 维护状态 - 蓝色脉冲 */
+.status-dot.status-maintenance {
+  @apply bg-info;
+  animation: pulse 1.5s infinite;
+  box-shadow: 0 0 5px 1px rgba(56, 182, 255, 0.5);
+}
+
+/* 停止状态 - 灰色固定点 */
+.status-dot.status-stopped {
+  @apply bg-base-content/40;
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.85);
+  }
 }
 
 /* 加载状态 */
 .loading-container {
-  padding: 20px;
+  @apply p-5;
 }
 
 .empty-state {
-  margin: 40px 0;
-  color: var(--el-text-color-secondary);
+  @apply my-10 text-base-content/60;
+}
+
+/* 状态按钮的颜色增强，与状态指示点保持一致 */
+.status-btn-success {
+  @apply bg-success text-white border-success hover:bg-success/80 hover:border-success/80;
+  box-shadow: 0 0 5px rgba(72, 199, 116, 0.3);
+}
+
+/* 停止按钮的样式增强 */
+.btn-error.status-btn {
+  box-shadow: 0 0 5px rgba(248, 114, 114, 0.3);
+}
+
+/* 按钮加载中状态 */
+.btn .loading-spinner {
+  @apply text-base-content;
+}
+
+/* 停止/启动按钮的悬停效果增强 */
+.btn-square.btn-success:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+
+.btn-square.btn-error:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+
+/* 添加按钮按下效果 */
+.btn-square.btn-success:active,
+.btn-square.btn-error:active {
+  transform: translateY(0);
+  filter: brightness(0.95);
 }
 
 /* 响应式样式 */
 @media (max-width: 768px) {
   .header-bar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
+    @apply flex-col items-start gap-2.5;
   }
 
   .search-area {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
+    @apply w-full flex-col items-stretch;
   }
 
   .filter-button {
-    margin-right: 0;
-    margin-bottom: 10px;
+    @apply mb-2.5 mr-0;
   }
 
   .action-area {
-    width: 100%;
-    justify-content: flex-end;
-    margin-top: 10px;
+    @apply w-full justify-end mt-2.5;
   }
 
   .instance-actions {
-    position: static;
-    margin-top: 16px;
+    @apply static mt-4;
   }
 
   .instances-grid {
-    grid-template-columns: 1fr;
+    @apply grid-cols-1;
   }
 
   .search-area,
   .action-area {
-    width: 100%;
+    @apply w-full;
   }
 
   .search-box {
-    flex: 1;
+    @apply flex-1;
   }
 
   .new-app-btn {
-    width: 100%;
-    margin-top: 10px;
+    @apply w-full mt-2.5;
   }
 
   .instance-card {
-    height: auto; /* 允许卡片在小屏幕上自适应高度 */
-    min-height: 220px; /* 设置最小高度 */
-    padding: 15px; /* 减少内边距 */
+    @apply h-auto min-h-[220px] p-4;
   }
 
   /* 调整小屏幕上的时间布局 */
   .time-info-container {
-    width: 100%;
+    @apply w-full;
   }
 
   .time-value {
-    max-width: 100%;
-    font-size: 13px; /* 小屏幕上减小字体 */
+    @apply max-w-full text-xs;
   }
+}
+
+/* Iconify图标支持 */
+.iconify {
+  @apply inline-flex align-middle;
+}
+
+/* DaisyUI徽章支持 */
+.badge {
+  @apply normal-case;
 }

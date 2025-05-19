@@ -4,8 +4,8 @@
         <div class="navbar bg-base-200 rounded-box shadow-sm mb-6">
             <div class="navbar-start">
                 <div class="flex items-center gap-3">
-                    <i class="icon icon-list text-primary text-xl"></i>
-                    <h2 class="text-xl font-bold">应用实例</h2>
+                    <i class="icon icon-list text-primary text-lg"></i>
+                    <h2 class="text-xl font-bold">实例管理</h2>
                 </div>
             </div>
             <div class="navbar-center">
@@ -39,11 +39,20 @@
             </div>
             <div class="navbar-end">
                 <div class="flex items-center gap-2">
-                    <button class="btn btn-sm btn-outline" @click="refreshInstances">
-                        <i class="icon icon-refresh"></i> 刷新
+                    <!-- 新建按钮 - 改为截图尺寸 -->
+                    <button class="btn btn-sm btn-primary btn-square" title="新建实例" @click="createNewInstance">
+                        <Icon icon="ri:add-line" width="16" height="16" />
                     </button>
-                    <button class="btn btn-sm btn-outline" @click="batchOperation">批量操作</button>
-                    <button class="btn btn-sm btn-primary" @click="createNewInstance">新建应用</button>
+
+                    <!-- 刷新按钮 - 改为截图尺寸 -->
+                    <button class="btn btn-sm btn-ghost btn-square" @click="refreshInstances" title="刷新列表">
+                        <Icon icon="ri:refresh-line" width="16" height="16" />
+                    </button>
+
+                    <!-- 批量操作按钮 - 改为截图尺寸 -->
+                    <button class="btn btn-sm btn-ghost btn-square" @click="batchOperation" title="批量操作">
+                        <Icon icon="ri:checkbox-multiple-line" width="16" height="16" />
+                    </button>
                 </div>
             </div>
         </div>
@@ -63,7 +72,7 @@
             <div v-else-if="filteredInstances.length === 0"
                 class="empty-state flex flex-col items-center justify-center p-12">
                 <div class="text-center">
-                    <i class="icon icon-alert-circle text-4xl opacity-30 mb-4"></i>
+                    <Icon icon="ri:file-list-3-line" class="text-lg opacity-40 mb-2" />
                     <h3 class="font-bold text-lg mb-2">没有找到应用实例</h3>
                     <p class="text-sm opacity-60 mb-4">尝试调整过滤条件或创建新的实例</p>
                     <button class="btn btn-primary" @click="goToDownloads">新建应用</button>
@@ -95,31 +104,41 @@
 
                         <!-- 状态指示器 -->
                         <div class="flex items-center gap-2 mb-4">
-                            <span class="badge" :class="getStatusBadgeClass(instance.status)">
-                                {{ getStatusText(instance.status) }}
+                            <span class="status-indicator flex items-center">
+                                <!-- 运行状态图标 - 只保留三种状态 -->
+                                <span v-if="instance.status === 'running'"
+                                    class="status-dot status-running mr-2"></span>
+                                <span v-else-if="instance.status === 'maintenance'"
+                                    class="status-dot status-maintenance mr-2"></span>
+                                <span v-else class="status-dot status-stopped mr-2"></span>
+                                <!-- 状态文本 - 不再使用彩色背景 -->
+                                <span class="text-sm">{{ getStatusText(instance.status) }}</span>
                             </span>
                         </div>
 
-                        <!-- 操作按钮区 -->
-                        <div class="card-actions justify-between">
-                            <div class="btn-group">
-                                <button class="btn btn-sm"
-                                    :class="instance.status === 'running' ? 'btn-error' : 'btn-success'"
-                                    @click="toggleInstanceRunning(instance)">
-                                    {{ instance.status === 'running' ? '停止' : '启动' }}
+                        <!-- 操作按钮区 - 缩小图标并将终端改为重启 -->
+                        <div class="card-actions justify-end mt-2">
+                            <div class="flex gap-2">
+                                <!-- 停止/启动按钮 - 显示加载状态 -->
+                                <button class="btn btn-sm btn-square"
+                                    :class="[getActionButtonClass(instance), 'status-btn']"
+                                    @click="toggleInstanceRunning(instance)" :disabled="instance.isLoading"
+                                    :title="instance.status === 'running' ? '停止' : '启动'">
+                                    <span v-if="instance.isLoading" class="loading loading-spinner loading-xs"></span>
+                                    <Icon v-else :icon="instance.status === 'running' ? 'ri:stop-line' : 'ri:play-line'"
+                                        width="12" height="12" />
                                 </button>
-                                <button class="btn btn-sm btn-outline" :disabled="instance.status !== 'running'"
-                                    @click="restartInstance(instance)">
-                                    重启
+                                <!-- 重启按钮 - 尽量小的图标 -->
+                                <button class="btn btn-sm btn-ghost btn-square" @click="restartInstance(instance)"
+                                    :disabled="instance.isLoading" title="重启实例">
+                                    <span v-if="instance.isRestarting"
+                                        class="loading loading-spinner loading-xs"></span>
+                                    <Icon v-else icon="ri:restart-line" width="12" height="12" />
                                 </button>
-                            </div>
-
-                            <div class="btn-group">
-                                <button class="btn btn-sm btn-outline" @click="openTerminal(instance)">
-                                    <i class="icon icon-terminal"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline" @click="configureInstance(instance)">
-                                    <i class="icon icon-settings"></i>
+                                <!-- 设置按钮 - 尽量小的图标 -->
+                                <button class="btn btn-sm btn-ghost btn-square" @click="configureInstance(instance)"
+                                    title="设置">
+                                    <Icon icon="ri:settings-3-line" width="12" height="12" />
                                 </button>
                             </div>
                         </div>
@@ -133,6 +152,7 @@
 <script setup>
 import { ref, computed, onMounted, inject, onUnmounted, watch } from 'vue';
 import { instancesApi } from '@/services/api';
+import { Icon } from '@iconify/vue';
 
 // 事件总线，用于与其他组件通信
 const emitter = inject('emitter');
@@ -304,6 +324,18 @@ const getStatusText = (status) => {
     }
 };
 
+// 获取操作按钮的类
+const getActionButtonClass = (instance) => {
+    if (instance.isLoading) {
+        return 'btn-neutral'; // 加载中使用中性颜色
+    }
+    if (instance.status === 'running') {
+        return 'btn-error'; // 运行中时显示停止按钮(红色)
+    }
+    // 未运行时显示启动按钮(绿色)，与状态指示点颜色一致
+    return 'btn-success';
+};
+
 // 处理过滤器更改
 const handleFilterChange = (command) => {
     filterType.value = command;
@@ -353,12 +385,13 @@ const startInstance = async (instance) => {
     try {
         showToast(`正在启动实例: ${instance.name}`, 'info');
 
-        // 模拟实例状态改变
-        instance.status = 'starting';
+        // 设置加载状态
+        instance.isLoading = true;
 
         // 模拟延迟
         setTimeout(() => {
             instance.status = 'running';
+            instance.isLoading = false;
             showToast(`实例 ${instance.name} 已启动`, 'success');
         }, 2000);
 
@@ -366,6 +399,7 @@ const startInstance = async (instance) => {
         // await instancesApi.startInstance(instance.name);
     } catch (error) {
         console.error('启动实例失败:', error);
+        instance.isLoading = false;
         showToast(`启动实例失败: ${error.message}`, 'error');
     }
 };
@@ -375,12 +409,13 @@ const stopInstance = async (instance) => {
     try {
         showToast(`正在停止实例: ${instance.name}`, 'info');
 
-        // 模拟实例状态改变
-        instance.status = 'stopping';
+        // 设置加载状态
+        instance.isLoading = true;
 
         // 模拟延迟
         setTimeout(() => {
             instance.status = 'stopped';
+            instance.isLoading = false;
             showToast(`实例 ${instance.name} 已停止`, 'success');
         }, 2000);
 
@@ -388,6 +423,7 @@ const stopInstance = async (instance) => {
         // await instancesApi.stopInstance(instance.name);
     } catch (error) {
         console.error('停止实例失败:', error);
+        instance.isLoading = false;
         showToast(`停止实例失败: ${error.message}`, 'error');
     }
 };
@@ -402,22 +438,21 @@ const restartInstance = async (instance) => {
 
         showToast(`正在重启实例: ${instance.name}`, 'info');
 
-        // 模拟实例状态改变
-        instance.status = 'stopping';
+        // 设置重启加载状态
+        instance.isRestarting = true;
 
         // 模拟延迟
         setTimeout(() => {
-            instance.status = 'starting';
-            setTimeout(() => {
-                instance.status = 'running';
-                showToast(`实例 ${instance.name} 已重启`, 'success');
-            }, 1500);
-        }, 1500);
+            instance.isRestarting = false;
+            instance.status = 'running';
+            showToast(`实例 ${instance.name} 已重启`, 'success');
+        }, 3000);
 
         // 在真实环境中应该调用API
         // await instancesApi.restartInstance(instance.name);
     } catch (error) {
         console.error('重启实例失败:', error);
+        instance.isRestarting = false;
         showToast(`重启实例失败: ${error.message}`, 'error');
     }
 };
@@ -498,8 +533,167 @@ onUnmounted(() => {
     transform: translateY(-5px);
 }
 
-/* 状态徽章样式定制 */
+/* 移除之前的徽章样式 */
 .badge {
-    @apply py-2 px-3;
+    @apply py-1 px-2;
+    font-size: 0.7rem;
+    background-color: transparent;
+    color: inherit;
+    border: none;
+}
+
+/* 状态指示器样式 */
+.status-indicator {
+    display: flex;
+    align-items: center;
+    padding: 0.25rem 0;
+}
+
+/* 图标颜色 */
+.text-success {
+    color: var(--success);
+}
+
+.text-warning {
+    color: var(--warning);
+}
+
+.text-info {
+    color: var(--info);
+}
+
+/* 添加旋转动画 */
+.animate-spin {
+    animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 调整按钮为非常小的尺寸 */
+.btn-square {
+    width: 28px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    max-height: 28px !important;
+    padding: 0 !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+    line-height: 1 !important;
+    min-width: 28px !important;
+}
+
+.btn-square:hover {
+    transform: scale(1.03);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* 图标调整为极小尺寸 */
+.btn-square .iconify {
+    font-size: 0.75rem;
+    stroke-width: 1;
+    opacity: 0.9;
+}
+
+/* 确保导航栏图标也使用相同的小尺寸 */
+.navbar-end .btn-square {
+    width: 28px !important;
+    height: 28px !important;
+}
+
+.navbar-end .btn-square .iconify {
+    font-size: 0.75rem;
+    stroke-width: 1;
+}
+
+/* 批量操作模式激活样式 */
+.batch-mode-active {
+    @apply bg-primary/10;
+}
+
+.section-title {
+    font-weight: bold;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    color: var(--primary);
+    border-bottom: 1px solid var(--primary);
+    padding-bottom: 0.5rem;
+}
+
+.badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* 状态指示点样式 */
+.status-dot {
+    @apply w-2.5 h-2.5 rounded-full inline-block;
+}
+
+/* 运行状态 - 绿色脉冲 */
+.status-dot.status-running {
+    @apply bg-success;
+    animation: pulse 1.5s infinite;
+    box-shadow: 0 0 5px 1px rgba(72, 199, 116, 0.5);
+}
+
+/* 维护状态 - 蓝色脉冲 */
+.status-dot.status-maintenance {
+    @apply bg-info;
+    animation: pulse 1.5s infinite;
+    box-shadow: 0 0 5px 1px rgba(56, 182, 255, 0.5);
+}
+
+/* 停止状态 - 灰色固定点 */
+.status-dot.status-stopped {
+    @apply bg-base-content/40;
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.7;
+        transform: scale(0.85);
+    }
+}
+
+/* 启动按钮 - 与运行指示点同色 */
+.status-btn-success {
+    background-color: hsl(var(--su)) !important;
+    border-color: hsl(var(--su)) !important;
+    color: hsl(var(--suc)) !important;
+}
+
+.status-btn-success:hover {
+    filter: brightness(0.95);
+    background-color: hsl(var(--su) / 0.9) !important;
+    border-color: hsl(var(--su) / 0.9) !important;
+}
+
+/* 让loading组件显示得更好 */
+.loading.loading-spinner {
+    @apply inline-block;
+}
+
+/* 状态指示器容器保持垂直对齐 */
+.status-indicator {
+    @apply items-center;
 }
 </style>

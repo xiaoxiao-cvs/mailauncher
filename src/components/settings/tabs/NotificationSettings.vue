@@ -1,29 +1,37 @@
 <template>
     <div class="settings-tab-content">
-        <h3 class="settings-section-title">通知设置</h3>
+        <h3 class="text-lg font-medium mb-4">通知设置</h3>
 
-        <el-card class="settings-card">
-            <div class="setting-item">
-                <span class="setting-label">开启系统通知</span>
-                <div class="setting-control">
-                    <el-switch v-model="enableNotifications" />
+        <div class="card bg-base-100 shadow-xl mb-5">
+            <div class="card-body p-4">
+                <div class="setting-item">
+                    <span class="setting-label">开启系统通知</span>
+                    <div class="setting-control">
+                        <input type="checkbox" class="toggle toggle-primary" v-model="enableNotifications" />
+                    </div>
+                </div>
+
+                <div class="divider my-1"></div>
+
+                <div class="setting-item">
+                    <span class="setting-label">通知声音</span>
+                    <div class="setting-control">
+                        <input type="checkbox" class="toggle toggle-primary" v-model="notificationSound"
+                            :disabled="!enableNotifications" />
+                    </div>
+                </div>
+
+                <div class="divider my-1"></div>
+
+                <div class="setting-item">
+                    <span class="setting-label">错误通知</span>
+                    <div class="setting-control">
+                        <input type="checkbox" class="toggle toggle-primary" v-model="errorNotifications"
+                            :disabled="!enableNotifications" />
+                    </div>
                 </div>
             </div>
-
-            <div class="setting-item">
-                <span class="setting-label">通知声音</span>
-                <div class="setting-control">
-                    <el-switch v-model="notificationSound" :disabled="!enableNotifications" />
-                </div>
-            </div>
-
-            <div class="setting-item">
-                <span class="setting-label">错误通知</span>
-                <div class="setting-control">
-                    <el-switch v-model="errorNotifications" :disabled="!enableNotifications" />
-                </div>
-            </div>
-        </el-card>
+        </div>
     </div>
 </template>
 
@@ -72,38 +80,15 @@ watch(errorNotifications, (newValue) => {
     animation: fadeIn 0.5s ease;
 }
 
-.settings-section-title {
-    margin-bottom: 20px;
-    color: var(--el-text-color-primary);
-    font-weight: 500;
-}
-
-.settings-card {
-    margin-bottom: 20px;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
 .setting-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 0;
-    border-bottom: 1px solid var(--el-border-color-lighter);
-}
-
-.setting-item:last-child {
-    border-bottom: none;
+    padding: 0.75rem 0;
 }
 
 .setting-label {
-    font-size: 14px;
-    color: var(--el-text-color-primary);
-}
-
-.setting-control {
-    display: flex;
-    align-items: center;
+    font-size: 0.875rem;
 }
 
 @media (max-width: 768px) {
@@ -113,7 +98,7 @@ watch(errorNotifications, (newValue) => {
     }
 
     .setting-control {
-        margin-top: 10px;
+        margin-top: 0.5rem;
         width: 100%;
     }
 }

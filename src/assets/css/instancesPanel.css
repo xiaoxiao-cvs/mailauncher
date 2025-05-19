@@ -1,6 +1,12 @@
 .instances-tab {
-  width: 100%;
+  @apply w-full min-h-full pb-6;
   animation: slideInFromRight 0.5s ease;
+  /* 添加与主页一致的渐变背景 */
+  background-image: linear-gradient(
+    135deg,
+    hsl(var(--p) / 0.2) 0%,
+    hsl(var(--p) / 0.5) 100%
+  );
 }
 
 @keyframes slideInFromRight {
@@ -15,205 +21,106 @@
 }
 
 .header-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  @apply flex justify-between items-center mb-5;
+  /* 添加半透明背景增强可读性 */
+  @apply bg-base-100/70 p-4 rounded-lg backdrop-blur-sm shadow-sm;
 }
 
 .section {
-  margin-bottom: 24px;
-  background-color: var(--el-fill-color-blank);
-  border-radius: 8px;
-  padding: 16px;
-  color: var(--el-text-color-primary);
+  @apply mb-6 text-base-content rounded-lg p-4 shadow-sm;
+  /* 更新为半透明背景，增强深度感 */
+  @apply bg-base-100/80 backdrop-blur-sm border border-base-300/30;
 }
 
 .section-title {
-  font-weight: bold;
-  font-size: 16px;
-  margin-bottom: 12px;
-  color: var(--el-color-primary);
-  border-bottom: 1px solid var(--el-border-color-light);
-  padding-bottom: 8px;
+  @apply font-bold text-base mb-3 text-primary border-b border-base-200/50 pb-2;
 }
 
 .instances-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
-  margin-top: 8px;
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-2;
 }
 
 .instance-card {
-  transition: all 0.3s ease;
-  background-color: var(--el-bg-color);
-  color: var(--el-text-color-primary);
-  border: 1px solid var(--el-border-color);
-  border-radius: 4px;
-  padding: 15px;
+  @apply transition-all duration-300 border border-base-300 rounded-lg p-4;
+  /* 更新卡片背景为半透明 */
+  @apply bg-base-100/90;
 }
 
 .instance-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+  @apply -translate-y-1 shadow-md bg-base-100/100;
 }
 
-.instance-header {
-  margin-bottom: 15px;
+/* 适配深色模式 */
+[data-theme="dark"] .instances-tab,
+[data-theme="night"] .instances-tab,
+[data-theme="black"] .instances-tab {
+  background-image: linear-gradient(
+    135deg,
+    hsl(var(--n) / 0.8) 0%,
+    hsl(var(--n) / 0.6) 100%
+  );
 }
 
-.instance-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+[data-theme="dark"] .section,
+[data-theme="night"] .section,
+[data-theme="black"] .section,
+[data-theme="dark"] .instance-card,
+[data-theme="night"] .instance-card,
+[data-theme="black"] .instance-card {
+  @apply bg-base-200/70;
 }
 
-.instance-id {
-  font-size: 18px;
-  font-weight: bold;
+[data-theme="dark"] .instance-card:hover,
+[data-theme="night"] .instance-card:hover,
+[data-theme="black"] .instance-card:hover {
+  @apply bg-base-200/90;
 }
 
-.info-row {
-  display: flex;
-  margin-bottom: 5px;
-  font-size: 14px;
-}
-
-.info-label {
-  color: var(--el-text-color-secondary);
-  width: 80px;
-}
-
-.instance-actions {
-  margin-top: auto;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.batch-operations {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.search-input {
-  width: 220px;
-}
-
-.pagination-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 20px;
-  padding: 10px 0;
-}
-
-.page-size-selector {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 14px;
-  color: var(--el-text-color-secondary);
-}
-
-.el-dropdown-link {
-  cursor: pointer;
-}
-
-/* 表格样式 */
+/* 确保表格与背景风格一致 */
 .instances-table-wrapper {
-  background-color: var(--el-bg-color);
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  margin-bottom: 20px;
-  overflow: hidden;
+  @apply bg-base-100/90 backdrop-blur-sm;
 }
 
-/* 状态标签样式 */
-.status-tag {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  display: inline-flex;
-  align-items: center;
+[data-theme="dark"] .instances-table-wrapper,
+[data-theme="night"] .instances-table-wrapper,
+[data-theme="black"] .instances-table-wrapper {
+  @apply bg-base-200/80;
 }
 
-.status-tag.running {
-  background-color: rgba(103, 194, 58, 0.1);
-  color: var(--el-color-success);
+/* 添加卡片悬停效果增强 */
+.section:hover {
+  @apply shadow-md bg-base-100/90;
 }
 
-.status-tag.stopped {
-  background-color: rgba(144, 147, 153, 0.1);
-  color: var(--el-color-info);
+[data-theme="dark"] .section:hover,
+[data-theme="night"] .section:hover,
+[data-theme="black"] .section:hover {
+  @apply bg-base-200/80;
 }
 
-/* 按钮组样式 */
-.action-buttons {
-  display: flex;
-  gap: 8px;
+/* 确保内容可以滚动但保持背景固定 */
+.instances-tab {
+  background-attachment: fixed;
+  @apply overflow-auto;
 }
 
-/* 新增方形圆角按钮样式 */
-.action-buttons .el-button.is-circle {
-  border-radius: 6px !important; /* 方形圆角 */
-}
-
-/* 实例卡片中的时间信息容器 */
-.time-info-container {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 15px;
-}
-
-.time-info-container .info-item {
-  margin-bottom: 5px;
-}
-
-.time-value {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 深色模式适配 */
-html.dark-mode .instance-card {
-  background-color: var(--card-bg-color);
-  border-color: var(--border-color);
-}
-
-html.dark-mode .instances-table-wrapper {
-  background-color: var(--card-bg-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
+/* DaisyUI会自动处理暗色和亮色主题，不需要单独的深色模式样式 */
 
 /* 响应式设计 */
 @media (max-width: 768px) {
   .instances-list {
-    grid-template-columns: 1fr;
+    @apply grid-cols-1;
   }
 
   .header-section {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
+    @apply flex-col items-start gap-2.5;
   }
 
   .header-actions {
-    width: 100%;
-    flex-wrap: wrap;
+    @apply w-full flex-wrap;
   }
 
   .search-input {
-    width: 100%;
+    @apply w-full;
   }
 }

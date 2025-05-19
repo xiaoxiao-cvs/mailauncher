@@ -1,72 +1,112 @@
-/* 图标兼容层，确保 Element Plus 图标和 Font Awesome 图标正常工作 */
+/* Iconify图标集成 - 替换Font Awesome和Element Plus */
 
-/* Font Awesome 备用类 */
-.fas.fa-pen:before {
-  content: "\f304";
+/* 基础Iconify样式 */
+.iconify {
+  @apply inline-flex items-center justify-center align-middle;
+  vertical-align: -0.125em; /* 微调垂直对齐 */
 }
 
-.fas.fa-times:before {
-  content: "\f00d";
+/* 旧图标类映射到Iconify图标 */
+.fas.fa-pen,
+.el-icon-edit,
+.icon-edit {
+  /* 将旧图标类映射到data-icon属性, Iconify会处理实际渲染 */
+  --icon-name: "mdi:pencil";
 }
 
-.fas.fa-save:before {
-  content: "\f0c7";
+.fas.fa-times,
+.el-icon-close,
+.icon-close {
+  --icon-name: "mdi:close";
 }
 
-/* Element Plus 图标兼容 */
-.el-icon-edit:before {
-  font-family: "element-icons" !important;
-  content: "\e906";
+.fas.fa-save,
+.el-icon-save,
+.icon-save {
+  --icon-name: "mdi:content-save";
 }
 
-.el-icon-close:before {
-  font-family: "element-icons" !important;
-  content: "\e79d";
+/* 确保按钮内的图标居中显示 */
+button .iconify,
+.btn .iconify {
+  @apply flex items-center justify-center w-full h-full;
 }
 
-.el-icon-save:before {
-  font-family: "element-icons" !important;
-  content: "\e605";
+/* DaisyUI按钮中的图标大小 */
+.btn-xs .iconify {
+  @apply text-xs;
 }
 
-/* 确保按钮内的图标居中 */
-button .fas,
-button .el-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
+.btn-sm .iconify {
+  @apply text-sm;
 }
 
-/* 确保 Element Plus 图标正确显示 */
-.el-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 1em;
-  width: 1em;
-  line-height: 1em;
+.btn .iconify {
+  @apply text-base;
+}
+
+.btn-lg .iconify {
+  @apply text-lg;
 }
 
 /* 编辑按钮图标样式 */
-.edit-btn .el-icon,
-.edit-btn .fas {
-  font-size: 16px;
+.edit-btn .iconify {
+  @apply text-base;
 }
 
-/* 无图标的情况下使用Unicode字符作为后备 */
-.edit-btn:not(:has(.el-icon)):not(:has(.fas)):after {
+/* 当Iconify不可用或图标加载失败时的后备Unicode字符 */
+.edit-btn:not(:has(.iconify)):after {
   content: "\270E"; /* 笔符号 */
-  font-size: 16px;
+  @apply text-base;
 }
 
-.exit-btn:not(:has(.el-icon)):not(:has(.fas)):after {
+.close-btn:not(:has(.iconify)):after,
+.exit-btn:not(:has(.iconify)):after {
   content: "\2715"; /* X符号 */
-  font-size: 16px;
+  @apply text-base;
 }
 
-.save-btn:not(:has(.el-icon)):not(:has(.fas)):after {
+.save-btn:not(:has(.iconify)):after {
   content: "\1F4BE"; /* 软盘符号 */
-  font-size: 16px;
+  @apply text-base;
+}
+
+/* 支持DaisyUI按钮样式 */
+.btn-ghost .iconify,
+.btn-primary .iconify,
+.btn-secondary .iconify,
+.btn-accent .iconify {
+  @apply m-0;
+}
+
+/* 当按钮同时有图标和文本时的间距 */
+.btn-with-icon .iconify {
+  @apply mr-2;
+}
+
+/* 特定图标动作的颜色 */
+.btn-success .iconify {
+  @apply text-success-content;
+}
+
+.btn-error .iconify {
+  @apply text-error-content;
+}
+
+.btn-warning .iconify {
+  @apply text-warning-content;
+}
+
+/* 图标动画效果 */
+.iconify-spin {
+  animation: icon-spin 2s infinite linear;
+}
+
+@keyframes icon-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }

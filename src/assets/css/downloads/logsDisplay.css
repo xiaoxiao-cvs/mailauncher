@@ -1,213 +1,168 @@
 .log-title-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
+  @apply flex justify-between items-center w-full;
 }
 
 .log-actions {
-  display: flex;
-  gap: 8px;
+  @apply flex gap-2;
 }
 
 .shell-container {
-  height: 300px;
-  overflow-y: auto;
-  background-color: #1e1e1e;
-  border-radius: 8px;
-  margin-bottom: 10px;
-  position: relative;
+  @apply h-[300px] overflow-y-auto rounded-lg mb-2.5 relative;
+  /* 使用DaisyUI的背景色 */
+  @apply bg-neutral;
 }
 
 .empty-logs {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  @apply h-full flex items-center justify-center;
 }
 
 .terminal {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: var(--terminal-bg, #0d0d0d);
-  border-radius: 6px;
-  overflow: hidden;
-  font-family: 'Courier New', Courier, monospace;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  @apply w-full h-full flex flex-col rounded-md overflow-hidden font-mono shadow-lg;
+  /* 使用DaisyUI的变量保持与主题一致性 */
+  background: var(--tw-neutral-900, #0d0d0d);
 }
 
 .terminal-header {
-  background-color: #323232;
-  padding: 8px 10px;
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
-  display: flex;
-  align-items: center;
+  @apply bg-neutral-focus p-2 flex items-center rounded-t-lg;
 }
 
 .terminal-controls {
-  display: flex;
-  gap: 6px;
-  margin-right: 15px;
+  @apply flex gap-1.5 mr-4;
 }
 
 .control {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
+  @apply w-3 h-3 rounded-full;
 }
 
 .close {
-  background-color: #ff5f56;
+  @apply bg-error;
 }
 
 .minimize {
-  background-color: #ffbd2e;
+  @apply bg-warning;
 }
 
 .maximize {
-  background-color: #27c93f;
+  @apply bg-success;
 }
 
 .terminal-title {
-  color: #ddd;
-  font-size: 14px;
-  font-weight: 500;
-  user-select: none;
-  flex: 1;
-  text-align: center;
+  @apply text-base-content text-sm font-medium select-none flex-1 text-center;
 }
 
 .terminal-body {
-  flex: 1;
-  padding: 10px;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  overflow-y: auto;
-  color: var(--terminal-text, #d9d9d9);
+  @apply flex-1 p-2.5 font-mono text-sm overflow-y-auto;
+  /* 使用DaisyUI颜色变量 */
+  color: hsl(var(--nc));
 }
 
 .terminal-line {
-  margin-bottom: 4px;
-  white-space: pre-wrap;
-  word-break: break-all;
-  line-height: 1.4;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  @apply mb-1 whitespace-pre-wrap break-all leading-relaxed flex flex-wrap items-start;
 }
 
 .command-prompt {
-  color: #77dd77;
-  margin-right: 5px;
+  @apply text-success mr-1.5;
 }
 
 .command-content {
-  color: #dcdcdc;
+  @apply text-base-content;
 }
 
 .command-line {
-  margin-top: 8px;
-  margin-bottom: 8px;
+  @apply my-2 p-0.5 text-accent;
   background-color: rgba(255, 255, 255, 0.05);
-  padding: 2px 0;
-  color: #4ecdc4;
 }
 
 .important-line {
-  font-weight: 500;
-  color: #f0f0f0;
-  background-color: rgba(65, 105, 225, 0.1);
-  border-left: 2px solid #4169e1;
-  padding-left: 4px;
+  @apply font-medium text-base-content bg-primary/10 border-l-2 border-primary pl-1;
 }
 
 .timestamp {
-  color: #666;
-  margin-right: 8px;
-  font-size: 0.9em;
-  min-width: 80px;
-  display: inline-block;
+  @apply text-neutral-content mr-2 text-[0.9em] min-w-[80px] inline-block;
 }
 
 .prefix {
-  color: #42b983;
-  margin-right: 5px;
-  font-weight: 600;
-  padding: 2px 4px;
-  border-radius: 3px;
-  min-width: 70px;
-  display: inline-block;
-  text-align: center;
-  font-size: 12px;
+  @apply mr-1.5 font-semibold p-0.5 rounded min-w-[70px] inline-block text-center text-xs;
 }
 
 .prefix.pip {
-  color: #ffce44;
-  background-color: rgba(34, 115, 195, 0.1);
+  @apply text-warning bg-primary/10;
 }
 
 .prefix.python {
-  color: #3572A5;
-  background-color: rgba(55, 118, 171, 0.1);
+  @apply text-info bg-info/10;
 }
 
 .prefix.napcat {
-  color: #ff8c00;
-  background-color: rgba(66, 185, 131, 0.1);
+  @apply text-warning bg-success/10;
 }
 
 .prefix.nonebot {
-  color: #6a89cc;
-  background-color: rgba(100, 149, 237, 0.1);
+  @apply text-primary bg-primary/10;
 }
 
 .prefix.install {
-  color: #4ecdc4;
-  background-color: rgba(147, 112, 219, 0.1);
+  @apply text-accent bg-secondary/10;
 }
 
 .prefix.system {
-  color: #888;
-  background-color: rgba(136, 136, 136, 0.1);
+  @apply text-neutral-content bg-neutral-content/10;
 }
 
 .content {
-  flex: 1;
-  word-break: break-word;
-  white-space: pre-wrap;
-  color: #dcdcdc;
+  @apply flex-1 break-words whitespace-pre-wrap text-base-content;
 }
 
 .content.error {
-  color: #ff6b6b;
+  @apply text-error;
 }
 
 .content.warning {
-  color: #ffb347;
+  @apply text-warning;
 }
 
 .content.success {
-  color: #77dd77;
-}
-
-.empty-logs {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 200px;
+  @apply text-success;
 }
 
 .terminal-options {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 5px;
+  @apply flex justify-end mt-1.5;
 }
 
-/* 深色模式下的空日志文本 */
-:deep(html.dark-mode) .el-empty__description p {
-  color: var(--el-text-color-secondary);
+/* 增强选项按钮样式 */
+.terminal-options .btn {
+  @apply btn-sm btn-ghost;
+}
+
+/* Iconify图标支持 */
+.terminal-options .iconify {
+  @apply inline-flex align-middle;
+}
+
+/* 增强按钮的可点击性 */
+.log-actions .btn {
+  @apply btn-sm;
+}
+
+/* 添加图标按钮样式 */
+.icon-btn {
+  @apply btn btn-sm btn-ghost p-1;
+}
+
+.icon-btn .iconify {
+  @apply text-lg;
+}
+
+/* 深色模式下的空日志文本 - DaisyUI会自动处理 */
+[data-theme="dark"] .empty-description {
+  @apply text-base-content/60;
+}
+
+/* 空日志状态美化 */
+.empty-logs .empty-icon {
+  @apply text-4xl text-base-content/30 mb-2;
+}
+
+.empty-logs .empty-text {
+  @apply text-base-content/50;
 }

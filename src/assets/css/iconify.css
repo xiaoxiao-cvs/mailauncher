@@ -1,56 +1,126 @@
-/* Iconify样式 */
+/* Iconify样式 - DaisyUI集成 */
 
-/* 颜色预设 */
+/* 基础图标样式 */
+.iconify {
+  @apply inline-flex items-center justify-center align-middle;
+  vertical-align: -0.125em; /* 微调垂直对齐 */
+}
+
+/* 颜色预设 - 直接使用DaisyUI HSL变量 */
 .iconify-color-primary svg {
-  color: var(--p, var(--primary, #570df8));
+  color: hsl(var(--p));
 }
 
 .iconify-color-secondary svg {
-  color: var(--s, var(--secondary, #f000b8));
+  color: hsl(var(--s));
 }
 
 .iconify-color-accent svg {
-  color: var(--a, var(--accent, #1dcdbc));
+  color: hsl(var(--a));
 }
 
 .iconify-color-neutral svg {
-  color: var(--n, var(--neutral, #3d4451));
+  color: hsl(var(--n));
+}
+
+.iconify-color-base svg {
+  color: hsl(var(--bc));
 }
 
 .iconify-color-success svg {
-  color: var(--su, var(--success, #36d399));
+  color: hsl(var(--su));
 }
 
 .iconify-color-warning svg {
-  color: var(--wa, var(--warning, #fbbd23));
+  color: hsl(var(--wa));
 }
 
 .iconify-color-error svg {
-  color: var(--er, var(--error, #f87272));
+  color: hsl(var(--er));
 }
 
 .iconify-color-info svg {
-  color: var(--in, var(--info, #3abff8));
+  color: hsl(var(--in));
 }
 
 /* 按钮中的图标样式 */
 button .iconify,
-.el-button .iconify,
 .btn .iconify {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  vertical-align: middle;
+  @apply inline-flex items-center justify-center align-middle;
 }
 
-/* 补充样式修复 */
-.icon-button .iconify {
-  margin: 0 auto;
+/* DaisyUI按钮中的图标间距控制 */
+.btn-square .iconify,
+.btn-circle .iconify {
+  @apply m-0;
+}
+
+.btn:not(.btn-square):not(.btn-circle) .iconify {
+  @apply mr-2;
+}
+
+.btn-xs .iconify {
+  @apply text-xs;
+}
+
+.btn-sm .iconify {
+  @apply text-sm;
+}
+
+.btn-md .iconify {
+  @apply text-base;
+}
+
+.btn-lg .iconify {
+  @apply text-lg;
+}
+
+/* 图标大小变体 */
+.iconify-xs {
+  font-size: 0.75rem;
+}
+
+.iconify-sm {
+  font-size: 0.875rem;
+}
+
+.iconify-md {
+  font-size: 1.25rem;
+}
+
+.iconify-lg {
+  font-size: 1.5rem;
+}
+
+.iconify-xl {
+  font-size: 2rem;
+}
+
+.iconify-2xl {
+  font-size: 3rem;
+}
+
+/* 特殊效果 */
+.iconify-button {
+  @apply btn btn-ghost btn-circle p-0 flex items-center justify-center;
 }
 
 /* 动画效果 */
 .iconify-spin svg {
   animation: iconify-spin 2s infinite linear;
+}
+
+.iconify-pulse svg {
+  animation: iconify-spin 1s infinite steps(8);
+}
+
+.iconify-bounce svg {
+  animation: iconify-bounce 1s infinite;
+}
+
+/* 添加更多动画 */
+.iconify-ping svg {
+  animation: iconify-ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
 @keyframes iconify-spin {
@@ -62,7 +132,35 @@ button .iconify,
   }
 }
 
+@keyframes iconify-bounce {
+  0%,
+  100% {
+    transform: translateY(-25%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+@keyframes iconify-ping {
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
 /* 主题切换过渡效果 */
-html {
-  transition: color 0.3s, background-color 0.3s;
+[data-theme] .iconify svg {
+  @apply transition-colors duration-300;
+}
+
+/* 在深色主题下调整某些图标的明度 */
+[data-theme="dark"] .iconify-auto-lighten svg,
+[data-theme="night"] .iconify-auto-lighten svg,
+[data-theme="black"] .iconify-auto-lighten svg,
+[data-theme="dracula"] .iconify-auto-lighten svg {
+  filter: brightness(1.2);
 }

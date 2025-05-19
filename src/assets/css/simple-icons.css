@@ -1,25 +1,30 @@
-/* 简约纯色图标样式 */
+/* 简约图标样式 - 使用Iconify替代纯CSS绘制 */
 
-/* 基础图标样式 */
+/* 基础图标样式 - 保留并使用Tailwind/DaisyUI类 */
 .simple-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @apply inline-flex items-center justify-center;
   width: 1em;
   height: 1em;
   line-height: 1;
   font-style: normal;
 }
 
-/* 编辑按钮图标 - 修复绘制 */
-.icon-edit {
+/* Iconify基础样式 */
+.iconify {
+  @apply inline-flex items-center justify-center align-middle;
+}
+
+/* 当Iconify加载失败时的备用CSS图标 - 保留原有的CSS实现 */
+
+/* 编辑按钮图标 - 当iconify不可用时 */
+.icon-edit:not([data-icon]) {
   position: relative;
   display: inline-block;
   width: 1em;
   height: 1em;
 }
 
-.icon-edit::before {
+.icon-edit:not([data-icon])::before {
   content: "";
   position: absolute;
   top: 0.1em;
@@ -31,7 +36,7 @@
   border-radius: 0.05em;
 }
 
-.icon-edit::after {
+.icon-edit:not([data-icon])::after {
   content: "";
   position: absolute;
   top: 0.65em;
@@ -42,15 +47,15 @@
   transform: rotate(45deg);
 }
 
-/* 保存图标 - 修复绘制 */
-.icon-save {
+/* 保存图标 - 当iconify不可用时 */
+.icon-save:not([data-icon]) {
   position: relative;
   display: inline-block;
   width: 1em;
   height: 1em;
 }
 
-.icon-save::before {
+.icon-save:not([data-icon])::before {
   content: "";
   position: absolute;
   top: 0.15em;
@@ -61,7 +66,7 @@
   border-radius: 0.1em;
 }
 
-.icon-save::after {
+.icon-save:not([data-icon])::after {
   content: "";
   position: absolute;
   top: 0.3em;
@@ -72,16 +77,16 @@
   border-radius: 0.05em;
 }
 
-/* 关闭按钮图标 - 修复绘制 */
-.icon-close {
+/* 关闭按钮图标 - 当iconify不可用时 */
+.icon-close:not([data-icon]) {
   position: relative;
   display: inline-block;
   width: 1em;
   height: 1em;
 }
 
-.icon-close::before,
-.icon-close::after {
+.icon-close:not([data-icon])::before,
+.icon-close:not([data-icon])::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -92,15 +97,15 @@
   border-radius: 0.05em;
 }
 
-.icon-close::before {
+.icon-close:not([data-icon])::before {
   transform: translate(-50%, -50%) rotate(45deg);
 }
 
-.icon-close::after {
+.icon-close:not([data-icon])::after {
   transform: translate(-50%, -50%) rotate(-45deg);
 }
 
-/* 备用简单文本图标 - 保留以防CSS失效 */
+/* 备用简单文本图标 - 作为最终后备方案 */
 .text-icon-edit::before {
   content: "✎";
 }
@@ -127,4 +132,54 @@
 
 .text-icon-settings::before {
   content: "⚙";
+}
+
+/* 常见图标的Iconify映射类 - 用于快速引用 */
+.icon-edit[data-icon-name] {
+  --icon: "mdi:pencil";
+}
+
+.icon-save[data-icon-name] {
+  --icon: "mdi:content-save";
+}
+
+.icon-close[data-icon-name] {
+  --icon: "mdi:close";
+}
+
+.icon-play[data-icon-name] {
+  --icon: "mdi:play";
+}
+
+.icon-stop[data-icon-name] {
+  --icon: "mdi:stop";
+}
+
+.icon-refresh[data-icon-name] {
+  --icon: "mdi:refresh";
+}
+
+.icon-settings[data-icon-name] {
+  --icon: "mdi:cog";
+}
+
+/* DaisyUI按钮中的图标尺寸 */
+.btn-xs .simple-icon,
+.btn-xs .iconify {
+  @apply text-xs;
+}
+
+.btn-sm .simple-icon,
+.btn-sm .iconify {
+  @apply text-sm;
+}
+
+.btn-md .simple-icon,
+.btn-md .iconify {
+  @apply text-base;
+}
+
+.btn-lg .simple-icon,
+.btn-lg .iconify {
+  @apply text-lg;
 }

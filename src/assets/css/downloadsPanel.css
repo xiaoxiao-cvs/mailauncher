@@ -1,8 +1,14 @@
-@import '../global.css';
+@import "../global.css";
 
 .downloads-tab {
-  width: 100%;
+  @apply w-full min-h-full pb-6;
   animation: scaleIn 0.5s ease-out;
+  /* 添加与主页一致的渐变背景 */
+  background-image: linear-gradient(
+    135deg,
+    hsl(var(--p) / 0.2) 0%,
+    hsl(var(--p) / 0.5) 100%
+  );
 }
 
 @keyframes scaleIn {
@@ -17,29 +23,70 @@
 }
 
 .header-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  @apply flex justify-between items-center mb-5;
+  /* 添加半透明背景增强可读性 */
+  @apply bg-base-100/70 p-4 rounded-lg backdrop-blur-sm shadow-sm;
+}
+
+.header-section h3 {
+  @apply text-lg font-bold text-primary;
 }
 
 .header-actions {
-  display: flex;
-  gap: 10px;
+  @apply flex gap-2.5;
 }
 
 .section {
-  margin-bottom: 24px;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  padding: 16px;
+  @apply mb-6 rounded-lg p-4 shadow-sm;
+  /* 更新为半透明背景，增强深度感 */
+  @apply bg-base-100/80 backdrop-blur-sm border border-base-300/30;
 }
 
 .section-title {
-  font-weight: bold;
-  font-size: 16px;
-  margin-bottom: 12px;
-  color: var(--el-color-primary);
-  border-bottom: 1px solid #ebeef5;
-  padding-bottom: 8px;
+  @apply font-bold text-base mb-3 text-primary border-b border-base-200/50 pb-2;
+}
+
+.icon-btn {
+  @apply btn btn-sm btn-ghost;
+}
+
+.icon-btn .iconify {
+  @apply text-lg;
+}
+
+/* 适配深色模式 */
+[data-theme="dark"] .downloads-tab,
+[data-theme="night"] .downloads-tab,
+[data-theme="black"] .downloads-tab,
+[data-theme="dracula"] .downloads-tab {
+  background-image: linear-gradient(
+    135deg,
+    hsl(var(--n) / 0.8) 0%,
+    hsl(var(--n) / 0.6) 100%
+  );
+}
+
+[data-theme="dark"] .section,
+[data-theme="night"] .section,
+[data-theme="black"] .section,
+[data-theme="dracula"] .section {
+  @apply bg-base-200/70 border-base-300/20;
+}
+
+/* 添加卡片悬停效果增强 */
+.section:hover {
+  @apply shadow-md bg-base-100/90;
+}
+
+[data-theme="dark"] .section:hover,
+[data-theme="night"] .section:hover,
+[data-theme="black"] .section:hover,
+[data-theme="dracula"] .section:hover {
+  @apply bg-base-200/80;
+}
+
+/* 确保内容可以滚动但保持背景固定 */
+.downloads-tab {
+  background-attachment: fixed;
+  @apply overflow-auto;
 }

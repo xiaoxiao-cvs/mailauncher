@@ -12,7 +12,12 @@
   --sidebar-active-bg: rgba(0, 0, 0, 0.08);
   --sidebar-hover-bg: rgba(0, 0, 0, 0.05);
 
-  /* 添加图表相关变量 */
+  /* 替换el-color变量为daisyUI的hsl变量 */
+  --theme-color: hsl(var(--p));
+  --theme-color-light: hsl(var(--p) / 0.7);
+  --theme-color-dark: hsl(var(--p) / 1.2);
+
+  /* 图表相关变量 */
   --chart-bg-color: rgba(255, 255, 255, 0.7);
   --chart-text-color: #333;
   --chart-grid-color: #eee;
@@ -33,7 +38,7 @@ html.dark-mode {
   --sidebar-active-bg: rgba(255, 255, 255, 0.1);
   --sidebar-hover-bg: rgba(255, 255, 255, 0.05);
 
-  /* 添加图表深色模式相关变量 */
+  /* 图表深色模式相关变量 */
   --chart-bg-color: rgba(40, 44, 52, 0.8);
   --chart-text-color: #eee;
   --chart-grid-color: #333;

@@ -1,43 +1,82 @@
 .system-status-card {
-  margin-bottom: 20px;
+  @apply mb-5;
 }
 
 .card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  @apply flex justify-between items-center;
 }
 
 .status-items {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  @apply flex flex-col gap-3;
 }
 
 .status-item {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--el-border-color-extra-light);
-}
-
-.status-item:last-child {
-  border-bottom: none;
+  @apply flex flex-col py-2 border-b border-base-200 last:border-b-0;
 }
 
 .service-name {
-  font-weight: bold;
-  margin-bottom: 4px;
-  color: var(--el-text-color-primary);
+  @apply font-bold mb-1 text-base-content;
 }
 
 .service-status {
-  display: flex;
-  align-items: center;
+  @apply flex items-center;
 }
 
 .service-info {
-  margin-left: 10px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+  @apply ml-2.5 text-xs text-base-content/70;
+}
+
+/* 添加Iconify图标支持 */
+.service-status .iconify {
+  @apply mr-1.5;
+}
+
+/* 服务状态指示器 */
+.status-indicator {
+  @apply w-2.5 h-2.5 rounded-full mr-2;
+}
+
+.status-running {
+  @apply bg-success;
+}
+
+.status-error {
+  @apply bg-error;
+}
+
+.status-warning {
+  @apply bg-warning;
+}
+
+.status-stopped {
+  @apply bg-base-content/30;
+}
+
+/* 卡片内状态列表 */
+.status-list {
+  @apply divide-y divide-base-200;
+}
+
+/* 带有图标的状态项 */
+.status-item-with-icon {
+  @apply flex items-center;
+}
+
+.status-item-with-icon .iconify {
+  @apply mr-2 text-base-content/70;
+}
+
+/* 服务状态变化的动画 */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.status-updating {
+  animation: pulse 1.5s infinite;
 }

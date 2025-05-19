@@ -14,9 +14,7 @@ body {
   flex-direction: column; /* 修改回column布局，让内部组件决定自己的布局 */
 }
 
-/* 删除旧的侧边栏相关样式 - 已清除 */
-
-/* 统一内容区域宽度控制 - 修改为使用CSS变量 */
+/* 统一内容区域宽度控制 - 使用CSS变量 */
 .content-area {
   overflow-x: hidden;
   box-sizing: border-box;
@@ -88,194 +86,91 @@ body {
   }
 }
 
-/* 滚动条样式 */
+/* 滚动条样式 - 使用DaisyUI主题变量 */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: hsl(var(--b2));
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #ccc;
+  background: hsl(var(--b3));
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #aaa;
+  background: hsl(var(--bc) / 0.3);
 }
 
-/* 深色模式变量 */
+/* 全局变量 - 使用DaisyUI颜色变量替代Element Plus */
 :root {
   /* 主色调 */
-  --primary-color: #4a7eff;
-  --primary-light: #6b93ff;
-  --primary-dark: #3a6be0;
+  --primary-color: hsl(var(--p));
+  --primary-light: hsl(var(--p) / 0.8);
+  --primary-dark: hsl(var(--p) / 1.2);
 
   /* 辅助色 */
-  --accent-color: #42b983;
-  --accent-secondary: #e6a23c;
-  --accent-tertiary: #fc7676;
+  --accent-color: hsl(var(--a));
+  --accent-secondary: hsl(var(--s));
+  --accent-tertiary: hsl(var(--s) / 0.8);
 
   /* 背景和卡片 */
-  --app-bg-color: #f0f5ff;
-  --card-bg-color: #ffffff;
-  --card-bg-secondary: #f5f9ff;
-  --card-hover: #e8f0ff;
+  --app-bg-color: hsl(var(--b2));
+  --card-bg-color: hsl(var(--b1));
+  --card-bg-secondary: hsl(var(--b2));
+  --card-hover: hsl(var(--b3));
 
   /* 文本颜色 */
-  --text-color: #303133;
-  --secondary-text-color: #606266;
-  --tertiary-text-color: #909399;
-  --text-light: #c0c4cc;
+  --text-color: hsl(var(--bc));
+  --secondary-text-color: hsl(var(--bc) / 0.8);
+  --tertiary-text-color: hsl(var(--bc) / 0.6);
+  --text-light: hsl(var(--bc) / 0.4);
 
   /* 边框和分隔线 */
-  --border-color: #dcdfe6;
-  --border-light: #e4e7ed;
-  --divider-color: #ebeef5;
+  --border-color: hsl(var(--b3));
+  --border-light: hsl(var(--b2) / 0.7);
+  --divider-color: hsl(var(--b2));
 
   /* 状态颜色 */
-  --success-color: #67c23a;
-  --warning-color: #e6a23c;
-  --danger-color: #f56c6c;
-  --info-color: #909399;
+  --success-color: hsl(var(--su));
+  --warning-color: hsl(var(--wa));
+  --danger-color: hsl(var(--er));
+  --info-color: hsl(var(--in));
 
   /* 交互色 */
-  --hover-color: #ecf5ff;
-  --active-color: #d6e9ff;
+  --hover-color: hsl(var(--p) / 0.1);
+  --active-color: hsl(var(--p) / 0.2);
 
   /* 特殊用途 */
-  --terminal-bg: #1e1e1e;
-  --terminal-text: #d4d4d4;
+  --terminal-bg: hsl(var(--n));
+  --terminal-text: hsl(var(--nc));
 
   /* 图表相关变量 */
-  --chart-text: #333;
-  --chart-line: #4169e1;
-  --chart-memory: #009e73;
-  --chart-network: #d55e00;
-  --chart-secondary: #9370db;
-  --chart-tertiary: #3cb371;
+  --chart-text: hsl(var(--bc));
+  --chart-line: hsl(var(--p));
+  --chart-memory: hsl(var(--su));
+  --chart-network: hsl(var(--wa));
+  --chart-secondary: hsl(var(--s));
+  --chart-tertiary: hsl(var(--a));
 
   /* 侧边栏半透明效果相关变量 */
   --sidebar-bg-opacity: 0.95;
   --sidebar-backdrop-filter: blur(10px);
-  --sidebar-bg: rgba(240, 245, 255, var(--sidebar-bg-opacity));
-  --sidebar-border-color: rgba(0, 0, 0, 0.05);
-  --sidebar-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+  --sidebar-bg: hsl(var(--b1) / var(--sidebar-bg-opacity));
+  --sidebar-border-color: hsl(var(--b3) / 0.1);
+  --sidebar-shadow: 0 0 15px hsla(var(--b2), 0.05);
 }
 
-/* 深色模式 */
-html.dark-mode {
-  --el-color-primary: #5983ff;
-  --el-color-success: #67c23a;
-  --el-color-warning: #e6a23c;
-  --el-color-danger: #f56c6c;
-  --el-color-info: #909399;
-
-  --el-bg-color: #1a1a1a;
-  --el-bg-color-page: #121212;
-  --el-bg-color-overlay: #1d1d1d;
-
-  --el-text-color-primary: #e5eaf3;
-  --el-text-color-regular: #cfd3dc;
-  --el-text-color-secondary: #a3a6ad;
-  --el-text-color-placeholder: #8d9095;
-  --el-text-color-disabled: #6c6e72;
-
-  --el-border-color: #434343;
-  --el-border-color-light: #363636;
-  --el-border-color-lighter: #2e2e2e;
-  --el-border-color-extra-light: #242424;
-
-  /* 主色调 - 深色模式 */
-  --primary-color: #5983ff;
-  --primary-light: #7a9dff;
-  --primary-dark: #3b6adf;
-
-  /* 辅助色 - 深色模式 */
-  --accent-color: #50c894;
-  --accent-secondary: #e6b354;
-  --accent-tertiary: #fc8282;
-
-  /* 背景和卡片 - 深色模式 */
-  --app-bg-color: #121212;
-  --card-bg-color: #1d1d1d;
-  --card-bg-secondary: #252525;
-  --card-hover: #2a2a2a;
-
-  /* 文本颜色 - 深色模式 */
-  --text-color: #e5eaf3;
-  --secondary-text-color: #a3a6ad;
-  --tertiary-text-color: #8d9095;
-  --text-light: #6c6e72;
-
-  /* 边框和分隔线 - 深色模式 */
-  --border-color: #434343;
-  --border-light: #363636;
-  --divider-color: #2e2e2e;
-
-  /* 状态颜色 - 深色模式 */
-  --success-color: #85ce61;
-  --warning-color: #e6b954;
-  --danger-color: #f78989;
-  --info-color: #a6a9ad;
-
-  /* 交互色 - 深色模式 */
-  --hover-color: #2c2c2c;
-  --active-color: #333333;
-
-  /* 特殊用途 - 深色模式 */
-  --terminal-bg: #0a0a0a;
-  --terminal-text: #d4d4d4;
-
-  /* 图表相关变量 - 深色模式 */
-  --chart-text: #eee;
-  --chart-line: #6495ed;
-  --chart-memory: #00c29a;
-  --chart-network: #ff7a45;
-  --chart-secondary: #9f82ea;
-  --chart-tertiary: #4cd787;
-
-  /* 侧边栏半透明效果相关变量 - 深色模式 */
-  --sidebar-bg-opacity: 0.85;
-  --sidebar-backdrop-filter: blur(15px);
-  --sidebar-bg: rgba(26, 26, 26, var(--sidebar-bg-opacity));
-  --sidebar-border-color: rgba(255, 255, 255, 0.05);
-  --sidebar-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-
-  color-scheme: dark;
-}
-
-/* 为深色模式下的Element Plus卡片应用样式 */
-html.dark-mode .el-card {
-  --el-card-bg-color: var(--card-bg-color) !important;
-  background-color: var(--card-bg-color) !important;
-  border-color: var(--border-light) !important;
-  color: var(--text-color) !important;
-}
-
-html.dark-mode .el-card__header {
-  border-bottom: 1px solid var(--border-light) !important;
-}
-
-html.dark-mode .section {
-  background-color: var(--card-bg-color);
-}
-
-/* 深色模式滚动条 */
-html.dark-mode ::-webkit-scrollbar-track {
-  background: #2c2c2c;
-}
-
-html.dark-mode ::-webkit-scrollbar-thumb {
-  background: #555;
-}
-
-html.dark-mode ::-webkit-scrollbar-thumb:hover {
-  background: #666;
+/* 添加Iconify图标支持 */
+.iconify {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: -0.125em;
 }
 
 /* 禁用动画 */
@@ -293,7 +188,7 @@ html.no-animations *::after {
   min-height: 200px;
 }
 
-/* 添加全局过渡动画样式 - 修改为统一动画 */
+/* 全局过渡动画样式 - 统一动画 */
 .page-enter-active,
 .page-leave-active,
 .fade-enter-active,
@@ -330,74 +225,51 @@ html.no-animations *::after {
   }
 }
 
-/* 统一组件过渡效果 */
-.el-collapse-transition-enter-active,
-.el-collapse-transition-leave-active {
+/* 统一组件过渡效果 - 替换Element Plus过渡为通用过渡 */
+.collapse-transition-enter-active,
+.collapse-transition-leave-active {
   transition: all 0.3s ease;
 }
 
-.el-collapse-transition-enter-from,
-.el-collapse-transition-leave-to {
+.collapse-transition-enter-from,
+.collapse-transition-leave-to {
   opacity: 0;
   transform: translateX(20px);
 }
 
-/* 确保内容区域不被侧边栏覆盖的全局样式 */
-.content-area {
-  overflow-x: hidden;
-  box-sizing: border-box;
-  width: 100%;
-  transition: margin-left 0.3s ease, width 0.3s ease;
-  margin-left: 64px; /* 默认侧边栏收起状态下的边距 */
-  width: calc(100% - 64px);
+/* Iconify图标尺寸变体 */
+.icon-xs {
+  font-size: 0.75rem;
 }
 
-/* 侧边栏展开时的内容区域样式 */
-.content-area.sidebar-expanded {
-  margin-left: 220px; /* 侧边栏展开时的边距 */
-  width: calc(100% - 220px);
+.icon-sm {
+  font-size: 0.875rem;
 }
 
-/* 所有内容容器继承内容区域的宽度设置 */
-.home-content,
-.instances-tab,
-.downloads-tab,
-.logs-tab,
-.settings-tab {
-  width: 100%;
-  box-sizing: border-box;
+.icon-md {
+  font-size: 1.125rem;
 }
 
-/* 全局的响应式断点处理 */
-@media (max-width: 1200px) {
-  .content-area {
-    margin-left: 50px;
-    width: calc(100% - 50px);
-  }
-
-  .content-area.sidebar-expanded {
-    margin-left: 180px;
-    width: calc(100% - 180px);
-  }
+.icon-lg {
+  font-size: 1.5rem;
 }
 
-@media (max-width: 768px) {
-  .content-area {
-    margin-left: 0;
-    width: 100%;
-  }
+.icon-xl {
+  font-size: 2rem;
+}
 
-  .content-area.sidebar-expanded {
-    margin-left: 0;
-    width: 100%;
-  }
+/* 添加DaisyUI主题过渡 */
+[data-theme] {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
 
-  /* 小屏幕上强制折叠侧边栏 */
-  .side-nav {
-    width: 64px !important;
-  }
+/* 确保按钮内图标对齐 */
+.btn .iconify {
+  vertical-align: middle;
+  margin-right: 0.25rem;
+}
 
-  .side-nav .nav-text {
-    display: none !important;
-  }
+.btn-square .iconify,
+.btn-circle .iconify {
+  margin-right: 0;
 }

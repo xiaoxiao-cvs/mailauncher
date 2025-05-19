@@ -22,7 +22,7 @@
 </template>
 
 <script setup>
-import { ref, provide, onMounted, computed, onBeforeUnmount, watch } from 'vue'
+import { ref, provide, onMounted, computed, onBeforeUnmount, watch, nextTick, h } from 'vue'
 import HomeView from './components/HomeView.vue'
 import DownloadsPanel from './components/DownloadsPanel.vue'
 import InstancesPanel from './components/InstancesPanel.vue'
@@ -43,7 +43,10 @@ const isSettingsOpen = ref(false);
 const isAnyEditModeActive = ref(false);
 
 // 当前主题
-const currentTheme = ref(localStorage.getItem('theme') || 'light');
+const currentTheme = computed(() => {
+  // 从localStorage获取保存的主题，如果没有则返回'light'
+  return document.documentElement.getAttribute('data-theme') || localStorage.getItem('theme') || 'light';
+});
 
 // 创建更完整的事件总线
 const emitter = {
@@ -111,20 +114,20 @@ const handleTabSelect = (tab) => {
 // 提供activeTab供侧边栏组件使用
 provide('activeTab', activeTab);
 
-// 计算当前组件 - 移除logs选项
+// 计算当前组件 - 确保使用SettingsDrawer而非SettingsPanel
 const currentComponent = computed(() => {
   switch (activeTab.value) {
     case 'home': return HomeView;
     case 'instances': return InstancesPanel;
     case 'downloads': return DownloadsPanel;
     case 'settings':
-      // 现在当选择settings标签时，打开设置抽屉，而不是加载旧的设置组件
+      // 使用设置抽屉而不是旧的设置组件
       openSettings();
       return HomeView; // 保持当前页面为首页
     case 'plugins':
-      return PluginsView; // 使用导入的组件而非动态创建模板
+      return PluginsView;
     default:
-      // 返回通用的"正在构建"页面组件
+      // 默认处理逻辑保持不变
       return {
         render() {
           return h('div', { class: 'tab-content' }, [
@@ -278,6 +281,14 @@ onMounted(() => {
   // 应用保存的主题 (确保在mounted中只设置一次)
   document.documentElement.setAttribute('data-theme', currentTheme.value);
 
+  // 添加全局导航事件监听 - 用于从任何组件强制导航
+  window.addEventListener('force-navigate', (event) => {
+    if (event.detail && event.detail.tab) {
+      console.log('强制导航到:', event.detail.tab);
+      activeTab.value = event.detail.tab;
+    }
+  });
+
   // 监听侧边栏状态变化
   window.addEventListener('storage', (e) => {
     if (e.key === 'sidebarExpanded') {
@@ -294,18 +305,32 @@ onMounted(() => {
   emitter.on('navigate-to-tab', (tabName) => {
     console.log(`接收到导航事件: ${tabName}`);
 
-    // 清除已有处理器并重新绑定
-    if (tabName === 'settings') {
-      console.log('正在打开设置抽屉');
-      // 如果是导航到设置，打开设置抽屉
-      openSettings();
-    } else if (menuItems[tabName] || tabName === 'home') {
-      console.log(`切换标签页到: ${tabName}`);
-      // 如果是其他有效选项卡，切换标签页
-      activeTab.value = tabName;
-    } else {
-      console.warn(`未知标签页: ${tabName}`);
-    }
+    // 强制延迟执行导航，确保任何组件内的操作都完成
+    setTimeout(() => {
+      // 清除已有处理器并重新绑定
+      if (tabName === 'settings') {
+        console.log('正在打开设置抽屉');
+        // 如果是导航到设置，打开设置抽屉
+        openSettings();
+      } else if (menuItems[tabName] || tabName === 'home') {
+        console.log(`切换标签页到: ${tabName}`);
+        // 如果是其他有效选项卡，切换标签页
+        activeTab.value = tabName;
+
+        // 添加额外的强制更新机制
+        nextTick(() => {
+          // 强制触发DOM更新
+          if (document.querySelector('.content-area')) {
+            document.querySelector('.content-area').classList.add('tab-changing');
+            setTimeout(() => {
+              document.querySelector('.content-area')?.classList.remove('tab-changing');
+            }, 50);
+          }
+        });
+      } else {
+        console.warn(`未知标签页: ${tabName}`);
+      }
+    }, 10);
   });
 
   // 添加深色模式变化监听
@@ -433,6 +458,9 @@ onBeforeUnmount(() => {
   // 移除编辑模式事件监听
   emitter.off('edit-mode-changed');
 
+  // 移除全局导航事件监听
+  window.removeEventListener('force-navigate', () => { });
+
   window.removeEventListener('theme-changed', () => { });
   window.removeEventListener('theme-reset', () => { });
 });
@@ -450,7 +478,6 @@ const checkApiConnection = async () => {
 
 // 切换主题方法
 const changeTheme = (themeName) => {
-  currentTheme.value = themeName;
   localStorage.setItem('theme', themeName);
   document.documentElement.setAttribute('data-theme', themeName);
 
@@ -466,42 +493,4 @@ const changeTheme = (themeName) => {
 @import './assets/css/icon-fixes.css';
 @import './assets/css/theme-utils.css';
 /* 添加图标修复样式 */
-
-/* 修改为使用CSS变量实现一致的边距 */
-.content-area {
-  transition: margin-left 0.3s ease, width 0.3s ease;
-  margin-left: var(--sidebar-width, 64px);
-  width: var(--content-width, calc(100% - 64px));
-  box-sizing: border-box;
-}
-
-/* 移除固定值，使用CSS变量 */
-.content-area.sidebar-expanded {
-  margin-left: var(--sidebar-width, 220px);
-  width: var(--content-width, calc(100% - 220px));
-}
-
-/* 统一所有动画效果 */
-.page-transition-enter-active,
-.page-transition-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.page-transition-enter-from,
-.page-transition-leave-to {
-  opacity: 0;
-  transform: translateX(20px);
-}
-
-/* 当设置面板打开时禁止滚动 */
-body.settings-open {
-  overflow: hidden;
-}
-
-/* 确保没有重复的CSS类定义 */
-.app-container {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
 </style>

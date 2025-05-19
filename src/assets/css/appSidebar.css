@@ -1,6 +1,6 @@
 /* DaisyUI侧边栏样式 - 专为MaiLauncher定制 */
 
-/* 侧边栏基础样式 */
+/* 侧边栏基础样式 - 保留变量以便于配置 */
 .sidebar {
   --sidebar-width-collapsed: 64px;
   --sidebar-width-expanded: 220px;
@@ -8,20 +8,13 @@
   --sidebar-bg-opacity: 0.85;
   --sidebar-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
 
+  @apply fixed left-0 top-0 h-screen flex flex-col overflow-hidden z-50;
   width: var(--sidebar-width-collapsed);
-  position: fixed;
-  left: 0;
-  top: 0;
-  height: 100vh;
   transition: var(--sidebar-transition);
-  display: flex;
-  flex-direction: column;
   background-color: hsl(var(--b1) / var(--sidebar-bg-opacity));
   backdrop-filter: blur(10px);
   box-shadow: var(--sidebar-shadow);
   border-right: 1px solid hsl(var(--b3) / 0.2);
-  overflow-x: hidden;
-  z-index: 100;
 }
 
 /* 展开状态 */
@@ -31,78 +24,109 @@
 
 /* 头部Logo区域 */
 .sidebar-header {
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-bottom: 1px solid hsl(var(--b3) / 0.1);
+  @apply p-4 flex items-center justify-center border-b border-base-300/10;
 }
 
 .sidebar-expanded .sidebar-header {
-  justify-content: flex-start;
+  @apply justify-start;
 }
 
 /* 菜单部分 */
 .sidebar .menu {
-  padding: 0.5rem;
-  overflow-y: auto;
+  @apply p-2 overflow-hidden;
+  height: auto; /* 自适应内容高度 */
+}
+
+/* 确保侧边栏内容可以正确布局 */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar .menu {
+  flex-shrink: 0;
+}
+
+.flex-grow {
+  flex-grow: 1;
+}
+
+/* 确保底部组件正确定位 */
+.sidebar-footer-section {
+  @apply mt-auto;
+  flex-shrink: 0;
+}
+
+.sidebar-footer {
+  @apply border-t border-base-300/10 p-4 flex justify-center;
+  flex-shrink: 0;
+}
+
+.sidebar-expanded .sidebar-footer {
+  @apply justify-start;
+}
+
+/* 完全移除侧边栏滚动条 */
+.sidebar .menu::-webkit-scrollbar {
+  display: none;
+}
+
+/* 强制隐藏右侧滚动条 */
+.sidebar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
 /* 控制菜单项的图标和文本对齐 */
 .sidebar .menu a {
-  display: flex;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  border-radius: var(--rounded-btn, 0.5rem);
-  transition: all 0.2s;
+  @apply flex items-center py-3 px-4 rounded-btn transition-all duration-200;
 }
 
-/* 图标和文本的间距 */
+/* 图标和文本的间距处理 */
+.sidebar .menu a .iconify,
 .sidebar .menu a svg,
 .sidebar .menu a .icon {
-  margin-right: 0; /* 收起状态下不需要间距 */
+  @apply m-0 flex-shrink-0;
+  font-size: 18px; /* 统一减小图标大小 */
+  width: 18px;
+  height: 18px;
 }
 
+.sidebar-expanded .menu a .iconify,
 .sidebar-expanded .menu a svg,
 .sidebar-expanded .menu a .icon {
-  margin-right: 0.75rem; /* 展开状态下添加间距 */
+  @apply mr-3;
 }
 
 /* 激活状态 */
 .sidebar .menu a.active {
-  background-color: hsl(var(--p) / 0.2);
-  color: hsl(var(--pc));
+  @apply bg-primary/20 text-primary-content;
 }
 
 /* 悬停状态 */
 .sidebar .menu a:hover {
-  background-color: hsl(var(--p) / 0.1);
-  color: hsl(var(--pc));
+  @apply bg-primary/10 text-primary-content;
 }
 
 /* 文本显示控制 */
 .sidebar-text {
-  opacity: 0;
-  width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  transition: opacity 0.3s ease;
+  @apply opacity-0 w-0 whitespace-nowrap overflow-hidden transition-opacity duration-300;
 }
 
 .sidebar-expanded .sidebar-text {
-  opacity: 1;
-  width: auto;
+  @apply opacity-100 w-auto;
 }
 
 /* 底部控制区域 */
 .sidebar-footer {
-  margin-top: auto;
-  padding: 1rem;
-  border-top: 1px solid hsl(var(--b3) / 0.1);
+  @apply mt-auto p-4 border-t border-base-300/10;
 }
 
-/* 深色模式调整 */
-html.dark-mode .sidebar {
+/* 深色模式调整 - 自动利用DaisyUI主题系统 */
+[data-theme="dark"] .sidebar,
+[data-theme="night"] .sidebar,
+[data-theme="black"] .sidebar,
+[data-theme="dracula"] .sidebar {
   --sidebar-bg-opacity: 0.75;
   --sidebar-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
 }
@@ -114,38 +138,82 @@ html.dark-mode .sidebar {
     width: var(--sidebar-width-collapsed);
   }
 
-  .sidebar-text {
-    display: none !important;
-  }
-
+  .sidebar-text,
   .sidebar-title {
-    display: none !important;
+    @apply hidden !important;
   }
 }
 
 /* 确保菜单项是可点击的 */
 .menu li a {
-  cursor: pointer !important;
-  user-select: none !important;
+  @apply cursor-pointer select-none;
 }
 
 /* 点击菜单项时的反馈效果 */
 .menu li a:active {
-  transform: scale(0.98);
-  opacity: 0.9;
-  transition: transform 0.1s ease, opacity 0.1s ease;
+  @apply scale-[0.98] opacity-90 transition-transform duration-100;
 }
 
 /* 确保菜单项有足够的垂直间距 */
 .menu li {
-  margin-bottom: 4px;
+  @apply mb-1;
 }
 
 /* 确保图标总是显示 */
+.menu a .iconify,
 .menu a .icon,
 .menu a svg {
-  flex-shrink: 0;
-  display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
+  @apply flex-shrink-0 inline-flex items-center justify-center;
+}
+
+/* Iconify图标专用样式增强 */
+.sidebar .iconify {
+  font-size: 18px; /* 统一减小图标大小 */
+  width: 18px;
+  height: 18px;
+}
+
+/* 添加切换按钮过渡效果 */
+.sidebar-footer .btn {
+  @apply transition-all duration-200;
+  border-radius: 6px; /* 与实例按钮保持一致的圆角 */
+}
+
+/* 确保折叠/展开按钮效果良好 */
+.sidebar-footer .btn .iconify {
+  @apply transition-transform duration-300;
+  font-size: 18px; /* 统一减小图标大小 */
+  width: 18px;
+  height: 18px;
+}
+
+.sidebar-expanded .sidebar-footer .btn .iconify[icon*="chevron-left"] {
+  @apply -rotate-180;
+}
+
+/* 侧边栏底部组件样式改进 */
+.sidebar-footer {
+  @apply border-t border-base-300/10 p-4 flex justify-center;
+}
+
+.sidebar-expanded .sidebar-footer {
+  @apply justify-start;
+}
+
+/* 确保展开按钮在两种状态下都对齐 */
+.sidebar-footer .btn {
+  @apply flex items-center justify-center;
+}
+
+.sidebar-expanded .sidebar-footer .btn {
+  @apply justify-between w-full;
+}
+
+/* 保持图标和文字之间的间距 */
+.sidebar-footer .btn .iconify {
+  @apply transition-transform duration-300;
+}
+
+.sidebar-expanded .sidebar-footer .btn .iconify {
+  @apply mr-2;
 }

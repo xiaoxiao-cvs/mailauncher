@@ -1,80 +1,84 @@
 <template>
     <div class="settings-tab-content">
-        <h3 class="settings-section-title">表情包管理</h3>
+        <div class="card bg-base-100 shadow">
+            <div class="card-body">
+                <h3 class="settings-section-title">表情包管理</h3>
 
-        <el-card class="settings-card">
-            <div class="card-header">
-                <span>表情包基本设置</span>
-            </div>
-            <div class="setting-item">
-                <span class="setting-label">最大表情包数量</span>
-                <div class="setting-control">
-                    <el-input-number v-model="localConfig.max_emoji_num" :min="10" :max="200" />
+                <div class="settings-card">
+                    <div class="card-header">
+                        <span>表情包基本设置</span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">最大表情包数量</span>
+                        <div class="setting-control">
+                            <el-input-number v-model="localConfig.max_emoji_num" :min="10" :max="200" />
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <span class="setting-label">启用表情检查</span>
+                        <div class="setting-control">
+                            <el-switch v-model="localConfig.enable_check" />
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <span class="setting-label">保存收到的表情</span>
+                        <div class="setting-control">
+                            <el-switch v-model="localConfig.save_emoji" />
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <span class="setting-label">保存收到的图片</span>
+                        <div class="setting-control">
+                            <el-switch v-model="localConfig.save_pic" />
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <span class="setting-label">允许学习表情</span>
+                        <div class="setting-control">
+                            <el-switch v-model="localConfig.steal_emoji" />
+                        </div>
+                    </div>
+
+                    <div class="setting-item vertical-item" v-if="localConfig.enable_check">
+                        <span class="setting-label">检查提示词</span>
+                        <div class="setting-control full-width">
+                            <el-input v-model="localConfig.check_prompt" type="textarea" :rows="2"
+                                placeholder="用于检查表情是否合适的提示词" maxlength="100" show-word-limit />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-card">
+                    <div class="card-header">
+                        <span>高级设置</span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">表情检查间隔</span>
+                        <div class="setting-control">
+                            <el-input-number v-model="localConfig.check_interval" :min="1" :max="60" :step="1" />
+                            <span class="unit-label">分钟</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <span class="setting-label">达到上限时自动删除旧表情</span>
+                        <div class="setting-control">
+                            <el-switch v-model="localConfig.max_reach_deletion" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setting-description">
+                    <el-alert type="info" :closable="false">
+                        <p>表情包是机器人交互的重要组成部分，适当的表情使用可以增加交流的趣味性</p>
+                        <p>设置表情检查可以过滤不合适的内容，但会降低表情学习的速度</p>
+                    </el-alert>
                 </div>
             </div>
-
-            <div class="setting-item">
-                <span class="setting-label">启用表情检查</span>
-                <div class="setting-control">
-                    <el-switch v-model="localConfig.enable_check" />
-                </div>
-            </div>
-
-            <div class="setting-item">
-                <span class="setting-label">保存收到的表情</span>
-                <div class="setting-control">
-                    <el-switch v-model="localConfig.save_emoji" />
-                </div>
-            </div>
-
-            <div class="setting-item">
-                <span class="setting-label">保存收到的图片</span>
-                <div class="setting-control">
-                    <el-switch v-model="localConfig.save_pic" />
-                </div>
-            </div>
-
-            <div class="setting-item">
-                <span class="setting-label">允许学习表情</span>
-                <div class="setting-control">
-                    <el-switch v-model="localConfig.steal_emoji" />
-                </div>
-            </div>
-
-            <div class="setting-item vertical-item" v-if="localConfig.enable_check">
-                <span class="setting-label">检查提示词</span>
-                <div class="setting-control full-width">
-                    <el-input v-model="localConfig.check_prompt" type="textarea" :rows="2" placeholder="用于检查表情是否合适的提示词"
-                        maxlength="100" show-word-limit />
-                </div>
-            </div>
-        </el-card>
-
-        <el-card class="settings-card">
-            <div class="card-header">
-                <span>高级设置</span>
-            </div>
-            <div class="setting-item">
-                <span class="setting-label">表情检查间隔</span>
-                <div class="setting-control">
-                    <el-input-number v-model="localConfig.check_interval" :min="1" :max="60" :step="1" />
-                    <span class="unit-label">分钟</span>
-                </div>
-            </div>
-
-            <div class="setting-item">
-                <span class="setting-label">达到上限时自动删除旧表情</span>
-                <div class="setting-control">
-                    <el-switch v-model="localConfig.max_reach_deletion" />
-                </div>
-            </div>
-        </el-card>
-
-        <div class="setting-description">
-            <el-alert type="info" :closable="false">
-                <p>表情包是机器人交互的重要组成部分，适当的表情使用可以增加交流的趣味性</p>
-                <p>设置表情检查可以过滤不合适的内容，但会降低表情学习的速度</p>
-            </el-alert>
         </div>
     </div>
 </template>

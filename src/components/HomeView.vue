@@ -190,7 +190,6 @@
 import { ref, onMounted, inject, watch, onBeforeUnmount, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { initMessageChart } from '../services/charts';
-import { ElMessageBox } from 'element-plus';
 import SimpleIcons from './common/SimpleIcons.vue'; // 导入简单图标组件
 
 const isDarkMode = inject('darkMode', ref(false));
@@ -238,20 +237,11 @@ onMounted(() => {
 const toggleEditMode = async () => {
   if (isEditMode.value) {
     // 退出编辑模式，询问是否保存
-    try {
-      await ElMessageBox.confirm(
-        '是否保存当前布局设置？',
-        '退出编辑模式',
-        {
-          confirmButtonText: '保存并退出',
-          cancelButtonText: '不保存退出',
-          type: 'warning',
-          distinguishCancelAndClose: true,
-        }
-      );
+    const confirmed = confirm('是否保存当前布局设置？');
+    if (confirmed) {
       // 用户点击了"保存并退出"
       saveLayout();
-    } catch (action) {
+    } else {
       // 用户点击了"不保存退出"，什么都不做
       console.log('不保存布局退出编辑模式');
     }
@@ -272,10 +262,9 @@ const saveLayout = () => {
       instanceCardSize: instanceCardSize.value,
     };
     localStorage.setItem('dashboard-layout', JSON.stringify(layout));
-    ElMessageBox.alert('布局设置已保存', '成功', {
-      confirmButtonText: '确定',
-      type: 'success',
-    });
+
+    alert('布局设置已保存');
+
     isEditMode.value = false;  // 保存后退出编辑模式
 
     // 触发窗口resize事件，以便图表可以正确调整大小
@@ -284,10 +273,7 @@ const saveLayout = () => {
     }, 300);
   } catch (e) {
     console.error('保存布局设置失败', e);
-    ElMessageBox.alert('保存布局设置失败: ' + e.message, '错误', {
-      confirmButtonText: '确定',
-      type: 'error',
-    });
+    alert('保存布局设置失败: ' + e.message);
   }
 };
 

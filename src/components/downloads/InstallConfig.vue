@@ -2,15 +2,14 @@
   <div class="section">
     <div class="section-title">安装Bot实例</div>
     <div class="install-container">
-      <el-select v-model="selectedVersion" placeholder="选择版本" size="default" :loading="versionsLoading">
-        <el-option v-for="version in availableVersions" :key="version" :label="version" :value="version" />
-      </el-select>
-      <el-button type="primary" @click="installVersion" :loading="installLoading"
-        :disabled="!selectedVersion || !instanceName" size="default">
-        <el-icon>
-          <Download />
-        </el-icon> 安装
-      </el-button>
+      <select v-model="selectedVersion" class="select select-bordered w-full" :disabled="versionsLoading">
+        <option disabled value="">选择版本</option>
+        <option v-for="version in availableVersions" :key="version" :value="version">{{ version }}</option>
+      </select>
+      <button type="button" @click="installVersion" :disabled="!selectedVersion || !instanceName || installLoading"
+        class="btn btn-primary">
+        <i class="icon icon-download mr-2"></i> 安装
+      </button>
     </div>
     <p v-if="versionError" class="error-message">{{ versionError }}</p>
     <p v-if="availableVersions.length === 0 && !versionsLoading" class="repo-info">
@@ -19,15 +18,13 @@
 
     <!-- 进度条 -->
     <div class="progress-container" v-if="installationProgress > 0 && installationProgress < 100">
-      <el-progress :percentage="installationProgress" :status="installationProgress === 100 ? 'success' : ''"
-        :show-text="true" text-inside stroke-width="24" color="linear-gradient(90deg, #4caf50, #81c784)">
-        <span>{{ progressText }}</span>
-      </el-progress>
+      <progress class="progress progress-success w-full" :value="installationProgress" max="100"></progress>
+      <div class="text-center mt-2">{{ progressText }}</div>
     </div>
 
     <!-- 添加日志输出区域 -->
     <div class="log-output" v-if="logs.length > 0">
-      <el-divider content-position="left">安装日志</el-divider>
+      <div class="divider">安装日志</div>
       <div class="log-content">
         <div v-for="(log, index) in logs" :key="index" :class="['log-line', log.level.toLowerCase()]">
           <span class="log-time">[{{ log.time }}]</span>
@@ -39,17 +36,21 @@
     <!-- 实例配置选项 - 添加动画效果 -->
     <transition name="config-fade">
       <div class="bot-config" v-if="selectedVersion">
-        <el-divider content-position="left">实例配置</el-divider>
+        <div class="divider">实例配置</div>
 
         <!-- 添加实例名称输入框 -->
         <div class="instance-name-input">
-          <el-form :model="form" label-position="top">
-            <el-form-item label="实例名称" required>
-              <el-input v-model="instanceName" placeholder="请输入实例名称" :maxlength="50" show-word-limit>
-              </el-input>
-              <p class="input-tip">该名称将用于区分不同的Bot实例</p>
-            </el-form-item>
-          </el-form>
+          <form class="form-control">
+            <label class="label">
+              <span class="label-text">实例名称</span>
+              <span class="label-text-alt text-error">必填</span>
+            </label>
+            <input v-model="instanceName" type="text" placeholder="请输入实例名称" class="input input-bordered w-full"
+              maxlength="50">
+            <label class="label">
+              <span class="label-text-alt input-tip">该名称将用于区分不同的Bot实例</span>
+            </label>
+          </form>
         </div>
 
         <!-- 调整复选框顺序: 先适配器，后NapCat -->
@@ -71,34 +72,38 @@
 
         <!-- QQ号输入 -->
         <div class="qq-input" v-if="installNapcat || installAdapter">
-          <el-input v-model="qqNumber" placeholder="请输入QQ号" :prefix-icon="User" clearable>
-            <template #prepend>QQ号</template>
-          </el-input>
+          <div class="input-group">
+            <span>QQ号</span>
+            <input v-model="qqNumber" type="text" placeholder="请输入QQ号" class="input input-bordered w-full">
+          </div>
           <p class="input-tip">用于配置机器人连接的QQ账号</p>
         </div>
 
         <!-- 端口配置：调整为MaiBot、适配器、NapCat的顺序 -->
         <div class="ports-config" v-if="installNapcat || installAdapter">
-          <el-divider content-position="left">端口配置</el-divider>
+          <div class="divider">端口配置</div>
           <div class="ports-grid">
             <div class="port-item">
-              <el-input v-model="maibotPort" type="number" placeholder="MaiBot端口">
-                <template #prepend>MaiBot端口</template>
-              </el-input>
+              <div class="input-group">
+                <span>MaiBot端口</span>
+                <input v-model="maibotPort" type="number" placeholder="MaiBot端口" class="input input-bordered w-full">
+              </div>
               <p class="port-desc">MaiBot主程序监听端口</p>
             </div>
 
             <div class="port-item">
-              <el-input v-model="adapterPort" type="number" placeholder="适配器端口">
-                <template #prepend>适配器端口</template>
-              </el-input>
+              <div class="input-group">
+                <span>适配器端口</span>
+                <input v-model="adapterPort" type="number" placeholder="适配器端口" class="input input-bordered w-full">
+              </div>
               <p class="port-desc">NapCat适配器监听端口</p>
             </div>
 
             <div class="port-item">
-              <el-input v-model="napcatPort" type="number" placeholder="NapCat端口">
-                <template #prepend>NapCat端口</template>
-              </el-input>
+              <div class="input-group">
+                <span>NapCat端口</span>
+                <input v-model="napcatPort" type="number" placeholder="NapCat端口" class="input input-bordered w-full">
+              </div>
               <p class="port-desc">NapCat的WebSocket服务器端口</p>
             </div>
           </div>
@@ -110,9 +115,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, inject, nextTick, watch, onUnmounted } from 'vue';
-import { ElMessage, ElNotification } from 'element-plus';
-import { User, Download } from '@element-plus/icons-vue';
-// 导入统一的API服务
+// 移除 Element Plus 导入
 import { deployApi } from '@/services/api';
 import axios from 'axios'; // 添加axios导入，因为代码中使用了axios
 

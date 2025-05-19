@@ -1,26 +1,66 @@
-/* 图标修复 */
+/* 图标修复 - 使用DaisyUI和Iconify */
+
+/* 基础图标样式统一化 */
 .simple-icon,
 .icon-edit,
 .icon-close,
-.icon-save {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.icon-save,
+.iconify {
+  @apply inline-flex items-center justify-center;
+}
+
+/* Iconify专属样式 */
+.iconify {
+  @apply align-middle leading-none;
+  vertical-align: -0.125em; /* 微调垂直对齐 */
 }
 
 /* 确保按钮中的图标居中 */
 button .simple-icon,
-.el-button .simple-icon {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: inherit;
+.btn .simple-icon,
+.btn .iconify,
+button .iconify {
+  @apply w-full h-full flex items-center justify-center text-inherit;
 }
 
-/* 根据大小调整图标边距 */
-.edit-btn.save-btn .simple-icon {
-  margin: 0;
-  padding: 0;
+/* DaisyUI按钮中的图标间距 */
+.btn-ghost .iconify,
+.btn-primary .iconify,
+.btn-secondary .iconify {
+  @apply m-0 p-0;
+}
+
+/* 不同尺寸按钮的图标大小 */
+.btn-sm .iconify,
+.btn-sm .simple-icon {
+  @apply text-sm;
+}
+
+.btn-md .iconify,
+.btn-md .simple-icon {
+  @apply text-base;
+}
+
+.btn-lg .iconify,
+.btn-lg .simple-icon {
+  @apply text-lg;
+}
+
+/* 空间紧凑型按钮中的图标 */
+.btn-square .iconify,
+.btn-circle .iconify {
+  @apply m-0;
+}
+
+/* 具有文本和图标的按钮样式 */
+.btn-with-icon .iconify,
+.btn-with-icon .simple-icon {
+  @apply mr-2;
+}
+
+/* 修复特定按钮中的图标 */
+.edit-btn .iconify,
+.save-btn .iconify,
+.close-btn .iconify {
+  @apply m-0 p-0;
 }

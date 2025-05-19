@@ -4,18 +4,9 @@
   --card-border-radius: 0.5rem;
   --card-transition: all 0.3s ease;
   --resize-handle-width: 12px;
-  --resize-handle-hover-bg: rgba(
-    var(--el-color-primary-rgb, 64, 158, 255),
-    0.3
-  );
-  --edit-mode-border-color: rgba(
-    var(--el-color-primary-rgb, 64, 158, 255),
-    0.3
-  );
-  --edit-mode-border-highlight: rgba(
-    var(--el-color-primary-rgb, 64, 158, 255),
-    0.8
-  );
+  --resize-handle-hover-bg: rgba(var(--p, 64, 158, 255), 0.3);
+  --edit-mode-border-color: rgba(var(--p, 64, 158, 255), 0.3);
+  --edit-mode-border-highlight: rgba(var(--p, 64, 158, 255), 0.8);
 }
 
 /* 卡片过渡动画增强 */
@@ -33,7 +24,7 @@
 
 /* 编辑模式下的卡片变化 */
 .edit-layout-mode .card:hover {
-  border-color: var(--el-color-primary);
+  border-color: hsl(var(--p));
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
 }
 

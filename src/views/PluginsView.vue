@@ -13,7 +13,7 @@
 .tab-content {
     padding: 20px;
     margin: 20px;
-    background-color: var(--el-bg-color);
+    background-color: hsl(var(--b1));
     border-radius: 8px;
     box-shadow: var(--el-box-shadow-light);
     animation: fadeIn 0.5s ease;

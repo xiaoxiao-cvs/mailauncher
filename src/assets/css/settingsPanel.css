@@ -1,8 +1,6 @@
-/* 设置面板样式 */
+/* 设置面板样式 - DaisyUI版本 */
 .settings-tab {
-  padding: 20px;
-  max-width: 800px;
-  margin: 0 auto;
+  @apply p-5 max-w-3xl mx-auto;
   animation: fadeInUp 0.5s ease-out;
 }
 
@@ -18,157 +16,129 @@
 }
 
 .section-title {
-  margin-bottom: 20px;
-  color: var(--text-color);
-  font-weight: 500;
+  @apply mb-5 text-base-content font-medium text-lg;
 }
 
 .settings-card {
-  margin-bottom: 20px;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-  background-color: var(--card-bg-color);
-  transition: all 0.3s ease;
+  @apply mb-5 rounded-lg overflow-hidden shadow-sm bg-base-100 transition-all duration-300;
 }
 
 .settings-card:hover {
-  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
+  @apply shadow-md -translate-y-0.5;
 }
 
 .card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 5px 0;
+  @apply flex justify-between items-center py-1 px-4;
 }
 
 .card-header span {
-  font-weight: 500;
-  font-size: 16px;
-  color: var(--text-color);
+  @apply font-medium text-base text-base-content;
 }
 
 .setting-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 0;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.setting-item:last-child {
-  border-bottom: none;
+  @apply flex justify-between items-center py-4 px-4 border-b border-base-200 last:border-b-0;
 }
 
 .setting-label {
-  font-size: 14px;
-  color: var(--text-color);
+  @apply text-sm text-base-content;
 }
 
 .setting-control {
-  display: flex;
-  align-items: center;
+  @apply flex items-center;
 }
 
 .about-content {
-  padding: 10px 0;
-  color: var(--text-color);
+  @apply py-2.5 px-4 text-base-content;
 }
 
 .about-content p {
-  margin: 8px 0;
+  @apply my-2;
 }
 
 /* 主题色选择器增强样式 */
 .color-theme-selector {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  @apply flex gap-3 flex-wrap justify-end;
 }
 
 .color-item {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.3s;
-  border: 2px solid transparent;
-  position: relative;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  @apply w-[30px] h-[30px] rounded-full cursor-pointer transition-all duration-300 border-2 border-transparent relative shadow-sm;
 }
 
 .color-item.active {
-  border-color: var(--text-color);
-  transform: scale(1.1);
+  @apply border-base-content scale-110;
 }
 
 .color-item.active::after {
   content: "✓";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: white;
-  font-weight: bold;
-  font-size: 14px;
+  @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white font-bold text-sm;
   text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
 }
 
 .color-item:hover {
-  transform: scale(1.1);
-  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.2);
+  @apply scale-110 shadow-md;
 }
 
 /* 紧凑模式样式调整 */
-html[data-density="compact"] .setting-item {
-  padding: 10px 0;
+[data-density="compact"] .setting-item {
+  @apply py-2.5;
 }
 
-html[data-density="compact"] .card-header {
-  padding: 3px 0;
+[data-density="compact"] .card-header {
+  @apply py-0.5;
 }
 
-html[data-density="compact"] .settings-card {
-  margin-bottom: 15px;
+[data-density="compact"] .settings-card {
+  @apply mb-4;
 }
 
 /* 响应式调整 */
 @media (max-width: 768px) {
   .setting-item {
-    flex-direction: column;
-    align-items: flex-start;
+    @apply flex-col items-start;
   }
-  
+
   .setting-control {
-    margin-top: 10px;
-    width: 100%;
-    justify-content: flex-start;
+    @apply mt-2.5 w-full justify-start;
   }
-  
+
   .color-theme-selector {
-    justify-content: flex-start;
-    margin-top: 10px;
+    @apply justify-start mt-2.5;
   }
 }
 
-/* 深色模式样式覆盖 */
-html.dark-mode .settings-card {
-  background-color: var(--el-bg-color);
-  color: var(--el-text-color-primary);
-  border-color: var(--el-border-color-darker, #1c1c1c);
+/* 深色模式由DaisyUI自动处理，无需手动适配 */
+
+/* Iconify图标支持 */
+.iconify {
+  @apply inline-flex align-middle;
 }
 
-html.dark-mode .card-header {
-  color: var(--el-text-color-primary);
+/* 设置项目中的图标 */
+.setting-item .iconify {
+  @apply mr-2 text-base-content/70;
 }
 
-html.dark-mode .setting-label {
-  color: var(--el-text-color-primary);
+/* DaisyUI开关样式增强 */
+.toggle:focus-visible {
+  @apply outline-offset-2;
 }
 
-html.dark-mode .about-content {
-  color: var(--el-text-color-primary);
+/* 卡片内容区域 */
+.card-content {
+  @apply p-4;
+}
+
+/* 主题预览框 */
+.theme-preview {
+  @apply p-3 rounded-lg border border-base-300 mb-2;
+}
+
+/* 版本信息 */
+.version-info {
+  @apply text-xs text-base-content/70 mt-1;
+}
+
+/* 对话框操作按钮 */
+.dialog-actions {
+  @apply flex justify-end gap-2 mt-4;
 }
