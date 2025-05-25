@@ -123,9 +123,22 @@ const resetSettings = () => {
   document.documentElement.style.removeProperty("--p");
   document.documentElement.style.removeProperty("--primary");
   document.documentElement.style.removeProperty("--primary-color");
+  document.documentElement.style.removeProperty("--primary-light");
+  document.documentElement.style.removeProperty("--primary-dark");
+  document.documentElement.style.removeProperty("--pf");
+  document.documentElement.style.removeProperty("--pc");
 
   // 触发主题重置事件
   window.dispatchEvent(new CustomEvent("theme-reset"));
+
+  // 重置字体大小
+  document.documentElement.style.setProperty("--base-font-size", "14px");
+
+  // 重置布局密度
+  document.documentElement.setAttribute("data-density", "comfortable");
+
+  // 恢复动画效果
+  document.documentElement.classList.remove("no-animations");
 
   // 返回true表示重置成功
   return true;

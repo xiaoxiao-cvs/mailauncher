@@ -1,4 +1,6 @@
 /* 设置面板样式 - DaisyUI版本 */
+/* tailwindcss */
+
 .settings-tab {
   @apply p-5 max-w-3xl mx-auto;
   animation: fadeInUp 0.5s ease-out;

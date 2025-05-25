@@ -1,4 +1,5 @@
 /* 图标修复样式 - 使用Iconify */
+/* tailwindcss */
 
 /* 确保Iconify图标正常显示 */
 .iconify {
@@ -52,35 +53,6 @@
 .btn-primary .iconify,
 .btn-secondary .iconify {
   @apply inline-flex items-center justify-center;
-}
-
-/* 当Iconify不可用时的备用CSS图标样式 */
-/* 编辑图标(笔) */
-.icon-edit:not([data-icon])::before {
-  content: "✎";
-}
-
-/* 退出图标(X) */
-.icon-close:not([data-icon])::before {
-  content: "✖";
-}
-
-/* 保存图标(软盘) */
-.icon-save:not([data-icon])::before {
-  content: "💾";
-}
-
-/* 按钮属性备用方案 */
-.edit-btn[data-icon="edit"]::after {
-  content: "✎";
-}
-
-.exit-btn[data-icon="close"]::after {
-  content: "✖";
-}
-
-.save-btn[data-icon="save"]::after {
-  content: "💾";
 }
 
 /* 确保图标在按钮中居中显示 */

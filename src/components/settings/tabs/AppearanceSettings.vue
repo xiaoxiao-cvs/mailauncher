@@ -201,6 +201,7 @@ const updateThemeColors = () => {
 // 重置主题设置
 const resetThemeSettings = () => {
     if (confirm('确定要重置所有主题设置吗？这将恢复默认的颜色、字体大小和布局密度。')) {
+        // 调用settingsService的resetSettings方法
         settingsService.resetSettings();
 
         // 更新当前状态
@@ -221,7 +222,15 @@ const resetThemeSettings = () => {
         }, 100);
 
         // 显示成功消息
-        alert('主题设置已重置');
+        if (emitter) {
+            emitter.emit('show-toast', {
+                type: 'success',
+                message: '主题设置已重置',
+                duration: 3000
+            });
+        } else {
+            alert('主题设置已重置');
+        }
     }
 };
 

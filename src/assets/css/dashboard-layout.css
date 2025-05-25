@@ -4,9 +4,9 @@
   --card-border-radius: 0.5rem;
   --card-transition: all 0.3s ease;
   --resize-handle-width: 12px;
-  --resize-handle-hover-bg: rgba(var(--p, 64, 158, 255), 0.3);
-  --edit-mode-border-color: rgba(var(--p, 64, 158, 255), 0.3);
-  --edit-mode-border-highlight: rgba(var(--p, 64, 158, 255), 0.8);
+  --resize-handle-hover-bg: hsl(var(--p) / 0.3);
+  --edit-mode-border-color: hsl(var(--p) / 0.3);
+  --edit-mode-border-highlight: hsl(var(--p) / 0.8);
 }
 
 /* 卡片过渡动画增强 */
@@ -64,7 +64,7 @@ body.resizing .resize-handle {
 
 /* 正在拖动中的卡片样式 */
 .resizing-card {
-  box-shadow: 0 0 0 3px var(--el-color-primary) !important;
+  box-shadow: 0 0 0 3px hsl(var(--p)) !important;
   z-index: 10 !important;
 }
 
@@ -91,8 +91,8 @@ body.resizing {
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background-color: var(--el-color-primary);
-  color: white;
+  background-color: hsl(var(--p));
+  color: hsl(var(--pc));
   padding: 8px 16px;
   border-radius: 20px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);

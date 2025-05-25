@@ -263,7 +263,13 @@ const saveLayout = () => {
     };
     localStorage.setItem('dashboard-layout', JSON.stringify(layout));
 
-    alert('布局设置已保存');
+    // 使用toast服务而不是alert
+    const toast = inject('toast', null);
+    if (toast) {
+      toast.success('布局设置已保存');
+    } else {
+      alert('布局设置已保存');
+    }
 
     isEditMode.value = false;  // 保存后退出编辑模式
 
@@ -273,7 +279,13 @@ const saveLayout = () => {
     }, 300);
   } catch (e) {
     console.error('保存布局设置失败', e);
-    alert('保存布局设置失败: ' + e.message);
+    
+    const toast = inject('toast', null);
+    if (toast) {
+      toast.error('保存布局设置失败: ' + e.message);
+    } else {
+      alert('保存布局设置失败: ' + e.message);
+    }
   }
 };
 
