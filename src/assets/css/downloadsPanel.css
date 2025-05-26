@@ -25,7 +25,7 @@
 .header-section {
   @apply flex justify-between items-center mb-5;
   /* 添加半透明背景增强可读性 */
-  @apply bg-base-100/70 p-4 rounded-lg backdrop-blur-sm shadow-sm;
+  @apply bg-base-100/70 p-4 rounded-xl backdrop-blur-sm shadow-sm;
 }
 
 .header-section h3 {
@@ -37,7 +37,7 @@
 }
 
 .section {
-  @apply mb-6 rounded-lg p-4 shadow-sm;
+  @apply mb-6 rounded-xl p-4 shadow-sm;
   /* 更新为半透明背景，增强深度感 */
   @apply bg-base-100/80 backdrop-blur-sm border border-base-300/30;
 }
@@ -89,4 +89,17 @@
 .downloads-tab {
   background-attachment: fixed;
   @apply overflow-auto;
+}
+
+/* 增强圆角设计语言 */
+.btn,
+.input,
+.select,
+.card,
+.progress {
+  @apply rounded-lg;
+}
+
+.rounded-xl {
+  border-radius: 1rem;
 }

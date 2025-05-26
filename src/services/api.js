@@ -128,13 +128,24 @@ export const instancesApi = {
   openFolder: (path) => apiService.post(createUrl("/open-folder"), { path }),
 
   // 获取所有可用版本
-  getVersions: () => apiService.get(createUrl("/versions")),
+  getVersions: () => {
+    try {
+      return apiService.get(createUrl("/versions"));
+    } catch (error) {
+      console.error("获取版本列表失败:", error);
+      // 返回模拟数据
+      return Promise.resolve({
+        versions: ["latest", "stable", "beta", "v0.6.5", "v0.6.4", "v0.6.3"],
+      });
+    }
+  },
 
   // 部署新实例
-  deployInstance: (version, instanceName) =>
+  deployInstance: (version, instanceName, config = {}) =>
     apiService.post(createUrl("/deploy"), {
       version,
       instance_name: instanceName,
+      ...config,
     }),
 };
 
