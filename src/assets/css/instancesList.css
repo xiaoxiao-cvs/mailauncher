@@ -110,7 +110,9 @@
 }
 
 .instance-card {
-  @apply bg-base-100 rounded-xl p-5 flex flex-col border border-base-300 shadow-sm relative transition-all duration-300 h-[220px] overflow-hidden;
+  @apply bg-base-100 rounded-xl p-5 flex flex-col border border-base-300 shadow-md relative transition-all duration-300 h-[220px] overflow-hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
 }
 
 /* 使用DaisyUI卡片样式 */
@@ -119,7 +121,9 @@
 }
 
 .instance-card:hover {
-  @apply -translate-y-[3px] shadow-md;
+  @apply -translate-y-[3px] shadow-lg;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
 }
 
 .instance-header {
@@ -176,7 +180,7 @@
 }
 
 .action-group {
-  @apply flex gap-3;
+  @apply flex flex-row gap-3;
 }
 
 /* 修改按钮组样式 */
@@ -326,57 +330,82 @@
   filter: brightness(0.95);
 }
 
-/* 响应式样式 */
-@media (max-width: 768px) {
-  .header-bar {
-    @apply flex-col items-start gap-2.5;
-  }
+/* 新增: 按钮样式优化 */
+.action-btn {
+  @apply w-8 h-8 flex items-center justify-center transition-all duration-200;
+  font-size: 16px;
+  border-radius: 6px !important; /* 强制应用等边圆角 */
+}
 
-  .search-area {
-    @apply w-full flex-col items-stretch;
-  }
+.btn-square.rounded-md {
+  border-radius: 6px !important;
+}
 
-  .filter-button {
-    @apply mb-2.5 mr-0;
-  }
+/* 启动/停止按钮图标样式 */
+.action-btn .iconify {
+  @apply text-base;
+}
 
-  .action-area {
-    @apply w-full justify-end mt-2.5;
-  }
+/* 按钮悬停效果增强 */
+.action-btn:hover {
+  @apply transform -translate-y-0.5 shadow-sm;
+}
 
-  .instance-actions {
-    @apply static mt-4;
-  }
+/* 按钮按下效果 */
+.action-btn:active {
+  @apply transform scale-95;
+}
 
-  .instances-grid {
-    @apply grid-cols-1;
-  }
+/* 增强按钮状态管理样式 */
+.action-btn {
+  @apply w-8 h-8 flex items-center justify-center transition-all duration-200;
+  font-size: 16px;
+  border-radius: 6px !important; /* 强制应用等边圆角 */
+}
 
-  .search-area,
-  .action-area {
-    @apply w-full;
-  }
+/* 加载状态按钮样式 */
+.action-btn .loading {
+  @apply text-base-content;
+}
 
-  .search-box {
-    @apply flex-1;
-  }
+/* 按钮禁用状态 */
+.action-btn:disabled {
+  @apply opacity-70 cursor-not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
 
-  .new-app-btn {
-    @apply w-full mt-2.5;
-  }
+/* 状态转换动画增强 */
+.status-starting .status-dot,
+.status-stopping .status-dot {
+  animation: status-pulse 1s infinite ease-in-out !important;
+  box-shadow: 0 0 5px 1px rgba(255, 200, 0, 0.7) !important;
+  background-color: #ffcc00 !important;
+}
 
-  .instance-card {
-    @apply h-auto min-h-[220px] p-4;
-  }
+/* 状态转换文本颜色 */
+.status-starting,
+.status-stopping {
+  @apply text-warning;
+}
 
-  /* 调整小屏幕上的时间布局 */
-  .time-info-container {
-    @apply w-full;
+/* 启动/停止中的脉冲动画 */
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.85);
+  }
+}
 
-  .time-value {
-    @apply max-w-full text-xs;
-  }
+/* 按钮加载状态尺寸调整 */
+.loading-xs {
+  width: 1rem !important;
+  height: 1rem !important;
 }
 
 /* Iconify图标支持 */

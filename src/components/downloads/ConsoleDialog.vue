@@ -37,13 +37,9 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, inject } from 'vue';
 import axios from 'axios';
-
-// ===================================
-// 这些是Vue编译器宏，不需要导入
-// 编辑器可能会报错，但Vue会正确超飞它们
-// ===================================
+import toastService from '@/services/toastService';
 
 /**
  * 组件属性
@@ -89,7 +85,7 @@ const sendCommand = async (cmd) => {
     scrollToBottom();
   } catch (error) {
     console.error('发送命令失败:', error);
-    showMessage('发送命令失败: ' + error.message, 'error');
+    toastService.error('发送命令失败: ' + error.message);
   }
 };
 
@@ -100,14 +96,14 @@ const stopInstance = async () => {
   try {
     // 发送Ctrl+C信号
     await sendCommand('\x03');  // Ctrl+C
-    showMessage('已发送停止信号', 'info');
+    toastService.info('已发送停止信号');
 
     // 通知父组件刷新实例状态
     emit('stop');
     emit('refresh');
   } catch (error) {
     console.error('停止实例失败:', error);
-    showMessage('停止实例失败', 'error');
+    toastService.error('停止实例失败');
   }
 };
 
@@ -169,95 +165,17 @@ watch(() => props.logs.length, () => {
   scrollToBottom();
 });
 
-// 替换 ElMessage 和 ElMessageBox 的函数
+// 替换 showMessage 函数，使用 toastService
 const showMessage = (message, type = 'info') => {
-  // 创建一个用于显示消息的函数
-  const toast = document.createElement('div');
-  toast.className = `toast toast-end ${getToastClass(type)}`;
-
-  const alertDiv = document.createElement('div');
-  alertDiv.className = `alert ${getAlertClass(type)}`;
-  alertDiv.textContent = message;
-
-  toast.appendChild(alertDiv);
-  document.body.appendChild(toast);
-
-  setTimeout(() => {
-    toast.remove();
-  }, 3000);
+  toastService[type](message);
 };
 
+// 替换 showConfirmDialog 函数
 const showConfirmDialog = (message, title, callback) => {
-  // 如果页面上没有确认对话框元素，创建一个
-  let modalId = 'confirm-modal';
-  let modal = document.getElementById(modalId);
-
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = modalId;
-    modal.className = 'modal';
-    modal.innerHTML = `
-      <div class="modal-box">
-        <h3 class="font-bold text-lg" id="modal-title"></h3>
-        <p class="py-4" id="modal-message"></p>
-        <div class="modal-action">
-          <button id="modal-cancel" class="btn btn-outline">取消</button>
-          <button id="modal-confirm" class="btn btn-primary">确认</button>
-        </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button>关闭</button>
-      </form>
-    `;
-    document.body.appendChild(modal);
-  }
-
-  const titleEl = document.getElementById('modal-title');
-  const messageEl = document.getElementById('modal-message');
-  const cancelBtn = document.getElementById('modal-cancel');
-  const confirmBtn = document.getElementById('modal-confirm');
-
-  titleEl.textContent = title || '确认';
-  messageEl.textContent = message;
-
-  // 移除旧的事件监听器
-  const newCancelBtn = cancelBtn.cloneNode(true);
-  const newConfirmBtn = confirmBtn.cloneNode(true);
-
-  cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-  confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-
-  // 添加新的事件监听器
-  newCancelBtn.addEventListener('click', () => {
-    modal.classList.remove('modal-open');
-    callback(false);
-  });
-
-  newConfirmBtn.addEventListener('click', () => {
-    modal.classList.remove('modal-open');
+  if (confirm(message)) {
     callback(true);
-  });
-
-  // 显示对话框
-  modal.classList.add('modal-open');
-};
-
-// 辅助函数，根据消息类型返回相应的 DaisyUI 类
-const getToastClass = (type) => {
-  switch (type) {
-    case 'success': return 'toast-success';
-    case 'warning': return 'toast-warning';
-    case 'error': return 'toast-error';
-    default: return 'toast-info';
-  }
-};
-
-const getAlertClass = (type) => {
-  switch (type) {
-    case 'success': return 'alert-success';
-    case 'warning': return 'alert-warning';
-    case 'error': return 'alert-error';
-    default: return 'alert-info';
+  } else {
+    callback(false);
   }
 };
 </script>

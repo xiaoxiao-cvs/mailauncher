@@ -44,10 +44,31 @@
   @apply transition-all duration-300 border border-base-300 rounded-lg p-4;
   /* 更新卡片背景为半透明 */
   @apply bg-base-100/90;
+  transform-origin: center center;
 }
 
 .instance-card:hover {
   @apply -translate-y-1 shadow-md bg-base-100/100;
+}
+
+.instance-card:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+/* 详情视图返回按钮动画 */
+.action-button {
+  transition: all 0.2s ease;
+}
+
+.action-button:active {
+  transform: scale(0.92) !important;
+}
+
+/* 强化详情视图进入动画 */
+.instance-detail-container {
+  animation: slideInFromRight 0.4s ease-out forwards;
+  animation-fill-mode: both;
 }
 
 /* 适配深色模式 */

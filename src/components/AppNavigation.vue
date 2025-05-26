@@ -1,136 +1,132 @@
 <template>
-    <div class="instances-container">
-        <!-- 顶部导航栏 -->
-        <div class="navbar bg-base-200 rounded-box shadow-sm mb-6">
-            <div class="navbar-start">
-                <div class="flex items-center gap-3">
-                    <i class="icon icon-list text-primary text-lg"></i>
-                    <h2 class="text-xl font-bold">实例管理</h2>
-                </div>
+    <div class="navbar bg-base-200 rounded-box shadow-sm mb-6">
+        <div class="navbar-start">
+            <div class="flex items-center gap-3">
+                <i class="icon icon-list text-primary text-lg"></i>
+                <h2 class="text-xl font-bold">实例管理</h2>
             </div>
-            <div class="navbar-center">
-                <div class="flex items-center gap-3">
-                    <!-- 过滤下拉菜单 -->
-                    <div class="dropdown dropdown-hover">
-                        <div tabindex="0" role="button" class="btn btn-sm">
-                            {{ filterLabel }} <i class="icon icon-chevron-down"></i>
-                        </div>
-                        <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-                            <li><a @click="handleFilterChange('all')">所有</a></li>
-                            <li><a @click="handleFilterChange('not_running')">未运行</a></li>
-                            <li><a @click="handleFilterChange('stopping')">停止中</a></li>
-                            <li><a @click="handleFilterChange('starting')">启动中</a></li>
-                            <li><a @click="handleFilterChange('running')">运行中</a></li>
-                            <li><a @click="handleFilterChange('maintenance')">维护中</a></li>
-                        </ul>
+        </div>
+        <div class="navbar-center">
+            <div class="flex items-center gap-3">
+                <!-- 过滤下拉菜单 -->
+                <div class="dropdown dropdown-hover">
+                    <div tabindex="0" role="button" class="btn btn-sm">
+                        {{ filterLabel }} <i class="icon icon-chevron-down"></i>
                     </div>
-
-                    <!-- 搜索框 -->
-                    <div class="form-control">
-                        <div class="input-group">
-                            <input v-model="searchQuery" type="text" placeholder="根据应用名字搜索"
-                                class="input input-bordered input-sm w-64" />
-                            <button class="btn btn-sm btn-square">
-                                <i class="icon icon-search"></i>
-                            </button>
-                        </div>
-                    </div>
+                    <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                        <li><a @click="handleFilterChange('all')">所有</a></li>
+                        <li><a @click="handleFilterChange('not_running')">未运行</a></li>
+                        <li><a @click="handleFilterChange('stopping')">停止中</a></li>
+                        <li><a @click="handleFilterChange('starting')">启动中</a></li>
+                        <li><a @click="handleFilterChange('running')">运行中</a></li>
+                        <li><a @click="handleFilterChange('maintenance')">维护中</a></li>
+                    </ul>
                 </div>
-            </div>
-            <div class="navbar-end">
-                <div class="flex items-center gap-2">
-                    <!-- 新建按钮 - 改为截图尺寸 -->
-                    <button class="btn btn-sm btn-primary btn-square" title="新建实例" @click="createNewInstance">
-                        <Icon icon="ri:add-line" width="16" height="16" />
-                    </button>
 
-                    <!-- 刷新按钮 - 改为截图尺寸 -->
-                    <button class="btn btn-sm btn-ghost btn-square" @click="refreshInstances" title="刷新列表">
-                        <Icon icon="ri:refresh-line" width="16" height="16" />
-                    </button>
-
-                    <!-- 批量操作按钮 - 改为截图尺寸 -->
-                    <button class="btn btn-sm btn-ghost btn-square" @click="batchOperation" title="批量操作">
-                        <Icon icon="ri:checkbox-multiple-line" width="16" height="16" />
-                    </button>
+                <!-- 搜索框 -->
+                <div class="form-control">
+                    <div class="input-group">
+                        <input v-model="searchQuery" type="text" placeholder="根据应用名字搜索"
+                            class="input input-bordered input-sm w-64" />
+                        <button class="btn btn-sm btn-square">
+                            <i class="icon icon-search"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
+        <div class="navbar-end">
+            <div class="flex items-center gap-2">
+                <!-- 新建按钮 - 改为截图尺寸 -->
+                <button class="btn btn-sm btn-primary btn-square" title="新建实例" @click="createNewInstance">
+                    <Icon icon="ri:add-line" width="16" height="16" />
+                </button>
 
-        <!-- 实例列表区域 -->
-        <div class="instances-list">
-            <!-- 加载状态 -->
-            <div v-if="loading" class="w-full p-8">
-                <div class="flex flex-col gap-4">
-                    <div class="skeleton h-12 w-full"></div>
-                    <div class="skeleton h-32 w-full"></div>
-                    <div class="skeleton h-32 w-full"></div>
-                </div>
+                <!-- 刷新按钮 - 改为截图尺寸 -->
+                <button class="btn btn-sm btn-ghost btn-square" @click="refreshInstances" title="刷新列表">
+                    <Icon icon="ri:refresh-line" width="16" height="16" />
+                </button>
+
+                <!-- 批量操作按钮 - 改为截图尺寸 -->
+                <button class="btn btn-sm btn-ghost btn-square" @click="batchOperation" title="批量操作">
+                    <Icon icon="ri:checkbox-multiple-line" width="16" height="16" />
+                </button>
             </div>
+        </div>
+    </div>
 
-            <!-- 空状态 -->
-            <div v-else-if="filteredInstances.length === 0"
-                class="empty-state flex flex-col items-center justify-center p-12">
-                <div class="text-center">
-                    <Icon icon="ri:file-list-3-line" class="text-lg opacity-40 mb-2" />
-                    <h3 class="font-bold text-lg mb-2">没有找到应用实例</h3>
-                    <p class="text-sm opacity-60 mb-4">尝试调整过滤条件或创建新的实例</p>
-                    <button class="btn btn-primary" @click="goToDownloads">新建应用</button>
-                </div>
+    <!-- 实例列表区域 -->
+    <div class="instances-list">
+        <!-- 加载状态 -->
+        <div v-if="loading" class="w-full p-8">
+            <div class="flex flex-col gap-4">
+                <div class="skeleton h-12 w-full"></div>
+                <div class="skeleton h-32 w-full"></div>
+                <div class="skeleton h-32 w-full"></div>
             </div>
+        </div>
 
-            <!-- 实例卡片网格 -->
-            <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-2">
-                <div v-for="instance in filteredInstances" :key="instance.id || instance.name"
-                    class="instance-card shadow-md hover:shadow-lg transition-all" @click="viewInstance(instance)">
-                    <div class="card-body p-5 flex flex-col h-full">
-                        <!-- 实例标题与描述 -->
-                        <div class="mb-3">
-                            <h3 class="card-title text-lg">{{ instance.name }}</h3>
-                            <p class="text-sm opacity-70">Maibot-Napcat_ada</p>
+        <!-- 空状态 -->
+        <div v-else-if="filteredInstances.length === 0"
+            class="empty-state flex flex-col items-center justify-center p-12">
+            <div class="text-center">
+                <Icon icon="ri:file-list-3-line" class="text-lg opacity-40 mb-2" />
+                <h3 class="font-bold text-lg mb-2">没有找到应用实例</h3>
+                <p class="text-sm opacity-60 mb-4">尝试调整过滤条件或创建新的实例</p>
+                <button class="btn btn-primary" @click="goToDownloads">新建应用</button>
+            </div>
+        </div>
+
+        <!-- 实例卡片网格 -->
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-2">
+            <div v-for="instance in filteredInstances" :key="instance.id || instance.name"
+                class="instance-card shadow-md hover:shadow-lg transition-all" @click="viewInstance(instance)">
+                <div class="card-body p-5 flex flex-col h-full">
+                    <!-- 实例标题与描述 -->
+                    <div class="mb-3">
+                        <h3 class="card-title text-lg">{{ instance.name }}</h3>
+                        <p class="text-sm opacity-70">Maibot-Napcat_ada</p>
+                    </div>
+
+                    <!-- 实例信息 -->
+                    <div class="space-y-2 mb-4 text-sm flex-1">
+                        <div class="flex justify-between">
+                            <span class="opacity-70">安装时间:</span>
+                            <span>{{ instance.createdAt || instance.installedAt || '2023-05-13 19:56:18' }}</span>
                         </div>
-
-                        <!-- 实例信息 -->
-                        <div class="space-y-2 mb-4 text-sm flex-1">
-                            <div class="flex justify-between">
-                                <span class="opacity-70">安装时间:</span>
-                                <span>{{ instance.createdAt || instance.installedAt || '2023-05-13 19:56:18' }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="opacity-70">总运行时长:</span>
-                                <span>{{ instance.totalRunningTime || '48小时36分钟' }}</span>
-                            </div>
+                        <div class="flex justify-between">
+                            <span class="opacity-70">总运行时长:</span>
+                            <span>{{ instance.totalRunningTime || '48小时36分钟' }}</span>
                         </div>
+                    </div>
 
-                        <!-- 底部操作区域 - 将状态和按钮放在同一行 -->
-                        <div class="mt-auto">
-                            <!-- 实例状态显示 -->
-                            <div class="flex justify-between items-center">
-                                <div class="status-indicator">
-                                    <span :class="['status-dot', getStatusClass(instance.status)]"></span>
-                                    <span class="status-text" :class="getStatusClass(instance.status)">
-                                        {{ getStatusText(instance.status) }}
-                                    </span>
-                                </div>
+                    <!-- 底部操作区域 - 将状态和按钮放在同一行 -->
+                    <div class="mt-auto">
+                        <!-- 实例状态显示 -->
+                        <div class="flex justify-between items-center">
+                            <div class="status-indicator">
+                                <span :class="['status-dot', getStatusClass(instance.status)]"></span>
+                                <span class="status-text" :class="getStatusClass(instance.status)">
+                                    {{ getStatusText(instance.status) }}
+                                </span>
+                            </div>
 
-                                <!-- 动作按钮 -->
-                                <div class="action-group flex flex-row gap-2">
-                                    <button class="btn btn-sm btn-square rounded-md action-btn"
-                                        :class="getActionButtonClass(instance)"
-                                        @click.stop="toggleInstanceRunning(instance)" :disabled="instance.isLoading">
-                                        <span v-if="instance.isLoading"
-                                            class="loading loading-spinner loading-xs"></span>
-                                        <Icon v-else :icon="instance.status === 'running' ? 'mdi:stop' : 'mdi:play'" />
-                                    </button>
-                                    <button class="btn btn-sm btn-square btn-ghost rounded-md action-btn"
-                                        @click.stop="openInstancePath(instance)" :disabled="instance.isLoading">
-                                        <Icon icon="mdi:folder-outline" />
-                                    </button>
-                                    <button class="btn btn-sm btn-square btn-ghost rounded-md action-btn"
-                                        @click.stop="configureInstance(instance)" :disabled="instance.isLoading">
-                                        <Icon icon="mdi:cog-outline" />
-                                    </button>
-                                </div>
+                            <!-- 动作按钮 -->
+                            <div class="action-group flex flex-row gap-2">
+                                <button class="btn btn-sm btn-square rounded-md action-btn"
+                                    :class="getActionButtonClass(instance)"
+                                    @click.stop="toggleInstanceRunning(instance)" :disabled="instance.isLoading">
+                                    <span v-if="instance.isLoading" class="loading loading-spinner loading-xs"></span>
+                                    <Icon v-else :icon="instance.status === 'running' ? 'mdi:stop' : 'mdi:play'" />
+                                </button>
+                                <button class="btn btn-sm btn-square btn-ghost rounded-md action-btn"
+                                    @click.stop="openInstancePath(instance)" :disabled="instance.isLoading">
+                                    <Icon icon="mdi:folder-outline" />
+                                </button>
+                                <button class="btn btn-sm btn-square btn-ghost rounded-md action-btn"
+                                    @click.stop="configureInstance(instance)" :disabled="instance.isLoading">
+                                    <Icon icon="mdi:cog-outline" />
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -363,35 +359,19 @@ const configureInstance = (instance) => {
     }
 };
 
-// 创建新实例 - 添加防抖避免多次触发
+// 创建新实例
 const createNewInstance = () => {
     if (emitter) {
-        // 防止短时间内多次触发
-        if (createNewInstance.timer) {
-            clearTimeout(createNewInstance.timer);
-        }
-
-        createNewInstance.timer = setTimeout(() => {
-            emitter.emit('navigate-to-tab', 'downloads');
-        }, 100);
+        emitter.emit('navigate-to-tab', 'downloads');
     }
 };
-createNewInstance.timer = null;
 
-// 跳转到下载页面 - 添加防抖避免多次触发
+// 跳转到下载页面
 const goToDownloads = () => {
     if (emitter) {
-        // 防止短时间内多次触发
-        if (goToDownloads.timer) {
-            clearTimeout(goToDownloads.timer);
-        }
-
-        goToDownloads.timer = setTimeout(() => {
-            emitter.emit('navigate-to-tab', 'downloads');
-        }, 100);
+        emitter.emit('navigate-to-tab', 'downloads');
     }
 };
-goToDownloads.timer = null;
 
 // 切换实例运行状态
 const toggleInstanceRunning = (instance) => {

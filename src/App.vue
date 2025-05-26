@@ -486,13 +486,35 @@ const checkApiConnection = async () => {
   return false; // 返回false表示没有真实后端连接
 };
 
-// 切换主题方法
-const changeTheme = (themeName) => {
-  localStorage.setItem('theme', themeName);
-  document.documentElement.setAttribute('data-theme', themeName);
+// 添加安全的主题应用函数
+const safeApplyTheme = (themeName) => {
+  try {
+    localStorage.setItem('theme', themeName);
+    document.documentElement.setAttribute('data-theme', themeName);
 
-  // 发送主题变化事件
-  emitter.emit('theme-changed', themeName);
+    // 发送主题变化事件
+    emitter.emit('theme-changed', themeName);
+
+    // 确保颜色变量正确更新
+    const savedColor = localStorage.getItem('themeColor') || '#3b82f6';
+    if (savedColor.includes('%') || savedColor.split(' ').length === 3) {
+      // 如果是无效的HSL格式,使用默认颜色
+      console.log('检测到无效HSL格式,使用默认颜色');
+      localStorage.setItem('themeColor', '#3b82f6');
+      document.documentElement.style.setProperty('--primary-color', '#3b82f6');
+    } else {
+      document.documentElement.style.setProperty('--primary-color', savedColor);
+    }
+  } catch (err) {
+    console.error('应用主题失败:', err);
+    // 使用安全默认值
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+};
+
+// 替换原来的changeTheme函数
+const changeTheme = (themeName) => {
+  safeApplyTheme(themeName);
 };
 </script>
 

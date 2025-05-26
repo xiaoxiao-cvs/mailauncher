@@ -63,232 +63,165 @@ export const useDarkMode = (emitter = null) => {
   };
 };
 
-// 应用主题颜色
-export const applyThemeColor = (color) => {
-  if (!color) return;
-
-  // 检查颜色格式
-  if (!isValidColor(color)) {
-    console.warn("尝试应用无效的颜色格式:", color);
-    return;
-  }
-
-  // 设置CSS变量
-  document.documentElement.style.setProperty("--p", color); // DaisyUI主色
-  document.documentElement.style.setProperty("--primary", color); // DaisyUI主色变量
-  document.documentElement.style.setProperty("--primary-color", color); // 自定义主色变量
-
-  // 为深色和浅色模式更新其他相关变量
-  const isDark = document.documentElement.classList.contains("dark-mode");
-  updateThemeColorVariables(color, isDark);
-
-  // 保存当前主题色
-  window.currentThemeColor = color;
-
-  // 分发全局主题色变化事件
-  window.dispatchEvent(
-    new CustomEvent("theme-color-changed", { detail: color })
-  );
-};
-
-// 检查颜色格式是否有效
-const isValidColor = (color) => {
-  // 检查是否为十六进制颜色
-  if (typeof color === "string" && /^#([0-9A-F]{3}){1,2}$/i.test(color)) {
-    return true;
-  }
-
-  // 检查是否为hsl格式 (DaisyUI使用)
-  if (typeof color === "string" && color.startsWith("hsl(")) {
-    return true;
-  }
-
-  return false;
-};
-
-// 更新主题相关颜色变量
-const updateThemeColorVariables = (color, isDark) => {
+/**
+ * 应用主题颜色
+ * @param {string} color 颜色值
+ */
+export function applyThemeColor(color) {
   try {
-    // 如果是HSL格式，转换为十六进制
-    let hexColor = color;
-    if (color.startsWith("hsl(")) {
-      hexColor = hslToHex(color);
+    // 检查颜色格式是否有效
+    if (!color || typeof color !== "string") {
+      console.error("无效的颜色格式:", color);
+      return;
     }
 
-    // 使用十六进制颜色进行亮度调整
-    const lightenColor = adjustColorBrightness(hexColor, 20);
-    const darkenColor = adjustColorBrightness(hexColor, -20);
+    // 如果颜色是HSL格式的字符串(例如: "58.92% 0.199 134.6")
+    if (color.includes("%") || color.split(" ").length === 3) {
+      try {
+        // 尝试将其转换为有效的HSL格式
+        const parts = color.replace(/%/g, "").trim().split(/\s+/);
+        if (parts.length === 3) {
+          const h = parseFloat(parts[2]) || 0; // 色相
+          const s = parseFloat(parts[1]) || 0; // 饱和度
+          const l = parseFloat(parts[0]) / 100 || 0; // 亮度
 
-    document.documentElement.style.setProperty("--primary-light", lightenColor);
-    document.documentElement.style.setProperty("--primary-dark", darkenColor);
+          // 构建正确的CSS HSL格式字符串
+          const hslColor = `hsl(${h}, ${s * 100}%, ${l * 100}%)`;
 
-    // 设置DaisyUI衍生变量
-    document.documentElement.style.setProperty("--pf", darkenColor);
-    document.documentElement.style.setProperty(
-      "--pc",
-      isDark ? "#000" : "#fff"
-    );
-  } catch (error) {
-    console.error("更新主题颜色变量时出错:", error);
-  }
-};
+          // 设置CSS变量
+          document.documentElement.style.setProperty(
+            "--primary-color",
+            hslColor
+          );
+          document.documentElement.style.setProperty(
+            "--p",
+            `${h} ${s * 100}% ${l * 100}%`
+          );
 
-// HSL转换为十六进制颜色
-const hslToHex = (hslColor) => {
-  try {
-    // 从hsl(x y% z)格式提取值
-    const hslRegex =
-      /hsl\(\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)(?:%|\s*)\)/i;
-    const match = hslColor.match(hslRegex);
-
-    if (!match) {
-      throw new Error("无效的HSL格式: " + hslColor);
-    }
-
-    let h = parseFloat(match[1]);
-    let s = parseFloat(match[2]) / 100;
-    let l = parseFloat(match[3]) / 100;
-
-    // HSL转RGB算法
-    let c = (1 - Math.abs(2 * l - 1)) * s;
-    let x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-    let m = l - c / 2;
-    let r = 0,
-      g = 0,
-      b = 0;
-
-    if (h >= 0 && h < 60) {
-      r = c;
-      g = x;
-      b = 0;
-    } else if (h >= 60 && h < 120) {
-      r = x;
-      g = c;
-      b = 0;
-    } else if (h >= 120 && h < 180) {
-      r = 0;
-      g = c;
-      b = x;
-    } else if (h >= 180 && h < 240) {
-      r = 0;
-      g = x;
-      b = c;
-    } else if (h >= 240 && h < 300) {
-      r = x;
-      g = 0;
-      b = c;
-    } else {
-      r = c;
-      g = 0;
-      b = x;
-    }
-
-    r = Math.round((r + m) * 255);
-    g = Math.round((g + m) * 255);
-    b = Math.round((b + m) * 255);
-
-    return `#${r.toString(16).padStart(2, "0")}${g
-      .toString(16)
-      .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-  } catch (error) {
-    console.error("HSL转换为十六进制颜色时出错:", error);
-    return "#570df8"; // 返回DaisyUI默认主色
-  }
-};
-
-// 颜色亮度调整函数
-export const adjustColorBrightness = (hex, percent) => {
-  if (!hex || typeof hex !== "string") {
-    console.error("无效的颜色格式", hex);
-    return hex || "#570df8"; // 返回默认颜色
-  }
-
-  // 支持hsl格式
-  if (hex.startsWith("hsl(")) {
-    try {
-      hex = hslToHex(hex);
-    } catch (error) {
-      console.error("转换HSL到HEX失败:", error);
-      return "#570df8"; // 返回默认主色
-    }
-  }
-
-  // 确保是有效的十六进制颜色格式
-  if (!hex.startsWith("#") || ![4, 7].includes(hex.length)) {
-    console.error("无效的十六进制颜色格式", hex);
-    return "#570df8";
-  }
-
-  try {
-    // 将简写的十六进制颜色扩展为完整形式
-    if (hex.length === 4) {
-      hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
-    }
-
-    // 将十六进制颜色转换为RGB
-    let r = parseInt(hex.substring(1, 3), 16);
-    let g = parseInt(hex.substring(3, 5), 16);
-    let b = parseInt(hex.substring(5, 7), 16);
-
-    // 调整亮度
-    r = Math.min(255, Math.max(0, Math.round(r + (r * percent) / 100)));
-    g = Math.min(255, Math.max(0, Math.round(g + (g * percent) / 100)));
-    b = Math.min(255, Math.max(0, Math.round(b + (b * percent) / 100)));
-
-    // 转换回十六进制格式
-    return `#${r.toString(16).padStart(2, "0")}${g
-      .toString(16)
-      .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-  } catch (error) {
-    console.error("调整颜色亮度时出错:", error);
-    return hex;
-  }
-};
-
-// 获取当前主题颜色
-const updateThemeColors = () => {
-  try {
-    const computedStyle = getComputedStyle(document.documentElement);
-
-    // 获取主题色
-    const primaryColor = computedStyle.getPropertyValue("--p").trim();
-
-    if (primaryColor) {
-      // 检查颜色格式，如果需要，进行转换
-      if (primaryColor.startsWith("hsl(")) {
-        // 将HSL转换为HEX以便进行亮度调整
-        const hexColor = hslToHex(primaryColor);
-        applyThemeColor(hexColor);
-      } else {
-        applyThemeColor(primaryColor);
+          console.log("应用HSL颜色:", hslColor);
+          return;
+        }
+      } catch (err) {
+        console.error("解析HSL颜色时出错:", err);
       }
     }
-  } catch (error) {
-    console.error("获取主题颜色时出错:", error);
+
+    // 处理Hex颜色
+    if (color.startsWith("#")) {
+      document.documentElement.style.setProperty("--primary-color", color);
+
+      // 转换Hex为HSL
+      const { h, s, l } = hexToHSL(color);
+      document.documentElement.style.setProperty("--p", `${h} ${s}% ${l}%`);
+
+      console.log("应用Hex颜色:", color, `转换为HSL: ${h} ${s}% ${l}%`);
+      return;
+    }
+
+    // 处理CSS颜色名称
+    document.documentElement.style.setProperty("--primary-color", color);
+    console.log("应用CSS颜色名称:", color);
+  } catch (e) {
+    console.error("应用颜色主题时发生错误:", e);
   }
-};
+}
+
+/**
+ * 将十六进制颜色转换为HSL格式
+ * @param {string} hex 十六进制颜色
+ * @returns {object} 包含h, s, l属性的对象
+ */
+function hexToHSL(hex) {
+  // 确保hex格式正确
+  hex = hex.replace(/^#/, "");
+
+  // 将hex转换为RGB
+  let r, g, b;
+  if (hex.length === 3) {
+    r = parseInt(hex.charAt(0) + hex.charAt(0), 16) / 255;
+    g = parseInt(hex.charAt(1) + hex.charAt(1), 16) / 255;
+    b = parseInt(hex.charAt(2) + hex.charAt(2), 16) / 255;
+  } else {
+    r = parseInt(hex.substring(0, 2), 16) / 255;
+    g = parseInt(hex.substring(2, 4), 16) / 255;
+    b = parseInt(hex.substring(4, 6), 16) / 255;
+  }
+
+  // 计算HSL值
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h,
+    s,
+    l = (max + min) / 2;
+
+  if (max === min) {
+    h = s = 0; // 灰色
+  } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+    switch (max) {
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0);
+        break;
+      case g:
+        h = (b - r) / d + 2;
+        break;
+      case b:
+        h = (r - g) / d + 4;
+        break;
+    }
+
+    h = Math.round(h * 60);
+  }
+
+  s = Math.round(s * 100);
+  l = Math.round(l * 100);
+
+  return { h, s, l };
+}
+
+// 更新主题颜色逻辑
+export function updateThemeColors(primaryColor) {
+  try {
+    // 如果是无效颜色,使用默认值
+    if (!primaryColor || typeof primaryColor !== "string") {
+      primaryColor = "#3b82f6"; // 默认蓝色
+    }
+
+    // 保存颜色到localStorage
+    localStorage.setItem("themeColor", primaryColor);
+
+    // 应用颜色
+    applyThemeColor(primaryColor);
+
+    // 触发颜色变化事件
+    window.dispatchEvent(
+      new CustomEvent("theme-color-change", {
+        detail: { color: primaryColor },
+      })
+    );
+  } catch (err) {
+    console.error("更新主题颜色时出错:", err);
+  }
+}
 
 // 初始化主题
-export const initTheme = () => {
-  const savedTheme = localStorage.getItem("theme") || "light";
-  document.documentElement.setAttribute("data-theme", savedTheme);
+export function initTheme() {
+  try {
+    // 获取保存的颜色设置
+    const savedColor = localStorage.getItem("themeColor") || "#3b82f6";
 
-  // 应用保存的主题色
-  const savedThemeColor = localStorage.getItem("themeColor");
-  if (savedThemeColor) {
-    // 直接设置CSS变量，但不调用applyThemeColor
-    // 因为initTheme后会调用updateThemeColors
-    document.documentElement.style.setProperty("--p", savedThemeColor);
-    document.documentElement.style.setProperty("--primary", savedThemeColor);
-    document.documentElement.style.setProperty(
-      "--primary-color",
-      savedThemeColor
-    );
+    // 添加一个小延迟,确保DOM已完全加载
+    setTimeout(() => {
+      updateThemeColors(savedColor);
+    }, 0);
+  } catch (err) {
+    console.error("初始化主题时出错:", err);
+    // 使用默认颜色
+    applyThemeColor("#3b82f6");
   }
-
-  // 延迟调用updateThemeColors，确保DaisyUI的主题已经应用
-  setTimeout(() => updateThemeColors(), 100);
-};
+}
 
 // 使用主题配置
 export const useTheme = () => {

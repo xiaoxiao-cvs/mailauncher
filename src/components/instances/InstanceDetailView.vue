@@ -1,5 +1,5 @@
 <template>
-    <div class="instance-detail-container">
+    <div class="instance-detail-container animate-slide-in">
         <!-- 顶部应用标题栏 -->
         <div class="app-header shadow-sm">
             <div class="flex items-center">
@@ -306,6 +306,19 @@ onMounted(() => {
 /* 整体容器样式 */
 .instance-detail-container {
     @apply bg-gray-50 min-h-screen flex flex-col;
+    animation: slideInFromRight 0.4s ease-out forwards;
+}
+
+@keyframes slideInFromRight {
+    from {
+        opacity: 0;
+        transform: translateX(40px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 /* 顶部应用标题栏 */

@@ -22,16 +22,20 @@
                         <td>{{ instance.installedAt || '未知' }}</td>
                         <td>
                             <div class="flex gap-2">
-                                <button class="btn btn-sm" 
+                                <button class="btn btn-sm btn-square rounded-md action-btn"
                                     :class="instance.status === 'running' ? 'btn-error' : 'btn-success'"
-                                    @click="toggleInstance(instance)">
-                                    {{ instance.status === 'running' ? '停止' : '启动' }}
+                                    @click.stop="toggleInstance(instance)" :disabled="instance.isLoading">
+                                    <!-- 使用DaisyUI的加载动画 -->
+                                    <span v-if="instance.isLoading" class="loading loading-spinner loading-xs"></span>
+                                    <Icon v-else :icon="instance.status === 'running' ? 'mdi:stop' : 'mdi:play'" />
                                 </button>
-                                <button class="btn btn-sm btn-ghost" @click="openInstancePath(instance)">
-                                    <i class="icon icon-folder"></i>
+                                <button class="btn btn-sm btn-square btn-ghost rounded-md action-btn"
+                                    @click.stop="openInstancePath(instance)" :disabled="instance.isLoading">
+                                    <Icon icon="mdi:folder-outline" />
                                 </button>
-                                <button class="btn btn-sm btn-ghost" @click="openSettings(instance)">
-                                    <i class="icon icon-settings"></i>
+                                <button class="btn btn-sm btn-square btn-ghost rounded-md action-btn"
+                                    @click.stop="openSettings(instance)" :disabled="instance.isLoading">
+                                    <Icon icon="mdi:cog-outline" />
                                 </button>
                             </div>
                         </td>
@@ -49,14 +53,13 @@
                 </tbody>
             </table>
         </div>
-        <div class="flex justify-end mt-4">
-            <button class="btn btn-sm btn-outline" @click="refreshInstances">刷新列表</button>
-        </div>
     </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, inject } from 'vue';
+import { Icon } from '@iconify/vue';
+import toastService from '@/services/toastService';
 
 const props = defineProps({
     instances: {
@@ -66,35 +69,85 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['refresh-instances', 'toggle-instance']);
+const emitter = inject('emitter', null);
 
 // 切换实例状态
 const toggleInstance = (instance) => {
-    emit('toggle-instance', instance);
+    try {
+        // 防止重复点击
+        if (instance.isLoading) return;
+
+        // 设置加载状态
+        instance.isLoading = true;
+
+        // 正在运行则停止，否则启动
+        const action = instance.status === 'running' ? '停止' : '启动';
+
+        // 更新临时状态
+        instance.status = instance.status === 'running' ? 'stopping' : 'starting';
+
+        toastService.info(`正在${action}实例: ${instance.name}`);
+
+        // 模拟API调用
+        setTimeout(() => {
+            try {
+                // 切换状态
+                instance.status = instance.status === 'stopping' ? 'stopped' : 'running';
+                instance.isLoading = false;
+
+                // 通知成功
+                toastService.success(`实例 ${instance.name} 已${action}`);
+
+                // 通知父组件刷新列表
+                emit('refresh-instances');
+            } catch (err) {
+                // 恢复原始状态
+                instance.status = instance.status === 'stopping' ? 'running' : 'stopped';
+                instance.isLoading = false;
+                toastService.error(`${action}实例失败: ${err.message || '未知错误'}`);
+            }
+        }, 1500);
+
+        emit('toggle-instance', instance);
+    } catch (error) {
+        console.error('操作实例状态时出错:', error);
+        toastService.error('操作失败: ' + (error.message || '未知错误'));
+        // 确保出错时重置加载状态
+        instance.isLoading = false;
+    }
 };
 
 // 打开实例配置
 const openSettings = (instance) => {
-    // 通知用户功能正在开发中
-    showToast('实例设置功能即将推出', 'info');
+    // 使用事件总线打开实例设置
+    if (emitter) {
+        emitter.emit('open-instance-settings', {
+            name: instance.name,
+            path: instance.path || ''
+        });
+    } else {
+        toastService.info('实例设置功能即将推出');
+    }
 };
 
 // 打开实例文件夹
 const openInstancePath = (instance) => {
     if (instance.path) {
         // 显示确认消息
-        showToast(`正在打开: ${instance.path}`, 'success');
-        
-        // 在实际应用中，这里会调用Electron或其他API来打开文件夹
-        // 现在只是一个模拟
+        toastService.success(`正在打开: ${instance.path}`);
+
+        // 如果在Electron环境中，可以使用shell.openPath
+        if (window.electron && window.electron.openPath) {
+            window.electron.openPath(instance.path);
+        } else {
+            // 功能提示
+            toastService.warning('文件管理功能开发中', 3000);
+        }
+
         console.log('打开实例路径:', instance.path);
     } else {
-        showToast('无法获取实例路径', 'error');
+        toastService.error('无法获取实例路径');
     }
-};
-
-// 刷新实例列表
-const refreshInstances = () => {
-    emit('refresh-instances');
 };
 
 // 获取状态徽章样式
@@ -121,26 +174,33 @@ const getStatusText = (status) => {
     }
 };
 
-// 显示提醒消息
-const showToast = (message, type = 'info') => {
-    // 创建一个toast元素
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type} fixed top-4 right-4 z-50`;
-    toast.innerHTML = `
-        <div class="alert ${type === 'success' ? 'alert-success' : type === 'error' ? 'alert-error' : 'alert-info'}">
-            <span>${message}</span>
-        </div>
-    `;
-    document.body.appendChild(toast);
-    
-    // 3秒后移除
-    setTimeout(() => {
-        toast.classList.add('opacity-0');
-        setTimeout(() => {
-            document.body.removeChild(toast);
-        }, 300);
-    }, 3000);
+// 刷新实例列表
+const refreshInstances = () => {
+    emit('refresh-instances');
 };
+
+// 阻止事件冒泡导致的重复触发
+const viewInstanceDetails = (instance) => {
+    if (emitter) {
+        // 使用防抖函数避免事件频繁触发
+        if (viewInstanceDetails.timer) {
+            clearTimeout(viewInstanceDetails.timer);
+        }
+
+        viewInstanceDetails.timer = setTimeout(() => {
+            // 导航到实例管理页面
+            emitter.emit('navigate-to-tab', 'instances');
+
+            // 延迟发送查看详情事件，确保页面已切换
+            setTimeout(() => {
+                emitter.emit('view-instance-details', instance);
+            }, 300);
+        }, 100);
+    } else {
+        toastService.error('无法查看实例详情');
+    }
+};
+viewInstanceDetails.timer = null;
 </script>
 
 <style scoped>
@@ -166,5 +226,28 @@ const showToast = (message, type = 'info') => {
 
 .icon {
     font-size: 1rem;
+}
+
+.action-btn {
+    @apply w-8 h-8 flex items-center justify-center;
+    font-size: 16px;
+}
+
+.btn-square.rounded-md {
+    border-radius: 6px;
+}
+
+/* 添加加载动画样式 */
+.loading-spinner {
+    @apply text-base-content;
+}
+
+/* 优化按钮状态样式 */
+.action-btn:disabled {
+    @apply cursor-not-allowed opacity-70;
+}
+
+.action-btn {
+    @apply transition-all duration-200;
 }
 </style>

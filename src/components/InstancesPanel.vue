@@ -1,11 +1,13 @@
 <template>
   <div class="instances-tab">
     <!-- 实例详情视图 - 当showInstanceDetail为true时显示 -->
-    <InstanceDetailView v-if="showInstanceDetail" :instance="currentInstance" @back="closeInstanceDetail" />
+    <transition name="instance-detail-transition" mode="out-in">
+      <InstanceDetailView v-if="showInstanceDetail" :instance="currentInstance" @back="closeInstanceDetail" />
 
-    <!-- 实例列表组件 - 当showInstanceDetail为false时显示 -->
-    <InstancesList v-else :instances="instancesData" @refresh-instances="loadInstances"
-      @toggle-instance="handleToggleInstance" @view-instance="openInstanceDetail" />
+      <!-- 实例列表组件 - 当showInstanceDetail为false时显示 -->
+      <InstancesList v-else :instances="instancesData" @refresh-instances="loadInstances"
+        @toggle-instance="handleToggleInstance" @view-instance="openInstanceDetail" />
+    </transition>
 
     <!-- 实例配置抽屉组件 -->
     <InstanceSettingsDrawer :is-open="isSettingsOpen" :instance-name="currentInstance.name"
@@ -18,28 +20,83 @@ import { ref, inject, onMounted, onBeforeUnmount } from 'vue';
 import InstancesList from './instances/InstancesList.vue';
 import InstanceSettingsDrawer from './settings/InstanceSettingsDrawer.vue';
 import InstanceDetailView from './instances/InstanceDetailView.vue';
+import toastService from '@/services/toastService';
 
-// 获取事件总线
-const emitter = inject('emitter');
+// 引入API服务
+import { instancesApi } from '@/services/api';
 
-// 实例数据
-const instancesData = ref([
-  { id: 1, name: '开发环境', status: 'running', installedAt: '2023-04-15 10:30', path: 'D:/maibot/dev' },
-  { id: 2, name: '测试环境', status: 'stopped', installedAt: '2023-05-20 14:45', path: 'D:/maibot/test' },
-  { id: 3, name: '生产环境', status: 'error', installedAt: '2023-06-05 09:15', path: 'D:/maibot/prod' }
-]);
+// 注入全局事件总线
+const emitter = inject('emitter', null);
 
-// 实例设置抽屉状态
+// 实例状态
+const instancesData = ref([]);
 const isSettingsOpen = ref(false);
-const currentInstance = ref({ name: '', path: '' });
-
-// 实例详情视图状态
 const showInstanceDetail = ref(false);
+const currentInstance = ref({
+  name: '',
+  path: '',
+  status: 'stopped'
+});
+
+// 加载实例列表方法 - 之前缺少这个方法导致报错
+const loadInstances = async () => {
+  try {
+    // 检查是否使用模拟数据
+    const useMockData = localStorage.getItem('useMockData') === 'true';
+
+    if (useMockData) {
+      // 使用模拟数据
+      instancesData.value = getMockInstances();
+    } else {
+      // 使用API获取实例列表
+      const response = await instancesApi.getInstances();
+      instancesData.value = response.instances || [];
+    }
+  } catch (error) {
+    console.error('获取实例列表失败:', error);
+    // 出错时使用模拟数据
+    instancesData.value = getMockInstances();
+    toastService.error('获取实例列表失败');
+  }
+};
+
+// 获取模拟实例数据
+const getMockInstances = () => {
+  return [
+    {
+      id: 'inst1',
+      name: '测试实例1',
+      status: 'running',
+      createdAt: '2023-05-18 10:30:00',
+      totalRunningTime: '48小时30分钟',
+      path: 'D:\\MaiBot\\测试实例1'
+    },
+    {
+      id: 'inst2',
+      name: '测试实例2',
+      status: 'stopped',
+      createdAt: '2023-05-17 14:15:00',
+      totalRunningTime: '12小时45分钟',
+      path: 'D:\\MaiBot\\测试实例2'
+    },
+    {
+      id: 'inst3',
+      name: '开发测试3',
+      status: 'maintenance',
+      createdAt: '2023-05-15 09:20:00',
+      totalRunningTime: '24小时10分钟',
+      path: 'D:\\MaiBot\\开发测试3'
+    }
+  ];
+};
 
 // 打开实例详情
 const openInstanceDetail = (instance) => {
-  currentInstance.value = instance;
-  showInstanceDetail.value = true;
+  // 添加一个小延迟，让动画效果更明显
+  setTimeout(() => {
+    currentInstance.value = instance;
+    showInstanceDetail.value = true;
+  }, 50);
 };
 
 // 关闭实例详情
@@ -49,6 +106,7 @@ const closeInstanceDetail = () => {
 
 // 打开实例设置
 const openInstanceSettings = (instance) => {
+  console.log('打开实例设置:', instance);
   currentInstance.value = instance;
   isSettingsOpen.value = true;
 };
@@ -58,69 +116,54 @@ const closeInstanceSettings = () => {
   isSettingsOpen.value = false;
 };
 
-// 处理保存设置
-const handleInstanceSettingsSave = (config) => {
-  showToast(`实例 ${currentInstance.value.name} 配置已保存`, 'success');
+// 处理实例设置保存
+const handleInstanceSettingsSave = (settings) => {
+  console.log('保存实例设置:', settings);
+  toastService.success(`已保存 ${currentInstance.value.name} 的设置`);
+  closeInstanceSettings();
+  // 刷新实例列表
+  loadInstances();
 };
 
-// 加载实例列表
-const loadInstances = () => {
-  // 模拟加载数据的延迟
-  showToast('正在刷新实例列表...', 'info');
-  setTimeout(() => {
-    // 在真实应用中，这里应该是API调用
-    showToast('实例列表已更新', 'success');
-  }, 800);
-};
-
-// 处理实例状态切换
+// 处理实例启停
 const handleToggleInstance = (instance) => {
-  // 模拟状态切换
-  const index = instancesData.value.findIndex(i => i.id === instance.id);
+  const index = instancesData.value.findIndex(item => item.id === instance.id || item.name === instance.name);
   if (index !== -1) {
-    const newStatus = instancesData.value[index].status === 'running' ? 'stopped' : 'running';
-    // 先设置为过渡状态
+    const newStatus = instance.status === 'running' ? 'stopped' : 'running';
     instancesData.value[index].status = newStatus === 'running' ? 'starting' : 'stopping';
 
-    // 模拟状态变更延迟
+    // 模拟API操作延迟
     setTimeout(() => {
       instancesData.value[index].status = newStatus;
-      showToast(`实例 ${instance.name} 已${newStatus === 'running' ? '启动' : '停止'}`, 'success');
+      toastService.success(`实例 ${instance.name} 已${newStatus === 'running' ? '启动' : '停止'}`);
     }, 1500);
   }
 };
 
-// 辅助函数：显示Toast提示
-const showToast = (message, type = 'info') => {
-  const toast = document.createElement('div');
-  toast.className = 'toast toast-top toast-center';
-
-  const alert = document.createElement('div');
-  alert.className = `alert alert-${type}`;
-  alert.innerHTML = `<span>${message}</span>`;
-
-  toast.appendChild(alert);
-  document.body.appendChild(toast);
-
-  setTimeout(() => {
-    toast.classList.add('opacity-0');
-    setTimeout(() => {
-      document.body.removeChild(toast);
-    }, 300);
-  }, 3000);
-};
-
-// 设置事件监听
+// 组件挂载时设置事件监听
 onMounted(() => {
+  // 初次加载实例列表
+  loadInstances();
+
+  // 设置事件监听
   if (emitter) {
     emitter.on('open-instance-settings', openInstanceSettings);
+    emitter.on('refresh-instances', loadInstances);
+
+    // 添加实例详情查看的事件监听
+    emitter.on('view-instance-details', (instance) => {
+      openInstanceDetail(instance);
+    });
   }
 });
 
-// 移除事件监听
+// 组件卸载时清理事件监听
 onBeforeUnmount(() => {
+  // 移除事件监听
   if (emitter) {
-    emitter.off('open-instance-settings', openInstanceSettings);
+    emitter.off('open-instance-settings');
+    emitter.off('refresh-instances');
+    emitter.off('view-instance-details');
   }
 });
 </script>
@@ -133,5 +176,38 @@ onBeforeUnmount(() => {
   top: 2rem;
   z-index: 100;
   transition: opacity 0.3s ease;
+}
+
+/* 添加实例详情视图过渡效果 */
+.instance-detail-transition-enter-active {
+  animation: slideInFromRight 0.4s ease-out;
+}
+
+.instance-detail-transition-leave-active {
+  animation: slideOutToRight 0.3s ease-in;
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutToRight {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(40px);
+  }
 }
 </style>

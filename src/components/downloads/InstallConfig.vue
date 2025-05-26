@@ -127,9 +127,9 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, inject, nextTick, watch, onUnmounted } from 'vue';
-// 移除 Element Plus 导入
 import { deployApi } from '@/services/api';
-import axios from 'axios'; // 添加axios导入，因为代码中使用了axios
+import axios from 'axios';
+import toastService from '@/services/toastService';
 
 /**
  * 组件属性
@@ -192,7 +192,7 @@ const canConfigureBot = computed(() => {
   return true;
 });
 
-// 添加缺失的端口验证方法
+// 端口验证方法
 const isPortValid = (ports = null) => {
   const portData = ports || {
     napcat: napcatPort.value,
@@ -225,13 +225,13 @@ const isPortValid = (ports = null) => {
   }
 
   if (!valid) {
-    ElMessage.error(errorMsg);
+    toastService.error(errorMsg);
   }
 
   return valid;
 };
 
-// 版本安装方法
+// 获取可用版本列表
 const fetchVersions = async () => {
   versionsLoading.value = true;
   versionError.value = '';
@@ -281,21 +281,22 @@ const fetchVersions = async () => {
   }
 };
 
+// 安装版本
 const installVersion = async () => {
   if (!selectedVersion.value) {
-    ElMessage.warning('请先选择版本');
+    toastService.warning('请先选择版本');
     return;
   }
 
   // 检查实例名称
   if (!instanceName.value || instanceName.value.trim() === '') {
-    ElMessage.error('请输入实例名称');
+    toastService.error('请输入实例名称');
     return;
   }
 
   // 检查Bot配置 (QQ号)
   if ((installNapcat.value || installAdapter.value) && (!qqNumber.value || !/^\d+$/.test(qqNumber.value))) {
-    ElMessage.warning('请输入有效的QQ号');
+    toastService.warning('请输入有效的QQ号');
     return;
   }
 
@@ -351,7 +352,7 @@ const installVersion = async () => {
         level: 'ERROR',
         message: `$ 基础版本部署失败: ${errorMsg}`
       });
-      ElMessage.error(`基础版本部署失败: ${errorMsg}`);
+      toastService.error(`基础版本部署失败: ${errorMsg}`);
       installLoading.value = false;
       installStatus.value = 'failed';
       return;
@@ -396,7 +397,7 @@ const installVersion = async () => {
           level: 'SUCCESS',
           message: `$ 实例 ${instanceName.value} 配置任务已提交。请查看后续日志了解安装进度。`
         });
-        ElMessage.success('实例配置任务已提交，后台将继续处理。');
+        toastService.success('实例配置任务已提交，后台将继续处理。');
       } else {
         const errorMsg = configResponse?.message || '实例配置请求失败';
         addLog({
@@ -405,7 +406,7 @@ const installVersion = async () => {
           level: 'WARNING', // 使用 WARNING 因为基础部署可能已开始
           message: `$ 实例配置失败: ${errorMsg}`
         });
-        ElMessage.warning(`实例配置提交失败: ${errorMsg} (基础部署可能已开始)`);
+        toastService.warning(`实例配置提交失败: ${errorMsg} (基础部署可能已开始)`);
       }
       // 启动轮询检查总体安装状态
       startInstallStatusPolling();
@@ -417,7 +418,7 @@ const installVersion = async () => {
         level: 'SUCCESS',
         message: `$ ${instanceName.value} (${selectedVersion.value}) 基础安装完成，无额外配置。`
       });
-      ElMessage.success('基础实例安装已提交。');
+      toastService.success('基础实例安装已提交。');
       installLoading.value = false; // 因为没有后续配置，直接结束loading
       refreshInstances();
     }
@@ -439,12 +440,7 @@ const installVersion = async () => {
       level: 'ERROR',
       message: `$ 安装操作失败: ${errorMessage}`
     });
-    ElNotification({
-      title: '安装操作失败',
-      message: errorMessage,
-      type: 'error',
-      duration: 8000
-    });
+    toastService.error('安装操作失败: ' + errorMessage, 8000);
     installLoading.value = false;
   }
 };
@@ -513,7 +509,7 @@ const startInstallStatusPolling = () => {
           // 刷新实例列表
           refreshInstances();
 
-          ElMessage.success('模拟安装完成！');
+          toastService.success('模拟安装完成！');
           return;
         }
         return;
@@ -544,7 +540,7 @@ const startInstallStatusPolling = () => {
             level: 'WARNING',
             message: '$ 安装状态检测超时，请手动确认安装是否完成。'
           });
-          ElMessage.warning('安装状态检测超时，请检查实例列表和日志。');
+          toastService.warning('安装状态检测超时，请检查实例列表和日志。');
         } else {
           addLog({
             time: formatTime(new Date()),
@@ -552,7 +548,7 @@ const startInstallStatusPolling = () => {
             level: 'SUCCESS',
             message: '$ 后台安装和配置过程已完成。'
           });
-          ElMessage.success('后台安装和配置已完成！');
+          toastService.success('后台安装和配置已完成！');
         }
       } else {
         addLog({

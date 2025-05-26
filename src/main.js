@@ -3,6 +3,7 @@ import App from "./App.vue";
 import "./assets/css/tailwind.css";
 import "./assets/global.css";
 import toastService from "./services/toastService";
+import eventBus from "./services/eventBus"; // 导入改进的事件总线
 
 // 导入Iconify
 import { Icon } from "@iconify/vue";
@@ -18,6 +19,9 @@ app.component("Icon", Icon);
 
 // 全局提供toast服务
 app.provide("toast", toastService);
+
+// 全局提供事件总线
+app.provide("emitter", eventBus);
 
 // 也作为全局属性
 app.config.globalProperties.$toast = toastService;
@@ -100,10 +104,47 @@ const initCssVariables = () => {
       }
     },
   };
+
+  // 初始化主题色
+  try {
+    // 设置默认主题色
+    const defaultColor = "#3b82f6"; // 默认蓝色
+
+    // 尝试获取保存的主题色
+    const savedColor = localStorage.getItem("themeColor") || defaultColor;
+
+    // 安全地应用主题色
+    if (typeof savedColor === "string") {
+      // 如果保存的是HSL格式
+      if (savedColor.includes("%") || savedColor.split(" ").length === 3) {
+        console.log("检测到HSL格式色值,直接使用默认色值");
+        document.documentElement.style.setProperty(
+          "--primary-color",
+          defaultColor
+        );
+      } else {
+        document.documentElement.style.setProperty(
+          "--primary-color",
+          savedColor
+        );
+      }
+    } else {
+      // 如果savedColor不是字符串,使用默认色
+      document.documentElement.style.setProperty(
+        "--primary-color",
+        defaultColor
+      );
+    }
+  } catch (err) {
+    console.error("初始化主题色失败:", err);
+  }
 };
 
 // 初始化CSS变量
 initCssVariables();
+
+// 挂载应用前确保旧的事件监听器已被清除
+eventBus.clear();
 
 // 挂载应用
 app.mount("#app");
