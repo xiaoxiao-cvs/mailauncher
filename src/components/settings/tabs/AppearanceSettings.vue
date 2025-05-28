@@ -21,8 +21,7 @@
                 <div class="setting-item">
                     <div class="setting-label">动画效果</div>
                     <div class="setting-control">
-                        <input type="checkbox" class="toggle toggle-primary" v-model="enableAnimations"
-                            @change="toggleAnimations" />
+                        <input type="checkbox" class="toggle toggle-primary" v-model="enableAnimations" />
                     </div>
                 </div>
 

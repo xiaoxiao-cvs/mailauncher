@@ -2,12 +2,23 @@
  * WebSocket服务
  * 注意：后端已从项目移出，此服务将使用模拟模式
  */
-import { isMockModeActive } from "../services/apiService"; // 导入模拟模式检查函数
+import { isMockModeActive } from "./apiService"; // 导入模拟模式检查函数
+import backendConfig from "@/config/backendConfig"; // 导入后端配置
 
 // 获取当前WebSocket URL
 const getWebSocketUrl = (path = "/api/logs/ws") => {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.host}${path}`;
+  // 检查是否使用代理模式
+  const useProxy = import.meta.env.VITE_USE_PROXY === "true";
+
+  if (useProxy) {
+    // 使用代理时，使用当前host
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}${path}`;
+  } else {
+    // 不使用代理时，直接连接到后端
+    const protocol = "ws:"; // 后端配置为http，所以使用ws
+    return `${protocol}//${backendConfig.server.host}:${backendConfig.server.port}${path}`;
+  }
 };
 
 // 模拟模式标志 - 如果WebSocket连接失败，我们将使用模拟模式
@@ -52,7 +63,6 @@ export class WebSocketService {
       this.createMockConnection();
     }
   }
-
   /**
    * 创建模拟WebSocket连接
    */
@@ -63,59 +73,86 @@ export class WebSocketService {
     setTimeout(() => {
       this.triggerEvent("open", { type: "open", isMock: true });
 
+      // 根据URL类型设置不同的模拟数据发送频率
+      let interval = 2000; // 默认日志WebSocket频率
+      if (this.url && this.url.includes("/api/v1/ws/")) {
+        interval = 8000; // 终端WebSocket频率较低，避免太多干扰
+      }
+
       // 开始定期发送模拟数据
       this.mockDataInterval = setInterval(() => {
         this.triggerEvent("message", this.generateMockData());
-      }, 2000);
+      }, interval);
     }, 500);
   }
-
   /**
    * 生成模拟WebSocket数据
    * @returns {Object} 模拟数据
    */
   generateMockData() {
-    // 使用硬编码的数据而不是动态生成
-    const mockLogs = [
-      {
-        time: "2023-10-15 12:30:45",
-        level: "INFO",
-        source: "system",
-        message: "[模拟数据] 系统正常运行中",
-        isMock: true,
-      },
-      {
-        time: "2023-10-15 12:31:15",
-        level: "WARNING",
-        source: "system",
-        message: "[模拟数据] 检测到系统负载较高",
-        isMock: true,
-      },
-      {
-        time: "2023-10-15 12:32:00",
-        level: "ERROR",
-        source: "system",
-        message: "[模拟数据] 无法连接到数据库",
-        isMock: true,
-      },
-      {
-        time: "2023-10-15 12:33:20",
-        level: "DEBUG",
-        source: "system",
-        message: "[模拟数据] 调试信息输出",
-        isMock: true,
-      },
-      {
-        time: "2023-10-15 12:34:05",
-        level: "INFO",
-        source: "system",
-        message: "[模拟数据] API调用成功",
-        isMock: true,
-      },
-    ];
+    // 检查URL类型，为不同类型的WebSocket生成不同格式的模拟数据
+    if (this.url && this.url.includes("/api/v1/ws/")) {
+      // 终端WebSocket模拟数据
+      const terminalMessages = [
+        "[模拟终端] Bot正在运行...",
+        "[模拟终端] 收到新消息处理中",
+        "[模拟终端] 插件加载完成",
+        "[模拟终端] 数据库连接正常",
+        "[模拟终端] 系统状态检查完成",
+        "[模拟终端] 处理队列: 0 待处理任务",
+        "[模拟终端] 内存使用: 128MB / 512MB",
+      ];
 
-    // 随机返回一条日志
-    return mockLogs[Math.floor(Math.random() * mockLogs.length)];
+      return {
+        type: "output",
+        data: terminalMessages[
+          Math.floor(Math.random() * terminalMessages.length)
+        ],
+        isMock: true,
+      };
+    } else {
+      // 日志WebSocket模拟数据
+      const mockLogs = [
+        {
+          time: "2023-10-15 12:30:45",
+          level: "INFO",
+          source: "system",
+          message: "[模拟数据] 系统正常运行中",
+          isMock: true,
+        },
+        {
+          time: "2023-10-15 12:31:15",
+          level: "WARNING",
+          source: "system",
+          message: "[模拟数据] 检测到系统负载较高",
+          isMock: true,
+        },
+        {
+          time: "2023-10-15 12:32:00",
+          level: "ERROR",
+          source: "system",
+          message: "[模拟数据] 无法连接到数据库",
+          isMock: true,
+        },
+        {
+          time: "2023-10-15 12:33:20",
+          level: "DEBUG",
+          source: "system",
+          message: "[模拟数据] 调试信息输出",
+          isMock: true,
+        },
+        {
+          time: "2023-10-15 12:34:05",
+          level: "INFO",
+          source: "system",
+          message: "[模拟数据] API调用成功",
+          isMock: true,
+        },
+      ];
+
+      // 随机返回一条日志
+      return mockLogs[Math.floor(Math.random() * mockLogs.length)];
+    }
   }
 
   /**
@@ -144,10 +181,15 @@ export class WebSocketService {
         this.reconnectAttempts = 0;
         this.triggerEvent("open", event);
       };
-
       this.websocket.onclose = (event) => {
         console.log("WebSocket连接已关闭:", event.code, event.reason);
         this.triggerEvent("close", event);
+
+        // 如果是异常关闭（code 1006表示连接异常中断），且不是模拟模式，考虑切换到模拟模式
+        if (event.code === 1006 && !this.useMockMode) {
+          console.warn("WebSocket异常关闭，可能是后端错误，准备切换到模拟模式");
+          this.reconnectAttempts++; // 增加重连计数
+        }
 
         if (this.autoReconnect) {
           this.scheduleReconnect();
@@ -165,21 +207,37 @@ export class WebSocketService {
         }
         this.triggerEvent("message", data);
       };
-
       this.websocket.onerror = (event) => {
         console.error("WebSocket错误:", event);
         this.triggerEvent("error", event);
+
+        // 如果连接失败且还没有切换到模拟模式，则自动切换
+        if (
+          !this.useMockMode &&
+          this.reconnectAttempts >= this.maxReconnectAttempts
+        ) {
+          console.warn("WebSocket连接失败次数过多，自动切换到模拟模式");
+          this.switchToMockMode();
+        }
       };
     } catch (error) {
       console.error("WebSocket连接失败:", error);
       this.triggerEvent("error", { error });
 
-      if (this.autoReconnect) {
-        this.scheduleReconnect();
+      // 如果连接失败且还没有切换到模拟模式，增加重连计数
+      if (!this.useMockMode) {
+        if (
+          this.autoReconnect &&
+          this.reconnectAttempts < this.maxReconnectAttempts
+        ) {
+          this.scheduleReconnect();
+        } else {
+          console.warn("WebSocket连接失败，自动切换到模拟模式");
+          this.switchToMockMode();
+        }
       }
     }
   }
-
   /**
    * 安排重连
    */
@@ -193,8 +251,9 @@ export class WebSocketService {
       this.reconnectAttempts >= this.maxReconnectAttempts
     ) {
       console.warn(
-        `WebSocket已达到最大重连尝试次数(${this.maxReconnectAttempts})，停止重连`
+        `WebSocket已达到最大重连尝试次数(${this.maxReconnectAttempts})，切换到模拟模式`
       );
+      this.switchToMockMode();
       return;
     }
 
@@ -321,6 +380,29 @@ export class WebSocketService {
     }
     return this.websocket ? this.websocket.readyState : WebSocket.CLOSED;
   }
+
+  /**
+   * 切换到模拟模式
+   */
+  switchToMockMode() {
+    console.log("[WebSocket] 切换到模拟模式");
+    this.useMockMode = true;
+
+    // 清理现有的WebSocket连接
+    if (this.websocket) {
+      this.websocket.close();
+      this.websocket = null;
+    }
+
+    // 清理重连定时器
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
+    // 启动模拟连接
+    this.createMockConnection();
+  }
 }
 
 // 创建单例实例用于全局共享
@@ -333,7 +415,7 @@ let logWebSocketInstance = null;
 export const getLogWebSocketService = () => {
   if (!logWebSocketInstance) {
     logWebSocketInstance = new WebSocketService({
-      url: getWebSocketUrl("/api/logs/ws"),
+      url: getWebSocketUrl("/api/v1/logs/ws"),
       reconnectDelay: 3000,
       maxReconnectAttempts: 3, // 减少重连尝试次数，更快进入模拟模式
       autoReconnect: true,
@@ -343,3 +425,111 @@ export const getLogWebSocketService = () => {
 };
 
 export default WebSocketService;
+
+// 创建单例实例用于终端WebSocket连接
+let terminalWebSocketInstances = new Map();
+
+/**
+ * 获取或创建实例日志WebSocket服务实例
+ * @param {string} instanceId 实例ID
+ * @returns {WebSocketService} WebSocketService实例
+ */
+export const getInstanceLogWebSocketService = (instanceId) => {
+  // 检查是否已存在该实例的连接
+  if (terminalWebSocketInstances.has(instanceId)) {
+    const existingInstance = terminalWebSocketInstances.get(instanceId);
+    if (existingInstance && existingInstance.getState() === WebSocket.OPEN) {
+      return existingInstance;
+    } else {
+      // 清理无效连接
+      terminalWebSocketInstances.delete(instanceId);
+    }
+  }
+
+  // 创建新的实例日志WebSocket连接
+  const instanceLogWS = new WebSocketService({
+    url: getWebSocketUrl(`/api/v1/logs/instance/${instanceId}/ws`),
+    reconnectDelay: 1500, // 减少重连延迟
+    maxReconnectAttempts: 1, // 减少最大重连次数，更快进入模拟模式
+    autoReconnect: true,
+  });
+
+  // 存储实例
+  terminalWebSocketInstances.set(instanceId, instanceLogWS);
+
+  // 监听连接关闭，清理实例
+  instanceLogWS.on("close", () => {
+    terminalWebSocketInstances.delete(instanceId);
+  });
+
+  return instanceLogWS;
+};
+
+/**
+ * 获取或创建终端WebSocket服务实例
+ * @param {string} sessionId 会话ID，格式为 {instance_id}_{type}
+ * @returns {WebSocketService} WebSocketService实例
+ */
+export const getTerminalWebSocketService = (sessionId) => {
+  // 检查是否已存在该会话的连接
+  if (terminalWebSocketInstances.has(sessionId)) {
+    const existingInstance = terminalWebSocketInstances.get(sessionId);
+    if (existingInstance && existingInstance.getState() === WebSocket.OPEN) {
+      return existingInstance;
+    } else {
+      // 清理无效连接
+      terminalWebSocketInstances.delete(sessionId);
+    }
+  }
+  // 创建新的终端WebSocket连接
+  const terminalWS = new WebSocketService({
+    url: getWebSocketUrl(`/api/v1/ws/${sessionId}`),
+    reconnectDelay: 1500, // 减少重连延迟
+    maxReconnectAttempts: 1, // 减少最大重连次数，更快进入模拟模式
+    autoReconnect: true,
+  });
+
+  // 存储实例
+  terminalWebSocketInstances.set(sessionId, terminalWS);
+
+  // 监听连接关闭，清理实例
+  terminalWS.on("close", () => {
+    terminalWebSocketInstances.delete(sessionId);
+  });
+
+  return terminalWS;
+};
+
+/**
+ * 关闭指定实例的实例日志WebSocket连接
+ * @param {string} instanceId 实例ID
+ */
+export const closeInstanceLogWebSocket = (instanceId) => {
+  if (terminalWebSocketInstances.has(instanceId)) {
+    const instance = terminalWebSocketInstances.get(instanceId);
+    instance.disconnect();
+    terminalWebSocketInstances.delete(instanceId);
+  }
+};
+
+/**
+ * 关闭指定会话的终端WebSocket连接
+ * @param {string} sessionId 会话ID
+ */
+export const closeTerminalWebSocket = (sessionId) => {
+  if (terminalWebSocketInstances.has(sessionId)) {
+    const instance = terminalWebSocketInstances.get(sessionId);
+    instance.disconnect();
+    terminalWebSocketInstances.delete(sessionId);
+  }
+};
+
+/**
+ * 关闭所有终端WebSocket连接
+ */
+export const closeAllTerminalWebSockets = () => {
+  for (const [sessionId, instance] of terminalWebSocketInstances) {
+    instance.disconnect();
+  }
+  terminalWebSocketInstances.clear();
+};

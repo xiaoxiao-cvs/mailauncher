@@ -82,7 +82,7 @@
                                                 <label class="label">
                                                     <span class="label-text">温度系数</span>
                                                     <span class="label-text-alt">{{ config.models[model.key].temp || 0.2
-                                                        }}</span>
+                                                    }}</span>
                                                 </label>
                                                 <input type="range" min="0" max="1" step="0.1"
                                                     v-model.number="config.models[model.key].temp"
@@ -341,7 +341,7 @@
                                         <label class="label">
                                             <span class="label-text">观察最长上下文大小</span>
                                             <span class="label-text-alt">{{ config.chat.observation_context_size
-                                                }}</span>
+                                            }}</span>
                                         </label>
                                         <input type="range" min="5" max="30"
                                             v-model.number="config.chat.observation_context_size"

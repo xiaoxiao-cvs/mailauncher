@@ -5,9 +5,46 @@ import axios from "axios";
  * @returns {Promise<Array>} 实例列表
  */
 export const fetchInstances = async () => {
-  // 直接返回硬编码的实例数据，不发送API请求
+  try {
+    const { instancesApi } = await import("@/services/api");
+    const response = await instancesApi.getInstances();
+    console.log("从API获取实例列表:", response);
+
+    // 如果成功获取到实例数据，返回格式化后的数据
+    if (response && response.data && Array.isArray(response.data.instances)) {
+      return response.data.instances.map((instance) => ({
+        id: instance.id || instance.instance_id,
+        name: instance.name,
+        status: instance.status,
+        installedAt: instance.installedAt,
+        path: instance.path,
+        services: instance.services || {},
+        version: instance.version,
+        port: instance.port,
+        createdAt: instance.createdAt || instance.installedAt,
+      }));
+    } else if (response && Array.isArray(response.instances)) {
+      return response.instances.map((instance) => ({
+        id: instance.id || instance.instance_id,
+        name: instance.name,
+        status: instance.status,
+        installedAt: instance.installedAt,
+        path: instance.path,
+        services: instance.services || {},
+        version: instance.version,
+        port: instance.port,
+        createdAt: instance.createdAt || instance.installedAt,
+      }));
+    }
+  } catch (error) {
+    console.error("从API获取实例列表失败:", error);
+  }
+
+  // 如果API调用失败，返回硬编码的实例数据作为后备
+  console.log("API调用失败，使用硬编码的实例列表数据");
   const hardcodedInstances = [
     {
+      id: "a2fe529b51999fc2d45df5196c6c50a46a608fa1",
       name: "maibot-stable-1",
       status: "running",
       installedAt: "2023-08-15",
@@ -19,6 +56,7 @@ export const fetchInstances = async () => {
       version: "stable",
     },
     {
+      id: "b3fe529b51999fc2d45df5196c6c50a46a608fb2",
       name: "maibot-beta-1",
       status: "stopped",
       installedAt: "2023-09-10",
@@ -30,6 +68,7 @@ export const fetchInstances = async () => {
       version: "beta",
     },
     {
+      id: "c4fe529b51999fc2d45df5196c6c50a46a608fc3",
       name: "maibot-v0.6.3-1",
       status: "running",
       installedAt: "2023-10-05",
@@ -42,8 +81,6 @@ export const fetchInstances = async () => {
     },
   ];
 
-  // 返回硬编码数据而不是发送请求
-  console.log("使用硬编码的实例列表数据");
   return hardcodedInstances;
 };
 
@@ -79,29 +116,44 @@ export const fetchSystemStatus = async () => {
 
 /**
  * 启动实例
- * @param {string} instanceName 实例名称
+ * @param {string} instanceId 实例ID
  * @returns {Promise<Object>} 启动结果
  */
-export const startInstance = async (instanceName) => {
-  // 直接返回硬编码的成功响应，不发送API请求
-  console.log(`模拟启动实例: ${instanceName}`);
-  return {
-    success: true,
-    message: `实例 ${instanceName} 已启动（固定数据）`,
-  };
+export const startInstance = async (instanceId) => {
+  try {
+    const { instancesApi } = await import("@/services/api");
+    const response = await instancesApi.startInstance(instanceId);
+    console.log(`启动实例 ${instanceId} 成功:`, response);
+    return response.data || response;
+  } catch (error) {
+    console.error(`启动实例 ${instanceId} 失败:`, error);
+    // 如果API调用失败，返回模拟数据
+    return {
+      success: false,
+      message: error.message || `启动实例 ${instanceId} 失败`,
+    };
+  }
 };
 
 /**
  * 停止实例
+ * @param {string} instanceId 实例ID
  * @returns {Promise<Object>} 停止结果
  */
-export const stopInstance = async () => {
-  // 直接返回硬编码的成功响应，不发送API请求
-  console.log(`模拟停止实例`);
-  return {
-    success: true,
-    message: `实例已停止（固定数据）`,
-  };
+export const stopInstance = async (instanceId) => {
+  try {
+    const { instancesApi } = await import("@/services/api");
+    const response = await instancesApi.stopInstance(instanceId);
+    console.log(`停止实例 ${instanceId} 成功:`, response);
+    return response.data || response;
+  } catch (error) {
+    console.error(`停止实例 ${instanceId} 失败:`, error);
+    // 如果API调用失败，返回模拟数据
+    return {
+      success: false,
+      message: error.message || `停止实例 ${instanceId} 失败`,
+    };
+  }
 };
 
 /**
@@ -147,17 +199,45 @@ export const updateInstance = async (instanceName) => {
 };
 
 /**
+ * 重启实例
+ * @param {string} instanceId 实例ID
+ * @returns {Promise<Object>} 重启结果
+ */
+export const restartInstance = async (instanceId) => {
+  try {
+    const { instancesApi } = await import("@/services/api");
+    const response = await instancesApi.restartInstance(instanceId);
+    console.log(`重启实例 ${instanceId} 成功:`, response);
+    return response.data || response;
+  } catch (error) {
+    console.error(`重启实例 ${instanceId} 失败:`, error);
+    // 如果API调用失败，返回模拟数据
+    return {
+      success: false,
+      message: error.message || `重启实例 ${instanceId} 失败`,
+    };
+  }
+};
+
+/**
  * 删除实例
- * @param {string} instanceName 实例名称
+ * @param {string} instanceId 实例ID
  * @returns {Promise<Object>} 删除结果
  */
-export const deleteInstance = async (instanceName) => {
-  // 直接返回硬编码的成功响应，不发送API请求
-  console.log(`模拟删除实例: ${instanceName}`);
-  return {
-    success: true,
-    message: `实例 ${instanceName} 已删除（固定数据）`,
-  };
+export const deleteInstance = async (instanceId) => {
+  try {
+    const { instancesApi } = await import("@/services/api");
+    const response = await instancesApi.deleteInstance(instanceId);
+    console.log(`删除实例 ${instanceId} 成功:`, response);
+    return response.data || response;
+  } catch (error) {
+    console.error(`删除实例 ${instanceId} 失败:`, error);
+    // 如果API调用失败，返回模拟数据
+    return {
+      success: false,
+      message: error.message || `删除实例 ${instanceId} 失败`,
+    };
+  }
 };
 
 /**
@@ -206,6 +286,7 @@ export default {
   fetchSystemStatus,
   startInstance,
   stopInstance,
+  restartInstance,
   startNapcat,
   startNonebot,
   updateInstance,

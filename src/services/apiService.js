@@ -1,6 +1,14 @@
 import axios from "axios";
 import backendConfig from "../config/backendConfig.js";
 
+// 检查是否应该使用模拟模式
+export const isMockModeActive = () => {
+  return (
+    localStorage.getItem("useMockData") === "true" ||
+    window._useMockData === true
+  );
+};
+
 // 创建axios实例并配置正确的baseURL
 const axiosInstance = axios.create({
   baseURL: backendConfig.getBackendUrl(), // 使用完整的后端URL
@@ -29,11 +37,8 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error("API 请求错误:", error);
-
-    // 检查是否需要使用模拟数据
-    const useMockData = localStorage.getItem("useMockData") === "true";
-    if (useMockData) {
+    console.error("API 请求错误:", error); // 检查是否需要使用模拟数据
+    if (isMockModeActive()) {
       console.log("使用模拟数据响应请求");
       const url = error.config.url;
       const method = error.config.method;
@@ -416,11 +421,18 @@ export default {
     }
     return apiRequest("delete", url);
   },
-
   // 测试后端连接
   testBackendConnection,
   // 配置是否使用模拟数据
   setUseMockData: (useMock) => {
     localStorage.setItem("useMockData", useMock);
+  },
+
+  // 检查是否处于模拟模式
+  isMockModeActive: () => {
+    return (
+      localStorage.getItem("useMockData") === "true" ||
+      window._useMockData === true
+    );
   },
 };

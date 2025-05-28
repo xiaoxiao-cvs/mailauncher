@@ -111,29 +111,94 @@
                                     <span class="status-text" :class="getStatusClass(instance.status)">
                                         {{ getStatusText(instance.status) }}
                                     </span>
-                                </div>
-
-                                <!-- 动作按钮 -->
-                                <div class="action-group flex flex-row gap-2">
+                                </div> <!-- 动作按钮 -->
+                                <div class="action-group flex flex-row gap-1">
+                                    <!-- 启动/停止按钮 -->
                                     <button class="btn btn-sm btn-square rounded-md action-btn"
                                         :class="getActionButtonClass(instance)"
-                                        @click.stop="toggleInstanceRunning(instance)" :disabled="instance.isLoading">
+                                        @click.stop="toggleInstanceRunning(instance)" :disabled="instance.isLoading"
+                                        :title="instance.status === 'running' ? '停止实例' : '启动实例'">
                                         <span v-if="instance.isLoading"
                                             class="loading loading-spinner loading-xs"></span>
                                         <Icon v-else :icon="instance.status === 'running' ? 'mdi:stop' : 'mdi:play'" />
                                     </button>
+                                    <!-- 重启按钮 -->
                                     <button class="btn btn-sm btn-square btn-ghost rounded-md action-btn"
-                                        @click.stop="openInstancePath(instance)" :disabled="instance.isLoading">
-                                        <Icon icon="mdi:folder-outline" />
+                                        @click.stop="confirmRestartInstance(instance)" :disabled="instance.isLoading"
+                                        title="重启实例">
+                                        <Icon icon="mdi:restart" />
                                     </button>
-                                    <button class="btn btn-sm btn-square btn-ghost rounded-md action-btn"
-                                        @click.stop="configureInstance(instance)" :disabled="instance.isLoading">
-                                        <Icon icon="mdi:cog-outline" />
+
+                                    <!-- 删除按钮 -->
+                                    <button class="btn btn-sm btn-square btn-error rounded-md action-btn"
+                                        @click.stop="confirmDeleteInstance(instance)" :disabled="instance.isLoading"
+                                        title="删除实例">
+                                        <Icon icon="mdi:delete-outline" />
                                     </button>
+
+                                    <!-- 下拉菜单按钮 -->
+                                    <div class="dropdown dropdown-end">
+                                        <button tabindex="0"
+                                            class="btn btn-sm btn-square btn-ghost rounded-md action-btn"
+                                            :disabled="instance.isLoading" title="更多操作">
+                                            <Icon icon="mdi:dots-vertical" />
+                                        </button>
+                                        <ul tabindex="0"
+                                            class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                                            <li><a @click="openInstancePath(instance)">
+                                                    <Icon icon="mdi:folder-outline" class="w-4 h-4" />
+                                                    打开文件夹
+                                                </a></li>
+                                            <li><a @click="configureInstance(instance)">
+                                                    <Icon icon="mdi:cog-outline" class="w-4 h-4" />
+                                                    实例设置
+                                                </a></li>
+                                            <li><a @click="viewInstanceLogs(instance)">
+                                                    <Icon icon="mdi:text-box-outline" class="w-4 h-4" />
+                                                    查看日志
+                                                </a></li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div> <!-- 删除确认对话框 -->
+        <div class="modal" :class="{ 'modal-open': showDeleteConfirm }">
+            <div class="modal-box">
+                <h3 class="font-bold text-lg">确认删除实例</h3>
+                <p class="py-4">
+                    确定要删除实例 <strong>{{ instanceToDelete?.name }}</strong> 吗？
+                    <br />
+                    <span class="text-warning text-sm">此操作不可撤销，将删除所有相关数据。</span>
+                </p>
+                <div class="modal-action">
+                    <button class="btn btn-ghost" @click="cancelDelete">取消</button>
+                    <button class="btn btn-error" @click="confirmDelete" :disabled="deleteLoading">
+                        <span v-if="deleteLoading" class="loading loading-spinner loading-sm"></span>
+                        {{ deleteLoading ? '删除中...' : '确认删除' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 重启确认对话框 -->
+        <div class="modal" :class="{ 'modal-open': showRestartConfirm }">
+            <div class="modal-box">
+                <h3 class="font-bold text-lg">确认重启实例</h3>
+                <p class="py-4">
+                    确定要重启实例 <strong>{{ instanceToRestart?.name }}</strong> 吗？
+                    <br />
+                    <span class="text-info text-sm">重启过程中实例服务将暂时中断。</span>
+                </p>
+                <div class="modal-action">
+                    <button class="btn btn-ghost" @click="cancelRestart">取消</button>
+                    <button class="btn btn-warning" @click="confirmRestart" :disabled="restartLoading">
+                        <span v-if="restartLoading" class="loading loading-spinner loading-sm"></span>
+                        {{ restartLoading ? '重启中...' : '确认重启' }}
+                    </button>
                 </div>
             </div>
         </div>
@@ -142,7 +207,7 @@
 
 <script setup>
 import { ref, computed, onMounted, inject, onUnmounted, watch } from 'vue';
-import { instancesApi } from '@/services/api';
+import { fetchInstances as apiFetchInstances, startInstance as apiStartInstance, stopInstance as apiStopInstance, restartInstance as apiRestartInstance, deleteInstance as apiDeleteInstance } from '@/api/instances';
 import { Icon } from '@iconify/vue';
 import toastService from '@/services/toastService';
 
@@ -160,6 +225,12 @@ const loading = ref(false);
 const instances = ref([]);
 const searchQuery = ref('');
 const filterType = ref('all');
+const showDeleteConfirm = ref(false);
+const showRestartConfirm = ref(false);
+const instanceToDelete = ref(null);
+const instanceToRestart = ref(null);
+const deleteLoading = ref(false);
+const restartLoading = ref(false);
 
 // 过滤器标签映射
 const filterLabels = {
@@ -214,31 +285,26 @@ const fetchInstances = async () => {
         loading.value = true;
         console.log('获取实例列表...');
 
-        // 检查是否使用模拟数据
-        const useMockData = localStorage.getItem('useMockData') === 'true';
+        try {
+            // 尝试从API获取数据
+            console.log('尝试从API获取实例数据');
+            const apiInstances = await apiFetchInstances();
 
-        if (useMockData) {
-            // 使用模拟数据
-            console.log('使用模拟数据');
-            instances.value = getMockInstances();
-        } else {
-            try {
-                // 尝试从API获取数据
-                console.log('尝试从API获取实例数据');
-                const response = await instancesApi.getInstances();
-
-                if (response && response.data && Array.isArray(response.data.instances)) {
-                    instances.value = response.data.instances;
-                } else if (response && Array.isArray(response.instances)) {
-                    instances.value = response.instances;
-                } else {
-                    console.warn('API返回数据格式不符合预期，使用模拟数据');
-                    instances.value = getMockInstances();
-                }
-            } catch (apiError) {
-                console.error('API请求失败:', apiError);
+            if (apiInstances && Array.isArray(apiInstances)) {
+                // 为每个实例添加必要的UI状态字段
+                instances.value = apiInstances.map(instance => ({
+                    ...instance,
+                    isLoading: false, // 添加加载状态字段
+                    id: instance.id || instance.name // 确保有ID字段
+                }));
+            } else {
+                console.warn('API返回数据格式不符合预期，使用模拟数据');
                 instances.value = getMockInstances();
             }
+        } catch (apiError) {
+            console.error('API请求失败:', apiError);
+            console.log('回退到模拟数据');
+            instances.value = getMockInstances();
         }
 
         console.log(`获取到${instances.value.length}个实例`);
@@ -252,42 +318,52 @@ const fetchInstances = async () => {
 
 // 获取模拟实例数据
 const getMockInstances = () => {
-    // 使用硬编码的数据而不是动态生成
+    // 使用硬编码的数据而不是动态生成，为每个实例添加ID和UI状态
     return [
         {
+            id: 'local_instance_1',
             name: '本地实例_1',
             status: 'stopped',
             createdAt: '2023-05-13 19:56:18',
             totalRunningTime: '48小时36分钟',
-            path: 'D:\\MaiBot\\本地实例_1'
+            path: 'D:\\MaiBot\\本地实例_1',
+            isLoading: false
         },
         {
+            id: 'local_instance_2',
             name: '本地实例_2',
             status: 'running',
             createdAt: '2023-05-12 10:30:00',
             totalRunningTime: '147小时12分钟',
-            path: 'D:\\MaiBot\\本地实例_2'
+            path: 'D:\\MaiBot\\本地实例_2',
+            isLoading: false
         },
         {
+            id: 'test_instance_3',
             name: '测试实例_3',
             status: 'starting',
             createdAt: '2023-05-11 08:15:00',
             totalRunningTime: '5小时23分钟',
-            path: 'D:\\MaiBot\\测试实例_3'
+            path: 'D:\\MaiBot\\测试实例_3',
+            isLoading: false
         },
         {
+            id: 'remote_instance_4',
             name: '远程实例_4',
             status: 'stopping',
             createdAt: '2023-05-10 14:20:00',
             totalRunningTime: '72小时45分钟',
-            path: 'D:\\MaiBot\\远程实例_4'
+            path: 'D:\\MaiBot\\远程实例_4',
+            isLoading: false
         },
         {
+            id: 'maintenance_instance_5',
             name: '维护实例_5',
             status: 'maintenance',
             createdAt: '2023-05-09 09:45:00',
             totalRunningTime: '12小时08分钟',
-            path: 'D:\\MaiBot\\维护实例_5'
+            path: 'D:\\MaiBot\\维护实例_5',
+            isLoading: false
         }
     ];
 };
@@ -416,16 +492,19 @@ const toggleInstanceRunning = (instance) => {
 };
 
 // 启动实例
-const startInstance = (instance) => {
-    // 先设置临时状态表示启动中
-    instance.status = 'starting';
+const startInstance = async (instance) => {
+    try {
+        // 先设置临时状态表示启动中
+        instance.status = 'starting';
 
-    // 显示通知
-    toastService.info(`正在启动实例: ${instance.name}`);
+        // 显示通知
+        toastService.info(`正在启动实例: ${instance.name}`);
 
-    // 模拟API调用
-    setTimeout(() => {
-        try {
+        // 调用真实API - 使用更新后的API函数
+        const response = await apiStartInstance(instance.id || instance.name);
+
+        // 检查响应 - 支持新的响应格式
+        if (response && (response.success || response.status === 'success' || response.message === 'success')) {
             // 切换到运行状态
             instance.status = 'running';
             instance.isLoading = false;
@@ -435,26 +514,36 @@ const startInstance = (instance) => {
 
             // 通知父组件刷新列表
             emit('refresh-instances');
-        } catch (err) {
-            // 恢复状态
-            instance.status = 'stopped';
-            instance.isLoading = false;
-            toastService.error(`启动实例失败: ${err.message || '未知错误'}`);
+        } else {
+            throw new Error(response?.message || response?.error || '启动失败');
         }
-    }, 1500);
+    } catch (error) {
+        console.error('启动实例失败:', error);
+
+        // 恢复状态
+        instance.status = 'stopped';
+        instance.isLoading = false;
+
+        // 提供更详细的错误信息
+        const errorMessage = error.response?.data?.message || error.message || '未知错误';
+        toastService.error(`启动实例失败: ${errorMessage}`);
+    }
 };
 
 // 停止实例
-const stopInstance = (instance) => {
-    // 先设置临时状态表示停止中
-    instance.status = 'stopping';
+const stopInstance = async (instance) => {
+    try {
+        // 先设置临时状态表示停止中
+        instance.status = 'stopping';
 
-    // 显示通知
-    toastService.info(`正在停止实例: ${instance.name}`);
+        // 显示通知
+        toastService.info(`正在停止实例: ${instance.name}`);
 
-    // 模拟API调用
-    setTimeout(() => {
-        try {
+        // 调用真实API - 使用更新后的API函数
+        const response = await apiStopInstance(instance.id || instance.name);
+
+        // 检查响应 - 支持新的响应格式
+        if (response && (response.success || response.status === 'success' || response.message === 'success')) {
             // 切换到停止状态
             instance.status = 'stopped';
             instance.isLoading = false;
@@ -464,13 +553,20 @@ const stopInstance = (instance) => {
 
             // 通知父组件刷新列表
             emit('refresh-instances');
-        } catch (err) {
-            // 恢复状态
-            instance.status = 'running';
-            instance.isLoading = false;
-            toastService.error(`停止实例失败: ${err.message || '未知错误'}`);
+        } else {
+            throw new Error(response?.message || response?.error || '停止失败');
         }
-    }, 1500);
+    } catch (error) {
+        console.error('停止实例失败:', error);
+
+        // 恢复状态
+        instance.status = 'running';
+        instance.isLoading = false;
+
+        // 提供更详细的错误信息
+        const errorMessage = error.response?.data?.message || error.message || '未知错误';
+        toastService.error(`停止实例失败: ${errorMessage}`);
+    }
 };
 
 // 打开实例文件夹
@@ -527,10 +623,160 @@ onUnmounted(() => {
 const viewInstance = (instance) => {
     emit('view-instance', instance);
 };
+
+// 确认删除实例
+const confirmDeleteInstance = (instance) => {
+    instanceToDelete.value = instance;
+    showDeleteConfirm.value = true;
+};
+
+// 取消删除
+const cancelDelete = () => {
+    showDeleteConfirm.value = false;
+    instanceToDelete.value = null;
+};
+
+// 确认重启实例
+const confirmRestartInstance = (instance) => {
+    instanceToRestart.value = instance;
+    showRestartConfirm.value = true;
+};
+
+// 取消重启
+const cancelRestart = () => {
+    showRestartConfirm.value = false;
+    instanceToRestart.value = null;
+};
+
+// 执行重启
+const confirmRestart = async () => {
+    if (!instanceToRestart.value) return;
+
+    restartLoading.value = true;
+
+    try {
+        // 调用真实的重启函数
+        await restartInstance(instanceToRestart.value);
+
+        // 关闭确认框
+        showRestartConfirm.value = false;
+        instanceToRestart.value = null;
+        restartLoading.value = false;
+    } catch (error) {
+        console.error('重启实例失败:', error);
+        restartLoading.value = false;
+    }
+};
+
+// 执行删除
+const confirmDelete = async () => {
+    if (!instanceToDelete.value) return;
+
+    deleteLoading.value = true;
+
+    try {
+        // 调用真实API删除实例
+        toastService.info(`正在删除实例: ${instanceToDelete.value.name}`);
+
+        const response = await apiDeleteInstance(instanceToDelete.value.id || instanceToDelete.value.name);
+
+        // 检查响应 - 支持新的响应格式
+        if (response && (response.success || response.status === 'success' || response.message === 'success')) {
+            // 删除成功，更新实例列表
+            instances.value = instances.value.filter(instance =>
+                (instance.id || instance.name) !== (instanceToDelete.value.id || instanceToDelete.value.name)
+            );
+
+            toastService.success(`实例 ${instanceToDelete.value.name} 删除成功`);
+
+            // 关闭确认框
+            showDeleteConfirm.value = false;
+            instanceToDelete.value = null;
+            deleteLoading.value = false;
+
+            // 刷新实例列表
+            emit('refresh-instances');
+        } else {
+            throw new Error(response?.message || response?.error || '删除失败');
+        }
+    } catch (error) {
+        console.error('删除实例失败:', error);
+
+        // 提供更详细的错误信息
+        const errorMessage = error.response?.data?.message || error.message || '未知错误';
+        toastService.error(`删除实例失败: ${errorMessage}`);
+        deleteLoading.value = false;
+    }
+};
+
+// 重启实例
+const restartInstance = async (instance) => {
+    try {
+        // 防止重复点击
+        if (instance.isLoading) return;
+
+        // 设置加载状态
+        instance.isLoading = true;
+        instance.status = 'starting'; // 重启时先显示启动中
+
+        // 显示通知
+        toastService.info(`正在重启实例: ${instance.name}`);
+
+        // 调用真实API - 使用更新后的API函数
+        const response = await apiRestartInstance(instance.id || instance.name);
+
+        // 检查响应 - 支持新的响应格式
+        if (response && (response.success || response.status === 'success' || response.message === 'success')) {
+            // 重启成功
+            instance.status = 'running';
+            instance.isLoading = false;
+
+            // 通知成功
+            toastService.success(`实例 ${instance.name} 重启成功`);
+
+            // 通知父组件刷新列表
+            emit('refresh-instances');
+        } else {
+            throw new Error(response?.message || response?.error || '重启失败');
+        }
+    } catch (error) {
+        console.error('重启实例失败:', error);
+
+        // 恢复状态 - 假设重启失败时实例是停止的
+        instance.status = 'stopped';
+        instance.isLoading = false;
+
+        // 提供更详细的错误信息
+        const errorMessage = error.response?.data?.message || error.message || '未知错误';
+        toastService.error(`重启实例失败: ${errorMessage}`);
+    }
+};
+
+// 查看实例日志
+const viewInstanceLogs = (instance) => {
+    try {
+        // 显示通知
+        toastService.info(`正在打开实例日志: ${instance.name}`);
+
+        // 使用事件总线通知主应用打开日志查看器
+        if (emitter) {
+            emitter.emit('view-instance-logs', {
+                instanceId: instance.id || instance.name,
+                instanceName: instance.name,
+                instancePath: instance.path
+            });
+        } else {
+            // 如果没有事件总线，显示提示
+            toastService.warning('日志查看功能开发中');
+        }
+    } catch (error) {
+        console.error('打开日志失败:', error);
+        toastService.error('无法打开日志: ' + (error.message || '未知错误'));
+    }
+};
 </script>
 
 <style scoped>
-/* 移除旧的Toast样式 */
 /* 调整按钮为非常小的尺寸 */
 .btn-square {
     width: 28px !important;
@@ -572,7 +818,7 @@ const viewInstance = (instance) => {
 
 /* 批量操作模式激活样式 */
 .batch-mode-active {
-    @apply bg-primary/10;
+    background-color: rgba(74, 222, 128, 0.1);
 }
 
 .section-title {
@@ -591,26 +837,41 @@ const viewInstance = (instance) => {
 
 /* 状态指示点样式 */
 .status-dot {
-    @apply w-2.5 h-2.5 rounded-full inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
 }
 
 /* 运行状态 - 绿色脉冲 */
 .status-dot.status-running {
-    @apply bg-success;
+    background-color: #48c774;
     animation: pulse 1.5s infinite;
     box-shadow: 0 0 5px 1px rgba(72, 199, 116, 0.5);
 }
 
 /* 维护状态 - 蓝色脉冲 */
 .status-dot.status-maintenance {
-    @apply bg-info;
+    background-color: #38b6ff;
     animation: pulse 1.5s infinite;
     box-shadow: 0 0 5px 1px rgba(56, 182, 255, 0.5);
 }
 
 /* 停止状态 - 灰色固定点 */
 .status-dot.status-stopped {
-    @apply bg-base-content/40;
+    background-color: rgba(108, 114, 147, 0.4);
+}
+
+/* 启动中状态 */
+.status-dot.status-starting {
+    background-color: #fbbf24;
+    animation: pulse 0.8s infinite;
+}
+
+/* 停止中状态 */
+.status-dot.status-stopping {
+    background-color: #ef4444;
+    animation: pulse 0.8s infinite;
 }
 
 /* 脉冲动画 */
@@ -630,30 +891,37 @@ const viewInstance = (instance) => {
 
 /* 启动按钮 - 与运行指示点同色 */
 .status-btn-success {
-    background-color: hsl(var(--su)) !important;
-    border-color: hsl(var(--su)) !important;
-    color: hsl(var(--suc)) !important;
+    background-color: #48c774 !important;
+    border-color: #48c774 !important;
+    color: white !important;
 }
 
 .status-btn-success:hover {
     filter: brightness(0.95);
-    background-color: hsl(var(--su) / 0.9) !important;
-    border-color: hsl(var(--su) / 0.9) !important;
+    background-color: rgba(72, 199, 116, 0.9) !important;
+    border-color: rgba(72, 199, 116, 0.9) !important;
 }
 
 /* 让loading组件显示得更好 */
 .loading.loading-spinner {
-    @apply inline-block;
+    display: inline-block;
 }
 
 /* 状态指示器容器保持垂直对齐 */
 .status-indicator {
-    @apply items-center;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 /* 实例列表操作按钮样式 */
 .action-btn {
-    @apply w-8 h-8 flex items-center justify-center;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
     font-size: 16px;
 }
 
@@ -663,69 +931,102 @@ const viewInstance = (instance) => {
 
 /* 添加加载动画样式 */
 .loading-spinner {
-    @apply text-base-content;
+    color: inherit;
 }
 
 /* 优化按钮状态样式 */
 .action-btn:disabled {
-    @apply cursor-not-allowed opacity-70;
-}
-
-/* 过渡状态样式 */
-.status-starting .status-dot,
-.status-stopping .status-dot {
-    animation: pulse 0.8s infinite;
-}
-
-/* 加强过渡动画 */
-@keyframes pulse {
-
-    0%,
-    100% {
-        transform: scale(1);
-        opacity: 1;
-    }
-
-    50% {
-        transform: scale(0.8);
-        opacity: 0.7;
-    }
+    cursor: not-allowed;
+    opacity: 0.7;
 }
 
 /* 恢复卡片样式 */
 .instance-card {
-    @apply bg-base-100 rounded-xl flex flex-col border border-base-300 shadow-sm transition-all duration-300 overflow-hidden;
+    background-color: white;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #e5e7eb;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: all 0.3s ease;
+    overflow: hidden;
     height: 220px;
-    /* 固定高度，确保一致性 */
+    cursor: pointer;
 }
 
 .instance-card:hover {
-    @apply -translate-y-[3px];
+    transform: translateY(-3px);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 /* 卡片内容布局优化 */
 .card-body {
-    @apply p-5 flex flex-col;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
     height: 100%;
 }
 
 /* 状态指示器和操作按钮统一放在底部 */
 .status-indicator {
-    @apply flex items-center gap-1;
-}
-
-/* 按钮样式保持不变但确保样式统一 */
-.action-btn {
-    @apply w-8 h-8 flex items-center justify-center transition-all duration-200;
-    font-size: 16px;
-    border-radius: 6px !important;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 /* 确保状态文本与按钮对齐 */
 .status-text {
-    @apply ml-1 text-sm;
+    margin-left: 4px;
+    font-size: 0.875rem;
     vertical-align: middle;
+}
+
+/* 模态框样式 */
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-box {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    width: 90%;
+    max-width: 400px;
+}
+
+.modal-action {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+/* 删除确认对话框特有样式 */
+.modal-warning {
+    color: #f59e0b;
+}
+
+.modal-error {
+    color: #ef4444;
+}
+
+/* 操作按钮组样式 */
+.action-group {
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+}
+
+/* 下拉菜单样式修正 */
+.dropdown-content {
+    z-index: 10;
 }
 </style>
