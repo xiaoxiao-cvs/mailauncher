@@ -41,16 +41,24 @@ const closeSettings = () => {
 };
 
 /**
- * 设置当前标签页
- * @param {String} tab 标签页
+ * 设置标签页
+ * @param {String} tabName 标签页名称
  */
-const setTab = (tab) => {
-  console.log("设置标签页:", tab);
-  currentTab = tab;
-  localStorage.setItem("settingsTab", tab);
+const setTab = (tabName) => {
+  const appRoot = document.getElementById("app");
+  if (appRoot) {
+    appRoot.setAttribute("data-settings-tab", tabName);
 
-  // 通知订阅者
-  notifyTabChange(tab);
+    // 触发标签页改变事件
+    window.dispatchEvent(
+      new CustomEvent("settings-tab-changed", {
+        detail: { tab: tabName },
+      })
+    );
+
+    return true;
+  }
+  return false;
 };
 
 /**
@@ -58,7 +66,11 @@ const setTab = (tab) => {
  * @returns {String} 当前标签页
  */
 const getTab = () => {
-  return currentTab;
+  const appRoot = document.getElementById("app");
+  if (appRoot) {
+    return appRoot.getAttribute("data-settings-tab") || "appearance";
+  }
+  return "appearance";
 };
 
 /**
@@ -67,7 +79,9 @@ const getTab = () => {
  */
 const onTabChange = (callback) => {
   if (typeof callback === "function") {
-    tabChangeCallbacks.push(callback);
+    window.addEventListener("settings-tab-changed", (e) =>
+      callback(e.detail.tab)
+    );
   }
 };
 
@@ -76,7 +90,9 @@ const onTabChange = (callback) => {
  * @param {Function} callback 回调函数
  */
 const offTabChange = (callback) => {
-  tabChangeCallbacks = tabChangeCallbacks.filter((cb) => cb !== callback);
+  if (typeof callback === "function") {
+    window.removeEventListener("settings-tab-changed", callback);
+  }
 };
 
 /**

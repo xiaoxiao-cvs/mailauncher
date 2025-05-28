@@ -39,7 +39,7 @@ const emit = defineEmits(['view', 'toggle', 'open-path', 'configure']);
 
 </script>
 
-<style scoped>
+<style lang="postcss" scoped>
 .instance-card {
     @apply flex justify-between items-center p-4 bg-white rounded-lg shadow-md mb-4 cursor-pointer;
 }

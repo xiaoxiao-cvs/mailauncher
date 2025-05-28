@@ -471,6 +471,10 @@ onBeforeUnmount(() => {
   // 移除全局导航事件监听
   window.removeEventListener('force-navigate', () => { });
 
+  // 删除可能存在的对ModuleSettingsModal的引用和事件监听
+  emitter.off('open-module-settings');
+  emitter.off('close-module-settings');
+
   window.removeEventListener('theme-changed', () => { });
   window.removeEventListener('theme-reset', () => { });
 });
@@ -519,6 +523,7 @@ const changeTheme = (themeName) => {
 </script>
 
 <style>
+/* 确保所有@apply指令已被正确转换，避免相关错误 */
 @import './assets/css/app.css';
 @import './assets/css/dashboard-layout.css';
 @import './assets/css/simple-icons.css';

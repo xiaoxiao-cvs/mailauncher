@@ -56,7 +56,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, inject } from 'vue';
+
+// 注入toast服务
+const toast = inject('toast');
 
 // 更新检查状态
 const checkingUpdates = ref(false);
@@ -69,10 +72,10 @@ const checkForUpdates = async () => {
         // 模拟检查更新
         await new Promise(resolve => setTimeout(resolve, 1500));
 
-        // 显示结果
-        showToast('您已经在使用最新版本');
+        // 使用注入的toast服务显示结果
+        toast.show('您已经在使用最新版本', 'info');
     } catch (error) {
-        showToast('检查更新失败: ' + error.message, 'error');
+        toast.show('检查更新失败: ' + error.message, 'error');
     } finally {
         checkingUpdates.value = false;
     }
@@ -81,24 +84,6 @@ const checkForUpdates = async () => {
 // 打开GitHub页面
 const openGitHub = () => {
     window.open('https://github.com/MaiM-with-u/MaiLauncher', '_blank');
-};
-
-// 显示Toast消息
-const showToast = (message, type = 'info') => {
-    // 创建Toast元素
-    const toast = document.createElement('div');
-    toast.className = 'toast toast-top toast-center';
-    toast.innerHTML = `
-        <div class="alert alert-${type}">
-            <span>${message}</span>
-        </div>
-    `;
-    document.body.appendChild(toast);
-
-    // 3秒后移除
-    setTimeout(() => {
-        document.body.removeChild(toast);
-    }, 3000);
 };
 </script>
 

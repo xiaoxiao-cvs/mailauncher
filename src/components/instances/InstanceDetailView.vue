@@ -157,8 +157,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { ref, computed, onMounted, watch, nextTick, inject } from 'vue';
 import { Icon } from '@iconify/vue';
+import toastService from '@/services/toastService';
 
 const props = defineProps({
     instance: {
@@ -168,6 +169,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['back']);
+const emitter = inject('emitter', null);
 
 // 实例运行状态
 const isRunning = computed(() => props.instance.status === 'running');
@@ -260,15 +262,39 @@ const openModule = (moduleName) => {
     switch (moduleName) {
         case 'file':
             console.log('打开文件管理');
+            // 显示文件管理功能开发中的提示
+            toastService.info('文件管理功能开发中');
             break;
         case 'tasks':
             console.log('打开自动任务');
+            // 显示自动任务功能开发中的提示
+            toastService.info('自动任务功能开发中');
             break;
         case 'bot':
             console.log('打开Bot配置');
+            // 使用事件总线打开实例设置并指定Bot配置标签页
+            if (emitter) {
+                emitter.emit('open-instance-settings', {
+                    name: props.instance.name,
+                    path: props.instance.path || '',
+                    tab: 'bot' // 指定打开Bot配置标签页
+                });
+            } else {
+                toastService.error('无法打开Bot配置');
+            }
             break;
         case 'adapter':
             console.log('打开适配器配置');
+            // 使用事件总线打开实例设置并指定适配器配置标签页
+            if (emitter) {
+                emitter.emit('open-instance-settings', {
+                    name: props.instance.name,
+                    path: props.instance.path || '',
+                    tab: 'adapter' // 指定打开适配器配置标签页
+                });
+            } else {
+                toastService.error('无法打开适配器配置');
+            }
             break;
     }
 };
@@ -302,7 +328,7 @@ onMounted(() => {
 });
 </script>
 
-<style scoped>
+<style scoped lang="postcss">
 /* 整体容器样式 */
 .instance-detail-container {
     @apply bg-gray-50 min-h-screen flex flex-col;

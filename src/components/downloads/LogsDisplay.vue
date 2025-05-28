@@ -19,7 +19,7 @@
     <!-- 用于插入额外内容的插槽 -->
     <slot name="before-logs"></slot>
 
-    <!-- 日志内容区域 -->
+    <!-- 日志内容区域， -->
     <div class="logs-container mockup-code bg-base-200 text-base-content" ref="logsContainer">
       <div v-if="logs.length === 0" class="empty-logs">
         <p class="pl-4 opacity-50">等待日志输出...</p>

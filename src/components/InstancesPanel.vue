@@ -37,6 +37,7 @@ const currentInstance = ref({
   path: '',
   status: 'stopped'
 });
+const initialSettingsTab = ref('basic'); // 新增：用于记录实例设置的初始标签页
 
 // 加载实例列表方法 - 之前缺少这个方法导致报错
 const loadInstances = async () => {
@@ -105,9 +106,13 @@ const closeInstanceDetail = () => {
 };
 
 // 打开实例设置
-const openInstanceSettings = (instance) => {
-  console.log('打开实例设置:', instance);
+const openInstanceSettings = (instance, options = {}) => {
+  console.log('打开实例设置:', instance, options);
   currentInstance.value = instance;
+
+  // 如果有指定的标签页，设置初始标签页
+  initialSettingsTab.value = options.tab || 'basic';
+
   isSettingsOpen.value = true;
 };
 
@@ -145,14 +150,32 @@ onMounted(() => {
   // 初次加载实例列表
   loadInstances();
 
-  // 设置事件监听
+  // 监听打开实例设置事件
   if (emitter) {
-    emitter.on('open-instance-settings', openInstanceSettings);
-    emitter.on('refresh-instances', loadInstances);
+    emitter.on('open-instance-settings', (data) => {
+      // 查找对应的实例
+      let targetInstance = null;
 
-    // 添加实例详情查看的事件监听
-    emitter.on('view-instance-details', (instance) => {
-      openInstanceDetail(instance);
+      // 通过路径或名称查找实例
+      if (data.path) {
+        targetInstance = instancesData.value.find(inst => inst.path === data.path);
+      }
+
+      if (!targetInstance && data.name) {
+        targetInstance = instancesData.value.find(inst => inst.name === data.name);
+      }
+
+      // 如果找不到实例，创建一个临时实例对象
+      if (!targetInstance) {
+        targetInstance = {
+          name: data.name || '未知实例',
+          path: data.path || '',
+          status: 'unknown'
+        };
+      }
+
+      // 打开设置并传递标签页信息
+      openInstanceSettings(targetInstance, { tab: data.tab });
     });
   }
 });

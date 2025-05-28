@@ -203,7 +203,7 @@ const viewInstanceDetails = (instance) => {
 viewInstanceDetails.timer = null;
 </script>
 
-<style scoped>
+<style lang="postcss" scoped>
 .section-title {
     font-weight: bold;
     font-size: 1rem;
