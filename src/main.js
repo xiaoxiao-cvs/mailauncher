@@ -1,6 +1,6 @@
 import { createApp } from "vue";
 import App from "./App.vue";
-import "./assets/tailwind.css"; // 导入 Tailwind CSS
+import "./assets/tailwind.css";
 import "./assets/global.css";
 import toastService from "./services/toastService";
 import eventBus from "./services/eventBus"; // 导入改进的事件总线

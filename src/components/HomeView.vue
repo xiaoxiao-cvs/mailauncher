@@ -279,7 +279,7 @@ const saveLayout = () => {
     }, 300);
   } catch (e) {
     console.error('保存布局设置失败', e);
-    
+
     const toast = inject('toast', null);
     if (toast) {
       toast.error('保存布局设置失败: ' + e.message);
@@ -674,7 +674,7 @@ onBeforeUnmount(() => {
 });
 </script>
 
-<style scoped>
+<style scoped lang="postcss">
 /* 添加编辑按钮样式 */
 .edit-btn {
   display: flex;
@@ -853,5 +853,17 @@ body.resizing .card {
 /* 使用自定义dot而不是DaisyUI的indicator-item */
 .indicator {
   position: relative;
+}
+
+/* 卡片内容布局优化 */
+.card-body {
+  @apply p-5 flex flex-col;
+  height: 100%;
+}
+
+/* 确保状态文本与按钮对齐 */
+.status-text {
+  @apply ml-1 text-sm;
+  vertical-align: middle;
 }
 </style>

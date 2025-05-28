@@ -26,6 +26,7 @@
     "src/components/SettingsPanel.vue",
     "src/components/LogsPanel.vue",
     "src/components/InstallConfig.vue",
-    "src/components/settings/SettingsPanel.vue"
+    "src/components/settings/SettingsPanel.vue",
+    "src/components/instances/ModuleSettingsModal.vue"
   ]
 }

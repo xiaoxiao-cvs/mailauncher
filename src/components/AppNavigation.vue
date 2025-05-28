@@ -509,7 +509,7 @@ const viewInstance = (instance) => {
 };
 </script>
 
-<style scoped>
+<style scoped lang="postcss">
 /* 移除旧的Toast样式 */
 /* 调整按钮为非常小的尺寸 */
 .btn-square {
@@ -628,7 +628,7 @@ const viewInstance = (instance) => {
 
 /* 状态指示器容器保持垂直对齐 */
 .status-indicator {
-    @apply items-center;
+    @apply flex items-center;
 }
 
 /* 实例列表操作按钮样式 */
@@ -675,14 +675,12 @@ const viewInstance = (instance) => {
 /* 恢复卡片样式 */
 .instance-card {
     @apply bg-base-100 rounded-xl flex flex-col border border-base-300 shadow-sm transition-all duration-300 overflow-hidden;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     height: 220px;
     /* 固定高度，确保一致性 */
 }
 
 .instance-card:hover {
-    @apply -translate-y-[3px];
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    @apply -translate-y-[3px] shadow-lg;
 }
 
 /* 卡片内容布局优化 */
