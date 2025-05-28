@@ -20,7 +20,7 @@
                 <!-- 选择版本后展开的配置选项 -->
                 <transition name="slide-fade">
                     <div v-if="selectedVersion && !installing" class="config-options">
-                        <!-- 实例名称 (移到Napcat-ada上方) -->
+                        <!-- 实例名称 -->
                         <div class="mb-4">
                             <label class="label">
                                 <span class="label-text">实例名称</span>
@@ -29,17 +29,26 @@
                                 class="input input-bordered w-full" :disabled="installing" />
                         </div>
 
-                        <!-- 服务配置卡片 -->
+                        <!-- 安装路径 -->
+                        <div class="mb-4">
+                            <label class="label">
+                                <span class="label-text">安装路径</span>
+                            </label>
+                            <input v-model="installPath" type="text" placeholder="例如：D:\MaiBot\MaiBot-1"
+                                class="input input-bordered w-full" :disabled="installing" />
+                        </div> <!-- NoneBot-ada 服务配置 -->
                         <div class="mb-4">
                             <div
-                                class="service-card p-3 rounded-lg border border-base-200 bg-base-100 hover:shadow-md transition-all">
+                                class="card p-3 rounded-lg border border-base-200 bg-base-100 hover:shadow-md transition-all">
+                                <div class="card-title text-sm mb-2">NoneBot-ada 服务</div>
+
                                 <div class="form-control">
                                     <label class="label cursor-pointer justify-start gap-2">
-                                        <input type="checkbox" v-model="enableNapcat"
+                                        <input type="checkbox" v-model="selectedServices['nonebot-ada']"
                                             class="checkbox checkbox-primary" />
                                         <div class="service-info">
-                                            <div class="font-medium">Napcat 服务</div>
-                                            <div class="text-xs text-base-content/70">Napcat-ada</div>
+                                            <div class="font-medium">nonebot-ada</div>
+                                            <div class="text-xs text-base-content/70">NoneBot-ada 服务</div>
                                         </div>
                                     </label>
                                 </div>
@@ -47,34 +56,39 @@
                         </div>
 
                         <!-- 端口配置 -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <label class="label">
-                                    <span class="label-text">MaiBot 端口</span>
-                                </label>
-                                <input v-model="maibotPort" type="number" placeholder="例如：8000"
-                                    class="input input-bordered w-full" :disabled="installing" />
-                            </div>
+                        <div class="mb-4">
+                            <div class="card p-3 rounded-lg border border-base-200 bg-base-100">
+                                <div class="card-title text-sm mb-2">端口配置</div>
+                                <div class="mb-3">
+                                    <label class="label">
+                                        <span class="label-text">MaiBot 主端口</span>
+                                    </label>
+                                    <input v-model="maibotPort" type="number" placeholder="例如：8000"
+                                        class="input input-bordered w-full" :disabled="installing" />
+                                </div>
 
-                            <div>
-                                <label class="label">
-                                    <span class="label-text">Napcat-ada 端口</span>
-                                </label>
-                                <input v-model="napcatPort" type="number" placeholder="例如：18002"
-                                    class="input input-bordered w-full" :disabled="!enableNapcat || installing" />
+                                <!-- NoneBot-ada 端口配置 -->
+                                <div v-show="selectedServices['nonebot-ada']" class="mb-3">
+                                    <label class="label">
+                                        <span class="label-text">NoneBot-ada 端口</span>
+                                    </label>
+                                    <input v-model="servicePorts['nonebot-ada']" type="number" placeholder="例如：18002"
+                                        class="input input-bordered w-full" :disabled="installing" />
+                                </div>
                             </div>
                         </div>
 
                         <!-- 安装按钮 -->
                         <div class="flex justify-end">
                             <button class="btn btn-primary" @click="startInstall" :disabled="!canInstall || installing">
+                                <span v-if="installing" class="loading loading-spinner loading-xs mr-2"></span>
                                 开始安装
                             </button>
                         </div>
                     </div>
                 </transition>
 
-                <!-- 安装配置概要和进度 -->
+                <!-- 安装进度 -->
                 <transition name="fade">
                     <div v-if="installing" class="mt-4">
                         <div class="install-summary p-3 rounded-lg bg-base-200 mb-4">
@@ -82,9 +96,15 @@
                             <div class="text-sm grid grid-cols-2 gap-x-4 gap-y-2">
                                 <div>版本: <span class="font-medium">{{ selectedVersion }}</span></div>
                                 <div>实例名: <span class="font-medium">{{ instanceName }}</span></div>
-                                <div>MaiBot端口: <span class="font-medium">{{ maibotPort }}</span></div>
-                                <div v-if="enableNapcat">Napcat-ada端口: <span class="font-medium">{{ napcatPort }}</span>
-                                </div>
+                                <div>路径: <span class="font-medium">{{ installPath }}</span></div>
+                                <div>MaiBot端口: <span class="font-medium">{{ maibotPort }}</span></div><template
+                                    v-for="service in availableServices" :key="`summary-${service.name}`">
+                                    <div v-if="selectedServices[service.name]">
+                                        NoneBot-ada端口:
+                                        <span class="font-medium">{{ servicePorts[service.name] }}</span>
+                                    </div>
+                                </template>
+
                                 <div class="col-span-2 flex justify-end items-center">
                                     <span v-if="!installComplete"
                                         class="loading loading-spinner loading-xs mr-2"></span>
@@ -104,11 +124,25 @@
                         <!-- 进度条 -->
                         <div class="mb-4">
                             <div class="flex justify-between mb-1">
-                                <span class="text-sm">安装进度</span>
+                                <span class="text-sm">总体安装进度</span>
                                 <span class="text-sm">{{ installProgress }}%</span>
                             </div>
                             <progress class="progress progress-primary w-full" :value="installProgress"
                                 max="100"></progress>
+
+                            <!-- 服务安装进度条 -->
+                            <div v-if="servicesProgress.length > 0" class="mt-3">
+                                <div v-for="service in servicesProgress" :key="`progress-${service.name}`" class="mb-2">
+                                    <div class="flex justify-between mb-1">
+                                        <span class="text-sm">{{ service.name }} 安装</span>
+                                        <span class="text-sm">{{ service.progress }}%</span>
+                                    </div>
+                                    <progress
+                                        :class="`progress ${service.status === 'completed' ? 'progress-success' : 'progress-info'} w-full`"
+                                        :value="service.progress" max="100"></progress>
+                                    <div class="text-xs opacity-70 mt-0.5">{{ service.message }}</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </transition>
@@ -130,47 +164,109 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
-import { instancesApi } from '@/services/api';
+import { ref, computed, reactive, onMounted, watch } from 'vue';
+import { deployApi } from '@/services/api';
 import toastService from '@/services/toastService';
 
 // 状态变量
 const loading = ref(false);
 const installing = ref(false);
 const installComplete = ref(false);
-const availableVersions = ref(['latest', 'stable', 'beta', 'v0.6.5', 'v0.6.4', 'v0.6.3']);
+const availableVersions = ref(['latest', 'main', 'v0.6.3', 'v0.6.2', 'v0.6.1']);
+const availableServices = ref([
+    { name: 'nonebot-ada', description: 'NoneBot-ada 服务' }
+]);
 const selectedVersion = ref('');
-const enableNapcat = ref(true);
 const instanceName = ref('');
+const qqNumber = ref('');
+const installPath = ref('D:\\MaiBot\\MaiBot-1');
 const maibotPort = ref('8000');
-const napcatPort = ref('18002');
+const selectedServices = reactive({});
+const servicePorts = reactive({});
 const installProgress = ref(0);
+const servicesProgress = ref([]);
 const logs = ref([]);
+const currentInstanceId = ref('');
+const statusCheckInterval = ref(null);
 
 // 事件
 const emit = defineEmits(['refresh']);
 
 // 计算属性 - 是否可以安装
 const canInstall = computed(() => {
-    return selectedVersion.value &&
-        instanceName.value.trim() &&
-        maibotPort.value &&
-        (!enableNapcat.value || napcatPort.value);
+    // 基础验证：必须有版本和实例名称
+    if (!selectedVersion.value || !instanceName.value.trim() || !installPath.value.trim()) {
+        return false;
+    }
+
+    // 端口验证 - 主端口必须有效
+    if (!maibotPort.value) {
+        return false;
+    }
+
+    // 如果选择了NoneBot-ada服务，必须有对应端口
+    if (selectedServices['nonebot-ada'] && !servicePorts['nonebot-ada']) {
+        return false;
+    }
+
+    return true;
 });
+
+// 获取服务的默认端口
+const getDefaultPort = (serviceName) => {
+    switch (serviceName) {
+        case 'nonebot-ada': return '18002';
+        default: return '8000';
+    }
+};
 
 // 获取可用版本
 const fetchVersions = async () => {
     loading.value = true;
     try {
-        const response = await instancesApi.getVersions();
-        if (response && response.versions && response.versions.length > 0) {
-            availableVersions.value = response.versions;
+        const response = await deployApi.getVersions();
+        console.log('获取版本响应:', response);
+
+        // 处理不同的响应格式
+        let versions = [];
+        if (response && response.data) {
+            if (Array.isArray(response.data)) {
+                // 直接是数组的情况
+                versions = response.data;
+            } else if (response.data.versions && Array.isArray(response.data.versions)) {
+                // 包装在versions字段中的情况
+                versions = response.data.versions;
+            }
+        } else if (response && response.versions && Array.isArray(response.versions)) {
+            // 直接在response.versions中的情况
+            versions = response.versions;
+        }
+
+        if (versions.length > 0) {
+            availableVersions.value = versions;
+            console.log('成功更新版本列表:', versions);
+        } else {
+            console.warn('未获取到有效的版本数据，使用默认版本列表');
         }
     } catch (error) {
         console.error('获取版本列表失败:', error);
         // 保留默认版本列表
     } finally {
         loading.value = false;
+    }
+};
+
+// 获取可部署的服务列表
+const fetchServices = async () => {
+    // 由于我们只有一个固定的NoneBot-ada服务，可以简化这个函数
+    try {
+        // 初始化服务选择状态和端口
+        selectedServices['nonebot-ada'] = false;
+        servicePorts['nonebot-ada'] = '18002';
+
+        console.log('服务初始化完成: NoneBot-ada');
+    } catch (error) {
+        console.error('服务初始化失败:', error);
     }
 };
 
@@ -203,8 +299,44 @@ const getLogClass = (log) => {
     }
 };
 
+// 定期检查安装状态
+const checkInstallStatus = async () => {
+    if (!currentInstanceId.value) return;
+
+    try {
+        const response = await deployApi.checkInstallStatus(currentInstanceId.value);
+
+        if (response) {
+            // 更新总体安装进度
+            installProgress.value = response.progress || 0;
+
+            // 如果有消息，添加到日志
+            if (response.message) {
+                addLog(response.message);
+            }
+
+            // 更新各服务的安装进度
+            if (response.services_install_status && response.services_install_status.length > 0) {
+                servicesProgress.value = response.services_install_status;
+            }
+
+            // 检查是否已安装完成
+            if (response.status === 'completed') {
+                clearInterval(statusCheckInterval.value);
+                installComplete.value = true;
+                addLog('安装已完成！', 'success');
+                toastService.success(`MaiBot ${selectedVersion.value} 安装成功！`);
+                emit('refresh');
+            }
+        }
+    } catch (error) {
+        console.error('检查安装状态失败:', error);
+        addLog(`检查安装状态失败: ${error.message}`, 'error');
+    }
+};
+
 // 开始安装流程
-const startInstall = () => {
+const startInstall = async () => {
     if (!canInstall.value) {
         toastService.error('请完成所有必填项');
         return;
@@ -214,75 +346,71 @@ const startInstall = () => {
     installComplete.value = false;
     installProgress.value = 0;
     logs.value = [];
+    servicesProgress.value = [];
 
     // 添加初始日志
     addLog(`开始安装 MaiBot ${selectedVersion.value} 实例: ${instanceName.value}`);
 
     // 通知安装开始
-    toastService.info(`开始安装 MaiBot ${selectedVersion.value}`);
+    toastService.info(`开始安装 MaiBot ${selectedVersion.value}`); try {        // 创建要安装的服务列表
+        const installServices = [];
+        if (selectedServices['nonebot-ada']) {
+            installServices.push({
+                name: 'nonebot-ada',
+                path: `${installPath.value}\\nonebot-ada`,
+                port: parseInt(servicePorts['nonebot-ada']),
+                run_cmd: 'python main.py'  // 添加运行命令
+            });
+        }// 构建部署配置
+        const deployConfig = {
+            instance_name: instanceName.value,
+            install_services: installServices,
+            install_path: installPath.value,
+            port: parseInt(maibotPort.value),
+            version: selectedVersion.value
+        };
 
-    // 模拟安装进度
-    simulateInstallation();
-};
+        // 添加调试日志
+        console.log('发送部署请求，配置:', deployConfig);
+        addLog(`发送部署请求: ${JSON.stringify(deployConfig, null, 2)}`, 'info');
 
-// 模拟安装过程
-const simulateInstallation = () => {
-    const totalSteps = 10;
-    let currentStep = 0;
+        // 调用部署API
+        const deployResponse = await deployApi.deploy(deployConfig);
 
-    const interval = setInterval(() => {
-        currentStep++;
-        installProgress.value = Math.round((currentStep / totalSteps) * 100);
-
-        // 根据步骤添加不同的日志
-        switch (currentStep) {
-            case 1:
-                addLog('正在准备安装环境...');
-                break;
-            case 2:
-                addLog('下载 MaiBot 核心组件...');
-                break;
-            case 3:
-                addLog('安装依赖库...');
-                break;
-            case 4:
-                addLog('配置 MaiBot 服务...');
-                break;
-            case 5:
-                addLog(`设置 MaiBot 端口: ${maibotPort.value}`, 'success');
-                break;
-            case 6:
-                if (enableNapcat.value) {
-                    addLog('安装 Napcat-ada 组件...');
-                }
-                break;
-            case 7:
-                if (enableNapcat.value) {
-                    addLog(`配置 Napcat-ada 端口: ${napcatPort.value}`, 'success');
-                }
-                break;
-            case 8:
-                addLog('生成配置文件...');
-                break;
-            case 9:
-                addLog('执行最终检查...');
-                break;
-            case 10:
-                addLog('安装完成！', 'success');
-                clearInterval(interval);
-
-                // 安装完成后，标记完成状态并显示成功通知
-                installComplete.value = true;
-                toastService.success(`MaiBot ${selectedVersion.value} 安装成功！`);
-                emit('refresh');
-                break;
+        if (!deployResponse || !deployResponse.success) {
+            throw new Error(deployResponse?.message || '部署失败');
         }
-    }, 1000);
+
+        // 保存实例ID，用于后续状态检查
+        currentInstanceId.value = deployResponse.instance_id;
+
+        // 添加部署成功日志
+        addLog(`部署任务已提交，实例ID: ${currentInstanceId.value}`, 'success');
+
+        // 设置定时检查安装状态
+        statusCheckInterval.value = setInterval(checkInstallStatus, 2000);
+
+    } catch (error) {
+        console.error('安装过程出错:', error);
+        addLog(`安装失败: ${error.message}`, 'error');
+        toastService.error(`安装失败: ${error.message}`);
+        installing.value = false;
+    }
 };
 
-// 当组件挂载时获取可用版本
+// 当组件挂载时获取可用版本和服务
 onMounted(() => {
     fetchVersions();
+    fetchServices();
+});
+
+// 组件卸载时清除定时器
+onMounted(() => {
+    return () => {
+        if (statusCheckInterval.value) {
+            clearInterval(statusCheckInterval.value);
+        }
+    };
 });
 
 // 监听选择版本变化
@@ -290,6 +418,16 @@ watch(selectedVersion, (newValue) => {
     if (newValue) {
         // 清空日志，因为每次选择新版本时应该重置
         logs.value = [];
+
+        // 预填充一些默认值
+        if (!instanceName.value) {
+            instanceName.value = `maibot-${newValue}-1`;
+        }
+
+        // 预填充安装路径
+        if (!installPath.value) {
+            installPath.value = `D:\\MaiBot\\MaiBot-${newValue}-1`;
+        }
     }
 });
 </script>
@@ -307,7 +445,7 @@ watch(selectedVersion, (newValue) => {
 .slide-fade-enter-active,
 .slide-fade-leave-active {
     transition: all 0.4s ease;
-    max-height: 600px;
+    max-height: 2000px;
     opacity: 1;
     overflow: hidden;
 }
@@ -333,10 +471,6 @@ watch(selectedVersion, (newValue) => {
     opacity: 0;
 }
 
-.service-card {
-    transition: all 0.3s ease;
-}
-
 .log-line {
     white-space: pre-wrap;
     line-height: 1.5;
@@ -348,14 +482,29 @@ watch(selectedVersion, (newValue) => {
     border-radius: 1rem;
 }
 
-.card,
-.service-card,
-.install-summary,
-.log-container {
+.card {
     border-radius: 0.75rem;
 }
 
 .log-container {
     box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+/* 服务选择区域 */
+.service-info {
+    flex-grow: 1;
+}
+
+/* 增强进度条对比度 */
+.progress-primary {
+    --progress-color: hsl(var(--p));
+}
+
+.progress-success {
+    --progress-color: hsl(var(--su));
+}
+
+.progress-info {
+    --progress-color: hsl(var(--in));
 }
 </style>

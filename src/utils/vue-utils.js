@@ -45,10 +45,10 @@ export const throttle = (fn, limit = 300) => {
  * @returns {string} 格式化后的错误消息
  */
 export const handleApiError = (error, options = {}) => {
-  let errorMessage = "未知错误";
+  let errorMessage = "未知错误"; // 添加默认错误消息
 
   if (error.response) {
-    const { status, data } = error.response;
+    const { status, data } = error.response; // 添加变量声明
 
     if (status === 404) {
       errorMessage = "请求的资源不存在 (404)";

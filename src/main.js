@@ -1,3 +1,7 @@
+// 在所有其他导入之前导入 polyfill
+import setupNodePolyfills from "./utils/node-polyfill.js";
+setupNodePolyfills();
+
 import { createApp } from "vue";
 import App from "./App.vue";
 import "./assets/tailwind.css";

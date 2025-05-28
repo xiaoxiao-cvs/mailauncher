@@ -1,4 +1,18 @@
 <template>
+  <!-- 修复：移除直接访问window，改用计算属性 -->
+  <div v-if="isMockMode" class="backend-offline-warning">
+    <div class="alert alert-warning shadow-lg max-w-md mx-auto">
+      <div>
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none"
+          viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span>后端连接失败，当前使用模拟数据</span>
+      </div>
+    </div>
+  </div>
+
   <div id="app" class="app-container"
     :class="{ 'dark-mode': darkMode, 'sidebar-expanded': sidebarExpanded, 'sidebar-collapsed': !sidebarExpanded }"
     :data-theme="currentTheme">
@@ -33,6 +47,17 @@ import settingsService from './services/settingsService'
 import { initTheme, applyThemeColor, useDarkMode } from './services/theme'
 import toastService from './services/toastService';
 import { exposeToastForDebugging } from './utils/debugUtils';
+import apiService from './services/apiService';
+import backendConfig from './config/backendConfig';
+
+// 添加模拟模式状态
+const useMockData = ref(localStorage.getItem("useMockData") === "true");
+
+// 添加计算属性，替代直接访问window属性
+const isMockMode = computed(() => useMockData.value);
+
+// 提供模拟模式状态给所有组件
+provide('useMockData', useMockData);
 
 // 深色模式状态 - 应用级别的中心管理
 const { darkMode, toggleDarkMode } = useDarkMode();
@@ -279,6 +304,12 @@ const closeSettings = () => {
 
 // 监听日志查看事件和页面导航
 onMounted(() => {
+  // 初始化模拟数据设置 - 如果localStorage中没有值，默认为false
+  if (localStorage.getItem("useMockData") === null) {
+    localStorage.setItem("useMockData", "false");
+    useMockData.value = false;
+  }
+
   // 初始化深色模式 (从App.vue中集中管理)
   initDarkMode();
 
@@ -396,6 +427,13 @@ onMounted(() => {
     currentTheme.value = 'light';
     darkMode.value = false;
   });
+
+  // 监听Bot配置事件
+  emitter.on('open-bot-config', (instance) => {
+    console.log('App收到打开Bot配置事件:', instance);
+    // 通知实例面板直接打开Bot配置 - 添加fromDetailView标记
+    emitter.emit('instance-panel-open-bot-config', instance);
+  });
 });
 
 // 颜色亮度调整工具函数
@@ -479,15 +517,38 @@ onBeforeUnmount(() => {
   window.removeEventListener('theme-reset', () => { });
 });
 
-// 检查API连接 - 修改为始终使用模拟数据
+// 检查API连接 - 更新为使用实际后端连接检测
 const checkApiConnection = async () => {
-  console.log("应用配置：后端已从项目移出，将使用模拟数据模式");
+  console.log("检查后端连接...");
+  console.log(`后端地址: ${backendConfig.getBackendUrl()}`);
 
-  // 确保模拟数据模式开启
-  window._useMockData = true;
-  localStorage.setItem("useMockData", "true");
+  try {
+    // 尝试连接到health端点
+    const connected = await apiService.testBackendConnection();
 
-  return false; // 返回false表示没有真实后端连接
+    if (connected) {
+      console.log("成功连接到后端服务!");
+      localStorage.setItem("useMockData", "false");
+      useMockData.value = false;
+      toastService.success("已连接到后端服务");
+      return true;
+    } else {
+      throw new Error("连接测试失败");
+    }
+  } catch (error) {
+    console.warn("无法连接到后端服务，将使用模拟数据:", error);
+
+    // 自动切换到模拟数据模式
+    localStorage.setItem("useMockData", "true");
+    useMockData.value = true;
+
+    // 显示提示
+    setTimeout(() => {
+      toastService.warning("无法连接到后端服务，应用将使用模拟数据");
+    }, 1500);
+
+    return false;
+  }
 };
 
 // 添加安全的主题应用函数
@@ -530,4 +591,15 @@ const changeTheme = (themeName) => {
 @import './assets/css/icon-fixes.css';
 @import './assets/css/theme-utils.css';
 /* 添加图标修复样式 */
+
+/* 后端离线警告样式 */
+.backend-offline-warning {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  width: 100%;
+  max-width: 30rem;
+}
 </style>

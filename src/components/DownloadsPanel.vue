@@ -2,10 +2,9 @@
   <div class="downloads-tab">
     <div class="header-section">
       <h3>下载中心</h3>
-      <!-- 移除刷新按钮 -->
     </div>
 
-    <!-- 新的下载中心组件 -->
+    <!-- 使用新的下载中心组件 -->
     <DownloadCenter @refresh="refreshDownloads" />
 
     <!-- 控制台对话框组件 -->
@@ -17,7 +16,8 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, inject } from 'vue';
-import { instancesApi } from '@/services/api';
+// 修复：使用正确的导入路径
+import { deployApi } from '@/services/api';
 import toastService from '@/services/toastService';
 
 import DownloadCenter from './downloads/DownloadCenter.vue';
@@ -40,9 +40,19 @@ const refreshDownloads = async () => {
   loading.value = true;
   try {
     console.log('刷新下载中心...');
-    const response = await instancesApi.getVersions();
+    // 修复：使用存在的getVersions方法而不是fetchVersions
+    console.log('deployApi对象:', deployApi);
+    console.log('getVersions方法:', deployApi.getVersions);
+
+    const response = await deployApi.getVersions();
+    console.log('版本响应:', response);
+
     if (response && response.versions) {
       console.log(`获取到${response.versions.length}个版本`);
+    } else if (response && Array.isArray(response)) {
+      console.log(`获取到${response.length}个版本`);
+    } else {
+      console.log('版本数据格式:', response);
     }
   } catch (error) {
     console.error('获取版本列表失败:', error);

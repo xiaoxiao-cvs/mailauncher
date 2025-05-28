@@ -1,75 +1,49 @@
 import axios from "axios";
+import backendConfig from "../config/backendConfig.js";
 
-// API基础URL配置
-const API_BASE_URL = "/api";
-
-// 创建一个带有默认配置的axios实例
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+// 创建axios实例并配置正确的baseURL
+const axiosInstance = axios.create({
+  baseURL: backendConfig.getBackendUrl(), // 使用完整的后端URL
+  timeout: 10000,
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
   },
-  timeout: 30000, // 30秒超时
 });
 
 // 请求拦截器
-apiClient.interceptors.request.use(
+axiosInstance.interceptors.request.use(
   (config) => {
-    console.log(`API请求: ${config.method.toUpperCase()} ${config.url}`);
-
-    // 检查是否应该使用模拟数据
-    if (shouldUseMockData()) {
-      console.log(`[模拟模式] API请求: ${config.url}`);
-    }
-
+    console.log(`发起请求: ${config.method.toUpperCase()} ${config.url}`);
     return config;
   },
   (error) => {
-    console.error("API请求配置错误:", error);
     return Promise.reject(error);
   }
 );
 
 // 响应拦截器
-apiClient.interceptors.response.use(
+axiosInstance.interceptors.response.use(
   (response) => {
-    console.log(
-      `API响应 [${response.status}]: ${response.config.url}`,
-      response.data
-    );
+    // 修复：不要直接返回response.data，保持完整的response对象
     return response;
   },
   (error) => {
-    // 输出详细错误信息
-    if (error.response) {
-      console.error(
-        `API错误 [${error.response.status}]: ${error.config.url}`,
-        error.response.data
-      );
-    } else if (error.request) {
-      console.error("API请求未收到响应:", error.request);
-    } else {
-      console.error("API错误:", error.message);
-    }
+    console.error("API 请求错误:", error);
 
-    // 如果API请求失败且启用了模拟模式，返回模拟数据
-    if (shouldUseMockData()) {
+    // 检查是否需要使用模拟数据
+    const useMockData = localStorage.getItem("useMockData") === "true";
+    if (useMockData) {
+      console.log("使用模拟数据响应请求");
       const url = error.config.url;
       const method = error.config.method;
       const params = error.config.params;
-      const data = error.config.data;
+      const data = error.config.data ? JSON.parse(error.config.data) : {};
 
-      console.log(
-        `[模拟模式] 尝试返回模拟数据: ${method.toUpperCase()} ${url}`
-      );
       return Promise.resolve({
         data: generateMockResponse(url, method, params, data),
         status: 200,
-        statusText: "OK (Mocked)",
-        headers: {},
-        config: error.config,
-        isMock: true,
+        statusText: "OK",
       });
     }
 
@@ -77,28 +51,82 @@ apiClient.interceptors.response.use(
   }
 );
 
-// 检查是否应该使用模拟数据
-const shouldUseMockData = () => {
-  // 始终返回true，因为后端已从项目移出
-  return true;
-  // 以下代码已不再使用，保留作为参考
-  // return window._useMockData || localStorage.getItem("useMockData") === "true";
-};
-
-// 添加一个新的导出函数，用于检查模拟模式是否激活
-export const isMockModeActive = () => {
-  return true; // 始终返回true
-};
-
-// 生成模拟响应
+// 模拟响应生成函数
 const generateMockResponse = (url, method, params, data) => {
   // 基本模拟数据模板
   let response = { success: true, isMock: true };
 
   // 根据URL和方法生成不同的模拟数据
-  if (url.includes("/versions")) {
+  if (url.includes("/deploy/versions")) {
     response = {
-      versions: ["latest", "beta", "stable", "v0.6.3", "v0.6.2", "v0.6.1"],
+      versions: ["latest", "main", "v0.6.3", "v0.6.2", "v0.6.1"],
+      isMock: true,
+    };
+  } else if (url.includes("/deploy/services")) {
+    response = {
+      services: [
+        {
+          name: "napcat",
+          description: "NapCat 服务",
+        },
+        {
+          name: "nonebot-ada",
+          description: "NoneBot-ada 服务",
+        },
+        {
+          name: "nonebot",
+          description: "NoneBot 服务",
+        },
+      ],
+      isMock: true,
+    };
+  } else if (url.includes("/deploy/deploy")) {
+    // 处理部署请求
+    const instanceName = data?.instance_name || "unknown_instance";
+    const version = data?.version || "latest";
+    response = {
+      success: true,
+      message: "部署任务已提交",
+      instance_id: "a2fe529b51999fc2d45df5196c6c50a46a608fa1",
+      isMock: true,
+    };
+  } else if (url.includes("/install-status")) {
+    // 提取实例ID
+    const instanceId = url.split("/install-status/")[1];
+
+    // 模拟不同的安装状态
+    const rand = Math.random();
+    let status, progress;
+
+    if (rand < 0.3) {
+      status = "installing";
+      progress = Math.floor(Math.random() * 70) + 10;
+    } else if (rand < 0.6) {
+      status = "finishing";
+      progress = Math.floor(Math.random() * 20) + 75;
+    } else {
+      status = "completed";
+      progress = 100;
+    }
+
+    response = {
+      status: status,
+      progress: progress,
+      message: `${status === "completed" ? "安装完成" : "正在安装组件..."}`,
+      services_install_status: [
+        {
+          name: "napcat",
+          status: status,
+          progress: progress,
+          message: `正在安装 NapCat`,
+        },
+        {
+          name: "nonebot-ada",
+          status: status === "completed" ? "completed" : "installing",
+          progress: status === "completed" ? 100 : progress - 10,
+          message: `正在安装 NoneBot-ada`,
+        },
+      ],
       isMock: true,
     };
   } else if (url.includes("/instances")) {
@@ -114,37 +142,44 @@ const generateMockResponse = (url, method, params, data) => {
       response = {
         instances: [
           {
+            id: "a2fe529b51999fc2d45df5196c6c50a46a608fa1",
             name: "maibot-stable-1",
             status: "running",
-            installedAt: "2023-08-15",
-            path: "D:\\MaiBot\\stable-1",
-            services: {
-              napcat: "running",
-              nonebot: "running",
-            },
-            version: "stable",
+            installedAt: "1747404418536",
+            path: "D:\\MaiBot\\MaiBot-1",
+            port: 8000,
+            services: [
+              {
+                name: "napcat",
+                path: "D:\\MaiBot\\MaiBot-1\\napcat",
+                status: "running",
+                port: 8095,
+              },
+              {
+                name: "nonebot-ada",
+                path: "D:\\MaiBot\\MaiBot-1\\nonebot-ada",
+                status: "stopped",
+                port: 18002,
+              },
+            ],
+            version: "0.6.3",
           },
           {
-            name: "maibot-beta-1",
+            id: "b3fe529b51999fc2d45df5196c6c50a46a608fb2",
+            name: "maibot-dev-2",
             status: "stopped",
-            installedAt: "2023-09-10",
-            path: "D:\\MaiBot\\beta-1",
-            services: {
-              napcat: "stopped",
-              nonebot: "stopped",
-            },
-            version: "beta",
-          },
-          {
-            name: "maibot-v0.6.3-1",
-            status: "running",
-            installedAt: "2023-10-05",
-            path: "D:\\MaiBot\\v0.6.3-1",
-            services: {
-              napcat: "running",
-              nonebot: "stopped",
-            },
-            version: "v0.6.3",
+            installedAt: "1745404418536",
+            path: "D:\\MaiBot\\MaiBot-2",
+            port: 8001,
+            services: [
+              {
+                name: "napcat",
+                path: "D:\\MaiBot\\MaiBot-2\\napcat",
+                status: "stopped",
+                port: 8096,
+              },
+            ],
+            version: "latest",
           },
         ],
         success: true,
@@ -216,79 +251,35 @@ const generateMockResponse = (url, method, params, data) => {
     };
   } else if (url.includes("/deploy")) {
     // 处理部署请求
+    const version = data?.version || url.split("/deploy/")[1] || "latest";
+    const instanceName = data?.instance_name || "unknown_instance";
     response = {
       success: true,
-      message: "部署任务已提交（固定数据）",
+      message: `开始部署 ${version} 版本，实例名称：${instanceName}（模拟数据）`,
+      isMock: true,
+    };
+  } else if (url.includes("/install/configure")) {
+    // 处理配置Bot请求
+    const qqNumber = data?.qq_number || "未指定";
+    response = {
+      success: true,
+      message: `已配置QQ号 ${qqNumber} 的实例（模拟数据）`,
       isMock: true,
     };
   } else if (url.includes("/install-status")) {
-    // 处理安装状态请求
+    // 处理检查安装状态请求
     response = {
       napcat_installing: false,
       nonebot_installing: false,
+      status: "completed",
+      progress: 100,
       isMock: true,
     };
-  } else if (url.includes("/open-folder")) {
-    // 处理打开文件夹请求
+  } else {
+    // 默认响应
     response = {
-      success: true,
-      isMock: true,
-    };
-  } else if (url.includes("/instance-stats")) {
-    response = {
-      total: 3,
-      running: 2,
-      stopped: 1,
-      isMock: true,
-    };
-  } else if (url.includes("/status")) {
-    response = {
-      mongodb: { status: "running", info: "本地实例 (固定数据)" },
-      napcat: { status: "running", info: "端口 8095 (固定数据)" },
-      nonebot: { status: "stopped", info: "" },
-      maibot: { status: "stopped", info: "" },
-      isMock: true,
-    };
-  } else if (url.includes("/logs/system")) {
-    response = {
-      logs: [
-        {
-          time: "2023-10-15 12:00:00",
-          level: "INFO",
-          message: "系统启动完成",
-          source: "system",
-        },
-        {
-          time: "2023-10-15 12:01:00",
-          level: "WARNING",
-          message: "您正在使用固定数据模式",
-          source: "system",
-        },
-        {
-          time: "2023-10-15 12:02:00",
-          level: "INFO",
-          message: "启动后端服务可获取真实数据",
-          source: "system",
-        },
-        {
-          time: "2023-10-15 12:03:00",
-          level: "ERROR",
-          message: "连接数据库失败",
-          source: "system",
-        },
-        {
-          time: "2023-10-15 12:04:00",
-          level: "INFO",
-          message: "使用备用数据源",
-          source: "system",
-        },
-      ],
-      isMock: true,
-    };
-  } else if (url.includes("/health")) {
-    response = {
-      status: "ok",
-      time: "2023-10-15T12:00:00Z", // 固定时间，不使用new Date()
+      success: false,
+      message: "未知请求",
       isMock: true,
     };
   }
@@ -320,148 +311,116 @@ const generateMockLogs = (source, count = 10) => {
   return logs;
 };
 
-// 导出更多函数来支持模拟
-export const getMockInstances = (count = 3) => {
-  return generateMockInstances(count);
-};
+/**
+ * 测试后端连接
+ * @returns {Promise<boolean>} 连接是否成功
+ */
+const testBackendConnection = async () => {
+  try {
+    console.log("正在测试后端连接...");
+    console.log("后端地址:", backendConfig.getBackendUrl());
+    console.log(
+      "健康检查URL:",
+      `${backendConfig.getBackendUrl()}${backendConfig.getFullUrl(
+        "/system/health"
+      )}`
+    );
 
-const generateMockInstances = (count = 3) => {
-  const statuses = ["running", "stopped"];
-  const versions = ["latest", "stable", "beta", "v0.6.3", "v0.6.2"];
-  const instances = [];
+    // 使用正确的健康检查路径和完整URL
+    const response = await axiosInstance.get(
+      backendConfig.getFullUrl("/system/health"),
+      {
+        timeout: 5000,
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
 
-  for (let i = 0; i < count; i++) {
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    const version = versions[Math.floor(Math.random() * versions.length)];
-    const date = new Date();
-    date.setDate(date.getDate() - Math.floor(Math.random() * 30));
+    console.log("健康检查响应:", response);
+    console.log("健康检查响应数据:", response.data);
 
-    instances.push({
-      name: `maibot-${version}-${i + 1}`,
-      status: status,
-      installedAt: date.toISOString().split("T")[0],
-      path: `D:\\MaiBot\\${version}-${i + 1}`,
-      services: {
-        napcat: status,
-        nonebot: Math.random() > 0.5 ? status : "stopped",
-      },
-      version: version,
-    });
+    // 检查响应是否符合预期格式
+    if (response.data && response.data.status === "success") {
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error("后端连接测试失败:", error);
+    return false;
   }
-
-  return instances;
 };
 
-// 创建通用API调用方法
-const apiService = {
-  /**
-   * 发送GET请求
-   * @param {string} url - API路径
-   * @param {Object} params - 请求参数
-   * @returns {Promise<any>} - 请求结果
-   */
-  get: async (url, params = {}) => {
-    try {
-      // 如果启用了模拟模式，直接返回模拟数据
-      if (shouldUseMockData()) {
-        console.log(`[模拟模式] GET ${url}`);
-        const mockResponse = generateMockResponse(url, "get", params, null);
-        // 添加延迟，模拟网络延迟
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        return mockResponse;
-      }
+// 统一的API请求函数 - 修改为使用正确的axios实例
+const apiRequest = async (method, url, data = null, config = {}) => {
+  try {
+    // 使用配置的axios实例而不是全局axios
+    const response = await axiosInstance({
+      method,
+      url: url.startsWith("/api/") ? url : backendConfig.getFullUrl(url),
+      data,
+      ...config,
+    });
 
-      const response = await apiClient.get(url, { params });
-      return response.data;
-    } catch (error) {
-      // 如果开启模拟模式，则返回模拟数据
-      if (shouldUseMockData()) {
-        console.log(`[模拟模式-请求失败后] GET ${url}`);
-        return generateMockResponse(url, "get", params, null);
-      }
-
-      // 自动尝试不带/api前缀的URL
-      if (error.response && error.response.status === 404) {
-        try {
-          console.log(`尝试直接访问: ${url}`);
-          const fallbackResponse = await axios.get(
-            url.startsWith("/") ? url : `/${url}`,
-            { params }
-          );
-          return fallbackResponse.data;
-        } catch (fallbackError) {
-          console.error(`备用请求失败: ${url}`, fallbackError);
-        }
-      }
-      throw error;
-    }
-  },
-
-  /**
-   * 发送POST请求
-   * @param {string} url - API路径
-   * @param {Object} data - 请求数据
-   * @returns {Promise<any>} - 请求结果
-   */
-  post: async (url, data = {}) => {
-    try {
-      // 如果启用了模拟模式，直接返回模拟数据
-      if (shouldUseMockData()) {
-        console.log(`[模拟模式] POST ${url}`);
-        const mockResponse = generateMockResponse(url, "post", {}, data);
-        // 添加延迟，模拟网络延迟
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        return mockResponse;
-      }
-
-      const response = await apiClient.post(url, data);
-      return response.data;
-    } catch (error) {
-      // 如果开启模拟模式，则返回模拟数据
-      if (shouldUseMockData()) {
-        console.log(`[模拟模式-请求失败后] POST ${url}`);
-        return generateMockResponse(url, "post", {}, data);
-      }
-
-      // 自动尝试不带/api前缀的URL
-      if (error.response && error.response.status === 404) {
-        try {
-          console.log(`尝试直接访问: ${url}`);
-          const fallbackResponse = await axios.post(
-            url.startsWith("/") ? url : `/${url}`,
-            data
-          );
-          return fallbackResponse.data;
-        } catch (fallbackError) {
-          console.error(`备用请求失败: ${url}`, fallbackError);
-        }
-      }
-      throw error;
-    }
-  },
-
-  /**
-   * 启用模拟数据模式
-   */
-  enableMockMode: () => {
-    window._useMockData = true;
-    localStorage.setItem("useMockData", "true");
-    console.log("已启用API模拟数据模式");
-  },
-
-  /**
-   * 禁用模拟数据模式
-   * 注意：由于后端已从项目移出，此方法不再有实际效果
-   */
-  disableMockMode: () => {
-    // 由于后端已移出，不再允许禁用模拟模式
-    console.log("注意：后端已从项目移出，将继续使用模拟数据模式");
-    window._useMockData = true;
-    localStorage.setItem("useMockData", "true");
-  },
+    return response;
+  } catch (error) {
+    // 如果后端不可用，使用模拟数据
+    console.warn(`API请求失败，使用模拟数据: ${method} ${url}`, error.message);
+    return { data: generateMockResponse(url, method, config.params, data) };
+  }
 };
 
-// 确保应用启动时启用模拟模式
-apiService.enableMockMode();
+// 导出API方法
+export default {
+  get: (url, params) => {
+    // 检查是否强制使用模拟数据
+    if (localStorage.getItem("useMockData") === "true") {
+      console.log(`GET请求使用模拟数据: ${url}`);
+      return Promise.resolve({
+        data: generateMockResponse(url, "get", params, null),
+      });
+    }
+    return apiRequest("get", url, null, { params });
+  },
 
-export default apiService;
+  post: (url, data) => {
+    // 检查是否强制使用模拟数据
+    if (localStorage.getItem("useMockData") === "true") {
+      console.log(`POST请求使用模拟数据: ${url}`);
+      return Promise.resolve({
+        data: generateMockResponse(url, "post", null, data),
+      });
+    }
+    return apiRequest("post", url, data);
+  },
+
+  put: (url, data) => {
+    // 检查是否强制使用模拟数据
+    if (localStorage.getItem("useMockData") === "true") {
+      console.log(`PUT请求使用模拟数据: ${url}`);
+      return Promise.resolve({
+        data: generateMockResponse(url, "put", null, data),
+      });
+    }
+    return apiRequest("put", url, data);
+  },
+
+  delete: (url) => {
+    // 检查是否强制使用模拟数据
+    if (localStorage.getItem("useMockData") === "true") {
+      console.log(`DELETE请求使用模拟数据: ${url}`);
+      return Promise.resolve({
+        data: generateMockResponse(url, "delete", null, null),
+      });
+    }
+    return apiRequest("delete", url);
+  },
+
+  // 测试后端连接
+  testBackendConnection,
+  // 配置是否使用模拟数据
+  setUseMockData: (useMock) => {
+    localStorage.setItem("useMockData", useMock);
+  },
+};

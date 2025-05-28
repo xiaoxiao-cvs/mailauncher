@@ -187,6 +187,24 @@ const terminalLines = ref([
     { timestamp: '10:15:28', text: 'Ready to receive commands', type: 'success' }
 ]);
 
+// 获取当前时间戳
+const getCurrentTimestamp = () => {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+};
+
+// 滚动到终端底部
+const scrollToBottom = () => {
+    nextTick(() => {
+        if (terminalContent.value) {
+            terminalContent.value.scrollTop = terminalContent.value.scrollHeight;
+        }
+    });
+};
+
 // 发送命令
 const sendCommand = () => {
     if (!commandInput.value || !isRunning.value) return;
@@ -255,66 +273,45 @@ const restartTerminal = () => {
     scrollToBottom();
 };
 
-// 打开功能模块
+// 打开模块
 const openModule = (moduleName) => {
-    console.log(`打开模块: ${moduleName}`);
-    // 根据不同的模块名称执行不同的操作
-    switch (moduleName) {
-        case 'file':
-            console.log('打开文件管理');
-            // 显示文件管理功能开发中的提示
-            toastService.info('文件管理功能开发中');
-            break;
-        case 'tasks':
-            console.log('打开自动任务');
-            // 显示自动任务功能开发中的提示
-            toastService.info('自动任务功能开发中');
-            break;
-        case 'bot':
-            console.log('打开Bot配置');
-            // 使用事件总线打开实例设置并指定Bot配置标签页
-            if (emitter) {
-                emitter.emit('open-instance-settings', {
-                    name: props.instance.name,
-                    path: props.instance.path || '',
-                    tab: 'bot' // 指定打开Bot配置标签页
-                });
-            } else {
-                toastService.error('无法打开Bot配置');
-            }
-            break;
-        case 'adapter':
-            console.log('打开适配器配置');
-            // 使用事件总线打开实例设置并指定适配器配置标签页
-            if (emitter) {
-                emitter.emit('open-instance-settings', {
-                    name: props.instance.name,
-                    path: props.instance.path || '',
-                    tab: 'adapter' // 指定打开适配器配置标签页
-                });
-            } else {
-                toastService.error('无法打开适配器配置');
-            }
-            break;
-    }
-};
+    console.log('打开模块:', moduleName);
 
-// 获取当前时间戳
-const getCurrentTimestamp = () => {
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
-};
-
-// 滚动到终端底部
-const scrollToBottom = () => {
-    nextTick(() => {
-        if (terminalContent.value) {
-            terminalContent.value.scrollTop = terminalContent.value.scrollHeight;
+    // 根据不同模块进行处理
+    if (moduleName === 'bot') {
+        // 发送打开Bot配置的事件，带上实例信息、tab标识和来源标识
+        if (emitter) {
+            emitter.emit('open-bot-config', props.instance);
         }
-    });
+    } else {
+        // 其他模块的处理
+        switch (moduleName) {
+            case 'file':
+                console.log('打开文件管理');
+                // 显示文件管理功能开发中的提示
+                toastService.info('文件管理功能开发中');
+                break;
+            case 'tasks':
+                console.log('打开自动任务');
+                // 显示自动任务功能开发中的提示
+                toastService.info('自动任务功能开发中');
+                break;
+            case 'adapter':
+                console.log('打开适配器配置');
+                // 使用事件总线打开实例设置并指定适配器配置标签页
+                if (emitter) {
+                    emitter.emit('open-instance-settings', {
+                        name: props.instance.name,
+                        path: props.instance.path || '',
+                        tab: 'adapter', // 指定打开适配器配置标签页
+                        fromDetailView: true // 标记是从详情页面打开的
+                    });
+                } else {
+                    toastService.error('无法打开适配器配置');
+                }
+                break;
+        }
+    }
 };
 
 // 监听终端行变化，自动滚动

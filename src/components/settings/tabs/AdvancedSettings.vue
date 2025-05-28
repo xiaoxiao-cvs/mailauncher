@@ -55,7 +55,7 @@ import { ref, onMounted, watch } from 'vue';
 // 设置状态
 const developerMode = ref(false);
 const apiEndpoint = ref('http://localhost:8080');
-const useMockData = ref(true);
+const useMockData = ref(false);
 
 // 加载设置
 onMounted(() => {
@@ -157,6 +157,7 @@ const showToast = (message) => {
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);

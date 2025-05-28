@@ -12,6 +12,10 @@
     <!-- 实例配置抽屉组件 -->
     <InstanceSettingsDrawer :is-open="isSettingsOpen" :instance-name="currentInstance.name"
       :instance-path="currentInstance.path" @close="closeInstanceSettings" @save="handleInstanceSettingsSave" />
+
+    <!-- 模型设置抽屉 -->
+    <ModelSettingsDrawer :is-open="isModelSettingsOpen" :instance-name="currentInstance?.name || ''"
+      @close="closeModelSettings" @save="handleModelSettingsSave" />
   </div>
 </template>
 
@@ -20,6 +24,7 @@ import { ref, inject, onMounted, onBeforeUnmount } from 'vue';
 import InstancesList from './instances/InstancesList.vue';
 import InstanceSettingsDrawer from './settings/InstanceSettingsDrawer.vue';
 import InstanceDetailView from './instances/InstanceDetailView.vue';
+import ModelSettingsDrawer from './settings/ModelSettingsDrawer.vue';
 import toastService from '@/services/toastService';
 
 // 引入API服务
@@ -32,6 +37,7 @@ const emitter = inject('emitter', null);
 const instancesData = ref([]);
 const isSettingsOpen = ref(false);
 const showInstanceDetail = ref(false);
+const isModelSettingsOpen = ref(false);
 const currentInstance = ref({
   name: '',
   path: '',
@@ -110,10 +116,31 @@ const openInstanceSettings = (instance, options = {}) => {
   console.log('打开实例设置:', instance, options);
   currentInstance.value = instance;
 
-  // 如果有指定的标签页，设置初始标签页
-  initialSettingsTab.value = options.tab || 'basic';
+  // 如果指定了特定的tab，且是从实例详情页面打开的
+  if (options.tab === 'bot' && options.fromDetailView) {
+    // 直接打开Bot配置
+    openModelSettings(instance);
+  } else {
+    // 其他情况只打开实例设置抽屉
+    isSettingsOpen.value = true;
+  }
+};
 
-  isSettingsOpen.value = true;
+// 打开模型设置
+const openModelSettings = (instance) => {
+  currentInstance.value = instance;
+  isModelSettingsOpen.value = true;
+};
+
+// 关闭模型设置
+const closeModelSettings = () => {
+  isModelSettingsOpen.value = false;
+};
+
+// 处理模型设置保存
+const handleModelSettingsSave = (modelConfig) => {
+  console.log('模型配置已保存:', modelConfig);
+  toastService.success('模型配置已保存');
 };
 
 // 关闭实例设置
@@ -174,8 +201,18 @@ onMounted(() => {
         };
       }
 
-      // 打开设置并传递标签页信息
-      openInstanceSettings(targetInstance, { tab: data.tab });
+      // 打开设置并传递标签页信息和来源信息
+      openInstanceSettings(targetInstance, {
+        tab: data.tab,
+        fromDetailView: data.fromDetailView
+      });
+    });
+
+    // 添加监听Bot配置事件
+    emitter.on('instance-panel-open-bot-config', (instance) => {
+      console.log('实例面板收到打开Bot配置事件:', instance);
+      // 直接打开模型设置
+      openModelSettings(instance);
     });
   }
 });
@@ -185,20 +222,16 @@ onBeforeUnmount(() => {
   // 移除事件监听
   if (emitter) {
     emitter.off('open-instance-settings');
-    emitter.off('refresh-instances');
-    emitter.off('view-instance-details');
+    emitter.off('instance-panel-open-bot-config');
   }
 });
 </script>
 
 <style scoped>
-@import '../assets/css/instancesPanel.css';
-
-.toast {
-  position: fixed;
-  top: 2rem;
-  z-index: 100;
-  transition: opacity 0.3s ease;
+.instances-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 /* 添加实例详情视图过渡效果 */

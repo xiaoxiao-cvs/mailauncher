@@ -1,4 +1,4 @@
-import axios from "axios";
+import apiService from "./apiService";
 
 /**
  * 部署API服务
@@ -7,56 +7,67 @@ import axios from "axios";
 
 /**
  * 获取可用版本列表
- * @returns {Promise<Array<string>>} 版本列表
+ * @returns {Promise<Object>} 版本列表
  */
 const fetchVersions = async () => {
-  console.log("获取可用版本列表...");
   try {
-    const response = await axios.get("/api/versions");
-    if (response.data && response.data.versions) {
-      console.log("获取版本列表成功:", response.data.versions);
-      return response.data.versions;
-    }
-    console.warn("版本列表格式异常:", response.data);
-    return [];
+    const response = await apiService.get("/deploy/versions");
+    console.log("fetchVersions响应:", response);
+    return response.data || response;
   } catch (error) {
     console.error("获取版本列表失败:", error);
-    // 返回缓存的静态版本列表
-    return ["latest", "stable", "v0.6.3", "v0.6.2"];
+    throw error;
+  }
+};
+
+/**
+ * 获取版本列表（别名方法）
+ * @returns {Promise<Object>} 版本列表
+ */
+const getVersions = async () => {
+  return await fetchVersions();
+};
+
+/**
+ * 获取可部署的服务列表
+ * @returns {Promise<Object>} 服务列表
+ */
+const getServices = async () => {
+  try {
+    const response = await apiService.get("/deploy/services");
+    console.log("getServices响应:", response);
+    return response.data || response;
+  } catch (error) {
+    console.error("获取服务列表失败:", error);
+    throw error;
   }
 };
 
 /**
  * 部署指定版本
- * @param {string} version - 要部署的版本
- * @param {string} instanceName - 实例名称
- * @returns {Promise<Object>} - 部署结果
+ * @param {Object} config - 部署配置
+ * @returns {Promise<Object>} 部署结果
  */
-const deployVersion = async (version, instanceName) => {
-  console.log(`部署版本 ${version}, 实例名称: ${instanceName}`);
-
+const deploy = async (config) => {
   try {
-    // 尝试部署版本
-    const response = await axios.post(`/api/deploy/${version}`, {
+    const response = await apiService.post("/deploy/deploy", config);
+    console.log("deploy响应:", response);
+    return response.data || response;
+  } catch (error) {
+    console.error("部署失败:", error);
+    throw error;
+  }
+};
+
+const deployVersion = async (version, instanceName) => {
+  try {
+    const response = await apiService.post(`/deploy/${version}`, {
       instance_name: instanceName,
     });
-    console.log("部署请求成功:", response.data);
-    return response.data;
+    console.log("deployVersion响应:", response);
+    return response.data || response;
   } catch (error) {
-    if (error.response && error.response.status === 404) {
-      try {
-        // 尝试备用路径
-        const fallbackResponse = await axios.post(`/deploy/${version}`, {
-          instance_name: instanceName,
-        });
-        console.log("备用路径部署请求成功:", fallbackResponse.data);
-        return fallbackResponse.data;
-      } catch (fallbackError) {
-        console.error("备用路径部署请求失败:", fallbackError);
-        throw fallbackError;
-      }
-    }
-
+    console.error("部署版本失败:", error);
     throw error;
   }
 };
@@ -70,9 +81,9 @@ const configureBot = async (config) => {
   console.log("配置Bot:", config);
 
   try {
-    const response = await axios.post("/api/install/configure", config);
-    console.log("配置请求成功:", response.data);
-    return response.data;
+    const response = await apiService.post("/install/configure", config);
+    console.log("配置请求成功:", response);
+    return response.data || response;
   } catch (error) {
     console.error("配置请求失败:", error);
     throw error;
@@ -81,24 +92,118 @@ const configureBot = async (config) => {
 
 /**
  * 检查安装状态
+ * @param {string} instanceId - 实例ID
  * @returns {Promise<Object>} - 安装状态
  */
-const checkInstallStatus = async () => {
+const checkInstallStatus = async (instanceId = null) => {
   try {
-    console.log("检查安装状态");
-    // 在实际应用中，这应该是一个API请求
-    // const response = await axios.get("/api/install-status");
-    // return response.data;
+    console.log("检查安装状态", instanceId ? `实例ID: ${instanceId}` : "");
 
-    // 简单返回模拟数据
+    const url = instanceId
+      ? `/install-status/${instanceId}`
+      : "/install-status";
+    const response = await apiService.get(url);
+
+    console.log("checkInstallStatus响应:", response);
+    return response.data || response;
+  } catch (error) {
+    console.error("检查安装状态失败:", error);
+    // 返回默认状态而不是抛出错误
     return {
       napcat_installing: false,
       nonebot_installing: false,
+      status: "completed",
+      progress: 100,
     };
+  }
+};
+
+/**
+ * 获取实例列表
+ * @returns {Promise<Object>} - 实例列表
+ */
+const getInstances = async () => {
+  try {
+    const response = await apiService.get("/instances");
+    console.log("getInstances响应:", response);
+    return response.data || response;
   } catch (error) {
-    console.error("检查安装状态失败:", error);
+    console.error("获取实例列表失败:", error);
     throw error;
   }
+};
+
+/**
+ * 启动实例
+ * @param {string} instanceId - 实例ID
+ * @returns {Promise<Object>} - 启动结果
+ */
+const startInstance = async (instanceId) => {
+  try {
+    const response = await apiService.get(`/instance/${instanceId}/start`);
+    console.log("startInstance响应:", response);
+    return response.data || response;
+  } catch (error) {
+    console.error("启动实例失败:", error);
+    throw error;
+  }
+};
+
+/**
+ * 停止实例
+ * @param {string} instanceId - 实例ID
+ * @returns {Promise<Object>} - 停止结果
+ */
+const stopInstance = async (instanceId) => {
+  try {
+    const response = await apiService.get(`/instance/${instanceId}/stop`);
+    console.log("stopInstance响应:", response);
+    return response.data || response;
+  } catch (error) {
+    console.error("停止实例失败:", error);
+    throw error;
+  }
+};
+
+/**
+ * 删除实例
+ * @param {string} instanceId - 实例ID
+ * @returns {Promise<Object>} - 删除结果
+ */
+const deleteInstance = async (instanceId) => {
+  try {
+    const response = await apiService.delete(`/instance/${instanceId}`);
+    console.log("deleteInstance响应:", response);
+    return response.data || response;
+  } catch (error) {
+    console.error("删除实例失败:", error);
+    throw error;
+  }
+};
+
+/**
+ * 生成模拟实例数据
+ * @returns {Array} 模拟实例列表
+ */
+const generateMockInstances = () => {
+  return [
+    {
+      id: "mock-instance-1",
+      name: "模拟实例-1",
+      status: "running",
+      installedAt: "2023-05-13 19:56:18",
+      path: "D:\\MaiBot\\模拟实例-1",
+      version: "v0.6.3",
+    },
+    {
+      id: "mock-instance-2",
+      name: "模拟实例-2",
+      status: "stopped",
+      installedAt: "2023-05-12 10:30:00",
+      path: "D:\\MaiBot\\模拟实例-2",
+      version: "latest",
+    },
+  ];
 };
 
 /**
@@ -109,25 +214,30 @@ const checkInstallStatus = async () => {
 const configureBotSettings = async (params) => {
   console.log("配置Bot设置:", params);
   try {
-    const response = await axios.post("/api/install/configure", params);
-    return response.data;
+    const response = await apiService.post("/install/configure", params);
+    console.log("configureBotSettings响应:", response);
+    return response.data || response;
   } catch (error) {
     console.error("配置Bot设置失败:", error);
     return { success: false, message: error.message };
   }
 };
 
+// 确保导出所有需要的方法
 export { checkInstallStatus, getInstances, generateMockInstances };
 
 export default {
-  fetchVersions,
-  deployVersion,
-  configureBot,
-  checkInstallStatus,
-  getInstances,
-  startInstance,
-  stopInstance,
-  deleteInstance,
-  generateMockInstances,
-  configureBotSettings,
+  fetchVersions, // 主要方法
+  getVersions, // 别名方法
+  getServices, // 获取服务列表
+  deploy, // 部署方法
+  deployVersion, // 部署指定版本
+  configureBot, // 配置Bot
+  checkInstallStatus, // 检查安装状态
+  getInstances, // 获取实例列表
+  startInstance, // 启动实例
+  stopInstance, // 停止实例
+  deleteInstance, // 删除实例
+  generateMockInstances, // 生成模拟数据
+  configureBotSettings, // 配置Bot设置
 };
