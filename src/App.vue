@@ -50,6 +50,7 @@ import toastService from './services/toastService';
 import { exposeToastForDebugging } from './utils/debugUtils';
 import apiService from './services/apiService';
 import backendConfig from './config/backendConfig';
+import { usePollingStore } from './stores/pollingStore';
 
 // 添加模拟模式状态
 const useMockData = ref(localStorage.getItem("useMockData") === "true");
@@ -126,6 +127,9 @@ provide('toast', toastService);
 if (process.env.NODE_ENV !== 'production') {
   exposeToastForDebugging(toastService);
 }
+
+// 获取轮询store实例
+const pollingStore = usePollingStore();
 
 // 侧边栏菜单项，更新为DaisyUI风格的图标
 const menuItems = {
@@ -399,11 +403,15 @@ onMounted(() => {
   emitter.on('theme-changed', (themeName) => {
     changeTheme(themeName);
   });
-
   // 应用初始化
   checkApiConnection().then(() => {
     console.log("应用初始化完成：使用模拟数据模式");
   });
+
+  // 初始化轮询系统
+  console.log("正在初始化轮询系统...");
+  pollingStore.initializeDefaultPolling();
+  console.log("轮询系统初始化完成");
 
   // 监听系统深色模式变化
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {

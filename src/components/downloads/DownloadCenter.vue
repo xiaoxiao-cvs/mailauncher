@@ -140,12 +140,23 @@
                             </div>
                         </div>
                     </div>
-                </transition>
-
-                <!-- 安装日志 -->
+                </transition> <!-- 安装日志 -->
                 <transition name="fade">
                     <div v-if="installing && logs.length > 0" class="mt-4">
-                        <div class="font-medium mb-2">安装日志</div>
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="font-medium">安装日志</div>
+                            <!-- WebSocket连接状态指示器 -->
+                            <div class="flex items-center text-xs">
+                                <div v-if="deployWebSocketConnected" class="flex items-center text-success">
+                                    <div class="w-2 h-2 bg-success rounded-full mr-1 animate-pulse"></div>
+                                    <span>实时连接</span>
+                                </div>
+                                <div v-else class="flex items-center text-warning">
+                                    <div class="w-2 h-2 bg-warning rounded-full mr-1"></div>
+                                    <span>轮询模式</span>
+                                </div>
+                            </div>
+                        </div>
                         <div class="log-container bg-base-300 rounded-lg p-3 h-48 overflow-y-auto font-mono text-sm">
                             <div v-for="(log, index) in logs" :key="index" class="log-line" :class="getLogClass(log)">
                                 <span class="opacity-60">[{{ log.time }}]</span> {{ log.message }}
@@ -159,18 +170,17 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted, watch } from 'vue';
-import { deployApi } from '@/services/api';
+import { ref, computed, reactive, onMounted, onBeforeUnmount, watch } from 'vue';
+import { useDeployStore } from '@/stores/deployStore';
+import { useInstanceStore } from '@/stores/instanceStore';
 import toastService from '@/services/toastService';
 
-// 状态变量
+// 使用 stores
+const deployStore = useDeployStore();
+const instanceStore = useInstanceStore();
+
+// 本地状态变量
 const loading = ref(false);
-const installing = ref(false);
-const installComplete = ref(false);
-const availableVersions = ref(['latest', 'main', 'v0.6.3', 'v0.6.2', 'v0.6.1']);
-const availableServices = ref([
-    { name: 'napcat-ada', description: 'Napcat-ada 服务' }
-]);
 const selectedVersion = ref('');
 const instanceName = ref('');
 const qqNumber = ref('');
@@ -178,14 +188,18 @@ const installPath = ref('D:\\MaiBot\\MaiBot-1');
 const maibotPort = ref('8000');
 const selectedServices = reactive({});
 const servicePorts = reactive({});
-const installProgress = ref(0);
-const servicesProgress = ref([]);
-const logs = ref([]);
-const currentInstanceId = ref('');
-const statusCheckInterval = ref(null);
 
 // 事件
 const emit = defineEmits(['refresh']);
+
+// 计算属性 - 基于 store 状态
+const availableVersions = computed(() => deployStore.availableVersions);
+const availableServices = computed(() => deployStore.availableServices);
+const installing = computed(() => deployStore.currentDeployment?.installing || false);
+const installComplete = computed(() => deployStore.currentDeployment?.installComplete || false);
+const installProgress = computed(() => deployStore.currentDeployment?.installProgress || 0);
+const servicesProgress = computed(() => deployStore.currentDeployment?.servicesProgress || []);
+const logs = computed(() => deployStore.currentDeployment?.logs || []);
 
 // 计算属性 - 是否可以安装
 const canInstall = computed(() => {
@@ -229,6 +243,12 @@ const installStatusText = computed(() => {
     return '准备中';
 });
 
+// WebSocket连接状态（从 deployStore 获取）
+const deployWebSocketConnected = computed(() => {
+    const deployment = deployStore.currentDeployment;
+    return deployment ? deployStore.wsConnections.has(deployment.id) : false;
+});
+
 // 获取服务的默认端口
 const getDefaultPort = (serviceName) => {
     switch (serviceName) {
@@ -237,73 +257,25 @@ const getDefaultPort = (serviceName) => {
     }
 };
 
-// 获取可用版本
-const fetchVersions = async () => {
+// 初始化版本和服务数据
+const initializeData = async () => {
     loading.value = true;
     try {
-        const response = await deployApi.getVersions();
-        console.log('获取版本响应:', response);
+        await Promise.all([
+            deployStore.fetchVersions(),
+            deployStore.fetchServices()
+        ]);
 
-        // 处理不同的响应格式
-        let versions = [];
-        if (response && response.data) {
-            if (Array.isArray(response.data)) {
-                // 直接是数组的情况
-                versions = response.data;
-            } else if (response.data.versions && Array.isArray(response.data.versions)) {
-                // 包装在versions字段中的情况
-                versions = response.data.versions;
-            }
-        } else if (response && response.versions && Array.isArray(response.versions)) {
-            // 直接在response.versions中的情况
-            versions = response.versions;
-        }
-
-        if (versions.length > 0) {
-            availableVersions.value = versions;
-            console.log('成功更新版本列表:', versions);
-        } else {
-            console.warn('未获取到有效的版本数据，使用默认版本列表');
-        }
+        // 初始化服务选择状态和端口
+        selectedServices['napcat-ada'] = true; // 默认选中
+        servicePorts['napcat-ada'] = '8095'; // 默认端口
+        console.log('数据初始化完成');
     } catch (error) {
-        console.error('获取版本列表失败:', error);
-        // 保留默认版本列表
+        console.error('数据初始化失败:', error);
+        toastService.error('数据初始化失败');
     } finally {
         loading.value = false;
     }
-};
-
-// 获取可部署的服务列表
-const fetchServices = async () => {
-    // 由于我们只有一个固定的Napcat-ada服务，可以简化这个函数
-    try {
-        // 初始化服务选择状态和端口
-        selectedServices['napcat-ada'] = true; // 默认选中，因为只有一个服务
-        servicePorts['napcat-ada'] = '8095'; // 默认端口设为8095
-
-        console.log('服务初始化完成: Napcat-ada');
-    } catch (error) {
-        console.error('服务初始化失败:', error);
-    }
-};
-
-// 添加日志
-const addLog = (message, level = 'info') => {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('zh-CN');
-    logs.value.push({
-        time: timeStr,
-        message: message,
-        level: level
-    });
-
-    // 确保日志容器滚动到最新日志
-    setTimeout(() => {
-        const container = document.querySelector('.log-container');
-        if (container) {
-            container.scrollTop = container.scrollHeight;
-        }
-    }, 50);
 };
 
 // 获取日志类样式
@@ -316,74 +288,25 @@ const getLogClass = (log) => {
     }
 };
 
-// 定期检查安装状态
-const checkInstallStatus = async () => {
-    if (!currentInstanceId.value) return;
-
-    try {
-        const response = await deployApi.checkInstallStatus(currentInstanceId.value);
-
-        if (response) {
-            // 更新总体安装进度
-            installProgress.value = response.progress || 0;
-
-            // 如果有消息，添加到日志
-            if (response.message) {
-                addLog(response.message);
-            }
-
-            // 更新各服务的安装进度
-            if (response.services_install_status && response.services_install_status.length > 0) {
-                servicesProgress.value = response.services_install_status;
-            }
-
-            // 检查是否已安装完成
-            if (response.status === 'completed') {
-                clearInterval(statusCheckInterval.value);
-                installComplete.value = true;
-                addLog('安装已完成！', 'success');
-                toastService.success(`MaiBot ${selectedVersion.value} 安装成功！`);
-                emit('refresh');
-            }
-        }
-    } catch (error) {
-        console.error('检查安装状态失败:', error);
-        addLog(`检查安装状态失败: ${error.message}`, 'error');
-    }
-};
-
-// 开始安装流程
+// 开始安装流程 (使用 deployStore)
 const startInstall = async () => {
     if (!canInstall.value) {
         toastService.error('请完成所有必填项');
         return;
     }
 
-    installing.value = true;
-    installComplete.value = false;
-    installProgress.value = 0;
-    logs.value = [];
-    servicesProgress.value = [];
-
-    // 添加初始日志
-    addLog(`开始安装 MaiBot ${selectedVersion.value} 实例: ${instanceName.value}`);
-
-    // 通知安装开始
-    toastService.info(`开始安装 MaiBot ${selectedVersion.value}`);
-
     try {
-        // 创建要安装的服务列表
+        // 准备部署配置
         const installServices = [];
         if (selectedServices['napcat-ada']) {
             installServices.push({
                 name: 'napcat-ada',
                 path: `${installPath.value}\\napcat-ada`,
                 port: parseInt(servicePorts['napcat-ada']),
-                run_cmd: 'python main.py'  // 添加运行命令
+                run_cmd: 'python main.py'
             });
         }
 
-        // 构建部署配置
         const deployConfig = {
             instance_name: instanceName.value,
             install_services: installServices,
@@ -392,55 +315,35 @@ const startInstall = async () => {
             version: selectedVersion.value
         };
 
-        // 添加调试日志
-        console.log('发送部署请求，配置:', deployConfig);
-        addLog(`发送部署请求: ${JSON.stringify(deployConfig, null, 2)}`, 'info');
+        // 使用 deployStore 开始部署
+        await deployStore.startDeployment(deployConfig);
 
-        // 调用部署API
-        const deployResponse = await deployApi.deploy(deployConfig);
-
-        if (!deployResponse || !deployResponse.success) {
-            throw new Error(deployResponse?.message || '部署失败');
-        }
-
-        // 保存实例ID，用于后续状态检查
-        currentInstanceId.value = deployResponse.instance_id;
-
-        // 添加部署成功日志
-        addLog(`部署任务已提交，实例ID: ${currentInstanceId.value}`, 'success');
-
-        // 设置定时检查安装状态
-        statusCheckInterval.value = setInterval(checkInstallStatus, 2000);
+        // 触发实例列表刷新
+        emit('refresh');
+        instanceStore.refreshInstances();
 
     } catch (error) {
         console.error('安装过程出错:', error);
-        addLog(`安装失败: ${error.message}`, 'error');
         toastService.error(`安装失败: ${error.message}`);
-        installing.value = false;
     }
 };
 
-// 当组件挂载时获取可用版本和服务
+// 当组件挂载时初始化数据
 onMounted(() => {
-    fetchVersions();
-    fetchServices();
+    initializeData();
 });
 
-// 组件卸载时清除定时器
-onMounted(() => {
-    return () => {
-        if (statusCheckInterval.value) {
-            clearInterval(statusCheckInterval.value);
-        }
-    };
+// 组件卸载时清理资源
+onBeforeUnmount(() => {
+    // deployStore 会自动处理清理工作
+    if (deployStore.currentDeployment) {
+        deployStore.cleanup();
+    }
 });
 
 // 监听选择版本变化
 watch(selectedVersion, (newValue) => {
     if (newValue) {
-        // 清空日志，因为每次选择新版本时应该重置
-        logs.value = [];
-
         // 预填充一些默认值
         if (!instanceName.value) {
             instanceName.value = `maibot-${newValue}-1`;

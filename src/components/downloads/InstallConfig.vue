@@ -622,11 +622,15 @@ function formatTime(date) {
 }
 
 // 初始加载版本
-fetchVersions();
+onMounted(() => {
+  fetchVersions();
+});
 
 // 暴露方法，供父组件调用
 defineExpose({
-  fetchVersions
+  fetchVersions,
+  installVersion,
+  addLog
 });
 </script>
 

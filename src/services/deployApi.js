@@ -46,15 +46,46 @@ const getServices = async () => {
 /**
  * 部署指定版本
  * @param {Object} config - 部署配置
+ * @param {string} config.instance_name - 实例名称
+ * @param {Array} config.install_services - 要安装的服务列表
+ * @param {string} config.install_path - 安装路径
+ * @param {number} config.port - 端口
+ * @param {string} config.version - 版本
+ * @param {string} [config.websocket_session_id] - WebSocket会话ID（用于实时日志）
  * @returns {Promise<Object>} 部署结果
  */
 const deploy = async (config) => {
   try {
-    const response = await apiService.post("/deploy/deploy", config);
+    console.log("发送部署请求:", config);
+
+    // 构建请求配置
+    const requestConfig = {
+      timeout: config.websocket_session_id ? 30000 : 15000, // WebSocket模式使用更长超时
+    };
+
+    // 如果有WebSocket会话ID，添加到请求头
+    if (config.websocket_session_id) {
+      requestConfig.headers = {
+        "X-WebSocket-Session-ID": config.websocket_session_id,
+      };
+      console.log("添加WebSocket会话ID到请求头:", config.websocket_session_id);
+    }
+
+    const response = await apiService.post(
+      "/deploy/deploy",
+      config,
+      requestConfig
+    );
     console.log("deploy响应:", response);
     return response.data || response;
   } catch (error) {
     console.error("部署失败:", error);
+
+    // 增强错误信息
+    if (error.code === "ECONNABORTED") {
+      throw new Error("部署请求超时，但后端可能正在处理，请查看实时日志");
+    }
+
     throw error;
   }
 };

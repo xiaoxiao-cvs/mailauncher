@@ -187,15 +187,24 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject, watch, onBeforeUnmount, nextTick } from 'vue';
+import { ref, onMounted, inject, watch, onBeforeUnmount, nextTick, computed } from 'vue';
 import * as echarts from 'echarts';
 import { initMessageChart } from '../services/charts';
 import SimpleIcons from './common/SimpleIcons.vue'; // 导入简单图标组件
-import apiService from '../services/apiService';
 import { adaptInstancesList, adaptInstancesListWithUptime } from '../utils/apiAdapters';
+
+// 导入优化的状态管理
+import { useInstanceStore } from '../stores/instanceStore';
+import { useSystemStore } from '../stores/systemStore';
+import { usePollingStore } from '../stores/pollingStore';
 
 const isDarkMode = inject('darkMode', ref(false));
 const emitter = inject('emitter', null);
+
+// 使用优化的状态管理
+const instanceStore = useInstanceStore();
+const systemStore = useSystemStore();
+const pollingStore = usePollingStore();
 
 // 图表引用
 const messageChartRef = ref(null);
@@ -224,27 +233,31 @@ const messageStats = ref({
   increase: '15%'
 });
 
-// 系统状态
-const systemStats = ref({
-  cpu: 0,
-  memory: 0,
-  cpuModel: '',
-  cpuCores: 0,
-  memoryUsed: 0,
-  memoryTotal: 0,
-  networkRate: 0,
-  networkUp: 0,
-  networkDown: 0
+// 使用计算属性从store获取数据，避免重复请求
+const systemStats = computed(() => {
+  const metrics = systemStore.systemStats || {}; // 修正为 systemStats
+  return {
+    // 映射嵌套的数据结构为扁平化结构，添加安全的空值检查
+    cpu: metrics.cpu?.usage || 0,
+    cpuModel: metrics.cpu?.model || 'Unknown CPU',
+    cpuCores: metrics.cpu?.cores || 0,
+    memory: systemStore.memoryUsagePercent || 0,
+    memoryUsed: metrics.memory?.used || 0,
+    memoryTotal: metrics.memory?.total || 0,
+    disk: systemStore.diskUsagePercent || 0,
+    networkUp: metrics.network?.up || 0,
+    networkDown: metrics.network?.down || 0,
+    networkRate: metrics.network?.rate || 0
+  };
 });
-
-// 实例统计
-const instanceStats = ref({
-  total: 0,
-  running: 0
+const instanceStats = computed(() => instanceStore.instanceStats);
+const instances = computed(() => {
+  // 转换实例数据格式以适配表格显示
+  return instanceStore.instances.map(instance => ({
+    ...instance,
+    uptime: instance.uptime || calculateUptime(instance.startTime)
+  }));
 });
-
-// 实例列表
-const instances = ref([]);
 
 // 通知列表
 const notifications = ref([
@@ -374,6 +387,22 @@ watch(() => isDarkMode.value, () => {
   });
 });
 
+// 计算运行时间的辅助函数
+const calculateUptime = (startTime) => {
+  if (!startTime) return '-';
+  const now = new Date();
+  const start = new Date(startTime);
+  const diff = now - start;
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+  if (days > 0) return `${days}天${hours}时`;
+  if (hours > 0) return `${hours}时${minutes}分`;
+  return `${minutes}分钟`;
+};
+
 // 格式化内存大小
 const formatMemory = (bytes) => {
   if (!bytes) return '0 GB';
@@ -457,87 +486,35 @@ const navigateToInstances = () => {
   }
 };
 
-// 加载系统性能
-const loadSystemStats = async () => {
+// 优化：使用统一的store管理，避免重复请求
+const loadData = async () => {
   try {
-    const res = await apiService.get('/api/v1/system/metrics');
-    if (res.data && res.data.status === 'success' && res.data.data) {
-      const d = res.data.data;
-      systemStats.value.cpu = d.cpu_usage_percent;
-      systemStats.value.memory = d.memory_usage.percent;
-      systemStats.value.cpuModel = d.system_info.processor;
-      systemStats.value.cpuCores = d.system_info.machine.includes('64') ? 8 : 4; // 简单推断核心数
-      systemStats.value.memoryUsed = d.memory_usage.used_mb * 1024 * 1024;
-      systemStats.value.memoryTotal = d.memory_usage.total_mb * 1024 * 1024;
+    // 使用store统一获取数据，自动处理缓存和防重复请求
+    await Promise.all([
+      instanceStore.fetchInstances(),
+      systemStore.fetchSystemStats()
+    ]);
 
-      // 添加网络数据 - 如果后端API没有提供，则使用模拟数据
-      // 在实际生产环境中，应该由后端提供这些数据
-      if (!systemStats.value.networkRate) {
-        // 初始化网络数据
-        systemStats.value.networkRate = Math.floor(Math.random() * 1024 * 1024); // 随机生成1MB以内的网络速率
-        systemStats.value.networkUp = Math.floor(Math.random() * 1024 * 1024 * 10); // 随机生成10MB以内的上传数据量
-        systemStats.value.networkDown = Math.floor(Math.random() * 1024 * 1024 * 50); // 随机生成50MB以内的下载数据量
-      } else {
-        // 更新网络数据，模拟网络变化
-        systemStats.value.networkRate = Math.floor(systemStats.value.networkRate * (0.8 + Math.random() * 0.4));
-        systemStats.value.networkUp += Math.floor(systemStats.value.networkRate * 0.3);
-        systemStats.value.networkDown += Math.floor(systemStats.value.networkRate * 0.7);
-      }
-    }
+    console.log('首页数据加载完成');
   } catch (e) {
-    console.error('获取系统性能失败', e);
+    console.error('加载首页数据失败', e);
   }
 };
 
-// 加载实例统计和实例列表
-const loadInstanceStats = async () => {
-  try {
-    // 获取实例统计信息
-    const statsRes = await apiService.get('/api/v1/instances/stats');
-    if (statsRes.data) {
-      instanceStats.value.total = statsRes.data.total;
-      instanceStats.value.running = statsRes.data.running;
-    }
-
-    // 获取实例列表
-    const listRes = await apiService.get('/api/v1/instances');
-    if (listRes.data && Array.isArray(listRes.data.instances)) {
-      // 使用适配器处理数据并处理运行时间
-      instances.value = adaptInstancesListWithUptime(listRes.data);
-    }
-  } catch (e) {
-    console.error('获取实例状态失败', e);
-  }
-};
-
-// 定时器变量
-let statsRefreshTimer = null;
-let instanceRefreshTimer = null;
-
-// 启动定时刷新
+// 优化：使用统一的轮询管理
 const startAutoRefresh = () => {
-  // 每10秒刷新一次系统性能数据
-  statsRefreshTimer = setInterval(() => {
-    loadSystemStats();
-  }, 10000);
+  // 通知轮询store当前在首页，需要实例和系统数据
+  pollingStore.adjustPollingByPageState('home');
 
-  // 每30秒刷新一次实例数据
-  instanceRefreshTimer = setInterval(() => {
-    loadInstanceStats();
-  }, 30000);
+  console.log('首页轮询已启动');
 };
 
-// 停止定时刷新
+// 优化：统一停止轮询
 const stopAutoRefresh = () => {
-  if (statsRefreshTimer) {
-    clearInterval(statsRefreshTimer);
-    statsRefreshTimer = null;
-  }
+  // 通知轮询store切换到后台模式
+  pollingStore.adjustPollingByPageState('background');
 
-  if (instanceRefreshTimer) {
-    clearInterval(instanceRefreshTimer);
-    instanceRefreshTimer = null;
-  }
+  console.log('首页轮询已调整为后台模式');
 };
 
 // 切换编辑模式
@@ -741,9 +718,8 @@ onMounted(() => {
     console.error('无法加载保存的布局', e);
   }
 
-  // 初次加载数据
-  loadInstanceStats();
-  loadSystemStats();
+  // 优化：使用统一的数据加载
+  loadData();
 
   // 启动自动刷新
   startAutoRefresh();

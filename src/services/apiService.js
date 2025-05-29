@@ -20,6 +20,8 @@ const axiosInstance = axios.create({
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
+    "X-Client-Name": "MailLauncher-Frontend",
+    "X-Client-Version": "1.0.0",
   },
 });
 
@@ -375,7 +377,28 @@ const testBackendConnection = async () => {
 const apiRequest = async (method, url, data = null, config = {}) => {
   try {
     // 判断是否应该使用代理
-    const useProxy = import.meta.env.VITE_USE_PROXY === "true"; // 处理URL，确保使用代理时使用正确的路径格式
+    const useProxy = import.meta.env.VITE_USE_PROXY === "true";
+    // 合并默认请求头和自定义请求头
+    const requestConfig = {
+      ...config,
+      headers: {
+        // 保留默认头（但排除浏览器禁止的头）
+        "Content-Type":
+          axiosInstance.defaults.headers.common["Content-Type"] ||
+          "application/json",
+        Accept:
+          axiosInstance.defaults.headers.common["Accept"] || "application/json",
+        "X-Client-Name": axiosInstance.defaults.headers.common["X-Client-Name"],
+        "X-Client-Version":
+          axiosInstance.defaults.headers.common["X-Client-Version"],
+        // 允许config覆盖特定头
+        ...config.headers,
+        // 添加请求时间戳（便于调试）
+        "X-Request-Time": new Date().toISOString(),
+      },
+    };
+
+    // 处理URL，确保使用代理时使用正确的路径格式
     let requestUrl;
     if (useProxy) {
       // 使用代理时，需要添加/api/v1前缀，但要避免重复
@@ -389,22 +412,24 @@ const apiRequest = async (method, url, data = null, config = {}) => {
         requestUrl = `/api/v1/${cleanPath}`;
       }
     } else {
-      // 不使用代理时，URL应该是完整的绝对URL
-      // 避免重复添加基础URL和API前缀
-      if (url.includes("http://") || url.includes("https://")) {
-        // 如果URL已经是完整的绝对URL，则直接使用
-        requestUrl = url;
+      // 不使用代理时，由于axios实例已经设置了baseURL，
+      // 这里只需要构建相对路径部分
+      const apiPrefix = backendConfig.getApiPrefix();
+
+      // 清理URL，移除开头的斜杠
+      const cleanUrl = url.replace(/^\/+/, "");
+
+      // 确保不重复添加API前缀
+      if (cleanUrl.startsWith(apiPrefix.replace(/^\/+/, ""))) {
+        // 如果URL已经包含API前缀，直接使用
+        requestUrl = `/${cleanUrl}`;
       } else {
-        // 否则，构建完整的URL
-        const apiPrefix = backendConfig.getApiPrefix();
-        // 确保不重复添加API前缀
-        if (url.startsWith(apiPrefix)) {
-          requestUrl = `${backendConfig.getBackendUrl()}${url}`;
-        } else {
-          requestUrl = `${backendConfig.getBackendUrl()}${apiPrefix}${url}`;
-        }
+        // 否则，添加API前缀
+        requestUrl = `${apiPrefix}/${cleanUrl}`;
       }
-    } // 添加详细日志，帮助诊断URL构建问题
+    }
+
+    // 添加详细日志，帮助诊断URL构建问题
     console.log(
       `发送${
         useProxy ? "代理" : "直接"
@@ -421,7 +446,7 @@ const apiRequest = async (method, url, data = null, config = {}) => {
       method,
       url: requestUrl,
       data,
-      ...config,
+      ...requestConfig,
     });
 
     // 对实例相关的API响应进行数据预处理
@@ -450,7 +475,7 @@ const apiRequest = async (method, url, data = null, config = {}) => {
 
 // 导出API方法
 export default {
-  get: (url, params) => {
+  get: (url, params, headers = {}) => {
     // 检查是否强制使用模拟数据
     if (localStorage.getItem("useMockData") === "true") {
       console.log(`GET请求使用模拟数据: ${url}`);
@@ -458,10 +483,10 @@ export default {
         data: generateMockResponse(url, "get", params, null),
       });
     }
-    return apiRequest("get", url, null, { params });
+    return apiRequest("get", url, null, { params, headers });
   },
 
-  post: (url, data) => {
+  post: (url, data, headers = {}) => {
     // 检查是否强制使用模拟数据
     if (localStorage.getItem("useMockData") === "true") {
       console.log(`POST请求使用模拟数据: ${url}`);
@@ -469,10 +494,10 @@ export default {
         data: generateMockResponse(url, "post", null, data),
       });
     }
-    return apiRequest("post", url, data);
+    return apiRequest("post", url, data, { headers });
   },
 
-  put: (url, data) => {
+  put: (url, data, headers = {}) => {
     // 检查是否强制使用模拟数据
     if (localStorage.getItem("useMockData") === "true") {
       console.log(`PUT请求使用模拟数据: ${url}`);
@@ -480,10 +505,10 @@ export default {
         data: generateMockResponse(url, "put", null, data),
       });
     }
-    return apiRequest("put", url, data);
+    return apiRequest("put", url, data, { headers });
   },
 
-  delete: (url) => {
+  delete: (url, headers = {}) => {
     // 检查是否强制使用模拟数据
     if (localStorage.getItem("useMockData") === "true") {
       console.log(`DELETE请求使用模拟数据: ${url}`);
@@ -491,10 +516,27 @@ export default {
         data: generateMockResponse(url, "delete", null, null),
       });
     }
-    return apiRequest("delete", url);
+    return apiRequest("delete", url, null, { headers });
   },
+
+  // 通用请求方法，支持完全自定义配置
+  request: (config) => {
+    const { method, url, data, params, headers = {}, ...otherConfig } = config;
+
+    // 检查是否强制使用模拟数据
+    if (localStorage.getItem("useMockData") === "true") {
+      console.log(`${method.toUpperCase()}请求使用模拟数据: ${url}`);
+      return Promise.resolve({
+        data: generateMockResponse(url, method, params, data),
+      });
+    }
+
+    return apiRequest(method, url, data, { params, headers, ...otherConfig });
+  },
+
   // 测试后端连接
   testBackendConnection,
+
   // 配置是否使用模拟数据
   setUseMockData: (useMock) => {
     localStorage.setItem("useMockData", useMock);
@@ -506,5 +548,59 @@ export default {
       localStorage.getItem("useMockData") === "true" ||
       window._useMockData === true
     );
+  },
+  // 设置全局请求头（会应用到所有请求）
+  setGlobalHeaders: (headers) => {
+    // 过滤掉浏览器禁止的请求头
+    const forbiddenHeaders = [
+      "user-agent",
+      "accept-charset",
+      "accept-encoding",
+      "access-control-request-headers",
+      "access-control-request-method",
+      "connection",
+      "content-length",
+      "cookie",
+      "cookie2",
+      "date",
+      "dnt",
+      "expect",
+      "host",
+      "keep-alive",
+      "origin",
+      "referer",
+      "te",
+      "trailer",
+      "transfer-encoding",
+      "upgrade",
+      "via",
+    ];
+
+    const safeHeaders = {};
+    Object.keys(headers).forEach((key) => {
+      if (!forbiddenHeaders.includes(key.toLowerCase())) {
+        safeHeaders[key] = headers[key];
+      } else {
+        console.warn(`跳过禁止的请求头: ${key}`);
+      }
+    });
+
+    Object.assign(axiosInstance.defaults.headers.common, safeHeaders);
+  },
+
+  // 移除全局请求头
+  removeGlobalHeaders: (headerNames) => {
+    if (Array.isArray(headerNames)) {
+      headerNames.forEach((name) => {
+        delete axiosInstance.defaults.headers.common[name];
+      });
+    } else {
+      delete axiosInstance.defaults.headers.common[headerNames];
+    }
+  },
+
+  // 获取当前全局请求头
+  getGlobalHeaders: () => {
+    return { ...axiosInstance.defaults.headers.common };
   },
 };

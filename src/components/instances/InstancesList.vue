@@ -207,12 +207,19 @@
 
 <script setup>
 import { ref, computed, onMounted, inject, onUnmounted, watch } from 'vue';
-import { fetchInstances as apiFetchInstances, startInstance as apiStartInstance, stopInstance as apiStopInstance, restartInstance as apiRestartInstance, deleteInstance as apiDeleteInstance } from '@/api/instances';
 import { Icon } from '@iconify/vue';
 import toastService from '@/services/toastService';
 
+// 导入优化的状态管理
+import { useInstanceStore } from '@/stores/instanceStore';
+import { usePollingStore } from '@/stores/pollingStore';
+
 // 事件总线，用于与其他组件通信
 const emitter = inject('emitter');
+
+// 使用优化的状态管理
+const instanceStore = useInstanceStore();
+const pollingStore = usePollingStore();
 
 // 定义组件的emit
 const emit = defineEmits(['refresh-instances', 'toggle-instance', 'view-instance']);
@@ -221,8 +228,6 @@ const emit = defineEmits(['refresh-instances', 'toggle-instance', 'view-instance
 const activeTab = inject('activeTab', ref(''));
 
 // 状态变量
-const loading = ref(false);
-const instances = ref([]);
 const searchQuery = ref('');
 const filterType = ref('all');
 const showDeleteConfirm = ref(false);
@@ -231,6 +236,10 @@ const instanceToDelete = ref(null);
 const instanceToRestart = ref(null);
 const deleteLoading = ref(false);
 const restartLoading = ref(false);
+
+// 使用计算属性从store获取数据，避免重复请求
+const instances = computed(() => instanceStore.instances);
+const loading = computed(() => instanceStore.loading);
 
 // 过滤器标签映射
 const filterLabels = {
@@ -279,48 +288,15 @@ const filteredInstances = computed(() => {
     return result;
 });
 
-// 获取实例
+// 优化：使用store统一获取实例，避免重复请求
 const fetchInstances = async () => {
     try {
-        loading.value = true;
-        console.log('获取实例列表...');
-
-        try {
-            // 引入数据适配器
-            const { adaptInstancesList, adaptInstanceData } = await import('@/utils/apiAdapters');
-            
-            // 尝试从API获取数据
-            console.log('尝试从API获取实例数据');
-            const apiInstances = await apiFetchInstances();
-
-            if (apiInstances && (Array.isArray(apiInstances) || apiInstances.length > 0)) {
-                // 使用适配器处理实例数据，确保字段名称一致
-                const adaptedInstances = Array.isArray(apiInstances) 
-                    ? apiInstances.map(adaptInstanceData) 
-                    : adaptInstancesList(apiInstances);
-                
-                // 为每个实例添加必要的UI状态字段
-                instances.value = adaptedInstances.map(instance => ({
-                    ...instance,
-                    isLoading: false, // 添加加载状态字段
-                    id: instance.id || instance.name // 确保有ID字段
-                }));
-            } else {
-                console.warn('API返回数据格式不符合预期，使用模拟数据');
-                instances.value = getMockInstances();
-            }
-        } catch (apiError) {
-            console.error('API请求失败:', apiError);
-            console.log('回退到模拟数据');
-            instances.value = getMockInstances();
-        }
-
+        console.log('从store获取实例列表...');
+        await instanceStore.fetchInstances();
         console.log(`获取到${instances.value.length}个实例`);
     } catch (error) {
         console.error("获取实例失败:", error);
-        instances.value = getMockInstances();
-    } finally {
-        loading.value = false;
+        toastService.error('获取实例列表失败');
     }
 };
 
@@ -477,105 +453,76 @@ const goToDownloads = () => {
 };
 goToDownloads.timer = null;
 
-// 切换实例运行状态
-const toggleInstanceRunning = (instance) => {
+// 优化：切换实例运行状态，使用store防重复操作
+const toggleInstanceRunning = async (instance) => {
     try {
-        // 防止重复点击
-        if (instance.isLoading) return;
-
-        // 设置加载状态
-        instance.isLoading = true;
-
         if (instance.status === 'running') {
-            stopInstance(instance);
+            await instanceStore.stopInstance(instance.id || instance.name);
         } else {
-            startInstance(instance);
+            await instanceStore.startInstance(instance.id || instance.name);
         }
+
+        // 操作成功，通知父组件
+        emit('refresh-instances');
     } catch (error) {
         console.error('操作实例状态时出错:', error);
         toastService.error('操作失败: ' + (error.message || '未知错误'));
-        // 确保出错时重置加载状态
-        instance.isLoading = false;
     }
 };
 
-// 启动实例
-const startInstance = async (instance) => {
+// 优化：重启实例，使用store方法
+const restartInstance = async (instance) => {
     try {
-        // 先设置临时状态表示启动中
-        instance.status = 'starting';
+        await instanceStore.restartInstance(instance.id || instance.name);
 
-        // 显示通知
-        toastService.info(`正在启动实例: ${instance.name}`);
+        toastService.success(`实例 ${instance.name} 已重启`);
+        emit('refresh-instances');
 
-        // 调用真实API - 使用更新后的API函数
-        const response = await apiStartInstance(instance.id || instance.name);
-
-        // 检查响应 - 支持新的响应格式
-        if (response && (response.success || response.status === 'success' || response.message === 'success')) {
-            // 切换到运行状态
-            instance.status = 'running';
-            instance.isLoading = false;
-
-            // 通知成功
-            toastService.success(`实例 ${instance.name} 已启动`);
-
-            // 通知父组件刷新列表
-            emit('refresh-instances');
-        } else {
-            throw new Error(response?.message || response?.error || '启动失败');
-        }
+        // 关闭确认对话框
+        showRestartConfirm.value = false;
+        instanceToRestart.value = null;
     } catch (error) {
-        console.error('启动实例失败:', error);
-
-        // 恢复状态
-        instance.status = 'stopped';
-        instance.isLoading = false;
-
-        // 提供更详细的错误信息
-        const errorMessage = error.response?.data?.message || error.message || '未知错误';
-        toastService.error(`启动实例失败: ${errorMessage}`);
+        console.error('重启实例失败:', error);
+        toastService.error(`重启实例失败: ${error.message || '未知错误'}`);
+    } finally {
+        restartLoading.value = false;
     }
 };
 
-// 停止实例
-const stopInstance = async (instance) => {
+// 优化：删除实例，使用store方法
+const deleteInstance = async (instance) => {
     try {
-        // 先设置临时状态表示停止中
-        instance.status = 'stopping';
+        deleteLoading.value = true;
 
-        // 显示通知
-        toastService.info(`正在停止实例: ${instance.name}`);
+        await instanceStore.deleteInstance(instance.id || instance.name);
 
-        // 调用真实API - 使用更新后的API函数
-        const response = await apiStopInstance(instance.id || instance.name);
+        toastService.success(`实例 ${instance.name} 已删除`);
+        emit('refresh-instances');
 
-        // 检查响应 - 支持新的响应格式
-        if (response && (response.success || response.status === 'success' || response.message === 'success')) {
-            // 切换到停止状态
-            instance.status = 'stopped';
-            instance.isLoading = false;
-
-            // 通知成功
-            toastService.success(`实例 ${instance.name} 已停止`);
-
-            // 通知父组件刷新列表
-            emit('refresh-instances');
-        } else {
-            throw new Error(response?.message || response?.error || '停止失败');
-        }
+        // 关闭确认对话框
+        showDeleteConfirm.value = false;
+        instanceToDelete.value = null;
     } catch (error) {
-        console.error('停止实例失败:', error);
-
-        // 恢复状态
-        instance.status = 'running';
-        instance.isLoading = false;
-
-        // 提供更详细的错误信息
-        const errorMessage = error.response?.data?.message || error.message || '未知错误';
-        toastService.error(`停止实例失败: ${errorMessage}`);
+        console.error('删除实例失败:', error);
+        toastService.error(`删除实例失败: ${error.message || '未知错误'}`);
+    } finally {
+        deleteLoading.value = false;
     }
 };
+
+// 启动自动刷新轮询
+const startPolling = () => {
+    pollingStore.adjustPollingByPageState('instances');
+    console.log('实例页面轮询已启动');
+};
+
+// 停止轮询
+const stopPolling = () => {
+    pollingStore.adjustPollingByPageState('background');
+    console.log('实例页面轮询已调整为后台模式');
+};
+
+// 停止实例 - 已移除，使用store方法
 
 // 打开实例文件夹
 const openInstancePath = (instance) => {
@@ -609,10 +556,13 @@ const openSettings = (instance) => {
     }
 };
 
-// 初始化
+// 初始化 - 优化版本
 onMounted(() => {
     // 初始加载时自动刷新一次
     fetchInstances();
+
+    // 启动智能轮询
+    startPolling();
 
     // 监听刷新实例列表事件
     if (emitter) {
@@ -620,8 +570,11 @@ onMounted(() => {
     }
 });
 
-// 移除事件监听器
+// 移除事件监听器 - 优化版本
 onUnmounted(() => {
+    // 停止轮询
+    stopPolling();
+
     if (emitter) {
         emitter.off('refresh-instances', fetchInstances);
     }
@@ -714,49 +667,6 @@ const confirmDelete = async () => {
         const errorMessage = error.response?.data?.message || error.message || '未知错误';
         toastService.error(`删除实例失败: ${errorMessage}`);
         deleteLoading.value = false;
-    }
-};
-
-// 重启实例
-const restartInstance = async (instance) => {
-    try {
-        // 防止重复点击
-        if (instance.isLoading) return;
-
-        // 设置加载状态
-        instance.isLoading = true;
-        instance.status = 'starting'; // 重启时先显示启动中
-
-        // 显示通知
-        toastService.info(`正在重启实例: ${instance.name}`);
-
-        // 调用真实API - 使用更新后的API函数
-        const response = await apiRestartInstance(instance.id || instance.name);
-
-        // 检查响应 - 支持新的响应格式
-        if (response && (response.success || response.status === 'success' || response.message === 'success')) {
-            // 重启成功
-            instance.status = 'running';
-            instance.isLoading = false;
-
-            // 通知成功
-            toastService.success(`实例 ${instance.name} 重启成功`);
-
-            // 通知父组件刷新列表
-            emit('refresh-instances');
-        } else {
-            throw new Error(response?.message || response?.error || '重启失败');
-        }
-    } catch (error) {
-        console.error('重启实例失败:', error);
-
-        // 恢复状态 - 假设重启失败时实例是停止的
-        instance.status = 'stopped';
-        instance.isLoading = false;
-
-        // 提供更详细的错误信息
-        const errorMessage = error.response?.data?.message || error.message || '未知错误';
-        toastService.error(`重启实例失败: ${errorMessage}`);
     }
 };
 
@@ -882,7 +792,7 @@ const viewInstanceLogs = (instance) => {
     animation: pulse 0.8s infinite;
 }
 
-/* 脉冲动画 */
+/* 脉冲动画 - 优化性能 */
 @keyframes pulse {
 
     0%,
@@ -895,6 +805,17 @@ const viewInstanceLogs = (instance) => {
         opacity: 0.7;
         transform: scale(0.85);
     }
+}
+
+/* 减少动画频率以提升性能 */
+.status-dot.status-running,
+.status-dot.status-maintenance {
+    animation: pulse 2s infinite ease-in-out;
+}
+
+.status-dot.status-starting,
+.status-dot.status-stopping {
+    animation: pulse 1s infinite ease-in-out;
 }
 
 /* 启动按钮 - 与运行指示点同色 */

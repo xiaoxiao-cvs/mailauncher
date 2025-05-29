@@ -3,6 +3,7 @@ import setupNodePolyfills from "./utils/node-polyfill.js";
 setupNodePolyfills();
 
 import { createApp } from "vue";
+import { createPinia } from "pinia";
 import App from "./App.vue";
 import "./assets/tailwind.css";
 import "./assets/global.css";
@@ -18,6 +19,10 @@ import { initTheme } from "./services/theme";
 // 创建应用实例
 const app = createApp(App);
 
+// 创建并使用Pinia状态管理
+const pinia = createPinia();
+app.use(pinia);
+
 // 全局注册Iconify组件
 app.component("Icon", Icon);
 
@@ -27,8 +32,8 @@ app.provide("toast", toastService);
 // 全局提供事件总线
 app.provide("emitter", eventBus);
 
-// 也作为全局属性
-app.config.globalProperties.$toast = toastService;
+// 初始化主题
+initTheme();
 
 // =======================================
 // CSS变量初始化与主题系统集成

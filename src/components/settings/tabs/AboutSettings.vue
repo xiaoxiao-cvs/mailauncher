@@ -20,6 +20,9 @@
                     <button class="btn btn-info" @click="openGitHub">
                         GitHub
                     </button>
+                    <button class="btn btn-secondary" @click="openDocs">
+                        文档
+                    </button>
                 </div>
             </div>
         </div>
@@ -50,6 +53,14 @@
                         <li>Iconify</li>
                     </ul>
                 </div>
+
+                <div class="divider"></div>
+
+                <div class="version-info">
+                    <h4>版本信息</h4>
+                    <p>当前版本: {{ appVersion }}</p>
+                    <p>构建日期: {{ buildDate }}</p>
+                </div>
             </div>
         </div>
     </div>
@@ -64,26 +75,34 @@ const toast = inject('toast');
 // 更新检查状态
 const checkingUpdates = ref(false);
 
+// 版本信息
+const appVersion = ref('1.1.4');
+const buildDate = ref('2023-12-01');
+
 // 检查更新
 const checkForUpdates = async () => {
     checkingUpdates.value = true;
 
     try {
         // 模拟检查更新
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // 使用注入的toast服务显示结果
-        toast.show('您已经在使用最新版本', 'info');
+        toast.info('当前已是最新版本');
     } catch (error) {
-        toast.show('检查更新失败: ' + error.message, 'error');
+        toast.error('检查更新失败');
     } finally {
         checkingUpdates.value = false;
     }
 };
 
-// 打开GitHub页面
+// 打开GitHub
 const openGitHub = () => {
-    window.open('https://github.com/MaiM-with-u/MaiLauncher', '_blank');
+    window.open('https://github.com/MaiM-with-u/MaiBot', '_blank');
+};
+
+// 打开文档
+const openDocs = () => {
+    window.open('https://maibot.docs', '_blank');
 };
 </script>
 
@@ -137,13 +156,15 @@ const openGitHub = () => {
 
 .credits-section,
 .license-section,
-.third-party-section {
+.third-party-section,
+.version-info {
     margin-bottom: 1rem;
 }
 
 .credits-section h4,
 .license-section h4,
-.third-party-section h4 {
+.third-party-section h4,
+.version-info h4 {
     font-size: 1.1rem;
     font-weight: 500;
     margin-bottom: 0.5rem;

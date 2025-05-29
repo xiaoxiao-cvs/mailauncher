@@ -200,51 +200,54 @@ const updateThemeColors = () => {
 // 重置主题设置
 const resetThemeSettings = () => {
     if (confirm('确定要重置所有主题设置吗？这将恢复默认的颜色、字体大小和布局密度。')) {
-        // 调用settingsService的resetSettings方法
-        settingsService.resetSettings();
+        // 重置主题
+        setTheme('light');
 
-        // 更新当前状态
-        currentTheme.value = 'light';
-        darkMode.value = false;
-        enableAnimations.value = true;
-        layoutDensity.value = 'comfortable';
+        // 重置字体大小
         fontSize.value = 14;
+        changeFontSize();
 
-        // 应用变更
-        applyAnimationsState(true);
-        document.documentElement.setAttribute('data-density', 'comfortable');
-        document.documentElement.style.setProperty('--base-font-size', '14px');
+        // 重置布局密度
+        setLayoutDensity('comfortable');
 
-        // 更新主题色展示
+        // 重置动画效果
+        enableAnimations.value = true;
+        toggleAnimations();
+
+        // 清除localStorage中的相关设置
+        localStorage.removeItem('theme');
+        localStorage.removeItem('themeColor');
+        localStorage.removeItem('fontSize');
+        localStorage.removeItem('layoutDensity');
+        localStorage.removeItem('enableAnimations');
+
+        // 刷新主题色彩值
         setTimeout(() => {
             updateThemeColors();
         }, 100);
 
-        // 显示成功消息
-        if (emitter) {
-            emitter.emit('show-toast', {
-                type: 'success',
-                message: '主题设置已重置',
-                duration: 3000
-            });
-        } else {
-            alert('主题设置已重置');
+        // 使用toast服务显示成功消息
+        const toast = inject('toast', null);
+        if (toast) {
+            toast.success('主题设置已重置');
         }
+
+        // 触发主题重置事件
+        if (emitter) {
+            emitter.emit('theme-reset');
+        }
+
+        // 发送全局事件
+        window.dispatchEvent(new CustomEvent('theme-reset'));
     }
 };
 
 // 初始化设置
 onMounted(() => {
-    // 从本地存储加载动画设置
+    // 应用当前设置
     applyAnimationsState(enableAnimations.value);
-
-    // 加载布局密度
     document.documentElement.setAttribute('data-density', layoutDensity.value);
-
-    // 加载字体大小
-    document.documentElement.style.setProperty('--base-font-size', `${fontSize.value}px`);
-
-    // 初始化当前主题
+    changeFontSize();
     updateThemeColors();
 
     // 设置监听器，当主题变量变化时更新显示

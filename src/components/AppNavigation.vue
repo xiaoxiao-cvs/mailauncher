@@ -138,12 +138,17 @@
 
 <script setup>
 import { ref, computed, onMounted, inject, onUnmounted, watch } from 'vue';
-import { instancesApi } from '@/services/api';
 import { Icon } from '@iconify/vue';
 import toastService from '@/services/toastService';
 
+// 导入优化的状态管理
+import { useInstanceStore } from '@/stores/instanceStore';
+
 // 事件总线，用于与其他组件通信
 const emitter = inject('emitter');
+
+// 使用优化的状态管理
+const instanceStore = useInstanceStore();
 
 // 定义组件的emit
 const emit = defineEmits(['refresh-instances', 'toggle-instance', 'view-instance']);
@@ -152,10 +157,12 @@ const emit = defineEmits(['refresh-instances', 'toggle-instance', 'view-instance
 const activeTab = inject('activeTab', ref(''));
 
 // 状态变量
-const loading = ref(false);
-const instances = ref([]);
 const searchQuery = ref('');
 const filterType = ref('all');
+
+// 使用计算属性从store获取数据，添加默认值防止错误
+const instances = computed(() => instanceStore.instances || []);
+const loading = computed(() => instanceStore.loading || false);
 
 // 过滤器标签映射
 const filterLabels = {
@@ -176,7 +183,8 @@ const filterLabel = computed(() => {
 watch(activeTab, (newTab) => {
     if (newTab === 'instances') {
         console.log('自动刷新实例列表');
-        fetchInstances();
+        // 使用store方法，避免重复请求
+        instanceStore.fetchInstances();
     }
 });
 
@@ -204,45 +212,15 @@ const filteredInstances = computed(() => {
     return result;
 });
 
-// 获取实例
+// 优化：使用store统一获取实例，避免重复请求
 const fetchInstances = async () => {
     try {
-        loading.value = true;
-        console.log('获取实例列表...');
-
-        // 检查是否使用模拟数据
-        const useMockData = localStorage.getItem('useMockData') === 'true';
-
-        if (useMockData) {
-            // 使用模拟数据
-            console.log('使用模拟数据');
-            instances.value = getMockInstances();
-        } else {
-            try {
-                // 尝试从API获取数据
-                console.log('尝试从API获取实例数据');
-                const response = await instancesApi.getInstances();
-
-                if (response && response.data && Array.isArray(response.data.instances)) {
-                    instances.value = response.data.instances;
-                } else if (response && Array.isArray(response.instances)) {
-                    instances.value = response.instances;
-                } else {
-                    console.warn('API返回数据格式不符合预期，使用模拟数据');
-                    instances.value = getMockInstances();
-                }
-            } catch (apiError) {
-                console.error('API请求失败:', apiError);
-                instances.value = getMockInstances();
-            }
-        }
-
+        console.log('从store获取实例列表...');
+        await instanceStore.fetchInstances();
         console.log(`获取到${instances.value.length}个实例`);
     } catch (error) {
         console.error("获取实例失败:", error);
-        instances.value = getMockInstances();
-    } finally {
-        loading.value = false;
+        toastService.error('获取实例列表失败');
     }
 };
 

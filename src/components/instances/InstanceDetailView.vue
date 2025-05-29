@@ -34,11 +34,11 @@
                         </div>
                         <div class="info-item">
                             <div class="info-label">最后启动:</div>
-                            <div class="info-value">2025-05-19 11:40:20</div>
+                            <div class="info-value">{{ instance.lastStartTime || '从未启动' }}</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label">创建时间:</div>
-                            <div class="info-value">{{ instance.createdAt || instance.installedAt }}</div>
+                            <div class="info-value">{{ instance.createdAt || instance.installedAt || '未知' }}</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label">状态:</div>
@@ -51,7 +51,7 @@
                         </div>
                         <div class="info-item">
                             <div class="info-label">启动次数:</div>
-                            <div class="info-value">0</div>
+                            <div class="info-value">{{ instance.startCount || 0 }}</div>
                         </div>
                     </div>
                 </div>

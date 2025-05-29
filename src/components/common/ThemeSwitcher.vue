@@ -86,15 +86,17 @@ const selectTheme = (themeName) => {
 };
 
 // 监听主题重置事件
+const handleThemeReset = () => {
+  // 重置后刷新当前主题状态
+  currentTheme.value = localStorage.getItem('theme') || 'light';
+};
+
 onMounted(() => {
-  window.addEventListener('theme-reset', () => {
-    // 重置后刷新当前主题状态
-    currentTheme.value = localStorage.getItem('theme') || 'light';
-  });
+  window.addEventListener('theme-reset', handleThemeReset);
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener('theme-reset', () => { });
+  window.removeEventListener('theme-reset', handleThemeReset);
 });
 </script>
 
