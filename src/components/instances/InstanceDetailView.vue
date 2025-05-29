@@ -109,14 +109,37 @@
 
             <!-- 右侧终端区域 -->
             <div class="terminal-container shadow-md">
-                <!-- 终端标题栏 - 移除重启按钮 -->
+                <!-- 终端标题栏和控制按钮 -->
                 <div class="terminal-header">
                     <div class="flex items-center">
                         <span class="text-primary font-bold">MaiBot</span>
                         <span class="mx-2 text-gray-300">|</span>
-                        <span class="status-text">{{ isRunning ? '运行中' : '未运行' }}</span>
+                        <span class="status-text" :class="{ 'text-success': isRunning, 'text-neutral': !isRunning }">
+                            {{ isRunning ? '运行中' : '未运行' }}
+                        </span>
                     </div>
-                    <!-- 移除了重启按钮 -->
+
+                    <div class="flex items-center gap-2">
+                        <!-- 启动按钮 -->
+                        <button class="btn btn-xs" :class="isRunning ? 'btn-disabled' : 'btn-success'"
+                            @click="startInstance" :disabled="isRunning">
+                            <Icon icon="mdi:play" class="mr-1" width="14" height="14" />
+                            启动
+                        </button>
+
+                        <!-- 停止按钮 -->
+                        <button class="btn btn-xs" :class="!isRunning ? 'btn-disabled' : 'btn-error'"
+                            @click="stopInstance" :disabled="!isRunning">
+                            <Icon icon="mdi:stop" class="mr-1" width="14" height="14" />
+                            停止
+                        </button>
+
+                        <!-- 重启终端按钮 -->
+                        <button class="btn btn-xs btn-ghost" @click="restartTerminal" title="重启终端">
+                            <Icon icon="mdi:refresh" class="mr-1" width="14" height="14" />
+                            重启终端
+                        </button>
+                    </div>
                 </div>
 
                 <div class="terminal-tabs">
@@ -124,31 +147,13 @@
                         MaiBot v0.6.3
                     </div>
                 </div>
-                <div class="terminal-content" ref="terminalContent">
-                    <!-- 空终端提示 -->
-                    <div v-if="terminalLines.length === 0"
-                        class="terminal-empty flex flex-col items-center justify-center h-full">
-                        <Icon icon="mdi:console" width="48" height="48" class="opacity-20 mb-4" />
-                        <p class="opacity-50">
-                            {{ isTerminalConnecting ? '正在连接终端...' :
-                                isTerminalConnected ? '终端已就绪，等待输出' :
-                                    '终端未连接，请检查实例状态' }}
-                        </p>
-                    </div>
 
-                    <!-- 终端输出行 -->
-                    <div v-for="(line, index) in terminalLines" :key="index" class="terminal-line">
-                        <span class="terminal-timestamp">{{ line.timestamp }}</span>
-                        <span class="terminal-text" :class="{
-                            'text-green-500': line.type === 'success',
-                            'text-yellow-500': line.type === 'warning',
-                            'text-red-500': line.type === 'error',
-                            'font-bold': line.type === 'command'
-                        }">
-                            {{ line.text }}
-                        </span>
-                    </div>
+                <!-- xterm.js 终端 -->
+                <div class="xterm-wrapper">
+                    <div class="terminal-content" ref="terminalContent"></div>
                 </div>
+
+                <!-- 终端输入区 -->
                 <div class="terminal-input-area">
                     <div class="terminal-prompt">$</div>
                     <input type="text" ref="commandInputRef" v-model="commandInput" @keyup.enter="sendCommand"
@@ -169,6 +174,14 @@ import { Icon } from '@iconify/vue';
 import toastService from '@/services/toastService';
 import { getTerminalWebSocketService, closeTerminalWebSocket } from '@/services/websocket';
 import { isMockModeActive } from '@/services/apiService';
+import deployApi from '@/services/deployApi'; // 导入deployApi以使用实例控制API
+
+// 导入xterm和相关插件
+import { Terminal } from 'xterm';
+import { FitAddon } from 'xterm-addon-fit';
+import { WebLinksAddon } from 'xterm-addon-web-links';
+import { Unicode11Addon } from 'xterm-addon-unicode11';
+import 'xterm/css/xterm.css';
 
 const props = defineProps({
     instance: {
@@ -194,21 +207,76 @@ const isTerminalConnecting = ref(false);
 // WebSocket 终端实例
 let terminalWS = null;
 
-// 添加终端输出行
-const addTerminalLine = (text, type = 'info') => {
-    terminalLines.value.push({
-        timestamp: getCurrentTimestamp(),
-        text: text,
-        type: type
+// xterm.js 相关
+let term = null;
+let fitAddon = null;
+
+// 初始化xterm.js终端
+const initXterm = () => {
+    // 创建xterm实例
+    term = new Terminal({
+        cursorBlink: true,
+        convertEol: true,
+        fontFamily: '"Cascadia Code", "Fira Code", Consolas, "Courier New", monospace',
+        fontSize: 14,
+        theme: {
+            background: '#1e1e1e',
+            foreground: '#d4d4d4',
+            cursor: '#ffffff',
+            selectionBackground: '#555555',
+        },
+        allowProposedApi: true
     });
-    scrollToBottom();
+
+    // 加载插件
+    fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.loadAddon(new WebLinksAddon());
+    term.loadAddon(new Unicode11Addon());
+
+    // 打开终端
+    if (terminalContent.value) {
+        term.open(terminalContent.value);
+
+        // 首次自适应大小
+        setTimeout(() => {
+            try {
+                fitAddon.fit();
+            } catch (e) {
+                console.error("Error fitting terminal on initial load:", e);
+            }
+        }, 100);
+    }
+
+    // 设置终端输入处理
+    term.onData(data => {
+        if (isTerminalConnected.value && terminalWS) {
+            terminalWS.send({
+                type: 'input',
+                data: data
+            });
+        }
+    });
+
+    // 监听终端大小变化
+    term.onResize(size => {
+        if (isTerminalConnected.value && terminalWS) {
+            terminalWS.send({
+                type: 'resize',
+                cols: size.cols,
+                rows: size.rows
+            });
+        }
+    });
 };
 
 // 初始化终端WebSocket连接
 const initTerminalWebSocket = () => {
     if (!props.instance?.id) {
         console.warn('实例ID缺失，无法建立WebSocket连接');
-        addTerminalLine('错误: 无法建立终端连接 - 实例ID缺失', 'error');
+        if (term) {
+            term.writeln('\r\n\x1b[31m错误: 无法建立终端连接 - 实例ID缺失\x1b[0m');
+        }
         return;
     }
 
@@ -216,11 +284,13 @@ const initTerminalWebSocket = () => {
     const useMockMode = isMockModeActive();
     if (useMockMode) {
         console.log('使用模拟模式，生成模拟终端数据');
-        addTerminalLine('=== 模拟终端模式 ===', 'warning');
-        addTerminalLine('Starting MaiBot v0.6.3...', 'info');
-        addTerminalLine('Loading configuration...', 'info');
-        addTerminalLine('NapCat adapter initialized', 'success');
-        addTerminalLine('Ready to receive commands', 'success');
+        if (term) {
+            term.writeln('\r\n\x1b[33m=== 模拟终端模式 ===\x1b[0m');
+            term.writeln('Starting MaiBot v0.6.3...');
+            term.writeln('Loading configuration...');
+            term.writeln('\x1b[32mNapCat adapter initialized\x1b[0m');
+            term.writeln('\x1b[32mReady to receive commands\x1b[0m');
+        }
         isTerminalConnected.value = true;
         return;
     }
@@ -240,7 +310,25 @@ const initTerminalWebSocket = () => {
             console.log('终端WebSocket连接已建立');
             isTerminalConnected.value = true;
             isTerminalConnecting.value = false;
-            addTerminalLine('终端连接已建立', 'success');
+
+            if (term) {
+                term.writeln('\r\n\x1b[32m终端连接已建立\x1b[0m');
+
+                // 连接成功后发送终端大小
+                if (fitAddon) {
+                    try {
+                        fitAddon.fit();
+                        const dimensions = term.rows && term.cols ? { rows: term.rows, cols: term.cols } : { rows: 24, cols: 80 };
+                        terminalWS.send({
+                            type: 'resize',
+                            cols: dimensions.cols,
+                            rows: dimensions.rows
+                        });
+                    } catch (e) {
+                        console.error("Error fitting terminal after connection:", e);
+                    }
+                }
+            }
         });
 
         // 接收消息事件
@@ -249,20 +337,22 @@ const initTerminalWebSocket = () => {
 
             if (data.isMock) {
                 // 处理模拟数据
-                addTerminalLine(data.message || '模拟终端输出', 'info');
+                if (term) {
+                    term.writeln(data.message || '模拟终端输出');
+                }
                 return;
             }
 
             // 处理真实WebSocket消息
-            if (data.type === 'output') {
-                // 终端输出
-                addTerminalLine(data.data || data.message, 'info');
-            } else if (data.type === 'status') {
+            if (data.type === 'output' && term) {
+                // 直接写入xterm
+                term.write(data.data || data.message);
+            } else if (data.type === 'status' && term) {
                 // 状态消息
-                addTerminalLine(data.message, 'warning');
-            } else if (data.type === 'error') {
+                term.writeln(`\r\n\x1b[33m${data.message}\x1b[0m`);
+            } else if (data.type === 'error' && term) {
                 // 错误消息
-                addTerminalLine(data.message || '终端错误', 'error');
+                term.writeln(`\r\n\x1b[31m${data.message || '终端错误'}\x1b[0m`);
             }
         });
 
@@ -272,8 +362,8 @@ const initTerminalWebSocket = () => {
             isTerminalConnected.value = false;
             isTerminalConnecting.value = false;
 
-            if (!event.isMock) {
-                addTerminalLine('终端连接已断开', 'warning');
+            if (!event.isMock && term) {
+                term.writeln('\r\n\x1b[33m终端连接已断开\x1b[0m');
             }
         });
 
@@ -282,13 +372,18 @@ const initTerminalWebSocket = () => {
             console.error('终端WebSocket连接错误:', error);
             isTerminalConnected.value = false;
             isTerminalConnecting.value = false;
-            addTerminalLine('终端连接出错，回退到模拟模式', 'error');
+
+            if (term) {
+                term.writeln('\r\n\x1b[31m终端连接出错，回退到模拟模式\x1b[0m');
+            }
 
             // 回退到模拟模式
             setTimeout(() => {
-                addTerminalLine('=== 回退到模拟模式 ===', 'warning');
-                addTerminalLine('Starting MaiBot v0.6.3...', 'info');
-                addTerminalLine('Ready to receive commands', 'success');
+                if (term) {
+                    term.writeln('\r\n\x1b[33m=== 回退到模拟模式 ===\x1b[0m');
+                    term.writeln('Starting MaiBot v0.6.3...');
+                    term.writeln('\x1b[32mReady to receive commands\x1b[0m');
+                }
                 isTerminalConnected.value = true;
             }, 1000);
         });
@@ -299,13 +394,18 @@ const initTerminalWebSocket = () => {
     } catch (error) {
         console.error('创建终端WebSocket连接失败:', error);
         isTerminalConnecting.value = false;
-        addTerminalLine('终端连接失败，使用模拟模式', 'error');
+
+        if (term) {
+            term.writeln('\r\n\x1b[31m终端连接失败，使用模拟模式\x1b[0m');
+        }
 
         // 回退到模拟模式
         setTimeout(() => {
-            addTerminalLine('=== 回退到模拟模式 ===', 'warning');
-            addTerminalLine('Starting MaiBot v0.6.3...', 'info');
-            addTerminalLine('Ready to receive commands', 'success');
+            if (term) {
+                term.writeln('\r\n\x1b[33m=== 回退到模拟模式 ===\x1b[0m');
+                term.writeln('Starting MaiBot v0.6.3...');
+                term.writeln('\x1b[32mReady to receive commands\x1b[0m');
+            }
             isTerminalConnected.value = true;
         }, 1000);
     }
@@ -317,27 +417,21 @@ const closeTerminalConnection = () => {
         const sessionId = `${props.instance.id}_main`;
         closeTerminalWebSocket(sessionId);
     }
+
+    // 销毁xterm实例
+    if (term) {
+        try {
+            term.dispose();
+        } catch (e) {
+            console.error("Error disposing terminal:", e);
+        }
+        term = null;
+        fitAddon = null;
+    }
+
     terminalWS = null;
     isTerminalConnected.value = false;
     isTerminalConnecting.value = false;
-};
-
-// 获取当前时间戳
-const getCurrentTimestamp = () => {
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
-};
-
-// 滚动到终端底部
-const scrollToBottom = () => {
-    nextTick(() => {
-        if (terminalContent.value) {
-            terminalContent.value.scrollTop = terminalContent.value.scrollHeight;
-        }
-    });
 };
 
 // 发送命令
@@ -346,8 +440,10 @@ const sendCommand = () => {
 
     const command = commandInput.value;
 
-    // 添加命令到终端显示
-    addTerminalLine(`$ ${command}`, 'command');
+    // 使用xterm显示命令
+    if (term) {
+        term.writeln(`\r\n$ ${command}`);
+    }
 
     // 检查是否为模拟模式
     const useMockMode = isMockModeActive();
@@ -355,29 +451,31 @@ const sendCommand = () => {
     if (useMockMode || !terminalWS) {
         // 模拟模式处理
         setTimeout(() => {
-            let response = '';
-            let type = 'info';
+            if (!term) return;
 
             switch (command.toLowerCase()) {
                 case 'help':
-                    response = '可用命令:\nhelp - 显示帮助\nstatus - 显示状态\nversion - 显示版本\nclear - 清除屏幕';
+                    term.writeln('可用命令:');
+                    term.writeln('help - 显示帮助');
+                    term.writeln('status - 显示状态');
+                    term.writeln('version - 显示版本');
+                    term.writeln('clear - 清除屏幕');
                     break;
                 case 'status':
-                    response = `MaiBot 运行状态: ${isRunning.value ? '正常' : '已停止'}\nCPU: 32% | 内存: 128MB`;
+                    term.writeln(`MaiBot 运行状态: ${isRunning.value ? '正常' : '已停止'}`);
+                    term.writeln('CPU: 32% | 内存: 128MB');
                     break;
                 case 'version':
-                    response = 'MaiBot v0.6.3\nNapCat v1.2.0\nNoneBot v2.0.0';
+                    term.writeln('MaiBot v0.6.3');
+                    term.writeln('NapCat v1.2.0');
+                    term.writeln('NoneBot v2.0.0');
                     break;
                 case 'clear':
-                    terminalLines.value = [];
-                    commandInput.value = '';
-                    return;
+                    term.clear();
+                    break;
                 default:
-                    response = `[模拟] 执行命令: ${command}`;
-                    type = 'info';
+                    term.writeln(`[模拟] 执行命令: ${command}`);
             }
-
-            addTerminalLine(response, type);
         }, 300);
     } else {
         // 真实WebSocket模式，发送命令到后端
@@ -387,12 +485,14 @@ const sendCommand = () => {
                 data: command + '\n'  // 添加换行符
             });
 
-            if (!success) {
-                addTerminalLine('命令发送失败', 'error');
+            if (!success && term) {
+                term.writeln('\r\n\x1b[31m命令发送失败\x1b[0m');
             }
         } catch (error) {
             console.error('发送命令失败:', error);
-            addTerminalLine('命令发送失败: ' + error.message, 'error');
+            if (term) {
+                term.writeln(`\r\n\x1b[31m命令发送失败: ${error.message}\x1b[0m`);
+            }
         }
     }
 
@@ -401,18 +501,23 @@ const sendCommand = () => {
 
 // 重启终端
 const restartTerminal = () => {
-    addTerminalLine('正在重启终端连接...', 'info');
+    if (term) {
+        term.writeln('\r\n\x1b[33m正在重启终端连接...\x1b[0m');
+    }
 
     // 关闭现有连接
     closeTerminalConnection();
 
-    // 清空终端内容
-    terminalLines.value = [];
+    // 重新初始化终端
+    nextTick(() => {
+        // 先初始化xterm.js
+        initXterm();
 
-    // 重新初始化连接
-    setTimeout(() => {
-        initTerminalWebSocket();
-    }, 1000);
+        // 然后初始化WebSocket连接
+        setTimeout(() => {
+            initTerminalWebSocket();
+        }, 500);
+    });
 };
 
 // 打开模块
@@ -461,19 +566,114 @@ watch(() => terminalLines.value.length, () => {
     scrollToBottom();
 });
 
+// 添加实例启动和停止函数
+const startInstance = async () => {
+    if (!props.instance?.id || isRunning.value) return;
+
+    if (term) {
+        term.writeln('\r\n\x1b[33m正在启动实例...\x1b[0m');
+    }
+
+    try {
+        const response = await deployApi.startInstance(props.instance.id);
+        if (response.success) {
+            if (term) {
+                term.writeln('\r\n\x1b[32m实例启动成功!\x1b[0m');
+            }
+            // 触发emitter以通知其他组件实例状态变化
+            if (emitter) {
+                emitter.emit('instance-status-changed', {
+                    id: props.instance.id,
+                    status: 'running'
+                });
+            }
+        } else {
+            if (term) {
+                term.writeln(`\r\n\x1b[31m启动失败: ${response.message}\x1b[0m`);
+            }
+        }
+    } catch (error) {
+        console.error('启动实例出错:', error);
+        if (term) {
+            term.writeln(`\r\n\x1b[31m启动出错: ${error.message || '未知错误'}\x1b[0m`);
+        }
+    }
+};
+
+const stopInstance = async () => {
+    if (!props.instance?.id || !isRunning.value) return;
+
+    if (term) {
+        term.writeln('\r\n\x1b[33m正在停止实例...\x1b[0m');
+    }
+
+    try {
+        const response = await deployApi.stopInstance(props.instance.id);
+        if (response.success) {
+            if (term) {
+                term.writeln('\r\n\x1b[32m实例已停止!\x1b[0m');
+            }
+            // 触发emitter以通知其他组件实例状态变化
+            if (emitter) {
+                emitter.emit('instance-status-changed', {
+                    id: props.instance.id,
+                    status: 'stopped'
+                });
+            }
+        } else {
+            if (term) {
+                term.writeln(`\r\n\x1b[31m停止失败: ${response.message}\x1b[0m`);
+            }
+        }
+    } catch (error) {
+        console.error('停止实例出错:', error);
+        if (term) {
+            term.writeln(`\r\n\x1b[31m停止出错: ${error.message || '未知错误'}\x1b[0m`);
+        }
+    }
+};
+
+// 自适应窗口大小
+const handleResize = () => {
+    if (fitAddon && term) {
+        try {
+            fitAddon.fit();
+
+            // 发送终端尺寸到后端
+            if (isTerminalConnected.value && terminalWS) {
+                terminalWS.send({
+                    type: 'resize',
+                    cols: term.cols,
+                    rows: term.rows
+                });
+            }
+        } catch (e) {
+            console.error("Error fitting terminal on resize:", e);
+        }
+    }
+};
+
 // 组件挂载后的初始化
 onMounted(() => {
     console.log('InstanceDetailView 组件已挂载，实例:', props.instance);
-    scrollToBottom();
+
+    // 初始化xterm.js
+    initXterm();
 
     // 初始化终端连接
     initTerminalWebSocket();
+
+    // 添加窗口大小调整监听
+    window.addEventListener('resize', handleResize);
 });
 
 // 组件卸载时清理
 onUnmounted(() => {
     console.log('InstanceDetailView 组件即将卸载，清理WebSocket连接');
     closeTerminalConnection();
+
+    // 移除窗口大小调整监听
+    window.removeEventListener('resize', handleResize);
 });
 
 // 监听实例变化，重新初始化终端
@@ -481,11 +681,16 @@ watch(() => props.instance, (newInstance, oldInstance) => {
     if (newInstance?.id !== oldInstance?.id) {
         console.log('实例变化，重新初始化终端连接');
         closeTerminalConnection();
-        terminalLines.value = [];
 
-        setTimeout(() => {
-            initTerminalWebSocket();
-        }, 500);
+        nextTick(() => {
+            // 重新初始化xterm.js
+            initXterm();
+
+            // 然后初始化WebSocket连接
+            setTimeout(() => {
+                initTerminalWebSocket();
+            }, 500);
+        });
     }
 }, { deep: true });
 </script>
@@ -645,21 +850,27 @@ watch(() => props.instance, (newInstance, oldInstance) => {
     @apply bg-white border-t border-l border-r border-gray-200 rounded-t-md relative -mb-px;
 }
 
-.terminal-content {
-    @apply flex-1 p-4 overflow-y-auto font-mono text-sm bg-gray-900 text-gray-100;
+/* xterm 相关样式 */
+.xterm-wrapper {
+    @apply flex-1 flex flex-col bg-gray-900 overflow-hidden;
     min-height: 300px;
 }
 
-.terminal-empty {
-    @apply text-gray-400;
+.terminal-content {
+    @apply flex-1 flex;
+    position: relative;
+    width: 100%;
+    height: 100%;
 }
 
-.terminal-line {
-    @apply mb-1 leading-relaxed;
+/* 定制 xterm.js 外观 */
+:deep(.xterm) {
+    @apply h-full w-full;
+    padding: 8px;
 }
 
-.terminal-timestamp {
-    @apply text-gray-500 mr-2;
+:deep(.xterm-viewport) {
+    @apply bg-gray-900;
 }
 
 .terminal-input-area {
