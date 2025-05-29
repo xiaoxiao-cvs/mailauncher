@@ -59,10 +59,10 @@
             <!-- 将 el-checkbox 替换为 DaisyUI checkbox -->
             <div class="form-control">
               <label class="label cursor-pointer justify-start gap-2">
-                <input type="checkbox" v-model="installAdapter" class="checkbox checkbox-primary" />
+                <input type="checkbox" v-model="installAdapter" class="checkbox checkbox-primary" checked disabled />
                 <div>
-                  <div class="option-title">安装 NapCat 适配器</div>
-                  <div class="option-desc">安装 MaiBot 的 NapCat 适配器</div>
+                  <div class="option-title">安装 Napcat-ada 适配器</div>
+                  <div class="option-desc">安装 MaiBot 的 Napcat-ada 适配器</div>
                 </div>
               </label>
             </div>
@@ -72,10 +72,10 @@
             <!-- 将 el-checkbox 替换为 DaisyUI checkbox -->
             <div class="form-control">
               <label class="label cursor-pointer justify-start gap-2">
-                <input type="checkbox" v-model="installNapcat" class="checkbox checkbox-primary" />
+                <input type="checkbox" v-model="installNapcat" class="checkbox checkbox-primary" checked disabled />
                 <div>
-                  <div class="option-title">安装 NapCat</div>
-                  <div class="option-desc">安装 NapCat 作为机器人连接器</div>
+                  <div class="option-title">安装 Napcat-ada</div>
+                  <div class="option-desc">安装 Napcat-ada 服务</div>
                 </div>
               </label>
             </div>
@@ -102,21 +102,21 @@
               </div>
               <p class="port-desc">MaiBot主程序监听端口</p>
             </div>
-
             <div class="port-item">
               <div class="input-group">
                 <span>适配器端口</span>
                 <input v-model="adapterPort" type="number" placeholder="适配器端口" class="input input-bordered w-full">
               </div>
-              <p class="port-desc">NapCat适配器监听端口</p>
+              <p class="port-desc">Napcat-ada适配器监听端口</p>
             </div>
 
             <div class="port-item">
               <div class="input-group">
-                <span>NapCat端口</span>
-                <input v-model="napcatPort" type="number" placeholder="NapCat端口" class="input input-bordered w-full">
+                <span>Napcat-ada端口</span>
+                <input v-model="napcatPort" type="number" placeholder="Napcat-ada端口"
+                  class="input input-bordered w-full">
               </div>
-              <p class="port-desc">NapCat的WebSocket服务器端口</p>
+              <p class="port-desc">Napcat-ada的WebSocket服务器端口</p>
             </div>
           </div>
         </div>
@@ -169,7 +169,7 @@ const qqNumber = ref('');
 
 // 端口配置 - 添加适配器端口
 const napcatPort = ref('8095');     // NapCat默认端口
-const adapterPort = ref('18002');   // 适配器默认端口
+const adapterPort = ref('8095');    // Napcat-ada适配器默认端口
 const maibotPort = ref('8000');     // MaiBot默认端口
 
 // 是否可以安装Bot

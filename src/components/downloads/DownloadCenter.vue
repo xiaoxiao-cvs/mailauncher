@@ -36,19 +36,19 @@
                             </label>
                             <input v-model="installPath" type="text" placeholder="例如：D:\MaiBot\MaiBot-1"
                                 class="input input-bordered w-full" :disabled="installing" />
-                        </div> <!-- NoneBot-ada 服务配置 -->
+                        </div> <!-- Napcat-ada 服务配置 -->
                         <div class="mb-4">
                             <div
                                 class="card p-3 rounded-lg border border-base-200 bg-base-100 hover:shadow-md transition-all">
-                                <div class="card-title text-sm mb-2">NoneBot-ada 服务</div>
+                                <div class="card-title text-sm mb-2">Napcat-ada 服务</div>
 
                                 <div class="form-control">
                                     <label class="label cursor-pointer justify-start gap-2">
-                                        <input type="checkbox" v-model="selectedServices['nonebot-ada']"
+                                        <input type="checkbox" v-model="selectedServices['napcat-ada']" checked disabled
                                             class="checkbox checkbox-primary" />
                                         <div class="service-info">
-                                            <div class="font-medium">nonebot-ada</div>
-                                            <div class="text-xs text-base-content/70">NoneBot-ada 服务</div>
+                                            <div class="font-medium">napcat-ada</div>
+                                            <div class="text-xs text-base-content/70">Napcat-ada 服务</div>
                                         </div>
                                     </label>
                                 </div>
@@ -65,14 +65,12 @@
                                     </label>
                                     <input v-model="maibotPort" type="number" placeholder="例如：8000"
                                         class="input input-bordered w-full" :disabled="installing" />
-                                </div>
-
-                                <!-- NoneBot-ada 端口配置 -->
-                                <div v-show="selectedServices['nonebot-ada']" class="mb-3">
+                                </div> <!-- Napcat-ada 端口配置 -->
+                                <div v-show="selectedServices['napcat-ada']" class="mb-3">
                                     <label class="label">
-                                        <span class="label-text">NoneBot-ada 端口</span>
+                                        <span class="label-text">Napcat-ada 端口</span>
                                     </label>
-                                    <input v-model="servicePorts['nonebot-ada']" type="number" placeholder="例如：18002"
+                                    <input v-model="servicePorts['napcat-ada']" type="number" placeholder="例如：8095"
                                         class="input input-bordered w-full" :disabled="installing" />
                                 </div>
                             </div>
@@ -100,11 +98,10 @@
                                 <div>MaiBot端口: <span class="font-medium">{{ maibotPort }}</span></div><template
                                     v-for="service in availableServices" :key="`summary-${service.name}`">
                                     <div v-if="selectedServices[service.name]">
-                                        NoneBot-ada端口:
+                                        Napcat-ada端口:
                                         <span class="font-medium">{{ servicePorts[service.name] }}</span>
                                     </div>
                                 </template>
-
                                 <div class="col-span-2 flex justify-end items-center">
                                     <span v-if="!installComplete"
                                         class="loading loading-spinner loading-xs mr-2"></span>
@@ -116,7 +113,7 @@
                                                 clip-rule="evenodd" />
                                         </svg>
                                     </span>
-                                    <span>{{ installComplete ? '安装完成' : '安装中...' }}</span>
+                                    <span>{{ installComplete ? '安装完成' : `安装中... (${installStatusText})` }}</span>
                                 </div>
                             </div>
                         </div>
@@ -128,13 +125,11 @@
                                 <span class="text-sm">{{ installProgress }}%</span>
                             </div>
                             <progress class="progress progress-primary w-full" :value="installProgress"
-                                max="100"></progress>
-
-                            <!-- 服务安装进度条 -->
+                                max="100"></progress> <!-- 服务安装进度条 -->
                             <div v-if="servicesProgress.length > 0" class="mt-3">
                                 <div v-for="service in servicesProgress" :key="`progress-${service.name}`" class="mb-2">
                                     <div class="flex justify-between mb-1">
-                                        <span class="text-sm">{{ service.name }} 安装</span>
+                                        <span class="text-sm">{{ service.name }} 安装 ({{ service.status }})</span>
                                         <span class="text-sm">{{ service.progress }}%</span>
                                     </div>
                                     <progress
@@ -174,7 +169,7 @@ const installing = ref(false);
 const installComplete = ref(false);
 const availableVersions = ref(['latest', 'main', 'v0.6.3', 'v0.6.2', 'v0.6.1']);
 const availableServices = ref([
-    { name: 'nonebot-ada', description: 'NoneBot-ada 服务' }
+    { name: 'napcat-ada', description: 'Napcat-ada 服务' }
 ]);
 const selectedVersion = ref('');
 const instanceName = ref('');
@@ -204,18 +199,40 @@ const canInstall = computed(() => {
         return false;
     }
 
-    // 如果选择了NoneBot-ada服务，必须有对应端口
-    if (selectedServices['nonebot-ada'] && !servicePorts['nonebot-ada']) {
+    // 如果选择了Napcat-ada服务，必须有对应端口
+    if (selectedServices['napcat-ada'] && !servicePorts['napcat-ada']) {
         return false;
     }
 
     return true;
 });
 
+// 计算属性 - 安装状态文本
+const installStatusText = computed(() => {
+    if (servicesProgress.value.length > 0) {
+        const currentService = servicesProgress.value[0];
+        switch (currentService.status) {
+            case 'downloading':
+                return '下载中';
+            case 'extracting':
+                return '解压中';
+            case 'installing':
+                return '安装中';
+            case 'configuring':
+                return '配置中';
+            case 'finishing':
+                return '完成中';
+            default:
+                return currentService.status || '处理中';
+        }
+    }
+    return '准备中';
+});
+
 // 获取服务的默认端口
 const getDefaultPort = (serviceName) => {
     switch (serviceName) {
-        case 'nonebot-ada': return '18002';
+        case 'napcat-ada': return '8095';
         default: return '8000';
     }
 };
@@ -258,13 +275,13 @@ const fetchVersions = async () => {
 
 // 获取可部署的服务列表
 const fetchServices = async () => {
-    // 由于我们只有一个固定的NoneBot-ada服务，可以简化这个函数
+    // 由于我们只有一个固定的Napcat-ada服务，可以简化这个函数
     try {
         // 初始化服务选择状态和端口
-        selectedServices['nonebot-ada'] = false;
-        servicePorts['nonebot-ada'] = '18002';
+        selectedServices['napcat-ada'] = true; // 默认选中，因为只有一个服务
+        servicePorts['napcat-ada'] = '8095'; // 默认端口设为8095
 
-        console.log('服务初始化完成: NoneBot-ada');
+        console.log('服务初始化完成: Napcat-ada');
     } catch (error) {
         console.error('服务初始化失败:', error);
     }
@@ -352,16 +369,21 @@ const startInstall = async () => {
     addLog(`开始安装 MaiBot ${selectedVersion.value} 实例: ${instanceName.value}`);
 
     // 通知安装开始
-    toastService.info(`开始安装 MaiBot ${selectedVersion.value}`); try {        // 创建要安装的服务列表
+    toastService.info(`开始安装 MaiBot ${selectedVersion.value}`);
+
+    try {
+        // 创建要安装的服务列表
         const installServices = [];
-        if (selectedServices['nonebot-ada']) {
+        if (selectedServices['napcat-ada']) {
             installServices.push({
-                name: 'nonebot-ada',
-                path: `${installPath.value}\\nonebot-ada`,
-                port: parseInt(servicePorts['nonebot-ada']),
+                name: 'napcat-ada',
+                path: `${installPath.value}\\napcat-ada`,
+                port: parseInt(servicePorts['napcat-ada']),
                 run_cmd: 'python main.py'  // 添加运行命令
             });
-        }// 构建部署配置
+        }
+
+        // 构建部署配置
         const deployConfig = {
             instance_name: instanceName.value,
             install_services: installServices,
