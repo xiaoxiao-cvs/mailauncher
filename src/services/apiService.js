@@ -368,6 +368,22 @@ const apiRequest = async (method, url, data = null, config = {}) => {
       ...config,
     });
 
+    // 对实例相关的API响应进行数据预处理
+    if (
+      url.includes("/instances") &&
+      response.data &&
+      response.data.instances
+    ) {
+      // 修复后端返回数据中字段名不匹配的问题
+      response.data.instances = response.data.instances.map((instance) => {
+        return {
+          ...instance,
+          // 如果实例没有installedAt属性，使用创建时间
+          installedAt: instance.installedAt || instance.created_at,
+        };
+      });
+    }
+
     return response;
   } catch (error) {
     // 如果后端不可用，使用模拟数据

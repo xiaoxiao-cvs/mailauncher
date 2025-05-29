@@ -45,9 +45,12 @@ const currentInstance = ref({
 });
 const initialSettingsTab = ref('basic'); // 新增：用于记录实例设置的初始标签页
 
-// 加载实例列表方法 - 之前缺少这个方法导致报错
+// 加载实例列表方法 - 使用适配器处理实例数据
 const loadInstances = async () => {
   try {
+    // 引入实例API适配器
+    const { adaptInstancesList } = await import('@/utils/apiAdapters');
+    
     // 检查是否使用模拟数据
     const useMockData = localStorage.getItem('useMockData') === 'true';
 
@@ -55,14 +58,26 @@ const loadInstances = async () => {
       // 使用模拟数据
       instancesData.value = getMockInstances();
     } else {
-      // 使用API获取实例列表
+      // 使用API获取实例列表，通过适配器处理数据
       const response = await instancesApi.getInstances();
-      instancesData.value = response.instances || [];
+      instancesData.value = adaptInstancesList(response);
+      console.log('获取到' + instancesData.value.length + '个实例');
     }
   } catch (error) {
     console.error('获取实例列表失败:', error);
-    // 出错时使用模拟数据
-    instancesData.value = getMockInstances();
+    
+    // 先尝试使用实例API的模拟数据功能
+    try {
+      const { adaptInstancesList } = await import('@/utils/apiAdapters');
+      const mockResponse = await instancesApi.getMockInstances();
+      instancesData.value = adaptInstancesList(mockResponse);
+      console.log('使用API模拟数据');
+    } catch (mockError) {
+      // 如果模拟API也失败，才使用本地模拟数据
+      instancesData.value = getMockInstances();
+      console.log('使用本地模拟数据');
+    }
+    
     toastService.error('获取实例列表失败');
   }
 };

@@ -167,7 +167,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick, inject } from 'vue';
 import { Icon } from '@iconify/vue';
 import toastService from '@/services/toastService';
-import { getInstanceLogWebSocketService, closeInstanceLogWebSocket } from '@/services/websocket';
+import { getTerminalWebSocketService, closeTerminalWebSocket } from '@/services/websocket';
 import { isMockModeActive } from '@/services/apiService';
 
 const props = defineProps({
@@ -191,8 +191,8 @@ const terminalLines = ref([]);
 const isTerminalConnected = ref(false);
 const isTerminalConnecting = ref(false);
 
-// WebSocket 实例日志实例
-let instanceLogWS = null;
+// WebSocket 终端实例
+let terminalWS = null;
 
 // 添加终端输出行
 const addTerminalLine = (text, type = 'info') => {
@@ -204,7 +204,7 @@ const addTerminalLine = (text, type = 'info') => {
     scrollToBottom();
 };
 
-// 初始化实例日志WebSocket连接
+// 初始化终端WebSocket连接
 const initTerminalWebSocket = () => {
     if (!props.instance?.id) {
         console.warn('实例ID缺失，无法建立WebSocket连接');
@@ -225,77 +225,64 @@ const initTerminalWebSocket = () => {
         return;
     }
 
-    // 使用实例ID而不是session_id
-    const instanceId = props.instance.id;
+    // 构建session_id格式为 {instance_id}_main
+    const sessionId = `${props.instance.id}_main`;
 
-    console.log(`初始化实例日志WebSocket连接，实例ID: ${instanceId}`);
+    console.log(`初始化终端WebSocket连接，会话ID: ${sessionId}`);
     isTerminalConnecting.value = true;
 
     try {
-        // 使用新的实例日志WebSocket服务
-        instanceLogWS = getInstanceLogWebSocketService(instanceId);
+        // 使用新的终端WebSocket服务
+        terminalWS = getTerminalWebSocketService(sessionId);
 
         // 连接打开事件
-        instanceLogWS.on('open', () => {
-            console.log('实例日志WebSocket连接已建立');
+        terminalWS.on('open', () => {
+            console.log('终端WebSocket连接已建立');
             isTerminalConnected.value = true;
             isTerminalConnecting.value = false;
-            addTerminalLine('实例日志连接已建立', 'success');
+            addTerminalLine('终端连接已建立', 'success');
         });
 
         // 接收消息事件
-        instanceLogWS.on('message', (data) => {
-            console.log('收到实例日志消息:', data);
+        terminalWS.on('message', (data) => {
+            console.log('收到终端消息:', data);
 
             if (data.isMock) {
                 // 处理模拟数据
-                addTerminalLine(data.message || '模拟日志输出', 'info');
+                addTerminalLine(data.message || '模拟终端输出', 'info');
                 return;
             }
 
-            // 处理真实WebSocket消息（日志格式）
-            if (data.time && data.level && data.message) {
-                // 日志消息格式
-                const levelColor = {
-                    'INFO': 'info',
-                    'WARNING': 'warning', 
-                    'ERROR': 'error',
-                    'DEBUG': 'info'
-                }[data.level] || 'info';
-                
-                addTerminalLine(`[${data.level}] ${data.message}`, levelColor);
-            } else if (data.type === 'output') {
-                // 终端输出格式
+            // 处理真实WebSocket消息
+            if (data.type === 'output') {
+                // 终端输出
                 addTerminalLine(data.data || data.message, 'info');
             } else if (data.type === 'status') {
                 // 状态消息
                 addTerminalLine(data.message, 'warning');
             } else if (data.type === 'error') {
                 // 错误消息
-                addTerminalLine(data.message || '实例日志错误', 'error');
-            } else {
-                // 其他格式的消息
-                addTerminalLine(data.message || JSON.stringify(data), 'info');
+                addTerminalLine(data.message || '终端错误', 'error');
             }
         });
 
         // 连接关闭事件
-        instanceLogWS.on('close', (event) => {
-            console.log('实例日志WebSocket连接已关闭:', event);
+        terminalWS.on('close', (event) => {
+            console.log('终端WebSocket连接已关闭:', event);
             isTerminalConnected.value = false;
             isTerminalConnecting.value = false;
 
             if (!event.isMock) {
-                addTerminalLine('实例日志连接已断开', 'warning');
+                addTerminalLine('终端连接已断开', 'warning');
             }
         });
 
         // 连接错误事件
-        instanceLogWS.on('error', (error) => {
-            console.error('实例日志WebSocket连接错误:', error);
+        terminalWS.on('error', (error) => {
+            console.error('终端WebSocket连接错误:', error);
             isTerminalConnected.value = false;
             isTerminalConnecting.value = false;
-            addTerminalLine('实例日志连接出错，回退到模拟模式', 'error');
+            addTerminalLine('终端连接出错，回退到模拟模式', 'error');
 
             // 回退到模拟模式
             setTimeout(() => {
@@ -307,12 +294,12 @@ const initTerminalWebSocket = () => {
         });
 
         // 建立连接
-        instanceLogWS.connect();
+        terminalWS.connect();
 
     } catch (error) {
-        console.error('创建实例日志WebSocket连接失败:', error);
+        console.error('创建终端WebSocket连接失败:', error);
         isTerminalConnecting.value = false;
-        addTerminalLine('实例日志连接失败，使用模拟模式', 'error');
+        addTerminalLine('终端连接失败，使用模拟模式', 'error');
 
         // 回退到模拟模式
         setTimeout(() => {
@@ -324,13 +311,13 @@ const initTerminalWebSocket = () => {
     }
 };
 
-// 关闭实例日志WebSocket连接
+// 关闭终端WebSocket连接
 const closeTerminalConnection = () => {
     if (props.instance?.id) {
-        const instanceId = props.instance.id;
-        closeInstanceLogWebSocket(instanceId);
+        const sessionId = `${props.instance.id}_main`;
+        closeTerminalWebSocket(sessionId);
     }
-    instanceLogWS = null;
+    terminalWS = null;
     isTerminalConnected.value = false;
     isTerminalConnecting.value = false;
 };
@@ -391,11 +378,22 @@ const sendCommand = () => {
             }
 
             addTerminalLine(response, type);
-        }, 300);    } else {
-        // 真实WebSocket模式，但实例日志WebSocket主要用于接收日志，不支持发送命令
-        // 这里我们显示一个提示信息
-        addTerminalLine(`> ${command}`, 'command');
-        addTerminalLine('注意: 当前为实例日志查看模式，不支持命令执行', 'warning');
+        }, 300);
+    } else {
+        // 真实WebSocket模式，发送命令到后端
+        try {
+            const success = terminalWS.send({
+                type: 'input',
+                data: command + '\n'  // 添加换行符
+            });
+
+            if (!success) {
+                addTerminalLine('命令发送失败', 'error');
+            }
+        } catch (error) {
+            console.error('发送命令失败:', error);
+            addTerminalLine('命令发送失败: ' + error.message, 'error');
+        }
     }
 
     commandInput.value = '';
@@ -466,7 +464,9 @@ watch(() => terminalLines.value.length, () => {
 // 组件挂载后的初始化
 onMounted(() => {
     console.log('InstanceDetailView 组件已挂载，实例:', props.instance);
-    scrollToBottom();    // 初始化实例日志连接
+    scrollToBottom();
+
+    // 初始化终端连接
     initTerminalWebSocket();
 });
 
@@ -479,7 +479,7 @@ onUnmounted(() => {
 // 监听实例变化，重新初始化终端
 watch(() => props.instance, (newInstance, oldInstance) => {
     if (newInstance?.id !== oldInstance?.id) {
-        console.log('实例变化，重新初始化实例日志连接');
+        console.log('实例变化，重新初始化终端连接');
         closeTerminalConnection();
         terminalLines.value = [];
 

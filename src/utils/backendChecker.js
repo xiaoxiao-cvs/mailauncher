@@ -1,6 +1,6 @@
 /**
  * 后端连接检查工具
- * 注意：后端已移出项目，此模块现用于管理模拟数据模式
+ * 注意：后端已移出项目，此模块现用于管理模拟数据模式 1111111
  */
 import axios from "axios";
 import apiService from "../services/apiService";
@@ -21,8 +21,8 @@ export const checkBackendConnection = async () => {
     console.log("后端连接检查：使用模拟数据模式");
     return false;
 
-    /* 原代码被注释
-    // ...existing code...
+    /* 
+    注释odl
     */
   } catch (error) {
     console.warn("后端连接检查失败:", error.message);

@@ -415,7 +415,7 @@ let logWebSocketInstance = null;
 export const getLogWebSocketService = () => {
   if (!logWebSocketInstance) {
     logWebSocketInstance = new WebSocketService({
-      url: getWebSocketUrl("/api/v1/logs/ws"),
+      url: getWebSocketUrl("/api/logs/ws"),
       reconnectDelay: 3000,
       maxReconnectAttempts: 3, // 减少重连尝试次数，更快进入模拟模式
       autoReconnect: true,
@@ -428,42 +428,6 @@ export default WebSocketService;
 
 // 创建单例实例用于终端WebSocket连接
 let terminalWebSocketInstances = new Map();
-
-/**
- * 获取或创建实例日志WebSocket服务实例
- * @param {string} instanceId 实例ID
- * @returns {WebSocketService} WebSocketService实例
- */
-export const getInstanceLogWebSocketService = (instanceId) => {
-  // 检查是否已存在该实例的连接
-  if (terminalWebSocketInstances.has(instanceId)) {
-    const existingInstance = terminalWebSocketInstances.get(instanceId);
-    if (existingInstance && existingInstance.getState() === WebSocket.OPEN) {
-      return existingInstance;
-    } else {
-      // 清理无效连接
-      terminalWebSocketInstances.delete(instanceId);
-    }
-  }
-
-  // 创建新的实例日志WebSocket连接
-  const instanceLogWS = new WebSocketService({
-    url: getWebSocketUrl(`/api/v1/logs/instance/${instanceId}/ws`),
-    reconnectDelay: 1500, // 减少重连延迟
-    maxReconnectAttempts: 1, // 减少最大重连次数，更快进入模拟模式
-    autoReconnect: true,
-  });
-
-  // 存储实例
-  terminalWebSocketInstances.set(instanceId, instanceLogWS);
-
-  // 监听连接关闭，清理实例
-  instanceLogWS.on("close", () => {
-    terminalWebSocketInstances.delete(instanceId);
-  });
-
-  return instanceLogWS;
-};
 
 /**
  * 获取或创建终端WebSocket服务实例
@@ -498,18 +462,6 @@ export const getTerminalWebSocketService = (sessionId) => {
   });
 
   return terminalWS;
-};
-
-/**
- * 关闭指定实例的实例日志WebSocket连接
- * @param {string} instanceId 实例ID
- */
-export const closeInstanceLogWebSocket = (instanceId) => {
-  if (terminalWebSocketInstances.has(instanceId)) {
-    const instance = terminalWebSocketInstances.get(instanceId);
-    instance.disconnect();
-    terminalWebSocketInstances.delete(instanceId);
-  }
 };
 
 /**

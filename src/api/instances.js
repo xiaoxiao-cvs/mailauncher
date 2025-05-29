@@ -1,4 +1,5 @@
 import axios from "axios";
+import { adaptInstancesList } from "@/utils/apiAdapters";
 
 /**
  * 获取所有实例列表
@@ -10,34 +11,39 @@ export const fetchInstances = async () => {
     const response = await instancesApi.getInstances();
     console.log("从API获取实例列表:", response);
 
-    // 如果成功获取到实例数据，返回格式化后的数据
-    if (response && response.data && Array.isArray(response.data.instances)) {
-      return response.data.instances.map((instance) => ({
-        id: instance.id || instance.instance_id,
-        name: instance.name,
-        status: instance.status,
-        installedAt: instance.installedAt,
-        path: instance.path,
-        services: instance.services || {},
-        version: instance.version,
-        port: instance.port,
-        createdAt: instance.createdAt || instance.installedAt,
-      }));
-    } else if (response && Array.isArray(response.instances)) {
-      return response.instances.map((instance) => ({
-        id: instance.id || instance.instance_id,
-        name: instance.name,
-        status: instance.status,
-        installedAt: instance.installedAt,
-        path: instance.path,
-        services: instance.services || {},
-        version: instance.version,
-        port: instance.port,
-        createdAt: instance.createdAt || instance.installedAt,
-      }));
-    }
+    // 使用适配器处理实例数据
+    return adaptInstancesList(response);
   } catch (error) {
     console.error("从API获取实例列表失败:", error);
+
+    // 尝试分析错误，如果是字段不匹配问题，尝试适配数据结构
+    if (error.response && error.response.data) {
+      try {
+        const errorData = error.response.data;
+        if (
+          errorData.detail &&
+          errorData.detail.includes("has no attribute 'installed_at'")
+        ) {
+          // 直接从响应中获取原始数据，手动进行适配
+          const rawInstances = await import("@/services/api").then(
+            async ({ instancesApi }) => {
+              try {
+                const rawResponse = await instancesApi.getMockInstances();
+                return adaptInstancesList(rawResponse);
+              } catch (e) {
+                console.error("获取模拟实例数据失败:", e);
+                return [];
+              }
+            }
+          );
+          if (rawInstances && rawInstances.length > 0) {
+            return rawInstances;
+          }
+        }
+      } catch (adaptError) {
+        console.error("尝试适配实例数据时出错:", adaptError);
+      }
+    }
   }
 
   // 如果API调用失败，返回硬编码的实例数据作为后备

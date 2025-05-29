@@ -19,7 +19,7 @@ export const useWebSocketLogs = (options = {}) => {
   const logs = ref([]);
   const connected = ref(false);
   const wsService = new WebSocketService({
-    url: options.url || "/api/v1/logs/ws",
+    url: options.url || "/api/logs/ws",
     autoReconnect: options.autoReconnect !== false,
     reconnectDelay: options.reconnectDelay || 3000,
   });

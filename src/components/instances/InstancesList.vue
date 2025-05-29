@@ -286,13 +286,21 @@ const fetchInstances = async () => {
         console.log('获取实例列表...');
 
         try {
+            // 引入数据适配器
+            const { adaptInstancesList, adaptInstanceData } = await import('@/utils/apiAdapters');
+            
             // 尝试从API获取数据
             console.log('尝试从API获取实例数据');
             const apiInstances = await apiFetchInstances();
 
-            if (apiInstances && Array.isArray(apiInstances)) {
+            if (apiInstances && (Array.isArray(apiInstances) || apiInstances.length > 0)) {
+                // 使用适配器处理实例数据，确保字段名称一致
+                const adaptedInstances = Array.isArray(apiInstances) 
+                    ? apiInstances.map(adaptInstanceData) 
+                    : adaptInstancesList(apiInstances);
+                
                 // 为每个实例添加必要的UI状态字段
-                instances.value = apiInstances.map(instance => ({
+                instances.value = adaptedInstances.map(instance => ({
                     ...instance,
                     isLoading: false, // 添加加载状态字段
                     id: instance.id || instance.name // 确保有ID字段

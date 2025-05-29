@@ -44,6 +44,32 @@ export const instancesApi = {
   // 获取实例列表
   getInstances: () => apiService.get(createUrl("/instances")),
 
+  // 获取模拟实例列表 (用于处理后端错误的情况)
+  getMockInstances: () => {
+    return Promise.resolve({
+      instances: [
+        {
+          id: "a2fe529b51999fc2d45df5196c6c50a46a608fa1",
+          name: "maibot-stable-1",
+          status: "running",
+          created_at: "2025-05-28T10:30:00",
+          path: "D:\\MaiBot\\MaiBot-1",
+          port: 8000,
+          services: [
+            {
+              name: "napcat",
+              path: "D:\\MaiBot\\MaiBot-1\\napcat",
+              status: "running",
+              port: 8095,
+            },
+          ],
+          version: "0.6.3",
+        },
+      ],
+      success: true,
+    });
+  },
+
   // 获取实例统计
   getStats: () => apiService.get(createUrl("/instances/stats")),
 
