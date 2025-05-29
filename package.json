@@ -13,17 +13,18 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "@iarna/toml": "^2.2.5",
+    "@iconify-json/carbon": "^1.1.18",
+    "@iconify-json/fa-solid": "^1.1.5",
+    "@iconify-json/mdi": "^1.1.52",
+    "@iconify/vue": "^4.1.1",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@types/node": "^22.15.17",
     "axios": "^1.9.0",
-    "echarts": "^5.6.0",
-    "vue": "^3.5.13",
     "daisyui": "^4.5.0",
-    "@iconify/vue": "^4.1.1",
-    "@iconify-json/mdi": "^1.1.52",
-    "@iconify-json/fa-solid": "^1.1.5",
-    "@iconify-json/carbon": "^1.1.18"
+    "echarts": "^5.6.0",
+    "vue": "^3.5.13"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
