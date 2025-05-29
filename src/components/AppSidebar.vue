@@ -9,9 +9,7 @@
           MaiLauncher
         </div>
       </div>
-    </div>
-
-    <!-- 导航菜单 - 主要菜单项 -->
+    </div> <!-- 导航菜单 - 主要菜单项 -->
     <ul class="menu menu-md menu-vertical py-2 px-2 gap-1">
       <li v-for="(item, key) in filteredMenuItems" :key="key">
         <a href="#" @click.prevent="selectTab(key)" :class="{ 'active': activeTab === key }">
@@ -82,7 +80,8 @@ const getIconName = (key) => {
     instances: 'mdi:apps',
     downloads: 'mdi:download',
     plugins: 'mdi:puzzle',
-    settings: 'mdi:cog'
+    settings: 'mdi:cog',
+    chat: 'mdi:chat', // 新增聊天室图标
   };
 
   return iconMap[key] || 'mdi:circle';

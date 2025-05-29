@@ -43,6 +43,7 @@ import InstancesPanel from './components/InstancesPanel.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import SettingsDrawer from './components/settings/SettingsDrawer.vue'
 import PluginsView from './views/PluginsView.vue'
+import ChatRoom from './components/chat/ChatRoom.vue' // 导入聊天室组件
 import settingsService from './services/settingsService'
 import { initTheme, applyThemeColor, useDarkMode } from './services/theme'
 import toastService from './services/toastService';
@@ -131,6 +132,7 @@ const menuItems = {
   home: { title: '仪表盘', icon: 'mdi:home' },
   instances: { title: '实例管理', icon: 'mdi:server' },
   downloads: { title: '下载中心', icon: 'mdi:download' },
+  chat: { title: '聊天室', icon: 'mdi:chat' }, // 添加聊天室菜单项
   settings: { title: '系统设置', icon: 'mdi:cog' },
   plugins: { title: '插件广场', icon: 'mdi:puzzle' }
 }
@@ -155,6 +157,7 @@ const currentComponent = computed(() => {
     case 'home': return HomeView;
     case 'instances': return InstancesPanel;
     case 'downloads': return DownloadsPanel;
+    case 'chat': return ChatRoom; // 添加聊天室组件
     case 'settings':
       // 使用设置抽屉而不是旧的设置组件
       openSettings();
