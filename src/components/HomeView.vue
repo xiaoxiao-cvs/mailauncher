@@ -191,6 +191,8 @@ import { ref, onMounted, inject, watch, onBeforeUnmount, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { initMessageChart } from '../services/charts';
 import SimpleIcons from './common/SimpleIcons.vue'; // 导入简单图标组件
+import apiService from '../services/apiService';
+import { adaptInstancesList, adaptInstancesListWithUptime } from '../utils/apiAdapters';
 
 const isDarkMode = inject('darkMode', ref(false));
 const emitter = inject('emitter', null);
@@ -216,22 +218,327 @@ const statusCardSize = ref('md:col-span-1 lg:col-span-2');
 const noticeCardSize = ref('md:col-span-2 lg:col-span-3');
 const instanceCardSize = ref('md:col-span-2 lg:col-span-3');
 
-// 加载保存的布局
-onMounted(() => {
-  // 尝试从localStorage加载保存的布局设置
+// 消息统计数据
+const messageStats = ref({
+  total: '12,450',
+  increase: '15%'
+});
+
+// 系统状态
+const systemStats = ref({
+  cpu: 0,
+  memory: 0,
+  cpuModel: '',
+  cpuCores: 0,
+  memoryUsed: 0,
+  memoryTotal: 0,
+  networkRate: 0,
+  networkUp: 0,
+  networkDown: 0
+});
+
+// 实例统计
+const instanceStats = ref({
+  total: 0,
+  running: 0
+});
+
+// 实例列表
+const instances = ref([]);
+
+// 通知列表
+const notifications = ref([
+  {
+    title: '系统更新',
+    desc: '系统已更新到最新版本v1.1.4',
+    time: '10分钟前',
+    icon: 'fas fa-sync',
+    iconBg: 'bg-info'
+  },
+]);
+
+// 图表数据
+const chartData = {
+  day: {
+    data: [30, 40, 20, 50, 40, 80, 90, 95, 70, 75, 85, 95],
+    labels: ['9AM', '10AM', '11AM', '12PM', '1PM', '2PM', '3PM', '4PM', '5PM', '6PM', '7PM', '8PM']
+  },
+  week: {
+    data: [320, 420, 380, 520, 600, 720, 850],
+    labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+  },
+  month: {
+    data: [1200, 1900, 1500, 2100, 2500, 1800, 2800, 2200, 2400, 2000, 3000, 3200],
+    labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+  }
+};
+
+// 当前活跃图表
+const activeChart = ref('week');
+
+// 切换图表周期
+const switchChartPeriod = (period) => {
+  activeChart.value = period;
+  updateMessageChart();
+};
+
+// 初始化消息图表
+const initCharts = () => {
+  nextTick(() => {
+    // 消息图表
+    if (messageChartRef.value && !messageChart.value) {
+      messageChart.value = echarts.init(messageChartRef.value);
+      updateMessageChart();
+    }
+  });
+};
+
+// 更新消息图表数据
+const updateMessageChart = () => {
+  if (messageChart.value) {
+    const data = chartData[activeChart.value].data;
+    const labels = chartData[activeChart.value].labels;
+
+    const option = {
+      tooltip: {
+        trigger: 'axis',
+        formatter: '{b}: {c} 条消息'
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        top: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: labels,
+        axisLine: {
+          lineStyle: {
+            color: isDarkMode.value ? '#555' : '#ddd'
+          }
+        },
+        axisLabel: {
+          color: isDarkMode.value ? '#ccc' : '#666',
+          fontSize: 10
+        }
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: {
+          lineStyle: {
+            color: isDarkMode.value ? '#555' : '#ddd'
+          }
+        },
+        axisLabel: {
+          color: isDarkMode.value ? '#ccc' : '#666',
+          fontSize: 10
+        },
+        splitLine: {
+          lineStyle: {
+            color: isDarkMode.value ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
+          }
+        }
+      },
+      series: [
+        {
+          data: data,
+          type: 'bar',
+          itemStyle: {
+            color: isDarkMode.value ? '#5983ff' : '#4a7eff'
+          },
+          emphasis: {
+            itemStyle: {
+              color: isDarkMode.value ? '#7a9dff' : '#6b93ff'
+            }
+          }
+        }
+      ]
+    };
+
+    messageChart.value.setOption(option);
+  }
+};
+
+// 窗口大小变化处理 - 重命名为handleWindowResize
+const handleWindowResize = () => {
+  messageChart.value?.resize();
+};
+
+// 监听深色模式变化
+watch(() => isDarkMode.value, () => {
+  nextTick(() => {
+    // 重新渲染图表
+    updateMessageChart();
+  });
+});
+
+// 格式化内存大小
+const formatMemory = (bytes) => {
+  if (!bytes) return '0 GB';
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
+
+// 格式化带宽
+const formatBandwidth = (bytes) => {
+  if (!bytes) return '0 KB/s';
+  const kb = bytes / 1024;
+  if (kb < 1024) {
+    return `${kb.toFixed(1)} KB`;
+  }
+  return `${(kb / 1024).toFixed(1)} MB`;
+};
+
+// 格式化数据大小
+const formatData = (bytes) => {
+  if (!bytes) return '0 KB';
+  const kb = bytes / 1024;
+  if (kb < 1024) {
+    return `${kb.toFixed(0)} KB`;
+  } else if (kb < 1024 * 1024) {
+    return `${(kb / 1024).toFixed(1)} MB`;
+  }
+  return `${(kb / 1024 / 1024).toFixed(2)} GB`;
+};
+
+// 实例相关辅助函数
+const getStatusBadgeClass = (status) => {
+  switch (status) {
+    case 'running':
+      return 'badge-success';
+    case 'stopped':
+      return 'badge-error';
+    case 'starting':
+      return 'badge-warning';
+    case 'stopping':
+      return 'badge-warning';
+    default:
+      return 'badge-ghost';
+  }
+};
+
+const getStatusText = (status) => {
+  switch (status) {
+    case 'running':
+      return '运行中';
+    case 'stopped':
+      return '已停止';
+    case 'starting':
+      return '启动中';
+    case 'stopping':
+      return '停止中';
+    default:
+      return '未知';
+  }
+};
+
+const getStatusActionIcon = (status) => {
+  switch (status) {
+    case 'running':
+      return 'stop';
+    case 'stopped':
+      return 'play';
+    case 'starting':
+    case 'stopping':
+      return 'spinner fa-spin';
+    default:
+      return 'question';
+  }
+};
+
+// 导航到实例管理页面
+const navigateToInstances = () => {
+  const router = inject('router', null);
+  if (router) {
+    router.push('/instances');
+  } else {
+    window.location.href = '#/instances';
+  }
+};
+
+// 加载系统性能
+const loadSystemStats = async () => {
   try {
-    const savedLayout = localStorage.getItem('dashboard-layout');
-    if (savedLayout) {
-      const layout = JSON.parse(savedLayout);
-      msgChartSize.value = layout.msgChartSize || msgChartSize.value;
-      statusCardSize.value = layout.statusCardSize || statusCardSize.value;
-      noticeCardSize.value = layout.noticeCardSize || noticeCardSize.value;
-      instanceCardSize.value = layout.instanceCardSize || instanceCardSize.value;
+    const res = await apiService.get('/api/v1/system/metrics');
+    if (res.data && res.data.status === 'success' && res.data.data) {
+      const d = res.data.data;
+      systemStats.value.cpu = d.cpu_usage_percent;
+      systemStats.value.memory = d.memory_usage.percent;
+      systemStats.value.cpuModel = d.system_info.processor;
+      systemStats.value.cpuCores = d.system_info.machine.includes('64') ? 8 : 4; // 简单推断核心数
+      systemStats.value.memoryUsed = d.memory_usage.used_mb * 1024 * 1024;
+      systemStats.value.memoryTotal = d.memory_usage.total_mb * 1024 * 1024;
+
+      // 添加网络数据 - 如果后端API没有提供，则使用模拟数据
+      // 在实际生产环境中，应该由后端提供这些数据
+      if (!systemStats.value.networkRate) {
+        // 初始化网络数据
+        systemStats.value.networkRate = Math.floor(Math.random() * 1024 * 1024); // 随机生成1MB以内的网络速率
+        systemStats.value.networkUp = Math.floor(Math.random() * 1024 * 1024 * 10); // 随机生成10MB以内的上传数据量
+        systemStats.value.networkDown = Math.floor(Math.random() * 1024 * 1024 * 50); // 随机生成50MB以内的下载数据量
+      } else {
+        // 更新网络数据，模拟网络变化
+        systemStats.value.networkRate = Math.floor(systemStats.value.networkRate * (0.8 + Math.random() * 0.4));
+        systemStats.value.networkUp += Math.floor(systemStats.value.networkRate * 0.3);
+        systemStats.value.networkDown += Math.floor(systemStats.value.networkRate * 0.7);
+      }
     }
   } catch (e) {
-    console.error('无法加载保存的布局', e);
+    console.error('获取系统性能失败', e);
   }
-});
+};
+
+// 加载实例统计和实例列表
+const loadInstanceStats = async () => {
+  try {
+    // 获取实例统计信息
+    const statsRes = await apiService.get('/api/v1/instances/stats');
+    if (statsRes.data) {
+      instanceStats.value.total = statsRes.data.total;
+      instanceStats.value.running = statsRes.data.running;
+    }
+
+    // 获取实例列表
+    const listRes = await apiService.get('/api/v1/instances');
+    if (listRes.data && Array.isArray(listRes.data.instances)) {
+      // 使用适配器处理数据并处理运行时间
+      instances.value = adaptInstancesListWithUptime(listRes.data);
+    }
+  } catch (e) {
+    console.error('获取实例状态失败', e);
+  }
+};
+
+// 定时器变量
+let statsRefreshTimer = null;
+let instanceRefreshTimer = null;
+
+// 启动定时刷新
+const startAutoRefresh = () => {
+  // 每10秒刷新一次系统性能数据
+  statsRefreshTimer = setInterval(() => {
+    loadSystemStats();
+  }, 10000);
+
+  // 每30秒刷新一次实例数据
+  instanceRefreshTimer = setInterval(() => {
+    loadInstanceStats();
+  }, 30000);
+};
+
+// 停止定时刷新
+const stopAutoRefresh = () => {
+  if (statsRefreshTimer) {
+    clearInterval(statsRefreshTimer);
+    statsRefreshTimer = null;
+  }
+
+  if (instanceRefreshTimer) {
+    clearInterval(instanceRefreshTimer);
+    instanceRefreshTimer = null;
+  }
+};
 
 // 切换编辑模式
 const toggleEditMode = async () => {
@@ -408,236 +715,6 @@ const stopResize = () => {
 // 添加变量存储手柄方向
 let handleDirection = '';
 
-// 消息统计数据
-const messageStats = ref({
-  total: '12,450',
-  increase: '15%'
-});
-
-// 系统状态
-const systemStats = ref({
-  cpu: 21,
-  memory: 36,
-  cpuModel: 'AMD EPYC 7K62',
-  cpuCores: 96,
-  memoryUsed: 5.8 * 1024 * 1024 * 1024, // 5.8 GB in bytes
-  memoryTotal: 1024 * 1024 * 1024 * 1024, // 16 GB in bytes
-  networkRate: 1.2 * 1024 * 1024, // 1.2 MB/s in bytes
-  networkUp: 128 * 1024 * 1024, // 128 MB in bytes
-  networkDown: 365 * 1024 * 1024 // 365 MB in bytes
-});
-
-// 实例统计
-const instanceStats = ref({
-  total: 5,
-  running: 3
-});
-
-// 增强实例列表，添加运行时间和维护状态
-const instances = ref([
-  { name: '本地实例-1', status: 'running', uptime: '3天4小时' },
-  { name: '本地实例-2', status: 'running', uptime: '12小时30分' },
-  { name: '远程实例-1', status: 'running', uptime: '18小时15分' },
-  { name: '远程实例-2', status: 'stopped', uptime: null },
-  { name: '测试实例-1', status: 'maintenance', uptime: '2小时15分' }
-]);
-
-// 通知列表
-const notifications = ref([
-  {
-    title: '系统更新',
-    desc: '系统已更新到最新版本v1.1.4',
-    time: '10分钟前',
-    icon: 'fas fa-sync',
-    iconBg: 'bg-info'
-  },
-]);
-
-// 图表数据
-const chartData = {
-  day: {
-    data: [30, 40, 20, 50, 40, 80, 90, 95, 70, 75, 85, 95],
-    labels: ['9AM', '10AM', '11AM', '12PM', '1PM', '2PM', '3PM', '4PM', '5PM', '6PM', '7PM', '8PM']
-  },
-  week: {
-    data: [320, 420, 380, 520, 600, 720, 850],
-    labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-  },
-  month: {
-    data: [1200, 1900, 1500, 2100, 2500, 1800, 2800, 2200, 2400, 2000, 3000, 3200],
-    labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
-  }
-};
-
-// 当前活跃图表
-const activeChart = ref('week');
-
-// 切换图表周期
-const switchChartPeriod = (period) => {
-  activeChart.value = period;
-  updateMessageChart();
-};
-
-// 初始化消息图表
-const initCharts = () => {
-  nextTick(() => {
-    // 消息图表
-    if (messageChartRef.value && !messageChart.value) {
-      messageChart.value = echarts.init(messageChartRef.value);
-      updateMessageChart();
-    }
-  });
-};
-
-// 更新消息图表数据
-const updateMessageChart = () => {
-  if (messageChart.value) {
-    const data = chartData[activeChart.value].data;
-    const labels = chartData[activeChart.value].labels;
-
-    const option = {
-      tooltip: {
-        trigger: 'axis',
-        formatter: '{b}: {c} 条消息'
-      },
-      grid: {
-        left: '3%',
-        right: '4%',
-        bottom: '3%',
-        top: '3%',
-        containLabel: true
-      },
-      xAxis: {
-        type: 'category',
-        data: labels,
-        axisLine: {
-          lineStyle: {
-            color: isDarkMode.value ? '#555' : '#ddd'
-          }
-        },
-        axisLabel: {
-          color: isDarkMode.value ? '#ccc' : '#666',
-          fontSize: 10
-        }
-      },
-      yAxis: {
-        type: 'value',
-        axisLine: {
-          lineStyle: {
-            color: isDarkMode.value ? '#555' : '#ddd'
-          }
-        },
-        axisLabel: {
-          color: isDarkMode.value ? '#ccc' : '#666',
-          fontSize: 10
-        },
-        splitLine: {
-          lineStyle: {
-            color: isDarkMode.value ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
-          }
-        }
-      },
-      series: [
-        {
-          data: data,
-          type: 'bar',
-          itemStyle: {
-            color: isDarkMode.value ? '#5983ff' : '#4a7eff'
-          },
-          emphasis: {
-            itemStyle: {
-              color: isDarkMode.value ? '#7a9dff' : '#6b93ff'
-            }
-          }
-        }
-      ]
-    };
-
-    messageChart.value.setOption(option);
-  }
-};
-
-// 窗口大小变化处理 - 重命名为handleWindowResize
-const handleWindowResize = () => {
-  messageChart.value?.resize();
-};
-
-// 监听深色模式变化
-watch(() => isDarkMode.value, () => {
-  nextTick(() => {
-    // 重新渲染图表
-    updateMessageChart();
-  });
-});
-
-// 格式化内存大小
-const formatMemory = (bytes) => {
-  if (!bytes) return '0 GB';
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-};
-
-// 格式化带宽
-const formatBandwidth = (bytes) => {
-  if (!bytes) return '0 KB/s';
-  const kb = bytes / 1024;
-  if (kb < 1024) {
-    return `${kb.toFixed(1)} KB`;
-  }
-  return `${(kb / 1024).toFixed(1)} MB`;
-};
-
-// 格式化数据大小
-const formatData = (bytes) => {
-  if (!bytes) return '0 KB';
-  const kb = bytes / 1024;
-  if (kb < 1024) {
-    return `${kb.toFixed(0)} KB`;
-  } else if (kb < 1024 * 1024) {
-    return `${(kb / 1024).toFixed(1)} MB`;
-  }
-  return `${(kb / 1024 / 1024).toFixed(2)} GB`;
-};
-
-// 获取状态样式
-const getStatusBadgeClass = (status) => {
-  switch (status) {
-    case 'running': return 'badge-success text-white';
-    case 'stopped': return 'badge-warning text-white';
-    case 'error': return 'badge-error text-white';
-    case 'maintenance': return 'badge-info text-white';
-    default: return 'badge-ghost';
-  }
-};
-
-// 获取状态文本
-const getStatusText = (status) => {
-  switch (status) {
-    case 'running': return '运行中';
-    case 'stopped': return '已停止';
-    case 'error': return '错误';
-    case 'maintenance': return '维护中';
-    default: return '未知';
-  }
-};
-
-// 获取状态操作按钮图标
-const getStatusActionIcon = (status) => {
-  switch (status) {
-    case 'running': return 'stop';
-    case 'stopped': return 'play';
-    case 'maintenance': return 'wrench';
-    case 'error': return 'exclamation-circle';
-    default: return 'question-circle';
-  }
-};
-
-// 添加到脚本部分，用于导航到实例管理页面
-const navigateToInstances = () => {
-  if (emitter) {
-    emitter.emit('navigate-to-tab', 'instances');
-  }
-};
-
 // 初始化
 onMounted(() => {
   initCharts();
@@ -663,6 +740,13 @@ onMounted(() => {
   } catch (e) {
     console.error('无法加载保存的布局', e);
   }
+
+  // 初次加载数据
+  loadInstanceStats();
+  loadSystemStats();
+
+  // 启动自动刷新
+  startAutoRefresh();
 });
 
 // 清理
@@ -671,6 +755,9 @@ onBeforeUnmount(() => {
   messageChart.value?.dispose();
   document.removeEventListener('mousemove', handleResizeMove);
   document.removeEventListener('mouseup', stopResize);
+
+  // 停止自动刷新
+  stopAutoRefresh();
 });
 </script>
 

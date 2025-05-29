@@ -68,3 +68,47 @@ export const adaptInstancesList = (response) => {
   // 对每个实例应用适配器
   return instances.map((instance) => adaptInstanceData(instance));
 };
+
+/**
+ * 将秒数格式化为可读的运行时间格式（x天x小时x分钟）
+ * @param {number} seconds - 运行时间秒数
+ * @returns {string} - 格式化后的运行时间
+ */
+export const formatUptime = (seconds) => {
+  if (!seconds || isNaN(seconds) || seconds < 0) return "-";
+
+  const days = Math.floor(seconds / (24 * 60 * 60));
+  const hours = Math.floor((seconds % (24 * 60 * 60)) / (60 * 60));
+  const minutes = Math.floor((seconds % (60 * 60)) / 60);
+
+  let result = "";
+  if (days > 0) result += `${days}天`;
+  if (hours > 0 || days > 0) result += `${hours}小时`;
+  result += `${minutes}分钟`;
+
+  return result;
+};
+
+/**
+ * 适配实例列表数据，并计算可读的运行时间
+ * @param {Object} response - 后端返回的实例列表响应
+ * @returns {Array} - 适配后的实例列表，包含可读运行时间
+ */
+export const adaptInstancesListWithUptime = (response) => {
+  const instances = adaptInstancesList(response);
+
+  return instances.map((instance) => {
+    // 如果实例正在运行且有 uptime 字段（以秒为单位）
+    if (
+      instance.status === "running" &&
+      instance.uptime &&
+      !isNaN(instance.uptime)
+    ) {
+      return {
+        ...instance,
+        uptime: formatUptime(instance.uptime),
+      };
+    }
+    return instance;
+  });
+};
