@@ -11,7 +11,11 @@ export const isMockModeActive = () => {
 
 // 创建axios实例并配置正确的baseURL
 const axiosInstance = axios.create({
-  baseURL: backendConfig.getBackendUrl(), // 使用完整的后端URL
+  // 根据环境变量决定是否使用代理
+  baseURL:
+    import.meta.env.VITE_USE_PROXY === "true"
+      ? ""
+      : backendConfig.getBackendUrl(),
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -22,7 +26,17 @@ const axiosInstance = axios.create({
 // 请求拦截器
 axiosInstance.interceptors.request.use(
   (config) => {
-    console.log(`发起请求: ${config.method.toUpperCase()} ${config.url}`);
+    // 增强请求日志，显示完整的请求URL和请求参数
+    const fullUrl = config.baseURL
+      ? `${config.baseURL}${config.url}`
+      : config.url;
+    console.log(`发起请求: ${config.method.toUpperCase()} ${fullUrl}`);
+    if (config.params && Object.keys(config.params).length > 0) {
+      console.log("请求参数:", config.params);
+    }
+    if (config.data) {
+      console.log("请求数据:", config.data);
+    }
     return config;
   },
   (error) => {
@@ -357,13 +371,55 @@ const testBackendConnection = async () => {
   }
 };
 
-// 统一的API请求函数 - 修改为使用正确的axios实例
+// 统一的API请求函数 - 修改为使用正确的axios实例和代理
 const apiRequest = async (method, url, data = null, config = {}) => {
   try {
+    // 判断是否应该使用代理
+    const useProxy = import.meta.env.VITE_USE_PROXY === "true"; // 处理URL，确保使用代理时使用正确的路径格式
+    let requestUrl;
+    if (useProxy) {
+      // 使用代理时，需要添加/api/v1前缀，但要避免重复
+      // 检查URL是否已经包含api/v1部分
+      if (url.includes("/api/v1")) {
+        // 如果已经包含，则直接使用该URL
+        requestUrl = url;
+      } else {
+        // 否则，添加api/v1前缀
+        const cleanPath = url.replace(/^\/+/, ""); // 移除开头的所有斜杠
+        requestUrl = `/api/v1/${cleanPath}`;
+      }
+    } else {
+      // 不使用代理时，URL应该是完整的绝对URL
+      // 避免重复添加基础URL和API前缀
+      if (url.includes("http://") || url.includes("https://")) {
+        // 如果URL已经是完整的绝对URL，则直接使用
+        requestUrl = url;
+      } else {
+        // 否则，构建完整的URL
+        const apiPrefix = backendConfig.getApiPrefix();
+        // 确保不重复添加API前缀
+        if (url.startsWith(apiPrefix)) {
+          requestUrl = `${backendConfig.getBackendUrl()}${url}`;
+        } else {
+          requestUrl = `${backendConfig.getBackendUrl()}${apiPrefix}${url}`;
+        }
+      }
+    } // 添加详细日志，帮助诊断URL构建问题
+    console.log(
+      `发送${
+        useProxy ? "代理" : "直接"
+      }请求: ${method.toUpperCase()} ${requestUrl}`
+    );
+
+    // 当使用非代理模式时，记录完整的请求URL，便于调试
+    if (!useProxy) {
+      console.log(`完整请求URL: ${requestUrl}`);
+    }
+
     // 使用配置的axios实例而不是全局axios
     const response = await axiosInstance({
       method,
-      url: url.startsWith("/api/") ? url : backendConfig.getFullUrl(url),
+      url: requestUrl,
       data,
       ...config,
     });
