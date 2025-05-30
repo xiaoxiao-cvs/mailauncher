@@ -268,7 +268,6 @@ export const useRequestCacheStore = defineStore("requestCache", () => {
     await Promise.allSettled(promises);
     console.log("缓存预热完成");
   };
-
   return {
     // 状态
     cache,
@@ -291,5 +290,9 @@ export const useRequestCacheStore = defineStore("requestCache", () => {
     isCacheValid,
     invalidateCache,
     invalidateCacheByPattern,
+
+    // 便捷方法（向后兼容）
+    get: getCachedData,
+    set: setCachedData,
   };
 });

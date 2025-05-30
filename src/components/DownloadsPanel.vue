@@ -35,31 +35,10 @@ const instanceLogs = ref([]);
 const runningInstanceId = ref(null);
 const runningInstanceName = ref('');
 
-// 刷新下载中心
+// 刷新下载中心 - 移除重复的版本请求，让DownloadCenter组件处理
 const refreshDownloads = async () => {
-  loading.value = true;
-  try {
-    console.log('刷新下载中心...');
-    // 修复：使用存在的getVersions方法而不是fetchVersions
-    console.log('deployApi对象:', deployApi);
-    console.log('getVersions方法:', deployApi.getVersions);
-
-    const response = await deployApi.getVersions();
-    console.log('版本响应:', response);
-
-    if (response && response.versions) {
-      console.log(`获取到${response.versions.length}个版本`);
-    } else if (response && Array.isArray(response)) {
-      console.log(`获取到${response.length}个版本`);
-    } else {
-      console.log('版本数据格式:', response);
-    }
-  } catch (error) {
-    console.error('获取版本列表失败:', error);
-    toastService.info('无法连接到服务器，使用缓存数据');
-  } finally {
-    loading.value = false;
-  }
+  console.log('下载中心刷新事件触发');
+  // 不再在这里重复请求版本信息，避免与DownloadCenter组件的初始化请求重复
 };
 
 // 关闭控制台
@@ -75,7 +54,8 @@ const handleInstanceStopped = () => {
 
 // 组件挂载时执行
 onMounted(() => {
-  refreshDownloads();
+  // 移除重复的版本请求，由DownloadCenter组件负责数据初始化
+  console.log('DownloadsPanel 已挂载');
 
   // 监听事件
   if (emitter) {

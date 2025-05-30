@@ -128,8 +128,12 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, inject, nextTick, watch, onUnmounted } from 'vue';
 import { deployApi } from '@/services/api';
+import { useDeployStore } from '@/stores/deployStore';
 import axios from 'axios';
 import toastService from '@/services/toastService';
+
+// 初始化 deployStore
+const deployStore = useDeployStore();
 
 /**
  * 组件属性
@@ -231,55 +235,11 @@ const isPortValid = (ports = null) => {
   return valid;
 };
 
-// 获取可用版本列表
-const fetchVersions = async () => {
-  versionsLoading.value = true;
-  versionError.value = '';
-  try {
-    // 添加重试和错误恢复机制
-    let retryCount = 0;
-    const maxRetries = 2;
-    let success = false;
-
-    while (!success && retryCount <= maxRetries) {
-      try {
-        // 使用统一的API服务获取版本
-        const response = await deployApi.getVersions();
-
-        if (response && response.versions &&
-          response.versions.length > 0 &&
-          !(response.versions.length === 1 && response.versions[0] === 'NaN')) {
-          availableVersions.value = response.versions;
-          success = true;
-        } else {
-          throw new Error('无效的版本数据');
-        }
-      } catch (error) {
-        retryCount++;
-        if (retryCount > maxRetries) {
-          throw error;
-        }
-        // 重试前等待
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-  } catch (error) {
-    console.error('获取版本列表失败:', error);
-
-    // 在获取版本失败时提供静态版本选择
-    availableVersions.value = ['latest', 'beta', 'stable', 'v0.6.3', 'v0.6.2'];
-    versionError.value = '获取版本列表失败，已提供备选版本选择。';
-
-    addLog({
-      time: formatTime(new Date()),
-      source: 'system',
-      level: 'ERROR',
-      message: `版本获取失败: ${error.message || '未知错误'}`
-    });
-  } finally {
-    versionsLoading.value = false;
-  }
-};
+// 获取可用版本列表 - 已弃用，现在使用 deployStore
+// const fetchVersions = async () => {
+//   // 此函数已被替换为使用 deployStore.fetchVersions()
+//   // 以避免重复的 API 请求
+// };
 
 // 安装版本
 const installVersion = async () => {
@@ -308,14 +268,13 @@ const installVersion = async () => {
   installLoading.value = true;
   installStatus.value = 'installing';
   logs.value = []; // 清空之前的日志
-
   try {
     // 第一步：部署基础版本
     addLog({
       time: formatTime(new Date()),
       source: 'command',
       level: 'INFO',
-      message: `$ 开始部署基础版本 ${selectedVersion.value}，实例名称：${instanceName.value}...`
+      message: `开始部署基础版本 ${selectedVersion.value}，实例名称：${instanceName.value}...`
     });
 
     const version = selectedVersion.value;
@@ -323,26 +282,8 @@ const installVersion = async () => {
 
     console.log('调用API部署基础版本:', version, instanceNameValue);
 
-    // 修复：确保deployApi.deployVersion方法存在并且使用正确参数
-    // 从API导入的deployVersion函数
-    const deployResult = await deployApi.fetchVersions()
-      .then(() => {
-        // 直接使用axios发送部署请求，避免可能的API方法兼容性问题
-        return axios.post(`/api/deploy/${version}`, {
-          instance_name: instanceNameValue
-        });
-      })
-      .then(response => response.data)
-      .catch(error => {
-        // 如果失败，尝试备用路径
-        if (error.response && error.response.status === 404) {
-          console.log(`尝试备用路径: /deploy/${version}`);
-          return axios.post(`/deploy/${version}`, {
-            instance_name: instanceNameValue
-          }).then(response => response.data);
-        }
-        throw error;
-      });
+    // 使用 deployApi 发送基础部署请求
+    const deployResult = await deployApi.deployVersion(version, instanceNameValue);
 
     if (!deployResult || !deployResult.success) {
       const errorMsg = deployResult?.message || '基础版本部署请求失败';
@@ -350,7 +291,7 @@ const installVersion = async () => {
         time: formatTime(new Date()),
         source: 'system',
         level: 'ERROR',
-        message: `$ 基础版本部署失败: ${errorMsg}`
+        message: `基础版本部署失败: ${errorMsg}`
       });
       toastService.error(`基础版本部署失败: ${errorMsg}`);
       installLoading.value = false;
@@ -362,7 +303,7 @@ const installVersion = async () => {
       time: formatTime(new Date()),
       source: 'command',
       level: 'SUCCESS',
-      message: `$ ${instanceName.value} (${selectedVersion.value}) 基础版本部署任务已提交。`
+      message: `${instanceName.value} (${selectedVersion.value}) 基础版本部署任务已提交。`
     });
 
     // 第二步：配置实例 (NapCat, 适配器, 端口等)
@@ -371,20 +312,19 @@ const installVersion = async () => {
         time: formatTime(new Date()),
         source: 'command',
         level: 'INFO',
-        message: `$ 开始配置实例 ${instanceName.value}...`
+        message: `开始配置实例 ${instanceName.value}...`
       });
 
       const configParams = {
         instance_name: instanceName.value,
         qq_number: qqNumber.value,
         install_napcat: installNapcat.value,
-        install_adapter: installAdapter.value, // 使用 installAdapter
+        install_adapter: installAdapter.value,
         ports: {
           napcat: parseInt(napcatPort.value),
           adapter: parseInt(adapterPort.value),
           maibot: parseInt(maibotPort.value)
-        },
-        // model_type: "chatglm" // 如果需要，可以添加模型类型等其他配置
+        }
       };
 
       console.log('调用API配置实例:', configParams);
@@ -395,7 +335,7 @@ const installVersion = async () => {
           time: formatTime(new Date()),
           source: 'command',
           level: 'SUCCESS',
-          message: `$ 实例 ${instanceName.value} 配置任务已提交。请查看后续日志了解安装进度。`
+          message: `实例 ${instanceName.value} 配置任务已提交。请查看后续日志了解安装进度。`
         });
         toastService.success('实例配置任务已提交，后台将继续处理。');
       } else {
@@ -403,12 +343,13 @@ const installVersion = async () => {
         addLog({
           time: formatTime(new Date()),
           source: 'system',
-          level: 'WARNING', // 使用 WARNING 因为基础部署可能已开始
-          message: `$ 实例配置失败: ${errorMsg}`
+          level: 'WARNING',
+          message: `实例配置失败: ${errorMsg}`
         });
         toastService.warning(`实例配置提交失败: ${errorMsg} (基础部署可能已开始)`);
       }
-      // 启动轮询检查总体安装状态
+
+      // 启动 GET 轮询检查安装状态
       startInstallStatusPolling();
     } else {
       // 如果没有额外配置，基础部署完成后即结束
@@ -416,16 +357,16 @@ const installVersion = async () => {
         time: formatTime(new Date()),
         source: 'command',
         level: 'SUCCESS',
-        message: `$ ${instanceName.value} (${selectedVersion.value}) 基础安装完成，无额外配置。`
+        message: `${instanceName.value} (${selectedVersion.value}) 基础安装完成，无额外配置。`
       });
       toastService.success('基础实例安装已提交。');
-      installLoading.value = false; // 因为没有后续配置，直接结束loading
+      installLoading.value = false;
       refreshInstances();
     }
 
     // 通知更新实例列表
     emit('refresh-instances');
-    installStatus.value = 'completed'; // 表示请求已成功发出
+    installStatus.value = 'completed';
 
   } catch (error) {
     console.error('安装过程中发生错误:', error);
@@ -438,7 +379,7 @@ const installVersion = async () => {
       time: formatTime(new Date()),
       source: 'system',
       level: 'ERROR',
-      message: `$ 安装操作失败: ${errorMessage}`
+      message: `安装操作失败: ${errorMessage}`
     });
     toastService.error('安装操作失败: ' + errorMessage, 8000);
     installLoading.value = false;
@@ -448,7 +389,7 @@ const installVersion = async () => {
 // 添加statusPollingInterval变量
 let statusPollingInterval = null;
 
-// 添加安装状态轮询 - 添加模拟数据支持
+// 添加安装状态轮询 - 使用 GET 请求
 const startInstallStatusPolling = () => {
   // 清除已有的轮询
   if (statusPollingInterval) {
@@ -458,7 +399,7 @@ const startInstallStatusPolling = () => {
   // 检查是否在模拟数据模式
   const useMockData = window._useMockData || localStorage.getItem("useMockData") === "true";
 
-  // 如果是模拟数据模式，使用更短的轮询时间
+  // 轮询间隔：模拟模式3秒，正常模式10秒
   const pollingInterval = useMockData ? 3000 : 10000;
 
   // 开始新的轮询
@@ -475,22 +416,28 @@ const startInstallStatusPolling = () => {
             time: formatTime(new Date()),
             source: 'system',
             level: 'INFO',
-            message: `$ 正在安装依赖... (${checkCount}/3)`
+            message: `正在安装依赖... (${checkCount}/3)`
           });
+          installationProgress.value = checkCount * 25;
+          progressText.value = `正在安装依赖... ${checkCount}/3`;
         } else if (checkCount === 3) {
           addLog({
             time: formatTime(new Date()),
             source: 'system',
             level: 'SUCCESS',
-            message: `$ 依赖安装成功！`
+            message: `依赖安装成功！`
           });
+          installationProgress.value = 75;
+          progressText.value = '依赖安装完成';
         } else if (checkCount === 4) {
           addLog({
             time: formatTime(new Date()),
             source: 'system',
             level: 'INFO',
-            message: `$ 正在配置 Bot...`
+            message: `正在配置 Bot...`
           });
+          installationProgress.value = 90;
+          progressText.value = '正在配置 Bot...';
         } else {
           // 完成安装
           clearInterval(statusPollingInterval);
@@ -498,12 +445,14 @@ const startInstallStatusPolling = () => {
 
           // 恢复按钮状态
           installLoading.value = false;
+          installationProgress.value = 100;
+          progressText.value = '安装完成';
 
           addLog({
             time: formatTime(new Date()),
             source: 'command',
             level: 'SUCCESS',
-            message: '$ 模拟安装完成！'
+            message: '模拟安装完成！'
           });
 
           // 刷新实例列表
@@ -515,13 +464,19 @@ const startInstallStatusPolling = () => {
         return;
       }
 
-      // 正常API检查代码
+      // 正常API检查代码 - 使用 GET 请求轮询
       const response = await deployApi.checkInstallStatus();
       const isStillInstalling = response.napcat_installing || response.nonebot_installing;
 
       checkCount++;
 
-      // 如果不再安装中或者检查次数超过60次(10分钟)，停止轮询
+      // 更新进度信息
+      if (response.progress !== undefined) {
+        installationProgress.value = response.progress;
+        progressText.value = response.status_message || `安装进度: ${response.progress}%`;
+      }
+
+      // 如果不再安装中或者检查次数超过120次(20分钟)，停止轮询
       if (!isStillInstalling || checkCount > 120) {
         clearInterval(statusPollingInterval);
         statusPollingInterval = null;
@@ -538,7 +493,7 @@ const startInstallStatusPolling = () => {
             time: formatTime(new Date()),
             source: 'command',
             level: 'WARNING',
-            message: '$ 安装状态检测超时，请手动确认安装是否完成。'
+            message: '安装状态检测超时，请手动确认安装是否完成。'
           });
           toastService.warning('安装状态检测超时，请检查实例列表和日志。');
         } else {
@@ -546,16 +501,18 @@ const startInstallStatusPolling = () => {
             time: formatTime(new Date()),
             source: 'command',
             level: 'SUCCESS',
-            message: '$ 后台安装和配置过程已完成。'
+            message: '后台安装和配置过程已完成。'
           });
           toastService.success('后台安装和配置已完成！');
+          installationProgress.value = 100;
+          progressText.value = '安装完成';
         }
       } else {
         addLog({
           time: formatTime(new Date()),
           source: 'system',
           level: 'INFO',
-          message: `$ 等待后台安装中... (检查 ${checkCount}/120)`
+          message: `等待后台安装中... (检查 ${checkCount}/120)`
         });
       }
     } catch (error) {
@@ -572,10 +529,10 @@ const startInstallStatusPolling = () => {
         time: formatTime(new Date()),
         source: 'system',
         level: 'ERROR',
-        message: `$ 检查安装状态时出错: ${error.message}`
+        message: `检查安装状态时出错: ${error.message}`
       });
     }
-  }, pollingInterval); // 使用动态时间间隔
+  }, pollingInterval);
 };
 
 // 刷新实例列表辅助方法
@@ -589,26 +546,34 @@ const refreshInstances = () => {
 // 添加emitter依赖注入
 const emitter = inject('emitter', null);
 
-// 检查安装状态API查询接口
-const checkInstallStatus = async () => {
-  try {
-    // 使用新API检查安装状态
-    return await deployApi.checkInstallStatus();
-  } catch (error) {
-    console.error('获取安装状态失败:', error);
-    return { napcat_installing: false, nonebot_installing: false };
+// 生命周期管理
+onMounted(() => {
+  // 使用 deployStore 获取版本，避免重复请求
+  if (deployStore.availableVersions.length === 0) {
+    deployStore.fetchVersions().then((versions) => {
+      availableVersions.value = versions;
+    }).catch((error) => {
+      console.error('从 deployStore 获取版本失败:', error);
+      // 在获取版本失败时提供静态版本选择
+      availableVersions.value = ['latest', 'beta', 'stable', 'v0.6.3', 'v0.6.2'];
+      versionError.value = '获取版本列表失败，已提供备选版本选择。';
+    });
+  } else {
+    // 直接使用 deployStore 中已有的版本
+    availableVersions.value = deployStore.availableVersions;
   }
-};
+});
 
-// 生命周期清理
 onUnmounted(() => {
-  if (statusPollingInterval) {
-    clearInterval(statusPollingInterval);
+  // 清理 deployStore 连接
+  if (deployStore.cleanup) {
+    deployStore.cleanup();
   }
 });
 
 // 添加日志的方法
 const addLog = (log) => {
+  logs.value.push(log);
   emit('add-log', log);
 };
 
@@ -620,11 +585,6 @@ function formatTime(date) {
     second: '2-digit'
   });
 }
-
-// 初始加载版本
-onMounted(() => {
-  fetchVersions();
-});
 
 // 暴露方法，供父组件调用
 defineExpose({

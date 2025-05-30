@@ -87,7 +87,7 @@ export class OptimizedApiService {
    */
   async checkDeployStatus(instanceId, forceRefresh = false) {
     const cacheKey = this.cacheStore.generateCacheKey(
-      `/install-status/${instanceId}`,
+      `/deploy/install-status/${instanceId}`,
       "GET"
     );
 

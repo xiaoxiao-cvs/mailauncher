@@ -145,17 +145,6 @@
                     <div v-if="installing && logs.length > 0" class="mt-4">
                         <div class="flex items-center justify-between mb-2">
                             <div class="font-medium">安装日志</div>
-                            <!-- WebSocket连接状态指示器 -->
-                            <div class="flex items-center text-xs">
-                                <div v-if="deployWebSocketConnected" class="flex items-center text-success">
-                                    <div class="w-2 h-2 bg-success rounded-full mr-1 animate-pulse"></div>
-                                    <span>实时连接</span>
-                                </div>
-                                <div v-else class="flex items-center text-warning">
-                                    <div class="w-2 h-2 bg-warning rounded-full mr-1"></div>
-                                    <span>轮询模式</span>
-                                </div>
-                            </div>
                         </div>
                         <div class="log-container bg-base-300 rounded-lg p-3 h-48 overflow-y-auto font-mono text-sm">
                             <div v-for="(log, index) in logs" :key="index" class="log-line" :class="getLogClass(log)">
@@ -239,14 +228,7 @@ const installStatusText = computed(() => {
             default:
                 return currentService.status || '处理中';
         }
-    }
-    return '准备中';
-});
-
-// WebSocket连接状态（从 deployStore 获取）
-const deployWebSocketConnected = computed(() => {
-    const deployment = deployStore.currentDeployment;
-    return deployment ? deployStore.wsConnections.has(deployment.id) : false;
+    } return '准备中';
 });
 
 // 获取服务的默认端口

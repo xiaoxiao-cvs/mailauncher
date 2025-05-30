@@ -129,10 +129,9 @@ const configureBot = async (config) => {
 const checkInstallStatus = async (instanceId = null) => {
   try {
     console.log("检查安装状态", instanceId ? `实例ID: ${instanceId}` : "");
-
     const url = instanceId
-      ? `/install-status/${instanceId}`
-      : "/install-status";
+      ? `/deploy/install-status/${instanceId}`
+      : "/deploy/install-status";
     const response = await apiService.get(url);
 
     console.log("checkInstallStatus响应:", response);

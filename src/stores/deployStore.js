@@ -1,7 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed, reactive } from "vue";
 import { deployApi } from "@/services/api";
-import { deployWebSocketService } from "@/services/deployWebSocket";
 import toastService from "@/services/toastService";
 import { useRequestCacheStore } from "./requestCacheStore";
 import { usePollingStore } from "./pollingStore";
@@ -9,7 +8,6 @@ import { usePollingStore } from "./pollingStore";
 export const useDeployStore = defineStore("deploy", () => {
   const requestCache = useRequestCacheStore();
   const pollingStore = usePollingStore();
-
   // 状态管理
   const availableVersions = ref([
     "latest",
@@ -21,13 +19,15 @@ export const useDeployStore = defineStore("deploy", () => {
   const availableServices = ref([
     { name: "napcat-ada", description: "Napcat-ada 服务" },
   ]);
-
   // 当前部署状态
   const deployments = reactive(new Map()); // 使用 Map 管理多个部署任务
   const currentDeploymentId = ref(null);
 
-  // WebSocket 连接状态
-  const wsConnections = reactive(new Map()); // 管理多个 WebSocket 连接
+  // 请求状态管理，防止重复请求
+  const loadingStates = reactive({
+    fetchingVersions: false,
+    fetchingServices: false,
+  });
 
   // 计算属性
   const currentDeployment = computed(() => {
@@ -40,20 +40,29 @@ export const useDeployStore = defineStore("deploy", () => {
     return Array.from(deployments.values()).some(
       (deployment) => deployment.installing
     );
-  });
-
-  // 获取版本列表（带缓存）
+  }); // 获取版本列表（带缓存）
   const fetchVersions = async (forceRefresh = false) => {
     const cacheKey = "available_versions";
 
+    // 如果已经在请求中，等待当前请求完成
+    if (loadingStates.fetchingVersions && !forceRefresh) {
+      console.log("版本请求已在进行中，等待完成...");
+      // 等待请求完成并返回当前值
+      while (loadingStates.fetchingVersions) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      return availableVersions.value;
+    }
+
     if (!forceRefresh) {
-      const cached = requestCache.get(cacheKey);
+      const cached = requestCache.getCachedData(cacheKey);
       if (cached) {
         availableVersions.value = cached;
         return cached;
       }
     }
 
+    loadingStates.fetchingVersions = true;
     try {
       const response = await deployApi.getVersions();
       console.log("获取版本响应:", response);
@@ -75,11 +84,10 @@ export const useDeployStore = defineStore("deploy", () => {
       ) {
         versions = response.versions;
       }
-
       if (versions.length > 0) {
         availableVersions.value = versions;
         // 缓存版本列表，有效期 1 小时
-        requestCache.set(cacheKey, versions, 3600000);
+        requestCache.setCachedData(cacheKey, versions);
         console.log("成功更新版本列表:", versions);
         return versions;
       } else {
@@ -90,33 +98,45 @@ export const useDeployStore = defineStore("deploy", () => {
       console.error("获取版本列表失败:", error);
       // 返回默认版本列表
       return availableVersions.value;
+    } finally {
+      loadingStates.fetchingVersions = false;
     }
-  };
-
-  // 获取服务列表（带缓存）
+  }; // 获取服务列表（带缓存）
   const fetchServices = async (forceRefresh = false) => {
     const cacheKey = "available_services";
 
+    // 如果已经在请求中，等待当前请求完成
+    if (loadingStates.fetchingServices && !forceRefresh) {
+      console.log("服务请求已在进行中，等待完成...");
+      // 等待请求完成并返回当前值
+      while (loadingStates.fetchingServices) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      return availableServices.value;
+    }
+
     if (!forceRefresh) {
-      const cached = requestCache.get(cacheKey);
+      const cached = requestCache.getCachedData(cacheKey);
       if (cached) {
         availableServices.value = cached;
         return cached;
       }
     }
 
+    loadingStates.fetchingServices = true;
     try {
       // 目前只有固定的 napcat-ada 服务
       const services = [{ name: "napcat-ada", description: "Napcat-ada 服务" }];
-
       availableServices.value = services;
       // 缓存服务列表，有效期 1 小时
-      requestCache.set(cacheKey, services, 3600000);
+      requestCache.setCachedData(cacheKey, services);
       console.log("服务初始化完成:", services);
       return services;
     } catch (error) {
       console.error("服务初始化失败:", error);
       return availableServices.value;
+    } finally {
+      loadingStates.fetchingServices = false;
     }
   };
 
@@ -175,148 +195,7 @@ export const useDeployStore = defineStore("deploy", () => {
       deployment.servicesProgress = servicesProgress;
     }
   };
-
-  // 初始化 WebSocket 连接
-  const initWebSocketConnection = async (deploymentId) => {
-    const deployment = deployments.get(deploymentId);
-    if (!deployment) {
-      throw new Error("部署任务不存在");
-    }
-
-    try {
-      addLog(
-        deploymentId,
-        "正在建立WebSocket连接以获取实时部署日志...",
-        "info"
-      );
-
-      // 检查是否已有连接
-      if (wsConnections.has(deploymentId)) {
-        const existingConnection = wsConnections.get(deploymentId);
-        if (existingConnection.connected) {
-          return existingConnection.sessionId;
-        }
-      }
-
-      // 创建新的连接配置
-      const connectionConfig = {
-        connected: false,
-        sessionId: null,
-        handlers: new Map(),
-      };
-
-      // 注册事件处理器
-      const handlers = {
-        open: (data) => {
-          connectionConfig.connected = true;
-          connectionConfig.sessionId = data.sessionId;
-          addLog(
-            deploymentId,
-            `WebSocket连接已建立 (会话ID: ${data.sessionId})`,
-            "success"
-          );
-        },
-
-        output: (data) => {
-          addLog(deploymentId, data.data, "info");
-        },
-
-        status: (data) => {
-          addLog(deploymentId, data.message, "info");
-          // 尝试从状态消息中提取进度信息
-          const progressMatch = data.message.match(/(\d+)%/);
-          if (progressMatch) {
-            updateDeploymentProgress(deploymentId, parseInt(progressMatch[1]));
-          }
-        },
-
-        progress: (data) => {
-          if (data.progress !== undefined) {
-            updateDeploymentProgress(
-              deploymentId,
-              data.progress,
-              data.services_status
-            );
-            addLog(deploymentId, `部署进度: ${data.progress}%`, "info");
-          }
-          if (data.message) {
-            addLog(deploymentId, data.message, "info");
-          }
-        },
-
-        completed: (data) => {
-          const deployment = deployments.get(deploymentId);
-          if (deployment) {
-            deployment.installComplete = true;
-            deployment.installing = false;
-            deployment.endTime = new Date();
-            addLog(deploymentId, "🎉 部署已完成！", "success");
-            toastService.success(
-              `MaiBot ${deployment.config.version} 部署成功！`
-            );
-          }
-          closeWebSocketConnection(deploymentId);
-        },
-
-        error: (data) => {
-          addLog(deploymentId, `错误: ${data.message || data.error}`, "error");
-          const deployment = deployments.get(deploymentId);
-          if (deployment) {
-            deployment.error = data.message || data.error;
-          }
-        },
-
-        close: (data) => {
-          connectionConfig.connected = false;
-          if (data.code !== 1000) {
-            addLog(
-              deploymentId,
-              `WebSocket连接异常关闭: ${data.code} ${data.reason}`,
-              "warning"
-            );
-          }
-          wsConnections.delete(deploymentId);
-        },
-      };
-
-      // 注册所有处理器
-      Object.entries(handlers).forEach(([event, handler]) => {
-        deployWebSocketService.on(event, handler);
-        connectionConfig.handlers.set(event, handler);
-      });
-
-      // 建立连接
-      const sessionId = await deployWebSocketService.connect();
-      connectionConfig.sessionId = sessionId;
-      wsConnections.set(deploymentId, connectionConfig);
-
-      return sessionId;
-    } catch (error) {
-      console.error("WebSocket连接失败:", error);
-      addLog(deploymentId, `WebSocket连接失败: ${error.message}`, "error");
-      throw error;
-    }
-  };
-
-  // 关闭 WebSocket 连接
-  const closeWebSocketConnection = (deploymentId) => {
-    const connection = wsConnections.get(deploymentId);
-    if (!connection) return;
-
-    // 移除事件监听器
-    connection.handlers.forEach((handler, event) => {
-      deployWebSocketService.off(event, handler);
-    });
-
-    // 断开连接
-    if (connection.connected && deployWebSocketService.isConnected()) {
-      deployWebSocketService.disconnect();
-    }
-
-    wsConnections.delete(deploymentId);
-  };
-
-  // 检查安装状态（WebSocket 备用方案）
+  // 检查安装状态（轮询方案）
   const checkInstallStatus = async (deploymentId) => {
     const deployment = deployments.get(deploymentId);
     if (!deployment || !deployment.instanceId) return;
@@ -344,7 +223,7 @@ export const useDeployStore = defineStore("deploy", () => {
           deployment.installComplete = true;
           deployment.installing = false;
           deployment.endTime = new Date();
-          addLog(deploymentId, "安装已完成！", "success");
+          addLog(deploymentId, "✅ 安装已完成！", "success");
           toastService.success(
             `MaiBot ${deployment.config.version} 安装成功！`
           );
@@ -371,42 +250,11 @@ export const useDeployStore = defineStore("deploy", () => {
       `🚀 开始安装 MaiBot ${config.version} 实例: ${config.instance_name}`
     );
     toastService.info(`开始安装 MaiBot ${config.version}`);
-
     try {
-      // 步骤1: 尝试建立WebSocket连接
-      let useWebSocket = true;
-      let sessionId = null;
-
-      try {
-        addLog(
-          deploymentId,
-          "📡 步骤 1/3: 建立WebSocket连接获取实时部署日志...",
-          "info"
-        );
-        sessionId = await initWebSocketConnection(deploymentId);
-        addLog(
-          deploymentId,
-          `✅ WebSocket连接成功，会话ID: ${sessionId}`,
-          "success"
-        );
-      } catch (wsError) {
-        console.warn("WebSocket连接失败，将使用轮询模式:", wsError);
-        addLog(
-          deploymentId,
-          "⚠️ WebSocket连接失败，将使用传统轮询模式",
-          "warning"
-        );
-        useWebSocket = false;
-        closeWebSocketConnection(deploymentId);
-      }
-
-      // 步骤2: 准备部署配置
-      addLog(deploymentId, "⚙️ 步骤 2/3: 准备部署配置...", "info");
+      // 准备部署配置
+      addLog(deploymentId, "⚙️ 步骤 1/2: 准备部署配置...", "info");
 
       const deployConfig = { ...config };
-      if (useWebSocket && sessionId) {
-        deployConfig.websocket_session_id = sessionId;
-      }
 
       console.log("发送部署请求，配置:", deployConfig);
       addLog(
@@ -415,82 +263,36 @@ export const useDeployStore = defineStore("deploy", () => {
         "info"
       );
 
-      // 步骤3: 发送部署请求
-      addLog(deploymentId, "🚀 步骤 3/3: 发送部署请求...", "info");
+      // 发送部署请求
+      addLog(deploymentId, "🚀 步骤 2/2: 发送部署请求...", "info");
+      addLog(deploymentId, "📤 使用HTTP请求发送部署配置...", "info");
+      const deployResponse = await deployApi.deploy(deployConfig);
 
-      if (useWebSocket && deployWebSocketService.isConnected()) {
-        // WebSocket模式：通过WebSocket发送部署配置
-        addLog(deploymentId, "📤 通过WebSocket发送部署配置...", "info");
-        const configSent =
-          deployWebSocketService.sendDeployConfig(deployConfig);
-
-        if (!configSent) {
-          throw new Error("无法通过WebSocket发送部署配置");
-        }
-
-        addLog(deploymentId, "✅ 部署配置已发送，等待后端处理...", "success");
-        addLog(
-          deploymentId,
-          "📊 将通过WebSocket接收实时部署进度和日志",
-          "info"
-        );
-
-        // 同时发送HTTP请求作为备用
-        try {
-          const deployResponse = await Promise.race([
-            deployApi.deploy(deployConfig),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error("HTTP请求超时")), 15000)
-            ),
-          ]);
-
-          if (deployResponse && deployResponse.success) {
-            deployment.instanceId = deployResponse.instance_id;
-            addLog(
-              deploymentId,
-              `✅ HTTP部署请求成功，实例ID: ${deployment.instanceId}`,
-              "success"
-            );
-          }
-        } catch (httpError) {
-          console.warn("HTTP部署请求失败，但WebSocket流程继续:", httpError);
-          addLog(
-            deploymentId,
-            "ℹ️ HTTP请求超时，但WebSocket部署流程正在进行中...",
-            "info"
-          );
-        }
-      } else {
-        // 传统HTTP模式
-        addLog(deploymentId, "📤 使用HTTP请求发送部署配置...", "info");
-        const deployResponse = await deployApi.deploy(deployConfig);
-
-        if (!deployResponse || !deployResponse.success) {
-          throw new Error(deployResponse?.message || "部署失败");
-        }
-
-        deployment.instanceId = deployResponse.instance_id;
-        addLog(
-          deploymentId,
-          `✅ 部署任务已提交，实例ID: ${deployment.instanceId}`,
-          "success"
-        );
-        addLog(deploymentId, "🔄 启动状态轮询检查...", "info");
-
-        // 使用轮询管理器启动状态检查
-        pollingStore.startPolling(
-          `deploy_status_${deploymentId}`,
-          () => checkInstallStatus(deploymentId),
-          2000, // 每2秒检查一次
-          {
-            maxRetries: 300, // 最多重试300次（10分钟）
-            onError: (error) => {
-              console.error("部署状态轮询出错:", error);
-              addLog(deploymentId, `状态检查出错: ${error.message}`, "error");
-            },
-          }
-        );
+      if (!deployResponse || !deployResponse.success) {
+        throw new Error(deployResponse?.message || "部署失败");
       }
+
+      deployment.instanceId = deployResponse.instance_id;
+      addLog(
+        deploymentId,
+        `✅ 部署任务已提交，实例ID: ${deployment.instanceId}`,
+        "success"
+      );
+      addLog(deploymentId, "🔄 启动状态轮询检查...", "info");
+
+      // 使用轮询管理器启动状态检查
+      pollingStore.startPolling(
+        `deploy_status_${deploymentId}`,
+        () => checkInstallStatus(deploymentId),
+        2000, // 每2秒检查一次
+        {
+          maxRetries: 300, // 最多重试300次（10分钟）
+          onError: (error) => {
+            console.error("部署状态轮询出错:", error);
+            addLog(deploymentId, `状态检查出错: ${error.message}`, "error");
+          },
+        }
+      );
 
       return deploymentId;
     } catch (error) {
@@ -500,7 +302,6 @@ export const useDeployStore = defineStore("deploy", () => {
       deployment.installing = false;
       deployment.error = error.message;
       deployment.endTime = new Date();
-      closeWebSocketConnection(deploymentId);
       throw error;
     }
   };
@@ -513,9 +314,6 @@ export const useDeployStore = defineStore("deploy", () => {
     try {
       // 停止轮询
       pollingStore.stopPolling(`deploy_status_${deploymentId}`);
-
-      // 关闭WebSocket连接
-      closeWebSocketConnection(deploymentId);
 
       // 如果有实例ID，尝试取消部署
       if (deployment.instanceId) {
@@ -547,7 +345,6 @@ export const useDeployStore = defineStore("deploy", () => {
 
     completed.forEach((id) => {
       pollingStore.stopPolling(`deploy_status_${id}`);
-      closeWebSocketConnection(id);
       deployments.delete(id);
     });
 
@@ -570,14 +367,8 @@ export const useDeployStore = defineStore("deploy", () => {
       pollingStore.stopPolling(`deploy_status_${id}`);
     });
 
-    // 关闭所有WebSocket连接
-    wsConnections.forEach((_, id) => {
-      closeWebSocketConnection(id);
-    });
-
     // 清空状态
     deployments.clear();
-    wsConnections.clear();
     currentDeploymentId.value = null;
   };
 

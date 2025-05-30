@@ -43,10 +43,9 @@ export const deployApi = {
   // 部署版本 - 符合后端API格式
   deploy: (deployConfig) =>
     apiService.post(createUrl("/deploy/deploy"), deployConfig),
-
   // 检查安装状态
   checkInstallStatus: (instanceId) =>
-    apiService.get(createUrl(`/install-status/${instanceId}`)),
+    apiService.get(createUrl(`/deploy/install-status/${instanceId}`)),
 };
 
 /**
