@@ -19,12 +19,6 @@ import { initTheme } from "./services/theme";
 // 导入轮询服务
 import { usePollingStore } from "./stores/pollingStore";
 
-// 导入测试工具（开发模式）
-import "./utils/pollingTest.js";
-import "./utils/verifyPollingFix.js"; // 添加修复验证工具
-import "./utils/testDashboardFix.js"; // 添加仪表盘修复测试工具
-import "./utils/finalVerification.js"; // 添加最终验证工具
-
 // 创建应用实例
 const app = createApp(App);
 
