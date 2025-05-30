@@ -35,7 +35,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["resources/backend.exe"],
     "externalBin": ["binaries/MaiLauncher-Backend"]
   }
 }

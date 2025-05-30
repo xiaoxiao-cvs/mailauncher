@@ -14,21 +14,22 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_opener::init())        .setup(|app| {
-            // 获取应用目录
-            let app_dir = app.path().app_data_dir().expect("无法获取应用目录");            let resource_path = app_dir.parent()
-                .unwrap()
-                .join("resources")
-                .join("backend.exe");
-              // 如果资源文件不存在，尝试开发模式路径
-            let backend_exe = if resource_path.exists() {
-                resource_path
-            } else {
-                // 开发模式下的路径
+        .plugin(tauri_plugin_opener::init()).setup(|app| {
+            // 在 externalBin 配置下，Tauri 会处理不同平台的二进制文件
+            // 开发模式和生产模式下都使用相同的逻辑
+            let backend_exe = if cfg!(dev) {
+                // 开发模式：直接使用 binaries 目录中的文件
                 std::env::current_dir()
                     .unwrap()
-                    .join("resources")
-                    .join("backend.exe")
+                    .join("src-tauri")
+                    .join("binaries")
+                    .join("MaiLauncher-Backend-x86_64-pc-windows-msvc.exe")
+            } else {
+                // 生产模式：使用 Tauri 的资源解析
+                // Tauri 会自动根据平台查找正确的二进制文件
+                app.path()
+                    .resolve("MaiLauncher-Backend", tauri::path::BaseDirectory::Resource)
+                    .expect("无法找到后端二进制文件")
             };
             
             println!("🔍 尝试启动后端: {:?}", backend_exe);
