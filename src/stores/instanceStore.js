@@ -1,6 +1,12 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
-import { fetchInstances as apiFetchInstances } from "@/api/instances";
+import {
+  fetchInstances as apiFetchInstances,
+  startInstance as apiStartInstance,
+  stopInstance as apiStopInstance,
+  restartInstance as apiRestartInstance,
+  deleteInstance as apiDeleteInstance,
+} from "@/api/instances";
 import { adaptInstancesList } from "@/utils/apiAdapters";
 import toastService from "@/services/toastService";
 
@@ -144,7 +150,6 @@ export const useInstanceStore = defineStore("instances", () => {
     instances.value.push(newInstance);
     lastFetchTime.value = Date.now(); // 更新缓存时间
   };
-
   // 删除实例
   const removeInstance = (instanceId) => {
     const index = instances.value.findIndex(
@@ -154,6 +159,100 @@ export const useInstanceStore = defineStore("instances", () => {
     if (index !== -1) {
       instances.value.splice(index, 1);
       lastFetchTime.value = Date.now(); // 更新缓存时间
+    }
+  };
+
+  // 启动实例
+  const startInstance = async (instanceId) => {
+    try {
+      setInstanceLoading(instanceId, true);
+      updateInstanceStatus(instanceId, "starting");
+
+      const response = await apiStartInstance(instanceId);
+
+      if (response.success) {
+        updateInstanceStatus(instanceId, "running");
+        toastService.success(`实例 ${instanceId} 启动成功`);
+        return response;
+      } else {
+        throw new Error(response.message || "启动实例失败");
+      }
+    } catch (error) {
+      updateInstanceStatus(instanceId, "stopped");
+      toastService.error(`启动实例失败: ${error.message}`);
+      throw error;
+    } finally {
+      setInstanceLoading(instanceId, false);
+    }
+  };
+
+  // 停止实例
+  const stopInstance = async (instanceId) => {
+    try {
+      setInstanceLoading(instanceId, true);
+      updateInstanceStatus(instanceId, "stopping");
+
+      const response = await apiStopInstance(instanceId);
+
+      if (response.success) {
+        updateInstanceStatus(instanceId, "stopped");
+        toastService.success(`实例 ${instanceId} 停止成功`);
+        return response;
+      } else {
+        throw new Error(response.message || "停止实例失败");
+      }
+    } catch (error) {
+      updateInstanceStatus(instanceId, "running");
+      toastService.error(`停止实例失败: ${error.message}`);
+      throw error;
+    } finally {
+      setInstanceLoading(instanceId, false);
+    }
+  };
+
+  // 重启实例
+  const restartInstance = async (instanceId) => {
+    try {
+      setInstanceLoading(instanceId, true);
+      updateInstanceStatus(instanceId, "restarting");
+
+      const response = await apiRestartInstance(instanceId);
+
+      if (response.success) {
+        updateInstanceStatus(instanceId, "running");
+        toastService.success(`实例 ${instanceId} 重启成功`);
+        return response;
+      } else {
+        throw new Error(response.message || "重启实例失败");
+      }
+    } catch (error) {
+      updateInstanceStatus(instanceId, "stopped");
+      toastService.error(`重启实例失败: ${error.message}`);
+      throw error;
+    } finally {
+      setInstanceLoading(instanceId, false);
+    }
+  };
+
+  // 删除实例
+  const deleteInstance = async (instanceId) => {
+    try {
+      setInstanceLoading(instanceId, true);
+
+      const response = await apiDeleteInstance(instanceId);
+
+      if (response.success) {
+        removeInstance(instanceId);
+        toastService.success(`实例 ${instanceId} 删除成功`);
+        return response;
+      } else {
+        throw new Error(response.message || "删除实例失败");
+      }
+    } catch (error) {
+      toastService.error(`删除实例失败: ${error.message}`);
+      throw error;
+    } finally {
+      setInstanceLoading(instanceId, false);
     }
   };
 
@@ -225,7 +324,6 @@ export const useInstanceStore = defineStore("instances", () => {
     fetchPromise = null;
     requestQueue.clear();
   };
-
   return {
     // 状态
     instances,
@@ -244,6 +342,10 @@ export const useInstanceStore = defineStore("instances", () => {
     setInstanceLoading,
     addInstance,
     removeInstance,
+    startInstance,
+    stopInstance,
+    restartInstance,
+    deleteInstance,
     batchUpdateInstances,
     clearCache,
     findInstance,

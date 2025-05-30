@@ -1,39 +1,41 @@
 <template>
     <div v-if="isOpen" class="settings-drawer-backdrop" @click.self="handleBackdropClick">
-        <div class="settings-drawer-container">
-            <div class="settings-drawer-header">
-                <h2 class="text-xl font-bold text-base-content">系统设置</h2>
-                <button class="btn btn-sm btn-ghost btn-circle text-base-content" @click="closeDrawer">
-                    <i class="icon icon-xmark"></i>
-                </button>
-            </div>
-            <div class="settings-content">
-                <!-- 设置侧边栏 -->
-                <div class="settings-sidebar">
-                    <ul class="menu menu-compact p-2 rounded-lg bg-base-200">
-                        <li v-for="tab in settingTabs" :key="tab.key">
-                            <a :class="{ 'active': activeTab === tab.key, 'text-base-content': true }"
-                                @click="switchTab(tab.key)">
-                                <i class="icon text-base-content" :class="'icon-' + tab.icon"></i>
-                                {{ tab.title }}
-                            </a>
-                        </li>
-                    </ul>
+        <div class="settings-drawer-outer-container">
+            <div class="settings-drawer-container">
+                <div class="settings-drawer-header">
+                    <h2 class="text-xl font-bold text-base-content">系统设置</h2>
+                    <button class="btn btn-sm btn-ghost btn-circle text-base-content" @click="closeDrawer">
+                        <i class="icon icon-xmark"></i>
+                    </button>
+                </div>
+                <div class="settings-content">
+                    <!-- 设置侧边栏 -->
+                    <div class="settings-sidebar">
+                        <ul class="menu menu-compact p-2 rounded-lg bg-base-200">
+                            <li v-for="tab in settingTabs" :key="tab.key">
+                                <a :class="{ 'active': activeTab === tab.key, 'text-base-content': true }"
+                                    @click="switchTab(tab.key)">
+                                    <i class="icon text-base-content" :class="'icon-' + tab.icon"></i>
+                                    {{ tab.title }}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- 设置内容区 -->
+                    <div class="settings-body">
+                        <transition name="tab-transition" mode="out-in">
+                            <component :is="currentSettingComponent" :key="activeTab" />
+                        </transition>
+                    </div>
                 </div>
 
-                <!-- 设置内容区 -->
-                <div class="settings-body">
-                    <transition name="tab-transition" mode="out-in">
-                        <component :is="currentSettingComponent" :key="activeTab" />
-                    </transition>
-                </div>
-            </div>
-
-            <!-- 设置页脚 -->
-            <div class="settings-drawer-footer">
-                <div class="flex justify-between items-center w-full">
-                    <span class="text-sm opacity-70 text-base-content">版本 1.0.0</span>
-                    <button class="btn btn-sm btn-outline text-base-content" @click="closeDrawer">关闭</button>
+                <!-- 设置页脚 -->
+                <div class="settings-drawer-footer">
+                    <div class="flex justify-between items-center w-full">
+                        <span class="text-sm opacity-70 text-base-content">版本 0.1.0-preview.1</span>
+                        <button class="btn btn-sm btn-outline text-base-content" @click="closeDrawer">关闭</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -157,43 +159,55 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* 设置抽屉背景 - 使用毛玻璃效果 */
+/* 设置抽屉背景 - 使用纯色背景 */
 .settings-drawer-backdrop {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.4);
+    background-color: rgba(0, 0, 0, 0.45);
+    /* 稍微深一点的透明背景层 */
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1000;
     animation: fadeIn 0.3s ease;
-    /* 添加毛玻璃效果 */
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+}
+
+/* 外层容器 - 添加黑色边框 */
+.settings-drawer-outer-container {
+    width: 92%;
+    max-width: 1020px;
+    height: 92%;
+    max-height: 720px;
+    border-radius: 1rem;
+    padding: 8px;
+    background-color: rgba(0, 0, 0, 0.8);
+    /* 更暗的黑色边框 */
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+    /* 更柔和的阴影 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: scaleIn 0.3s ease;
 }
 
 .settings-drawer-container {
-    width: 90%;
-    max-width: 1000px;
-    height: 90%;
-    max-height: 700px;
+    width: 100%;
+    height: 100%;
     border-radius: 0.75rem;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    /* 更自然的阴影 */
     display: flex;
     flex-direction: column;
-    animation: slideIn 0.3s ease;
     position: relative;
     overflow: hidden;
-    /* 设置纯色边框 */
-    border: 2px solid hsl(var(--b3));
+    /* 设置精致的边框 */
+    border: 1px solid hsl(var(--b3));
     opacity: 1;
-    /* 使用纯色或渐变背景，不添加透明度 */
-    background: linear-gradient(135deg,
-            hsl(var(--b2)) 0%,
-            hsl(var(--b1)) 100%);
+    /* 使用纯色背景 */
+    background-color: hsl(var(--b1));
 }
 
 .settings-drawer-header {
@@ -202,7 +216,8 @@ onBeforeUnmount(() => {
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid hsl(var(--b3));
-    background-color: hsl(var(--p) / 0.2);
+    background-color: hsl(var(--b2));
+    /* 改为纯色背景 */
 }
 
 .settings-content {
@@ -242,10 +257,12 @@ onBeforeUnmount(() => {
 }
 
 /* 主题适配 - 调整深色模式下的视觉效果，使用纯色 */
+:global(.dark-mode) .settings-drawer-outer-container {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
 :global(.dark-mode) .settings-drawer-container {
-    background: linear-gradient(135deg,
-            hsl(var(--n)) 0%,
-            hsl(var(--b1)) 100%);
+    background-color: hsl(var(--b1));
     border-color: hsl(var(--b3)) !important;
 }
 
@@ -258,7 +275,7 @@ onBeforeUnmount(() => {
 }
 
 :global(.dark-mode) .settings-drawer-header {
-    background-color: hsl(var(--p) / 0.3) !important;
+    background-color: hsl(var(--b2)) !important;
 }
 
 :global(.dark-mode) .settings-drawer-footer {
@@ -300,6 +317,18 @@ onBeforeUnmount(() => {
 
     to {
         transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        transform: scale(0.97);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
         opacity: 1;
     }
 }

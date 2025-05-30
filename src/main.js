@@ -19,9 +19,6 @@ import { initTheme } from "./services/theme";
 // 导入轮询服务
 import { usePollingStore } from "./stores/pollingStore";
 
-// 导入 Tauri shell 插件
-import { Command } from '@tauri-apps/plugin-shell';
-
 // 创建应用实例
 const app = createApp(App);
 
@@ -163,15 +160,7 @@ eventBus.clear();
 
 // 异步初始化轮询服务，然后挂载应用
 const initAndMountApp = async () => {
-  try {
-    // 启动 Tauri sidecar
-    console.log("🚀 启动 Tauri sidecar...");
-    const command = Command.sidecar('binaries/MaiLauncher-Backend.exe');
-    const output = await command.execute();
-    console.log("✅ Tauri sidecar 启动完成:", output);
-  } catch (error) {
-    console.error("❌ Tauri sidecar 启动失败:", error);
-  }
+  console.log("🚀 初始化应用...");
 
   try {
     // 确保轮询服务正确初始化

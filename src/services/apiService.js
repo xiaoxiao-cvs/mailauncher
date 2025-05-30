@@ -9,13 +9,10 @@ export const isMockModeActive = () => {
   );
 };
 
-// 创建axios实例并配置正确的baseURL
+// 创建axios实例并配置固定的baseURL
 const axiosInstance = axios.create({
-  // 根据环境变量决定是否使用代理
-  baseURL:
-    import.meta.env.VITE_USE_PROXY === "true"
-      ? ""
-      : backendConfig.getBackendUrl(),
+  // 固定使用后端地址，不再依赖代理
+  baseURL: backendConfig.getBackendUrl(),
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -222,16 +219,21 @@ const generateMockResponse = (url, method, params, data) => {
       message: `实例已停止（固定数据）`,
       isMock: true,
     };
-  } else if (url.match(/\/instance\/[^\/]+$/)) {
+  } else if (url.includes("/delete") && method === "delete") {
     // 处理删除实例请求 (DELETE)
-    if (method === "DELETE") {
-      const instanceName = url.split("/instance/")[1];
-      response = {
-        success: true,
-        message: `实例 ${instanceName} 已删除（固定数据）`,
-        isMock: true,
-      };
-    }
+    const instanceId = url.split("/instance/")[1].split("/delete")[0];
+    response = {
+      success: true,
+      message: `实例 ${instanceId} 已删除（固定数据）`,
+      isMock: true,
+    };
+  } else if (url.match(/\/instance\/[^\/]+$/)) {
+    // 处理其他实例请求
+    response = {
+      success: false,
+      message: "不支持的实例操作",
+      isMock: true,
+    };
   } else if (url.includes("/logs/instance/")) {
     // 处理实例日志请求 - 使用硬编码的日志数据
     const instanceName = url.split("/logs/instance/")[1];

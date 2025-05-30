@@ -4,28 +4,20 @@
  */
 
 const backendConfig = {
-  // 后端服务配置
+  // 后端服务配置 - 固定端口23456
   server: {
-    host: "localhost", // 从后端config.toml提取的主机名
-    port: 23456, // 从后端config.toml提取的端口号
-    api_prefix: "/api/v1", // 从后端config.toml提取的API前缀
+    host: "127.0.0.1", // 固定使用本地回环地址
+    port: 23456, // 固定后端端口号
+    api_prefix: "/api/v1", // API前缀
   },
 
   // 调试配置
   debug: {
     level: "INFO",
   },
-
   // 获取完整的后端API地址
   getBackendUrl() {
-    // 修复：确保始终返回完整的后端地址
-    // 在开发环境下，如果需要使用代理，可以通过环境变量控制
-    const useProxy = import.meta.env.VITE_USE_PROXY === "true";
-
-    if (useProxy) {
-      return ""; // 使用代理时返回空字符串
-    }
-
+    // 固定返回后端地址，不再依赖代理
     return `http://${this.server.host}:${this.server.port}`;
   },
 

@@ -8,8 +8,8 @@
                     <img src="/assets/icon.ico" alt="App Logo" class="app-logo">
                     <div class="app-details">
                         <h2>MaiLauncher</h2>
-                        <p class="app-version">版本: 0.1.1</p>
-                        <p class="app-description">MaiBot 管理器</p>
+                        <p class="app-version">版本: 0.1.0-preview.1</p>
+                        <p class="app-description">MaiBot 启动器</p>
                     </div>
                 </div>
 
@@ -39,7 +39,7 @@
                 <div class="license-section">
                     <h4>许可证</h4>
                     <p>MIT License</p>
-                    <p class="text-sm opacity-75">Copyright (c) 2023 Team Mai.To.The.Gate</p>
+                    <p class="text-sm opacity-75">Copyright (c) 2025 Team Mai.To.The.Gate</p>
                 </div>
 
                 <div class="divider"></div>

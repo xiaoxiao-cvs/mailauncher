@@ -202,7 +202,7 @@ const stopInstance = async (instanceId) => {
  */
 const deleteInstance = async (instanceId) => {
   try {
-    const response = await apiService.delete(`/instance/${instanceId}`);
+    const response = await apiService.delete(`/instance/${instanceId}/delete`);
     console.log("deleteInstance响应:", response);
     return response.data || response;
   } catch (error) {

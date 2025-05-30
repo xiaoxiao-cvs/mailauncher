@@ -123,8 +123,8 @@ const handleSave = () => {
 <style scoped>
 .drawer-container {
     @apply fixed inset-0 z-50 transform translate-x-full transition-transform duration-300 ease-in-out;
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
+    background-color: rgba(0, 0, 0, 0.6);
+    /* 移除毛玻璃效果 */
 }
 
 .drawer-container.open {

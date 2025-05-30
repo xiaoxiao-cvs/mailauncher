@@ -16,18 +16,8 @@ const createUrl = (path) => {
     path = "/" + path;
   }
 
-  // 检查是否使用代理
-  const useProxy = import.meta.env.VITE_USE_PROXY === "true";
-
-  if (useProxy) {
-    // 使用代理时，先清理掉可能存在的/api/v1前缀，防止重复
-    const cleanPath = path.replace(/^\/?api\/v1\/?/i, "");
-    // 确保干净的路径以/开始
-    return cleanPath.startsWith("/") ? cleanPath : "/" + cleanPath;
-  } else {
-    // 不使用代理时，返回相对路径，让apiService处理完整URL
-    return path;
-  }
+  // 直接返回路径，让apiService处理完整URL
+  return path;
 };
 
 /**
@@ -92,12 +82,12 @@ export const instancesApi = {
 
   // 停止实例
   stopInstance: (id) => apiService.get(createUrl(`/instance/${id}/stop`)),
-
   // 重启实例
   restartInstance: (id) => apiService.get(createUrl(`/instance/${id}/restart`)),
 
   // 删除实例
-  deleteInstance: (id) => apiService.get(createUrl(`/instance/${id}/delete`)),
+  deleteInstance: (id) =>
+    apiService.delete(createUrl(`/instance/${id}/delete`)),
 };
 
 /**

@@ -214,9 +214,6 @@ import toastService from '@/services/toastService';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { usePollingStore } from '@/stores/pollingStore';
 
-// 导入实例API函数
-import { deleteInstance as apiDeleteInstance } from '@/api/instances';
-
 // 事件总线，用于与其他组件通信
 const emitter = inject('emitter');
 
@@ -639,36 +636,19 @@ const confirmDelete = async () => {
     deleteLoading.value = true;
 
     try {
-        // 调用真实API删除实例
-        toastService.info(`正在删除实例: ${instanceToDelete.value.name}`);
+        // 使用store中的删除方法
+        await instanceStore.deleteInstance(instanceToDelete.value.id || instanceToDelete.value.name);
 
-        const response = await apiDeleteInstance(instanceToDelete.value.id || instanceToDelete.value.name);
+        // 关闭确认框
+        showDeleteConfirm.value = false;
+        instanceToDelete.value = null;
 
-        // 检查响应 - 支持新的响应格式
-        if (response && (response.success || response.status === 'success' || response.message === 'success')) {
-            // 删除成功，更新实例列表
-            instances.value = instances.value.filter(instance =>
-                (instance.id || instance.name) !== (instanceToDelete.value.id || instanceToDelete.value.name)
-            );
-
-            toastService.success(`实例 ${instanceToDelete.value.name} 删除成功`);
-
-            // 关闭确认框
-            showDeleteConfirm.value = false;
-            instanceToDelete.value = null;
-            deleteLoading.value = false;
-
-            // 刷新实例列表
-            emit('refresh-instances');
-        } else {
-            throw new Error(response?.message || response?.error || '删除失败');
-        }
+        // 刷新实例列表
+        emit('refresh-instances');
     } catch (error) {
         console.error('删除实例失败:', error);
-
-        // 提供更详细的错误信息
-        const errorMessage = error.response?.data?.message || error.message || '未知错误';
-        toastService.error(`删除实例失败: ${errorMessage}`);
+        // store中已经处理了错误提示，这里不需要重复显示
+    } finally {
         deleteLoading.value = false;
     }
 };
