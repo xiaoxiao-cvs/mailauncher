@@ -1,4 +1,4 @@
-name: Build Tauri App
+name: Build Tauri App with Backend
 
 on:
   push:
@@ -21,6 +21,59 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4 # 检出代码
 
+    # 克隆后端仓库
+    - name: Clone backend repository
+      run: |
+        git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
+        
+    # 设置 Python 环境用于构建后端
+    - name: Set up Python for backend
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        
+    # 缓存 pip 依赖
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    # 安装后端构建依赖
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    # 安装 Linux 后端构建依赖
+    - name: Install Linux backend build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential
+        
+    # 创建数据目录
+    - name: Create backend data directory
+      run: |
+        cd backend
+        mkdir -p data
+        
+    # 构建 Linux 后端
+    - name: Build Linux backend
+      run: |
+        cd backend
+        pyinstaller main-linux.spec
+        
+    # 创建 Tauri binaries 目录并复制后端可执行文件
+    - name: Copy backend executable to Tauri binaries
+      run: |
+        mkdir -p src-tauri/binaries
+        cp backend/dist/MaiLauncher-Backend src-tauri/binaries/MaiLauncher-Backend-x86_64-unknown-linux-gnu
+        chmod +x src-tauri/binaries/MaiLauncher-Backend-x86_64-unknown-linux-gnu
+
     - name: Setup Node.js 22
       uses: actions/setup-node@v4 # 设置 Node.js 环境
       with:
@@ -31,7 +84,6 @@ jobs:
       with:
         version: latest # 你也可以指定一个固定的 pnpm 版本，例如 '8'
         run_install: true # 运行 pnpm install 安装依赖
-        cache-dependency-path: pnpm-lock.yaml # 根据 lock 文件缓存依赖
 
     # Tauri 在 Linux 上构建通常需要一些系统依赖，如 libwebkit2gtk-4.0-dev
     # ubuntu-latest 通常预装了大部分，但添加这个步骤更保险
@@ -61,6 +113,52 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    # 克隆后端仓库
+    - name: Clone backend repository
+      run: |
+        git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
+        
+    # 设置 Python 环境用于构建后端
+    - name: Set up Python for backend
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        
+    # 缓存 pip 依赖
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~\AppData\Local\pip\Cache
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    # 安装后端构建依赖
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    # 创建数据目录
+    - name: Create backend data directory
+      run: |
+        cd backend
+        if (!(Test-Path "data")) { New-Item -ItemType Directory -Path "data" }
+        
+    # 构建 Windows 后端
+    - name: Build Windows backend
+      run: |
+        cd backend
+        pyinstaller main.spec
+        
+    # 创建 Tauri binaries 目录并复制后端可执行文件
+    - name: Copy backend executable to Tauri binaries
+      run: |
+        if (!(Test-Path "src-tauri\binaries")) { New-Item -ItemType Directory -Path "src-tauri\binaries" -Force }
+        Copy-Item "backend\dist\MaiLauncher-Backend.exe" "src-tauri\binaries\MaiLauncher-Backend-x86_64-pc-windows-msvc.exe"
+
     - name: Setup Node.js 22
       uses: actions/setup-node@v4
       with:
@@ -71,7 +169,6 @@ jobs:
       with:
         version: latest
         run_install: true
-        cache-dependency-path: pnpm-lock.yaml
 
     # Windows 构建通常需要 MSVC Build Tools，大部分预装在 windows-latest runner 上
     # 如果遇到问题，可能需要单独安装或检查 Rust 工具链。
@@ -92,6 +189,53 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    # 克隆后端仓库
+    - name: Clone backend repository
+      run: |
+        git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
+        
+    # 设置 Python 环境用于构建后端
+    - name: Set up Python for backend
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        
+    # 缓存 pip 依赖
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    # 安装后端构建依赖
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    # 创建数据目录
+    - name: Create backend data directory
+      run: |
+        cd backend
+        mkdir -p data
+        
+    # 构建 macOS 后端
+    - name: Build macOS backend
+      run: |
+        cd backend
+        pyinstaller main-macos.spec
+        
+    # 创建 Tauri binaries 目录并复制后端可执行文件
+    - name: Copy backend executable to Tauri binaries
+      run: |
+        mkdir -p src-tauri/binaries
+        cp backend/dist/MaiLauncher-Backend src-tauri/binaries/MaiLauncher-Backend-aarch64-apple-darwin
+        chmod +x src-tauri/binaries/MaiLauncher-Backend-aarch64-apple-darwin
+
     - name: Setup Node.js 22
       uses: actions/setup-node@v4
       with:
@@ -102,7 +246,6 @@ jobs:
       with:
         version: latest
         run_install: true
-        cache-dependency-path: pnpm-lock.yaml
 
     # macOS 构建需要 Xcode，预装在 macos-latest runner 上
 
