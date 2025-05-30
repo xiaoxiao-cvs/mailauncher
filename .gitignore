@@ -26,3 +26,5 @@ dist-ssr
 # VSCodeCounter
 .VSCodeCounter
 
+*.exe
+
