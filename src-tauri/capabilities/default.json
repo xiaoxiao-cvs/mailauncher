@@ -7,7 +7,7 @@
     "core:default",
     "opener:default",
     {
-      "identifier": "shell:allow-execute",
+      "identifier": ":shellallow-execute",
       "allow": [
         {
           "name": "exec-sh",
@@ -23,5 +23,4 @@
       ]
     }
   ]
-
 }
