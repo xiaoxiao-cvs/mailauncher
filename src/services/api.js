@@ -76,18 +76,20 @@ export const instancesApi = {
 
   // 获取版本列表 (兼容错误调用，重定向到deployApi)
   getVersions: () => deployApi.getVersions(),
-
   // 启动实例
-  startInstance: (id) => apiService.get(createUrl(`/instance/${id}/start`)),
+  startInstance: (id) =>
+    apiService.get(createUrl(`/api/v1/instance/${id}/start`)),
 
   // 停止实例
-  stopInstance: (id) => apiService.get(createUrl(`/instance/${id}/stop`)),
+  stopInstance: (id) =>
+    apiService.get(createUrl(`/api/v1/instance/${id}/stop`)),
   // 重启实例
-  restartInstance: (id) => apiService.get(createUrl(`/instance/${id}/restart`)),
+  restartInstance: (id) =>
+    apiService.get(createUrl(`/api/v1/instance/${id}/restart`)),
 
   // 删除实例
   deleteInstance: (id) =>
-    apiService.delete(createUrl(`/instance/${id}/delete`)),
+    apiService.delete(createUrl(`/api/v1/instance/${id}/delete`)),
 };
 
 /**

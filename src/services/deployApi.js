@@ -181,20 +181,50 @@ const getInstances = async () => {
   }
 };
 
+// 添加请求防重复保护
+const activeRequests = new Map();
+
+/**
+ * 防重复请求包装器
+ * @param {string} key - 请求唯一标识
+ * @param {Function} requestFunc - 请求函数
+ * @returns {Promise} - 请求结果
+ */
+const preventDuplicateRequest = async (key, requestFunc) => {
+  if (activeRequests.has(key)) {
+    console.log(`重复请求被拦截: ${key}`);
+    return activeRequests.get(key);
+  }
+
+  const requestPromise = requestFunc().finally(() => {
+    activeRequests.delete(key);
+  });
+
+  activeRequests.set(key, requestPromise);
+  return requestPromise;
+};
+
 /**
  * 启动实例
  * @param {string} instanceId - 实例ID
  * @returns {Promise<Object>} - 启动结果
  */
 const startInstance = async (instanceId) => {
-  try {
-    const response = await apiService.get(`/instance/${instanceId}/start`);
-    console.log("startInstance响应:", response);
-    return response.data || response;
-  } catch (error) {
-    console.error("启动实例失败:", error);
-    throw error;
-  }
+  const requestKey = `start-${instanceId}`;
+
+  return preventDuplicateRequest(requestKey, async () => {
+    try {
+      console.log(`发起启动实例请求: ${instanceId}`);
+      const response = await apiService.get(
+        `/api/v1/instance/${instanceId}/start`
+      );
+      console.log("startInstance响应:", response);
+      return response.data || response;
+    } catch (error) {
+      console.error("启动实例失败:", error);
+      throw error;
+    }
+  });
 };
 
 /**
@@ -203,14 +233,21 @@ const startInstance = async (instanceId) => {
  * @returns {Promise<Object>} - 停止结果
  */
 const stopInstance = async (instanceId) => {
-  try {
-    const response = await apiService.get(`/instance/${instanceId}/stop`);
-    console.log("stopInstance响应:", response);
-    return response.data || response;
-  } catch (error) {
-    console.error("停止实例失败:", error);
-    throw error;
-  }
+  const requestKey = `stop-${instanceId}`;
+
+  return preventDuplicateRequest(requestKey, async () => {
+    try {
+      console.log(`发起停止实例请求: ${instanceId}`);
+      const response = await apiService.get(
+        `/api/v1/instance/${instanceId}/stop`
+      );
+      console.log("stopInstance响应:", response);
+      return response.data || response;
+    } catch (error) {
+      console.error("停止实例失败:", error);
+      throw error;
+    }
+  });
 };
 
 /**
@@ -219,14 +256,21 @@ const stopInstance = async (instanceId) => {
  * @returns {Promise<Object>} - 删除结果
  */
 const deleteInstance = async (instanceId) => {
-  try {
-    const response = await apiService.delete(`/instance/${instanceId}/delete`);
-    console.log("deleteInstance响应:", response);
-    return response.data || response;
-  } catch (error) {
-    console.error("删除实例失败:", error);
-    throw error;
-  }
+  const requestKey = `delete-${instanceId}`;
+
+  return preventDuplicateRequest(requestKey, async () => {
+    try {
+      console.log(`发起删除实例请求: ${instanceId}`);
+      const response = await apiService.delete(
+        `/api/v1/instance/${instanceId}/delete`
+      );
+      console.log("deleteInstance响应:", response);
+      return response.data || response;
+    } catch (error) {
+      console.error("删除实例失败:", error);
+      throw error;
+    }
+  });
 };
 
 /**

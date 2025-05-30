@@ -118,20 +118,21 @@
                             {{ isRunning ? '运行中' : '未运行' }}
                         </span>
                     </div>
-
                     <div class="flex items-center gap-2">
                         <!-- 启动按钮 -->
-                        <button class="btn btn-xs" :class="isRunning ? 'btn-disabled' : 'btn-success'"
-                            @click="startInstance" :disabled="isRunning">
-                            <Icon icon="mdi:play" class="mr-1" width="14" height="14" />
-                            启动
+                        <button class="btn btn-xs" :class="(isRunning || isStarting) ? 'btn-disabled' : 'btn-success'"
+                            @click="startInstance" :disabled="isRunning || isStarting || isStopping">
+                            <span v-if="isStarting" class="loading loading-spinner loading-xs mr-1"></span>
+                            <Icon v-else icon="mdi:play" class="mr-1" width="14" height="14" />
+                            {{ isStarting ? '启动中...' : '启动' }}
                         </button>
 
                         <!-- 停止按钮 -->
-                        <button class="btn btn-xs" :class="!isRunning ? 'btn-disabled' : 'btn-error'"
-                            @click="stopInstance" :disabled="!isRunning">
-                            <Icon icon="mdi:stop" class="mr-1" width="14" height="14" />
-                            停止
+                        <button class="btn btn-xs" :class="(!isRunning || isStopping) ? 'btn-disabled' : 'btn-error'"
+                            @click="stopInstance" :disabled="!isRunning || isStopping || isStarting">
+                            <span v-if="isStopping" class="loading loading-spinner loading-xs mr-1"></span>
+                            <Icon v-else icon="mdi:stop" class="mr-1" width="14" height="14" />
+                            {{ isStopping ? '停止中...' : '停止' }}
                         </button>
 
                         <!-- 重启终端按钮 -->
@@ -174,7 +175,7 @@ import { Icon } from '@iconify/vue';
 import toastService from '@/services/toastService';
 import { getTerminalWebSocketService, closeTerminalWebSocket } from '@/services/websocket';
 import { isMockModeActive } from '@/services/apiService';
-import deployApi from '@/services/deployApi'; // 导入deployApi以使用实例控制API
+import { instancesApi } from '@/services/api'; // 导入instancesApi以使用实例控制API
 
 // 导入xterm和相关插件
 import { Terminal } from '@xterm/xterm';
@@ -566,16 +567,22 @@ watch(() => terminalLines.value.length, () => {
     scrollToBottom();
 });
 
+// 添加加载状态管理
+const isStarting = ref(false);
+const isStopping = ref(false);
+
 // 添加实例启动和停止函数
 const startInstance = async () => {
-    if (!props.instance?.id || isRunning.value) return;
+    if (!props.instance?.id || isRunning.value || isStarting.value) return;
+
+    isStarting.value = true;
 
     if (term) {
         term.writeln('\r\n\x1b[33m正在启动实例...\x1b[0m');
     }
 
     try {
-        const response = await deployApi.startInstance(props.instance.id);
+        const response = await instancesApi.startInstance(props.instance.id);
         if (response.success) {
             if (term) {
                 term.writeln('\r\n\x1b[32m实例启动成功!\x1b[0m');
@@ -597,18 +604,22 @@ const startInstance = async () => {
         if (term) {
             term.writeln(`\r\n\x1b[31m启动出错: ${error.message || '未知错误'}\x1b[0m`);
         }
+    } finally {
+        isStarting.value = false;
     }
 };
 
 const stopInstance = async () => {
-    if (!props.instance?.id || !isRunning.value) return;
+    if (!props.instance?.id || !isRunning.value || isStopping.value) return;
+
+    isStopping.value = true;
 
     if (term) {
         term.writeln('\r\n\x1b[33m正在停止实例...\x1b[0m');
     }
 
     try {
-        const response = await deployApi.stopInstance(props.instance.id);
+        const response = await instancesApi.stopInstance(props.instance.id);
         if (response.success) {
             if (term) {
                 term.writeln('\r\n\x1b[32m实例已停止!\x1b[0m');
@@ -630,6 +641,8 @@ const stopInstance = async () => {
         if (term) {
             term.writeln(`\r\n\x1b[31m停止出错: ${error.message || '未知错误'}\x1b[0m`);
         }
+    } finally {
+        isStopping.value = false;
     }
 };
 
