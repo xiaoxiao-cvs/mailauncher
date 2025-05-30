@@ -110,8 +110,9 @@ export const useSystemStore = defineStore("system", () => {
         // 尝试从API获取真实数据
         try {
           const response = await apiService.get("/api/v1/system/metrics");
-          if (response.data) {
-            systemStats.value = { ...systemStats.value, ...response.data };
+          if (response.data && response.data.data) {
+            // 适配后端返回的数据结构
+            _adaptBackendData(response.data.data);
           }
         } catch (apiError) {
           console.warn("API获取系统性能失败，使用模拟数据:", apiError);
@@ -129,6 +130,58 @@ export const useSystemStore = defineStore("system", () => {
       throw err;
     } finally {
       loading.value = false;
+    }
+  };
+  // 适配后端返回的数据结构
+  const _adaptBackendData = (backendData) => {
+    try {
+      console.log("适配后端数据:", backendData);
+
+      // 适配CPU数据
+      if (backendData.cpu_usage_percent !== undefined) {
+        systemStats.value.cpu.usage = Math.round(backendData.cpu_usage_percent);
+      }
+
+      // 从system_info中提取CPU信息
+      if (backendData.system_info && backendData.system_info.processor) {
+        systemStats.value.cpu.model = backendData.system_info.processor;
+      }
+
+      // 检测CPU核心数（目前后端没有提供，使用导航器API检测）
+      if (typeof navigator !== "undefined" && navigator.hardwareConcurrency) {
+        systemStats.value.cpu.cores = navigator.hardwareConcurrency;
+      }
+
+      // 适配内存数据
+      if (backendData.memory_usage) {
+        const memData = backendData.memory_usage;
+        systemStats.value.memory.total = memData.total_mb * 1024 * 1024; // 转换为字节
+        systemStats.value.memory.used = memData.used_mb * 1024 * 1024;
+        systemStats.value.memory.available = memData.available_mb * 1024 * 1024;
+        systemStats.value.memory.usage = Math.round(memData.percent);
+      }
+
+      // 适配磁盘数据
+      if (backendData.disk_usage_root) {
+        const diskData = backendData.disk_usage_root;
+        systemStats.value.disk.total = diskData.total_gb * 1024 * 1024 * 1024; // 转换为字节
+        systemStats.value.disk.used = diskData.used_gb * 1024 * 1024 * 1024;
+        systemStats.value.disk.available =
+          diskData.free_gb * 1024 * 1024 * 1024;
+        systemStats.value.disk.usage = Math.round(diskData.percent);
+      }
+
+      // 模拟网络数据（后端暂时没有提供）
+      systemStats.value.network.up = Math.random() * 1024 * 1024; // 随机网络速度
+      systemStats.value.network.down = Math.random() * 10 * 1024 * 1024;
+      systemStats.value.network.rate =
+        systemStats.value.network.up + systemStats.value.network.down;
+
+      console.log("数据适配完成:", systemStats.value);
+    } catch (error) {
+      console.error("数据适配失败:", error);
+      // 适配失败时使用模拟数据
+      _generateMockStats();
     }
   };
 

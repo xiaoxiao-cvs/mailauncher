@@ -30,10 +30,6 @@ export const usePollingStore = defineStore("polling", () => {
   // 轮询任务状态
   const pollingStatus = ref(new Map());
 
-  // 获取store引用
-  const instanceStore = useInstanceStore();
-  const systemStore = useSystemStore();
-
   // 注册轮询任务
   const registerPollingTask = (taskName, pollingFn, config = {}) => {
     const finalConfig = {
@@ -330,9 +326,12 @@ export const usePollingStore = defineStore("polling", () => {
     pollingStatus.value.clear();
     isGlobalPollingActive.value = false;
   };
-
   // 初始化默认轮询任务
   const initializeDefaultPolling = () => {
+    // 延迟获取store引用，避免循环依赖
+    const instanceStore = useInstanceStore();
+    const systemStore = useSystemStore();
+
     // 注册实例轮询任务
     registerPollingTask("instances", async () => {
       await instanceStore.fetchInstances();

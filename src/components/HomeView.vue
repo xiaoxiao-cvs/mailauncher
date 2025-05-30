@@ -240,11 +240,11 @@ const systemStats = computed(() => {
     // 映射嵌套的数据结构为扁平化结构，添加安全的空值检查
     cpu: metrics.cpu?.usage || 0,
     cpuModel: metrics.cpu?.model || 'Unknown CPU',
-    cpuCores: metrics.cpu?.cores || 0,
-    memory: systemStore.memoryUsagePercent || 0,
+    cpuCores: metrics.cpu?.cores || 8,
+    memory: metrics.memory?.usage || 0, // 直接使用已适配的usage百分比
     memoryUsed: metrics.memory?.used || 0,
     memoryTotal: metrics.memory?.total || 0,
-    disk: systemStore.diskUsagePercent || 0,
+    disk: metrics.disk?.usage || 0, // 直接使用已适配的usage百分比
     networkUp: metrics.network?.up || 0,
     networkDown: metrics.network?.down || 0,
     networkRate: metrics.network?.rate || 0

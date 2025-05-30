@@ -16,6 +16,15 @@ import { Icon } from "@iconify/vue";
 // 导入主题初始化函数
 import { initTheme } from "./services/theme";
 
+// 导入轮询服务
+import { usePollingStore } from "./stores/pollingStore";
+
+// 导入测试工具（开发模式）
+import "./utils/pollingTest.js";
+import "./utils/verifyPollingFix.js"; // 添加修复验证工具
+import "./utils/testDashboardFix.js"; // 添加仪表盘修复测试工具
+import "./utils/finalVerification.js"; // 添加最终验证工具
+
 // 创建应用实例
 const app = createApp(App);
 
@@ -155,5 +164,21 @@ initCssVariables();
 // 挂载应用前确保旧的事件监听器已被清除
 eventBus.clear();
 
-// 挂载应用
-app.mount("#app");
+// 异步初始化轮询服务，然后挂载应用
+const initAndMountApp = async () => {
+  try {
+    // 确保轮询服务正确初始化
+    const pollingStore = usePollingStore();
+    await pollingStore.initializeDefaultPolling();
+    console.log("✅ 轮询服务初始化完成");
+  } catch (error) {
+    console.error("❌ 轮询服务初始化失败:", error);
+  }
+
+  // 挂载应用
+  app.mount("#app");
+  console.log("✅ 应用挂载完成");
+};
+
+// 启动应用
+initAndMountApp();
