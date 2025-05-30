@@ -177,11 +177,11 @@ import { isMockModeActive } from '@/services/apiService';
 import deployApi from '@/services/deployApi'; // 导入deployApi以使用实例控制API
 
 // 导入xterm和相关插件
-import { Terminal } from 'xterm';
-import { FitAddon } from 'xterm-addon-fit';
-import { WebLinksAddon } from 'xterm-addon-web-links';
-import { Unicode11Addon } from 'xterm-addon-unicode11';
-import 'xterm/css/xterm.css';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
+import '@xterm/xterm/css/xterm.css';
 
 const props = defineProps({
     instance: {

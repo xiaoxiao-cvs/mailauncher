@@ -7,20 +7,14 @@
     "core:default",
     "opener:default",
     {
-      "identifier": ":shellallow-execute",
+      "identifier": "shell:allow-execute",
       "allow": [
         {
-          "name": "exec-sh",
-          "cmd": "sh",
-          "args": [
-            "-c",
-            {
-              "validator": "\\S+"
-            }
-          ],
-          "sidecar": false
+          "name": "binaries/MaiLauncher-Backend",
+          "sidecar": true
         }
       ]
-    }
+    },
+    "shell:allow-open"
   ]
 }
