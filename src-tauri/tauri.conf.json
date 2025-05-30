@@ -32,19 +32,7 @@
       "icons/icon.ico"
     ],
     "externalBin": [
-      "binaries/MaiLauncher-Backend.exe"
+      "binaries/MaiLauncher-Backend"
     ]
-  },
-  "allowlist": {
-    "shell": {
-      "sidecar": true,
-      "scope": [
-        {
-          "name": "binaries/MaiLauncher-Backend.exe",
-          "sidecar": true,
-          "args": true
-        }
-      ]
-    }
   }
 }
