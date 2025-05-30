@@ -23,6 +23,10 @@ export const useDeployStore = defineStore("deploy", () => {
   const deployments = reactive(new Map()); // 使用 Map 管理多个部署任务
   const currentDeploymentId = ref(null);
 
+  // 日志自动滚动控制
+  const autoScrollEnabled = ref(true);
+  const scrollTrigger = ref(0); // 用于触发滚动的响应式变量
+
   // 请求状态管理，防止重复请求
   const loadingStates = reactive({
     fetchingVersions: false,
@@ -179,6 +183,22 @@ export const useDeployStore = defineStore("deploy", () => {
     if (deployment.logs.length > 1000) {
       deployment.logs.splice(0, 100); // 删除最早的 100 条日志
     }
+
+    // 触发日志自动滚动
+    if (autoScrollEnabled.value) {
+      scrollTrigger.value++;
+    }
+  };
+
+  // 切换自动滚动
+  const toggleAutoScroll = () => {
+    autoScrollEnabled.value = !autoScrollEnabled.value;
+    return autoScrollEnabled.value;
+  };
+
+  // 手动触发滚动到底部
+  const scrollToBottom = () => {
+    scrollTrigger.value++;
   };
 
   // 更新部署进度
@@ -201,25 +221,49 @@ export const useDeployStore = defineStore("deploy", () => {
     if (!deployment || !deployment.instanceId) return;
 
     try {
+      console.log(
+        `检查部署 ${deploymentId} 的安装状态，实例ID: ${deployment.instanceId}`
+      );
+
       const response = await deployApi.checkInstallStatus(
         deployment.instanceId
       );
 
-      if (response) {
+      console.log(`收到安装状态响应:`, response);
+
+      // 修复响应解析逻辑 - 处理嵌套的 data 字段
+      let statusData = response;
+      if (response && response.data) {
+        statusData = response.data;
+      }
+
+      if (statusData) {
+        console.log(`解析后的状态数据:`, statusData);
+
         // 更新总体安装进度
+        const progress =
+          statusData.progress || statusData.install_progress || 0;
         updateDeploymentProgress(
           deploymentId,
-          response.progress || 0,
-          response.services_install_status
+          progress,
+          statusData.services_install_status || statusData.services || []
         );
 
         // 如果有消息，添加到日志
-        if (response.message) {
-          addLog(deploymentId, response.message);
+        if (statusData.message) {
+          addLog(deploymentId, statusData.message);
+        }
+
+        // 如果有详细日志，逐条添加
+        if (statusData.logs && Array.isArray(statusData.logs)) {
+          statusData.logs.forEach((log) => {
+            addLog(deploymentId, log.message || log, log.level || "info");
+          });
         }
 
         // 检查是否已安装完成
-        if (response.status === "completed") {
+        const status = statusData.status || statusData.install_status;
+        if (status === "completed" || progress >= 100) {
           deployment.installComplete = true;
           deployment.installing = false;
           deployment.endTime = new Date();
@@ -230,11 +274,45 @@ export const useDeployStore = defineStore("deploy", () => {
 
           // 停止轮询
           pollingStore.stopPolling(`deploy_status_${deploymentId}`);
+
+          console.log(`部署 ${deploymentId} 安装完成，停止轮询`);
+        } else if (status === "failed" || status === "error") {
+          // 处理安装失败的情况
+          deployment.installing = false;
+          deployment.error = statusData.message || "安装失败";
+          deployment.endTime = new Date();
+          addLog(deploymentId, `❌ 安装失败: ${deployment.error}`, "error");
+          toastService.error(`安装失败: ${deployment.error}`);
+
+          // 停止轮询
+          pollingStore.stopPolling(`deploy_status_${deploymentId}`);
+
+          console.log(`部署 ${deploymentId} 安装失败，停止轮询`);
+        } else {
+          // 继续轮询，添加当前状态日志
+          const statusText = status || "进行中";
+          console.log(
+            `部署 ${deploymentId} 状态: ${statusText} (${progress}%)`
+          );
         }
+      } else {
+        console.warn(`部署 ${deploymentId} 收到空的状态数据`);
       }
     } catch (error) {
       console.error("检查安装状态失败:", error);
       addLog(deploymentId, `检查安装状态失败: ${error.message}`, "error");
+
+      // 如果连续失败多次，停止轮询
+      deployment.errorCount = (deployment.errorCount || 0) + 1;
+      if (deployment.errorCount >= 5) {
+        console.warn(
+          `部署 ${deploymentId} 连续失败 ${deployment.errorCount} 次，停止轮询`
+        );
+        pollingStore.stopPolling(`deploy_status_${deploymentId}`);
+        deployment.installing = false;
+        deployment.error = "状态检查失败";
+        deployment.endTime = new Date();
+      }
     }
   };
 
@@ -261,38 +339,66 @@ export const useDeployStore = defineStore("deploy", () => {
         deploymentId,
         `📋 部署配置: 实例名="${config.instance_name}", 版本="${config.version}", 路径="${config.install_path}"`,
         "info"
-      );
-
-      // 发送部署请求
+      ); // 发送部署请求
       addLog(deploymentId, "🚀 步骤 2/2: 发送部署请求...", "info");
       addLog(deploymentId, "📤 使用HTTP请求发送部署配置...", "info");
       const deployResponse = await deployApi.deploy(deployConfig);
 
-      if (!deployResponse || !deployResponse.success) {
-        throw new Error(deployResponse?.message || "部署失败");
-      }
-
-      deployment.instanceId = deployResponse.instance_id;
+      console.log("部署响应详情:", deployResponse);
       addLog(
         deploymentId,
-        `✅ 部署任务已提交，实例ID: ${deployment.instanceId}`,
+        `📤 收到部署响应: ${JSON.stringify(deployResponse)}`,
+        "info"
+      ); // 修复响应检查逻辑 - 后端返回的可能在 data 字段中
+      const responseData = deployResponse?.data || deployResponse;
+      console.log("解析后的响应数据:", responseData);
+
+      // 检查成功标志 - 后端返回 success: true
+      if (!responseData || responseData.success !== true) {
+        const errorMessage =
+          responseData?.message || responseData?.detail || "部署失败";
+        addLog(deploymentId, `❌ 部署失败: ${errorMessage}`, "error");
+        throw new Error(errorMessage);
+      } // 检查是否有 instance_id
+      if (!responseData.instance_id) {
+        addLog(
+          deploymentId,
+          "⚠️ 警告: 响应中没有实例ID，但部署可能成功",
+          "warning"
+        );
+      }
+
+      deployment.instanceId = responseData.instance_id;
+      addLog(
+        deploymentId,
+        `✅ 部署任务已提交，实例ID: ${deployment.instanceId || "未知"}`,
         "success"
       );
-      addLog(deploymentId, "🔄 启动状态轮询检查...", "info");
+      addLog(deploymentId, "🔄 启动状态轮询检查...", "info"); // 先注册轮询任务，然后启动
+      const pollingTaskName = `deploy_status_${deploymentId}`;
+      console.log(
+        `准备注册轮询任务: ${pollingTaskName}，部署ID: ${deploymentId}`
+      );
 
-      // 使用轮询管理器启动状态检查
-      pollingStore.startPolling(
-        `deploy_status_${deploymentId}`,
+      pollingStore.registerPollingTask(
+        pollingTaskName,
         () => checkInstallStatus(deploymentId),
-        2000, // 每2秒检查一次
         {
-          maxRetries: 300, // 最多重试300次（10分钟）
-          onError: (error) => {
-            console.error("部署状态轮询出错:", error);
-            addLog(deploymentId, `状态检查出错: ${error.message}`, "error");
-          },
+          interval: 2000, // 每2秒检查一次
+          enabled: true,
+          priority: "high",
         }
       );
+
+      console.log(`轮询任务 ${pollingTaskName} 注册完成，开始启动`);
+
+      // 启动轮询任务
+      const startResult = pollingStore.startPolling(pollingTaskName);
+      if (!startResult) {
+        throw new Error(`轮询任务 ${pollingTaskName} 启动失败`);
+      }
+
+      console.log(`轮询任务 ${pollingTaskName} 启动成功`);
 
       return deploymentId;
     } catch (error) {
@@ -380,6 +486,8 @@ export const useDeployStore = defineStore("deploy", () => {
     currentDeploymentId,
     currentDeployment,
     isDeploying,
+    autoScrollEnabled,
+    scrollTrigger,
 
     // 方法
     fetchVersions,
@@ -392,5 +500,7 @@ export const useDeployStore = defineStore("deploy", () => {
     cleanupDeployments,
     getDeploymentHistory,
     cleanup,
+    toggleAutoScroll,
+    scrollToBottom,
   };
 });

@@ -287,9 +287,7 @@ const startInstall = async () => {
                 port: parseInt(servicePorts['napcat-ada']),
                 run_cmd: 'python main.py'
             });
-        }
-
-        const deployConfig = {
+        } const deployConfig = {
             instance_name: instanceName.value,
             install_services: installServices,
             install_path: installPath.value,
@@ -302,7 +300,7 @@ const startInstall = async () => {
 
         // 触发实例列表刷新
         emit('refresh');
-        instanceStore.refreshInstances();
+        instanceStore.fetchInstances(true);
 
     } catch (error) {
         console.error('安装过程出错:', error);

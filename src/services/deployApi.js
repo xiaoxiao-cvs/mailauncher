@@ -70,20 +70,38 @@ const deploy = async (config) => {
       };
       console.log("添加WebSocket会话ID到请求头:", config.websocket_session_id);
     }
-
     const response = await apiService.post(
       "/deploy/deploy",
       config,
       requestConfig
     );
     console.log("deploy响应:", response);
-    return response.data || response;
+
+    // 确保返回正确的数据结构
+    const responseData = response?.data || response;
+    console.log("解析后的响应数据:", responseData);
+
+    return responseData;
   } catch (error) {
     console.error("部署失败:", error);
+    console.error("错误详情:", {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      code: error.code,
+    });
 
     // 增强错误信息
     if (error.code === "ECONNABORTED") {
       throw new Error("部署请求超时，但后端可能正在处理，请查看实时日志");
+    }
+
+    // 如果有响应数据，尝试提取错误信息
+    if (error.response?.data) {
+      const errorData = error.response.data;
+      const errorMessage =
+        errorData.detail || errorData.message || error.message;
+      throw new Error(errorMessage);
     }
 
     throw error;

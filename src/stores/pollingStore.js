@@ -29,16 +29,25 @@ export const usePollingStore = defineStore("polling", () => {
 
   // 轮询任务状态
   const pollingStatus = ref(new Map());
-
   // 注册轮询任务
   const registerPollingTask = (taskName, pollingFn, config = {}) => {
+    // 为动态任务名提供默认配置
+    const defaultConfig = defaultPollingConfig.value[taskName] || {
+      interval: 2000,
+      enabled: true,
+      priority: "medium",
+    };
+
     const finalConfig = {
-      ...defaultPollingConfig.value[taskName],
+      ...defaultConfig,
       ...config,
     };
 
+    console.log(`注册轮询任务: ${taskName}，配置:`, finalConfig);
+
     // 如果任务已存在，先停止
     if (pollingTasks.value.has(taskName)) {
+      console.log(`任务 ${taskName} 已存在，先停止旧任务`);
       stopPolling(taskName);
     }
 
@@ -59,26 +68,37 @@ export const usePollingStore = defineStore("polling", () => {
       errorCount: 0,
     });
 
-    console.log(`注册轮询任务: ${taskName}`, finalConfig);
+    console.log(
+      `轮询任务 ${taskName} 注册成功，当前任务数: ${pollingTasks.value.size}`
+    );
   };
-
   // 启动特定轮询任务
   const startPolling = (taskName, config = {}) => {
+    console.log(`尝试启动轮询任务: ${taskName}`);
+
     const task = pollingTasks.value.get(taskName);
     if (!task) {
-      console.error(`轮询任务不存在: ${taskName}`);
+      console.error(
+        `轮询任务不存在: ${taskName}，当前已注册任务:`,
+        Array.from(pollingTasks.value.keys())
+      );
       return false;
     }
+
+    console.log(`找到轮询任务: ${taskName}，任务配置:`, task.config);
 
     // 更新配置
     if (Object.keys(config).length > 0) {
       Object.assign(task.config, config);
       const status = pollingStatus.value.get(taskName);
-      Object.assign(status, config);
+      if (status) {
+        Object.assign(status, config);
+      }
     }
 
     // 如果已在运行，先停止
     if (task.timer) {
+      console.log(`任务 ${taskName} 已在运行，先停止`);
       clearInterval(task.timer);
     }
 
@@ -91,17 +111,26 @@ export const usePollingStore = defineStore("polling", () => {
     }, task.config.interval);
 
     task.isRunning = true;
-    pollingStatus.value.get(taskName).enabled = true;
+    const status = pollingStatus.value.get(taskName);
+    if (status) {
+      status.enabled = true;
+    }
 
-    console.log(`启动轮询任务: ${taskName}, 间隔: ${task.config.interval}ms`);
+    console.log(
+      `启动轮询任务成功: ${taskName}, 间隔: ${task.config.interval}ms`
+    );
     return true;
   };
-
   // 停止特定轮询任务
   const stopPolling = (taskName) => {
+    console.log(`尝试停止轮询任务: ${taskName}`);
+
     const task = pollingTasks.value.get(taskName);
     if (!task) {
-      console.error(`轮询任务不存在: ${taskName}`);
+      console.error(
+        `轮询任务不存在: ${taskName}，当前已注册任务:`,
+        Array.from(pollingTasks.value.keys())
+      );
       return false;
     }
 
@@ -111,9 +140,12 @@ export const usePollingStore = defineStore("polling", () => {
     }
 
     task.isRunning = false;
-    pollingStatus.value.get(taskName).enabled = false;
+    const status = pollingStatus.value.get(taskName);
+    if (status) {
+      status.enabled = false;
+    }
 
-    console.log(`停止轮询任务: ${taskName}`);
+    console.log(`停止轮询任务成功: ${taskName}`);
     return true;
   };
 
