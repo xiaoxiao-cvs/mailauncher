@@ -110,6 +110,7 @@ const openDocs = () => {
 .settings-tab-content {
     animation: fadeIn 0.5s ease;
     padding: 1rem;
+    color: hsl(var(--bc));
 }
 
 .settings-section-title {

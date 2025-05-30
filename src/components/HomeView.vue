@@ -1,31 +1,11 @@
 <template>
   <div class="bg-gradient-to-br from-primary/10 to-secondary/10 min-h-screen p-4 lg:p-6">
-    <div class="max-w-7xl mx-auto">
-      <!-- 页面标题 - 添加编辑按钮 -->
+    <div class="max-w-7xl mx-auto"> <!-- 页面标题 -->
       <div class="mb-6 flex justify-between items-center">
         <h1 class="text-2xl md:text-3xl font-bold text-base-content">控制台</h1>
-
-        <!-- 添加编辑布局按钮 -->
-        <div class="flex items-center gap-3">
-          <!-- 保存按钮，仅在编辑模式显示 -->
-          <transition name="fade">
-            <button v-if="isEditMode" @click="saveLayout" class="edit-btn save-btn" title="保存布局">
-              <SimpleIcons name="save" />
-            </button>
-          </transition>
-
-          <!-- 编辑/退出按钮 -->
-          <button @click="toggleEditMode" :class="['edit-btn', isEditMode ? 'exit-btn' : '']"
-            :title="isEditMode ? '退出编辑模式' : '编辑布局'">
-            <SimpleIcons :name="isEditMode ? 'close' : 'edit'" />
-          </button>
-        </div>
-      </div>
-
-      <!-- 不规则卡片布局 - 添加可拖拽功能 -->
-      <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4" :class="{ 'edit-layout-mode': isEditMode }">
-        <!-- 消息数图表卡片 (占用更大区域) -->
-        <div :class="['card bg-base-100 shadow-xl', msgChartSize]" :data-size="msgChartSize" ref="chartCard">
+      </div> <!-- 卡片布局 -->
+      <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4"> <!-- 消息数图表卡片 -->
+        <div class="card bg-base-100 shadow-xl md:col-span-3 lg:col-span-4">
           <div class="card-body">
             <h2 class="card-title">消息数量统计</h2>
             <p class="text-sm text-base-content/70">本周发送消息总量达 {{ messageStats.total }} 条</p>
@@ -39,15 +19,10 @@
                 <button class="btn btn-xs" :class="activeChart === 'month' ? 'btn-primary' : 'btn-ghost'"
                   @click="switchChartPeriod('month')">月</button>
               </div>
-              <!-- 删除图表和明细按钮 -->
             </div>
           </div>
-          <!-- 编辑模式下显示的拖拽手柄 -->
-          <div v-if="isEditMode" class="resize-handle right" @mousedown="startResize($event, 'chart', 'right')"></div>
-        </div>
-
-        <!-- 状态卡片 -->
-        <div :class="['card bg-base-100 shadow-xl', statusCardSize]" :data-size="statusCardSize" ref="statusCard">
+        </div> <!-- 状态卡片 -->
+        <div class="card bg-base-100 shadow-xl md:col-span-1 lg:col-span-2">
           <div class="card-body">
             <div class="flex justify-between items-center">
               <div class="indicator flex items-center">
@@ -106,12 +81,8 @@
               </div>
             </div>
           </div>
-          <!-- 编辑模式下显示的拖拽手柄 -->
-          <div v-if="isEditMode" class="resize-handle left" @mousedown="startResize($event, 'status', 'left')"></div>
-        </div>
-
-        <!-- 通知卡片 -->
-        <div :class="['card bg-base-100 shadow-xl', noticeCardSize]" :data-size="noticeCardSize" ref="noticeCard">
+        </div> <!-- 通知卡片 -->
+        <div class="card bg-base-100 shadow-xl md:col-span-2 lg:col-span-3">
           <div class="card-body p-5">
             <h3 class="font-bold mb-4">最新通知</h3>
             <div class="space-y-3">
@@ -129,12 +100,8 @@
             </div>
             <button class="btn btn-ghost btn-xs w-full mt-3">查看全部</button>
           </div>
-          <!-- 编辑模式下显示的拖拽手柄 -->
-          <div v-if="isEditMode" class="resize-handle right" @mousedown="startResize($event, 'notice', 'right')"></div>
-        </div>
-
-        <!-- 实例状态卡片 - 修复表格对齐 -->
-        <div :class="['card bg-base-100 shadow-xl', instanceCardSize]" :data-size="instanceCardSize" ref="instanceCard">
+        </div> <!-- 实例状态卡片 -->
+        <div class="card bg-base-100 shadow-xl md:col-span-2 lg:col-span-3">
           <div class="card-body p-5">
             <div class="flex justify-between items-center mb-3">
               <h3 class="font-bold">实例状态</h3>
@@ -172,15 +139,7 @@
               <button class="btn btn-xs btn-outline" @click="navigateToInstances">管理实例</button>
             </div>
           </div>
-          <!-- 编辑模式下显示的拖拽手柄 -->
-          <div v-if="isEditMode" class="resize-handle left" @mousedown="startResize($event, 'instance', 'left')"></div>
         </div>
-      </div>
-
-      <!-- 编辑模式提示 -->
-      <div v-if="isEditMode"
-        class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-primary text-white py-2 px-4 rounded-full shadow-lg z-50">
-        拖动卡片边缘调整大小
       </div>
     </div>
   </div>
@@ -210,22 +169,7 @@ const pollingStore = usePollingStore();
 const messageChartRef = ref(null);
 const messageChart = ref(null);
 
-// 编辑模式状态
-const isEditMode = ref(false);
-const chartCard = ref(null);
-const statusCard = ref(null);
-const noticeCard = ref(null);
-const instanceCard = ref(null);
-let resizeTarget = null;
-let startX = 0;
-let startWidth = 0;
-let currentCard = '';
-
-// 卡片尺寸状态
-const msgChartSize = ref('md:col-span-3 lg:col-span-4');
-const statusCardSize = ref('md:col-span-1 lg:col-span-2');
-const noticeCardSize = ref('md:col-span-2 lg:col-span-3');
-const instanceCardSize = ref('md:col-span-2 lg:col-span-3');
+// 图表相关引用
 
 // 消息统计数据
 const messageStats = ref({

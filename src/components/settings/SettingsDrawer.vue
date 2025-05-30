@@ -2,19 +2,19 @@
     <div v-if="isOpen" class="settings-drawer-backdrop" @click.self="handleBackdropClick">
         <div class="settings-drawer-container">
             <div class="settings-drawer-header">
-                <h2 class="text-xl font-bold">系统设置</h2>
-                <button class="btn btn-sm btn-ghost btn-circle" @click="closeDrawer">
+                <h2 class="text-xl font-bold text-base-content">系统设置</h2>
+                <button class="btn btn-sm btn-ghost btn-circle text-base-content" @click="closeDrawer">
                     <i class="icon icon-xmark"></i>
                 </button>
             </div>
-
             <div class="settings-content">
                 <!-- 设置侧边栏 -->
                 <div class="settings-sidebar">
                     <ul class="menu menu-compact p-2 rounded-lg bg-base-200">
                         <li v-for="tab in settingTabs" :key="tab.key">
-                            <a :class="{ 'active': activeTab === tab.key }" @click="switchTab(tab.key)">
-                                <i class="icon" :class="'icon-' + tab.icon"></i>
+                            <a :class="{ 'active': activeTab === tab.key, 'text-base-content': true }"
+                                @click="switchTab(tab.key)">
+                                <i class="icon text-base-content" :class="'icon-' + tab.icon"></i>
                                 {{ tab.title }}
                             </a>
                         </li>
@@ -29,10 +29,11 @@
                 </div>
             </div>
 
+            <!-- 设置页脚 -->
             <div class="settings-drawer-footer">
                 <div class="flex justify-between items-center w-full">
-                    <span class="text-sm opacity-70">版本 1.0.0</span>
-                    <button class="btn btn-sm btn-outline" @click="closeDrawer">关闭</button>
+                    <span class="text-sm opacity-70 text-base-content">版本 1.0.0</span>
+                    <button class="btn btn-sm btn-outline text-base-content" @click="closeDrawer">关闭</button>
                 </div>
             </div>
         </div>
@@ -136,10 +137,10 @@ watch(() => props.isOpen, (newValue) => {
 onMounted(() => {
     // 添加键盘事件监听
     document.addEventListener('keydown', handleEscKey);
-    
+
     // 监听设置服务的选项卡变化
     settingsService.onTabChange(handleSettingTabChange);
-    
+
     // 如果有设置的选项卡，使用它
     const currentTab = settingsService.getTab();
     if (currentTab) {
@@ -156,18 +157,22 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* 设置抽屉背景 - 使用毛玻璃效果 */
 .settings-drawer-backdrop {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.4);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1000;
     animation: fadeIn 0.3s ease;
+    /* 添加毛玻璃效果 */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .settings-drawer-container {
@@ -175,14 +180,20 @@ onBeforeUnmount(() => {
     max-width: 1000px;
     height: 90%;
     max-height: 700px;
-    background-color: var(--bg-color);
     border-radius: 0.75rem;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
     animation: slideIn 0.3s ease;
     position: relative;
     overflow: hidden;
+    /* 设置纯色边框 */
+    border: 2px solid hsl(var(--b3));
+    opacity: 1;
+    /* 使用纯色或渐变背景，不添加透明度 */
+    background: linear-gradient(135deg,
+            hsl(var(--b2)) 0%,
+            hsl(var(--b1)) 100%);
 }
 
 .settings-drawer-header {
@@ -190,31 +201,36 @@ onBeforeUnmount(() => {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid hsl(var(--b3));
+    background-color: hsl(var(--p) / 0.2);
 }
 
 .settings-content {
     display: flex;
     flex: 1;
     overflow: hidden;
+    background-color: transparent;
 }
 
 .settings-sidebar {
     width: 220px;
     padding: 1rem;
-    border-right: 1px solid var(--border-color);
+    border-right: 1px solid hsl(var(--b3));
     overflow-y: auto;
+    background-color: hsl(var(--b2));
 }
 
 .settings-body {
     flex: 1;
     overflow-y: auto;
     padding: 1rem;
+    background-color: hsl(var(--b1));
 }
 
 .settings-drawer-footer {
     padding: 1rem 1.5rem;
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid hsl(var(--b3));
+    background-color: hsl(var(--b2));
 }
 
 /* 图标样式 */
@@ -225,26 +241,70 @@ onBeforeUnmount(() => {
     margin-right: 0.5rem;
 }
 
-.icon-palette::before { content: "\f53f"; }
-.icon-computer::before { content: "\f109"; }
-.icon-bell::before { content: "\f0f3"; }
-.icon-lock::before { content: "\f023"; }
-.icon-circle-info::before { content: "\f05a"; }
-.icon-sliders::before { content: "\f1de"; }
-.icon-xmark::before { content: "\f00d"; }
+/* 主题适配 - 调整深色模式下的视觉效果，使用纯色 */
+:global(.dark-mode) .settings-drawer-container {
+    background: linear-gradient(135deg,
+            hsl(var(--n)) 0%,
+            hsl(var(--b1)) 100%);
+    border-color: hsl(var(--b3)) !important;
+}
+
+:global(.dark-mode) .settings-sidebar {
+    background-color: hsl(var(--n)) !important;
+}
+
+:global(.dark-mode) .settings-body {
+    background-color: hsl(var(--b1)) !important;
+}
+
+:global(.dark-mode) .settings-drawer-header {
+    background-color: hsl(var(--p) / 0.3) !important;
+}
+
+:global(.dark-mode) .settings-drawer-footer {
+    background-color: hsl(var(--n)) !important;
+}
+
+/* 强化阴影效果 */
+.settings-drawer-container {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 菜单项美化 */
+.settings-sidebar .menu a {
+    transition: all 0.3s ease;
+    border-left: 3px solid transparent;
+}
+
+.settings-sidebar .menu a.active {
+    border-left-color: hsl(var(--p));
+    background-color: hsl(var(--p) / 0.1);
+}
 
 /* 动画 */
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes slideIn {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
-.tab-transition-enter-active, 
+.tab-transition-enter-active,
 .tab-transition-leave-active {
     transition: opacity 0.3s, transform 0.3s;
 }
@@ -260,20 +320,20 @@ onBeforeUnmount(() => {
     .settings-content {
         flex-direction: column;
     }
-    
+
     .settings-sidebar {
         width: 100%;
         border-right: none;
-        border-bottom: 1px solid var(--border-color);
+        border-bottom: 1px solid hsl(var(--b3));
         padding: 0.5rem 1rem;
     }
-    
+
     .settings-sidebar ul {
         display: flex;
         overflow-x: auto;
         padding-bottom: 0.5rem;
     }
-    
+
     .settings-sidebar li {
         margin-right: 0.5rem;
     }

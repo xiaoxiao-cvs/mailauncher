@@ -1,6 +1,6 @@
 <template>
     <div class="settings-tab-content">
-        <div class="card bg-base-100 shadow">
+        <div class="card bg-base-100 shadow-lg border border-base-300">
             <!-- 外观设置 -->
             <div class="card-body">
                 <h2 class="card-title">外观设置</h2>
@@ -285,6 +285,8 @@ onMounted(() => {
     max-width: 800px;
     margin: 0 auto;
     padding: 1rem;
+    color: hsl(var(--bc));
+    animation: fadeIn 0.3s ease-in-out;
 }
 
 .setting-item {
@@ -292,7 +294,7 @@ onMounted(() => {
     justify-content: space-between;
     align-items: center;
     padding: 1rem 0;
-    border-bottom: 1px solid var(--border-light);
+    border-bottom: 1px solid hsl(var(--b3));
 }
 
 .setting-item:last-child {
@@ -301,7 +303,7 @@ onMounted(() => {
 
 .setting-label {
     font-size: 1rem;
-    color: var(--text-color);
+    color: hsl(var(--bc));
 }
 
 .setting-control {

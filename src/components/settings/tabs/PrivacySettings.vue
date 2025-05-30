@@ -88,11 +88,12 @@ const confirmClearData = () => {
 <style scoped>
 .settings-tab-content {
     animation: fadeIn 0.5s ease;
+    color: hsl(var(--bc));
 }
 
 .settings-section-title {
     margin-bottom: 20px;
-    color: var(--color-text-primary);
+    color: hsl(var(--bc));
     font-weight: 500;
 }
 
@@ -101,7 +102,7 @@ const confirmClearData = () => {
     justify-content: space-between;
     align-items: center;
     padding: 15px 0;
-    border-bottom: 1px solid var(--color-border-light);
+    border-bottom: 1px solid hsl(var(--b3));
 }
 
 .setting-item:last-child {

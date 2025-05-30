@@ -78,6 +78,7 @@ watch(errorNotifications, (newValue) => {
 <style scoped>
 .settings-tab-content {
     animation: fadeIn 0.5s ease;
+    color: hsl(var(--bc));
 }
 
 .setting-item {

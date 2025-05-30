@@ -303,10 +303,7 @@ const closeSettings = () => {
   isSettingsOpen.value = false;
   settingsService.closeSettings();
 
-  // 如果当前标签页是设置，切换回首页
-  if (activeTab.value === 'settings') {
-    activeTab.value = 'home';
-  }
+  // 不再自动跳转到主页，保持在当前页面
 };
 
 // 监听日志查看事件和页面导航

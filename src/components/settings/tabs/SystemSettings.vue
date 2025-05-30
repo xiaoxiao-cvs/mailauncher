@@ -99,6 +99,7 @@ watch([autoCheckUpdates, autoStart, showTrayIcon, monitorFrequency, logLevel], (
 .settings-tab-content {
     animation: fadeIn 0.5s ease;
     padding: 1rem;
+    color: hsl(var(--bc));
 }
 
 .settings-section-title {
@@ -112,7 +113,7 @@ watch([autoCheckUpdates, autoStart, showTrayIcon, monitorFrequency, logLevel], (
     justify-content: space-between;
     align-items: center;
     padding: 0.75rem 0;
-    border-bottom: 1px solid rgba(var(--b3, var(--fallback-b3, 0, 0, 0)), 0.1);
+    border-bottom: 1px solid hsl(var(--b3));
 }
 
 .setting-item:last-child {

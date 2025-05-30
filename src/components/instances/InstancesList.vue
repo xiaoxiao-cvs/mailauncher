@@ -214,6 +214,9 @@ import toastService from '@/services/toastService';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { usePollingStore } from '@/stores/pollingStore';
 
+// 导入实例API函数
+import { deleteInstance as apiDeleteInstance } from '@/api/instances';
+
 // 事件总线，用于与其他组件通信
 const emitter = inject('emitter');
 
