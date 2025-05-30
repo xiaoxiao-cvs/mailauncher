@@ -146,7 +146,7 @@
                         <div class="flex items-center justify-between mb-2">
                             <div class="font-medium">安装日志</div>
                         </div>
-                        <div class="log-container bg-base-300 rounded-lg p-3 h-48 overflow-y-auto font-mono text-sm">
+                        <div class="log-container bg-base-300 rounded-lg p-3 h-80 overflow-y-auto font-mono text-sm">
                             <div v-for="(log, index) in logs" :key="index" class="log-line" :class="getLogClass(log)">
                                 <span class="opacity-60">[{{ log.time }}]</span> {{ log.message }}
                             </div>
@@ -343,7 +343,7 @@ watch(selectedVersion, (newValue) => {
 }
 
 .version-select-container {
-    max-width: 800px;
+    max-width: 1200px;
     margin: 0 auto;
 }
 

@@ -16,10 +16,9 @@ const getWebSocketUrl = (path = "/api/logs/ws") => {
     return `${protocol}//${window.location.host}${path}`;
   } else {
     // 不使用代理时，直接连接到后端
-    // 使用8095作为日志WebSocket端口
+    // 使用后端配置的端口
     const protocol = "ws:";
-    const logPort = 8095; // 设置默认日志端口为8095
-    return `${protocol}//${backendConfig.server.host}:${logPort}${path}`;
+    return `${protocol}//${backendConfig.server.host}:${backendConfig.server.port}${path}`;
   }
 };
 

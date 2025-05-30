@@ -2,30 +2,39 @@
   <div class="section">
     <div class="section-title">安装Bot实例</div>
     <div class="install-container">
-      <select v-model="selectedVersion" class="select select-bordered w-full" :disabled="versionsLoading">
+      <select v-model="selectedVersion" class="select select-bordered select-lg w-full" :disabled="versionsLoading">
         <option disabled value="">选择版本</option>
         <option v-for="version in availableVersions" :key="version" :value="version">{{ version }}</option>
-      </select>
-      <button type="button" @click="installVersion" :disabled="!selectedVersion || !instanceName || installLoading"
-        class="btn btn-primary">
+      </select> <button type="button" @click="installVersion"
+        :disabled="!selectedVersion || !instanceName || installLoading" class="btn btn-primary btn-lg">
         <i class="icon icon-download mr-2"></i> 安装
       </button>
     </div>
     <p v-if="versionError" class="error-message">{{ versionError }}</p>
     <p v-if="availableVersions.length === 0 && !versionsLoading" class="repo-info">
       从 <a href="https://github.com/MaiM-with-u/MaiBot" target="_blank">MaiBot 仓库</a> 获取版本
-    </p>
-
-    <!-- 进度条 -->
+    </p> <!-- 进度条 -->
     <div class="progress-container" v-if="installationProgress > 0 && installationProgress < 100">
-      <progress class="progress progress-success w-full" :value="installationProgress" max="100"></progress>
-      <div class="text-center mt-2">{{ progressText }}</div>
-    </div>
-
-    <!-- 添加日志输出区域 -->
+      <progress class="progress progress-success w-full h-4" :value="installationProgress" max="100"></progress>
+      <div class="text-center mt-3 text-base font-medium">{{ progressText }}</div>
+    </div><!-- 添加日志输出区域 -->
     <div class="log-output" v-if="logs.length > 0">
-      <div class="divider">安装日志</div>
-      <div class="log-content">
+      <div class="log-header">
+        <div class="divider">安装日志</div>
+        <div class="log-controls"> <button @click="toggleAutoScroll"
+            :class="['btn', 'btn-md', 'btn-ghost', { 'text-primary': autoScroll }]"
+            :title="autoScroll ? '禁用自动滚动' : '启用自动滚动'">
+            <i class="icon icon-scroll"></i>
+          </button>
+          <button @click="scrollToBottom" class="btn btn-md btn-ghost" title="滚动到底部">
+            <i class="icon icon-chevrons-down"></i>
+          </button>
+          <button @click="clearLogs" class="btn btn-md btn-ghost" title="清空日志">
+            <i class="icon icon-trash-2"></i>
+          </button>
+        </div>
+      </div>
+      <div ref="logContainer" class="log-content">
         <div v-for="(log, index) in logs" :key="index" :class="['log-line', log.level.toLowerCase()]">
           <span class="log-time">[{{ log.time }}]</span>
           <span class="log-message">{{ log.message }}</span>
@@ -44,9 +53,8 @@
             <label class="label">
               <span class="label-text">实例名称</span>
               <span class="label-text-alt text-error">必填</span>
-            </label>
-            <input v-model="instanceName" type="text" placeholder="请输入实例名称" class="input input-bordered w-full"
-              maxlength="50">
+            </label> <input v-model="instanceName" type="text" placeholder="请输入实例名称"
+              class="input input-bordered input-lg w-full" maxlength="50">
             <label class="label">
               <span class="label-text-alt input-tip">该名称将用于区分不同的Bot实例</span>
             </label>
@@ -57,9 +65,9 @@
         <div class="config-options">
           <div class="option-item">
             <!-- 将 el-checkbox 替换为 DaisyUI checkbox -->
-            <div class="form-control">
-              <label class="label cursor-pointer justify-start gap-2">
-                <input type="checkbox" v-model="installAdapter" class="checkbox checkbox-primary" checked disabled />
+            <div class="form-control"> <label class="label cursor-pointer justify-start gap-3">
+                <input type="checkbox" v-model="installAdapter" class="checkbox checkbox-primary checkbox-lg" checked
+                  disabled />
                 <div>
                   <div class="option-title">安装 Napcat-ada 适配器</div>
                   <div class="option-desc">安装 MaiBot 的 Napcat-ada 适配器</div>
@@ -70,9 +78,9 @@
 
           <div class="option-item">
             <!-- 将 el-checkbox 替换为 DaisyUI checkbox -->
-            <div class="form-control">
-              <label class="label cursor-pointer justify-start gap-2">
-                <input type="checkbox" v-model="installNapcat" class="checkbox checkbox-primary" checked disabled />
+            <div class="form-control"> <label class="label cursor-pointer justify-start gap-3">
+                <input type="checkbox" v-model="installNapcat" class="checkbox checkbox-primary checkbox-lg" checked
+                  disabled />
                 <div>
                   <div class="option-title">安装 Napcat-ada</div>
                   <div class="option-desc">安装 Napcat-ada 服务</div>
@@ -86,7 +94,7 @@
         <div class="qq-input" v-if="installNapcat || installAdapter">
           <div class="input-group">
             <span>QQ号</span>
-            <input v-model="qqNumber" type="text" placeholder="请输入QQ号" class="input input-bordered w-full">
+            <input v-model="qqNumber" type="text" placeholder="请输入QQ号" class="input input-bordered input-lg w-full">
           </div>
           <p class="input-tip">用于配置机器人连接的QQ账号</p>
         </div>
@@ -98,23 +106,24 @@
             <div class="port-item">
               <div class="input-group">
                 <span>MaiBot端口</span>
-                <input v-model="maibotPort" type="number" placeholder="MaiBot端口" class="input input-bordered w-full">
+                <input v-model="maibotPort" type="number" placeholder="MaiBot端口"
+                  class="input input-bordered input-lg w-full">
               </div>
               <p class="port-desc">MaiBot主程序监听端口</p>
             </div>
             <div class="port-item">
               <div class="input-group">
                 <span>适配器端口</span>
-                <input v-model="adapterPort" type="number" placeholder="适配器端口" class="input input-bordered w-full">
+                <input v-model="adapterPort" type="number" placeholder="适配器端口"
+                  class="input input-bordered input-lg w-full">
               </div>
               <p class="port-desc">Napcat-ada适配器监听端口</p>
             </div>
 
             <div class="port-item">
               <div class="input-group">
-                <span>Napcat-ada端口</span>
-                <input v-model="napcatPort" type="number" placeholder="Napcat-ada端口"
-                  class="input input-bordered w-full">
+                <span>Napcat-ada端口</span> <input v-model="napcatPort" type="number" placeholder="Napcat-ada端口"
+                  class="input input-bordered input-lg w-full">
               </div>
               <p class="port-desc">Napcat-ada的WebSocket服务器端口</p>
             </div>
@@ -159,6 +168,30 @@ const installStatus = ref('idle');  // idle, installing, completed, failed
 const installationProgress = ref(0);
 const progressText = ref('准备中...');
 const logs = ref([]);
+
+// 日志相关功能
+const logContainer = ref(null);
+const autoScroll = ref(true);
+
+// 清空日志
+const clearLogs = () => {
+  logs.value = [];
+};
+
+// 滚动到底部
+const scrollToBottom = () => {
+  if (logContainer.value) {
+    logContainer.value.scrollTop = logContainer.value.scrollHeight;
+  }
+};
+
+// 切换自动滚动
+const toggleAutoScroll = () => {
+  autoScroll.value = !autoScroll.value;
+  if (autoScroll.value) {
+    scrollToBottom();
+  }
+};
 
 // 添加表单对象用于输入验证
 const form = ref({});
@@ -568,6 +601,16 @@ onUnmounted(() => {
   // 清理 deployStore 连接
   if (deployStore.cleanup) {
     deployStore.cleanup();
+  }
+});
+
+// 监听日志变化，自动滚动
+watch(() => logs.value.length, () => {
+  if (autoScroll.value) {
+    // 使用nextTick确保DOM更新后滚动
+    nextTick(() => {
+      scrollToBottom();
+    });
   }
 });
 

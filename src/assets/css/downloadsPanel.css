@@ -37,13 +37,13 @@
 }
 
 .section {
-  @apply mb-6 rounded-xl p-4 shadow-sm;
+  @apply mb-8 rounded-xl p-6 shadow-sm;
   /* 更新为半透明背景，增强深度感 */
   @apply bg-base-100/80 backdrop-blur-sm border border-base-300/30;
 }
 
 .section-title {
-  @apply font-bold text-base mb-3 text-primary border-b border-base-200/50 pb-2;
+  @apply font-bold text-lg mb-4 text-primary border-b border-base-200/50 pb-3;
 }
 
 .icon-btn {

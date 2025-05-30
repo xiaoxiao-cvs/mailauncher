@@ -1,5 +1,5 @@
 .install-container {
-  @apply flex gap-2.5 mb-4;
+  @apply flex gap-3 mb-5 p-4 bg-base-100 rounded-lg border border-base-300 shadow-sm;
 }
 
 .install-container .select {
@@ -24,12 +24,12 @@
 
 /* Bot配置样式 */
 .bot-config {
-  @apply mt-4 bg-base-200 p-4 rounded-lg border border-base-300;
+  @apply mt-6 bg-base-200 p-6 rounded-lg border border-base-300 shadow-lg;
 }
 
 /* 实例名称输入样式 */
 .instance-name-input {
-  @apply mb-5 animate-fadeSlideDown;
+  @apply mb-6 animate-fadeSlideDown;
 }
 
 @keyframes fadeSlideDown {
@@ -51,19 +51,19 @@
 }
 
 .config-options {
-  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-5;
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-6;
 }
 
 .option-item {
-  @apply flex-1 bg-base-100 p-3 rounded-lg border border-base-300 transition-all duration-300 mb-2.5 hover:shadow-md;
+  @apply flex-1 bg-base-100 p-4 rounded-lg border border-base-300 transition-all duration-300 mb-3 hover:shadow-lg hover:scale-105;
 }
 
 .option-title {
-  @apply font-medium;
+  @apply font-medium text-base;
 }
 
 .option-desc {
-  @apply text-xs text-base-content/70 mt-0.5;
+  @apply text-sm text-base-content/70 mt-1;
 }
 
 /* 填加动画 */
@@ -78,27 +78,27 @@
 }
 
 .qq-input {
-  @apply mb-5;
+  @apply mb-6;
 }
 
 .input-tip {
-  @apply text-xs text-base-content/70 mt-1.5 mb-0;
+  @apply text-sm text-base-content/70 mt-2 mb-0;
 }
 
 .ports-config {
-  @apply mt-4;
+  @apply mt-6;
 }
 
 .ports-grid {
-  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4;
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-5;
 }
 
 .port-item {
-  @apply flex-1 mb-2.5;
+  @apply flex-1 mb-3;
 }
 
 .port-desc {
-  @apply text-xs text-base-content/70 mt-0.5 mb-1.5;
+  @apply text-sm text-base-content/70 mt-1 mb-2;
 }
 
 .install-tips {
@@ -106,19 +106,31 @@
 }
 
 .progress-container {
-  @apply my-4;
+  @apply my-5;
 }
 
 .log-output {
-  @apply my-4;
+  @apply my-5 bg-base-100 p-4 rounded-lg border border-base-300 shadow-sm;
+}
+
+.log-header {
+  @apply flex items-center justify-between mb-3;
+}
+
+.log-controls {
+  @apply flex gap-2;
 }
 
 .log-content {
-  @apply max-h-[200px] overflow-y-auto border border-base-300 rounded-md p-2 bg-base-200 font-mono text-sm;
+  @apply max-h-[600px] overflow-y-auto border border-base-300 rounded-md p-5 bg-base-200 font-mono text-base shadow-inner;
+  overflow-x: hidden; /* 移除横向滚动条 */
+  word-wrap: break-word; /* 长文本自动换行 */
 }
 
 .log-line {
-  @apply mb-0.5 whitespace-pre-wrap break-all;
+  @apply mb-2 leading-relaxed;
+  word-break: break-all; /* 强制换行避免横向滚动 */
+  white-space: pre-wrap; /* 保持格式并换行 */
 }
 
 .log-time {
@@ -137,10 +149,84 @@
   @apply text-success;
 }
 
+/* 添加输入组样式优化 */
+.input-group {
+  @apply flex flex-col gap-2;
+}
+
+.input-group span {
+  @apply font-medium text-base text-base-content;
+}
+
+/* 添加响应式优化 */
+@media (max-width: 768px) {
+  .config-options {
+    @apply grid-cols-1 gap-4;
+  }
+
+  .ports-grid {
+    @apply grid-cols-1 gap-4;
+  }
+
+  .install-container {
+    @apply flex-col gap-3;
+  }
+
+  .bot-config {
+    @apply p-4;
+  }
+
+  .option-item {
+    @apply p-3;
+  }
+
+  .log-content {
+    @apply text-sm p-3;
+  }
+}
+
+/* 大屏幕优化 */
+@media (min-width: 1200px) {
+  .config-options {
+    @apply grid-cols-3 gap-8;
+  }
+
+  .ports-grid {
+    @apply grid-cols-3 gap-6;
+  }
+
+  .bot-config {
+    @apply p-8;
+  }
+
+  .log-content {
+    @apply max-h-[700px] text-lg p-6;
+  }
+
+  .option-item {
+    @apply p-5;
+  }
+
+  .install-container {
+    @apply p-5;
+  }
+}
+
 /* Iconify图标样式 */
 .iconify {
   @apply inline-flex align-middle;
 }
+
+/* 图标按钮 */
+.icon-btn {
+  @apply btn btn-sm btn-ghost p-1;
+}
+
+.icon-btn .iconify {
+  @apply text-lg;
+}
+
+/* 深色模式下自动处理 - DaisyUI主题系统会自动适配 */
 
 /* 图标按钮 */
 .icon-btn {
