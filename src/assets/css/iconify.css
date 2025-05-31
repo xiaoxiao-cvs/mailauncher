@@ -107,20 +107,20 @@ button .iconify,
 
 /* 动画效果 */
 .iconify-spin svg {
-  animation: iconify-spin 2s infinite linear;
+  animation: iconify-spin 1s infinite linear;
 }
 
 .iconify-pulse svg {
-  animation: iconify-spin 1s infinite steps(8);
+  animation: iconify-spin 0.5s infinite steps(8);
 }
 
 .iconify-bounce svg {
-  animation: iconify-bounce 1s infinite;
+  animation: iconify-bounce 0.5s infinite;
 }
 
 /* 添加更多动画 */
 .iconify-ping svg {
-  animation: iconify-ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+  animation: iconify-ping 0.5s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
 @keyframes iconify-spin {

@@ -50,7 +50,7 @@ const loadInstances = async () => {
   try {
     // 引入实例API适配器
     const { adaptInstancesList } = await import('@/utils/apiAdapters');
-    
+
     // 检查是否使用模拟数据
     const useMockData = localStorage.getItem('useMockData') === 'true';
 
@@ -65,7 +65,7 @@ const loadInstances = async () => {
     }
   } catch (error) {
     console.error('获取实例列表失败:', error);
-    
+
     // 先尝试使用实例API的模拟数据功能
     try {
       const { adaptInstancesList } = await import('@/utils/apiAdapters');
@@ -77,7 +77,7 @@ const loadInstances = async () => {
       instancesData.value = getMockInstances();
       console.log('使用本地模拟数据');
     }
-    
+
     toastService.error('获取实例列表失败');
   }
 };
@@ -251,11 +251,11 @@ onBeforeUnmount(() => {
 
 /* 添加实例详情视图过渡效果 */
 .instance-detail-transition-enter-active {
-  animation: slideInFromRight 0.4s ease-out;
+  animation: slideInFromRight 0.2s ease-out;
 }
 
 .instance-detail-transition-leave-active {
-  animation: slideOutToRight 0.3s ease-in;
+  animation: slideOutToRight 0.15s ease-in;
 }
 
 @keyframes slideInFromRight {

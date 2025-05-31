@@ -1,6 +1,6 @@
 /* 主题切换过渡效果 */
 html {
-  transition: color 0.3s, background-color 0.3s;
+  transition: color 0.15s, background-color 0.15s;
 }
 
 html[data-theme] {
@@ -70,7 +70,7 @@ html[data-theme] {
 .toast,
 .menu,
 .collapse {
-  transition: background-color 0.3s, border-color 0.3s, color 0.3s,
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s,
     box-shadow 0.3s;
 }
 
@@ -91,7 +91,7 @@ html[data-theme] {
 /* Iconify图标主题集成 */
 .iconify {
   color: var(--icon-color);
-  transition: color 0.3s ease;
+  transition: color 0.15s ease;
 }
 
 /* 主题色图标 */
@@ -175,7 +175,7 @@ html[data-theme] {
 /* 支持深色与浅色主题之间无缝切换 */
 [data-theme].theme-transition,
 [data-theme].theme-transition * {
-  transition: background-color 0.5s ease !important;
+  transition: background-color 0.25s ease !important;
 }
 
 /* 针对特定主题的图标颜色调整 */
@@ -214,7 +214,7 @@ html[data-theme] {
 /* 半透明卡片样式 */
 .app-card {
   @apply bg-base-100/80 backdrop-blur-sm shadow-sm rounded-lg p-4;
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
 }
 
 .app-card:hover {
@@ -246,7 +246,7 @@ html[data-theme] {
 
 /* 统一的过渡动画 */
 .app-transition {
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
 }
 
 /* 添加通用的滚动条样式 */

@@ -10,7 +10,7 @@
 /* 页面切换动画 */
 .page-fade-enter-active,
 .page-fade-leave-active {
-  transition: all 0.4s ease;
+  transition: all 0.2s ease;
 }
 
 .page-fade-enter-from {
@@ -25,7 +25,7 @@
 
 .slide-fade-enter-active,
 .slide-fade-leave-active {
-  transition: all 0.4s ease;
+  transition: all 0.2s ease;
   max-height: 2000px;
   opacity: 1;
   overflow: hidden;
@@ -44,7 +44,7 @@
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.5s;
+  transition: opacity 0.25s;
 }
 
 .fade-enter-from,
@@ -54,45 +54,45 @@
 
 /* 安装模式选择动画 */
 .install-mode-selection {
-  animation: fadeInUp 0.6s ease-out;
+  animation: fadeInUp 0.25s ease-out;
 }
 
 .install-option {
-  animation: scaleIn 0.5s ease-out;
+  animation: scaleIn 0.2s ease-out;
   animation-fill-mode: both;
 }
 
 .install-option:nth-child(1) {
-  animation-delay: 0.1s;
+  animation-delay: 0.05s;
 }
 
 .install-option:nth-child(2) {
-  animation-delay: 0.2s;
+  animation-delay: 0.1s;
 }
 
 /* 按钮悬停动画 */
 .install-option button:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
 }
 
 /* 页面切换动画 */
 .existing-instance-setup,
 .new-instance-setup {
-  animation: slideInFromRight 0.5s ease-out;
+  animation: slideInFromRight 0.25s ease-out;
 }
 
 /* 实例检测状态动画 */
 .loading {
-  animation: pulse 1.5s infinite;
+  animation: pulse 0.8s infinite;
 }
 
 /* 输入框聚焦动画 */
 .input:focus,
 .select:focus {
   transform: scale(1.02);
-  transition: transform 0.2s ease;
+  transition: transform 0.1s ease;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -100,30 +100,30 @@
 .card:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
 }
 
 /* 进度条动画 */
 .progress {
-  animation: progressSlide 0.5s ease-out;
+  animation: progressSlide 0.25s ease-out;
 }
 
 /* 日志容器动画 */
 .log-container {
   box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
-  animation: fadeIn 0.5s ease-out;
+  animation: fadeIn 0.25s ease-out;
 }
 
 .log-line {
   white-space: pre-wrap;
   line-height: 1.5;
   padding: 2px 0;
-  animation: fadeInLeft 0.3s ease-out;
+  animation: fadeInLeft 0.15s ease-out;
 }
 
 /* 按钮动画 */
 .btn {
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
   position: relative;
   overflow: hidden;
 }
@@ -139,16 +139,16 @@
 
 /* 复选框动画 */
 .checkbox {
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
 }
 
 .checkbox:checked {
-  animation: checkboxBounce 0.3s ease;
+  animation: checkboxBounce 0.15s ease;
 }
 
 /* 链接悬停动画 */
 .link {
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
   position: relative;
 }
 
@@ -162,12 +162,12 @@
 .text-success svg,
 .text-error svg,
 .text-warning svg {
-  animation: iconBounce 0.5s ease-out;
+  animation: iconBounce 0.25s ease-out;
 }
 
 /* 加载旋转动画 */
 .loading-spinner {
-  animation: spin 1s linear infinite;
+  animation: spin 0.5s linear infinite;
 }
 
 /* 键帧动画定义 */
@@ -316,21 +316,21 @@
 
 /* 网格布局动画 */
 .grid > * {
-  animation: staggerFadeIn 0.5s ease-out;
+  animation: staggerFadeIn 0.25s ease-out;
   animation-fill-mode: both;
 }
 
 .grid > *:nth-child(1) {
-  animation-delay: 0.1s;
+  animation-delay: 0.05s;
 }
 .grid > *:nth-child(2) {
-  animation-delay: 0.2s;
+  animation-delay: 0.1s;
 }
 .grid > *:nth-child(3) {
-  animation-delay: 0.3s;
+  animation-delay: 0.15s;
 }
 .grid > *:nth-child(4) {
-  animation-delay: 0.4s;
+  animation-delay: 0.2s;
 }
 
 @keyframes staggerFadeIn {
@@ -347,7 +347,7 @@
 /* 表单元素聚焦增强 */
 .form-control:focus-within {
   transform: scale(1.01);
-  transition: transform 0.2s ease;
+  transition: transform 0.1s ease;
 }
 
 /* 卡片标题动画 */
@@ -364,7 +364,7 @@
   width: 0;
   height: 2px;
   background: linear-gradient(90deg, hsl(var(--p)), hsl(var(--s)));
-  transition: width 0.5s ease;
+  transition: width 0.25s ease;
 }
 
 .card:hover .card-title::after {

@@ -46,7 +46,7 @@
 /* 添加到Tailwind配置的动画 */
 @layer utilities {
   .animate-fadeSlideDown {
-    animation: fadeSlideDown 0.5s ease-in-out;
+    animation: fadeSlideDown 0.25s ease-in-out;
   }
 }
 
@@ -55,7 +55,7 @@
 }
 
 .option-item {
-  @apply flex-1 bg-base-100 p-4 rounded-lg border border-base-300 transition-all duration-300 mb-3 hover:shadow-lg hover:scale-105;
+  @apply flex-1 bg-base-100 p-4 rounded-lg border border-base-300 transition-all duration-150 mb-3 hover:shadow-lg hover:scale-105;
 }
 
 .option-title {
@@ -69,7 +69,7 @@
 /* 填加动画 */
 .config-fade-enter-active,
 .config-fade-leave-active {
-  @apply transition-all duration-500 ease-in-out max-h-[2000px] opacity-100 overflow-hidden;
+  @apply transition-all duration-200 ease-in-out max-h-[2000px] opacity-100 overflow-hidden;
 }
 
 .config-fade-enter-from,

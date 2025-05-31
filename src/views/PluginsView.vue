@@ -70,7 +70,7 @@
     height: 200%;
     background: linear-gradient(45deg, transparent, rgba(99, 102, 241, 0.1), transparent);
     transform: rotate(45deg);
-    transition: all 0.6s ease;
+    transition: all 0.25s ease;
     opacity: 0;
 }
 

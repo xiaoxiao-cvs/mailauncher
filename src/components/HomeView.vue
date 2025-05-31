@@ -586,7 +586,7 @@ onBeforeUnmount(() => {
 }
 
 .animated-button {
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
 }
 
 .animated-button:hover {
@@ -595,40 +595,40 @@ onBeforeUnmount(() => {
 }
 
 .animated-progress {
-  transition: all 0.5s ease;
-  animation: progressGlow 2s ease-in-out infinite alternate;
+  transition: all 0.25s ease;
+  animation: progressGlow 1s ease-in-out infinite alternate;
 }
 
 .animated-list-item {
-  animation: slideInLeft 0.4s ease-out both;
+  animation: slideInLeft 0.2s ease-out both;
 }
 
 .animated-list-item:nth-child(1) {
-  animation-delay: 0.1s;
+  animation-delay: 0.05s;
 }
 
 .animated-list-item:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.animated-list-item:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-.animated-table-row {
-  animation: fadeInUp 0.4s ease-out both;
-}
-
-.animated-table-row:nth-child(1) {
   animation-delay: 0.1s;
 }
 
+.animated-list-item:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.animated-table-row {
+  animation: fadeInUp 0.2s ease-out both;
+}
+
+.animated-table-row:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
 .animated-table-row:nth-child(2) {
-  animation-delay: 0.2s;
+  animation-delay: 0.1s;
 }
 
 .animated-table-row:nth-child(3) {
-  animation-delay: 0.3s;
+  animation-delay: 0.15s;
 }
 
 /* 动画关键帧 */
@@ -691,7 +691,7 @@ onBeforeUnmount(() => {
 /* 增强的表格行悬停效果 */
 .table tbody tr:hover {
   transform: scale(1.01);
-  transition: transform 0.2s ease;
+  transition: transform 0.1s ease;
 }
 
 /* 响应式动画优化 */

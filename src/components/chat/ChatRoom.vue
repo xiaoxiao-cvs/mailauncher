@@ -239,17 +239,17 @@ function updateSessionMessages() {
 
 /* 主聊天区动画 */
 .animated-main-chat {
-    animation: fadeInRight 0.5s ease-out;
+    animation: fadeInRight 0.25s ease-out;
 }
 
 /* 顶部栏动画 */
 .chat-top-bar {
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
     backdrop-filter: blur(10px);
 }
 
 .animated-icon {
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
 }
 
 .animated-icon:hover {
@@ -258,12 +258,12 @@ function updateSessionMessages() {
 }
 
 .animated-text {
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
 }
 
 /* 滚动区域动画 */
 .animated-scroll-area {
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
 }
 
 .animated-scroll-area:hover {
@@ -272,8 +272,8 @@ function updateSessionMessages() {
 
 /* 空状态动画 */
 .animated-empty-state {
-    animation: fadeInUp 0.6s ease-out;
-    transition: all 0.3s ease;
+    animation: fadeInUp 0.25s ease-out;
+    transition: all 0.15s ease;
 }
 
 .animated-empty-state:hover {
@@ -282,8 +282,8 @@ function updateSessionMessages() {
 
 /* 消息项动画 */
 .animated-message {
-    animation: messageSlideIn 0.4s ease-out;
-    transition: all 0.3s ease;
+    animation: messageSlideIn 0.2s ease-out;
+    transition: all 0.15s ease;
 }
 
 @keyframes messageSlideIn {
@@ -300,7 +300,7 @@ function updateSessionMessages() {
 
 /* 输入区域动画 */
 .animated-input-area {
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
     backdrop-filter: blur(10px);
 }
 
@@ -309,7 +309,7 @@ function updateSessionMessages() {
 }
 
 .animated-input {
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
     position: relative;
     overflow: hidden;
 }
@@ -343,7 +343,7 @@ function updateSessionMessages() {
 
 /* 按钮动画增强 */
 .animated-button {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
 }
@@ -357,7 +357,7 @@ function updateSessionMessages() {
     height: 0;
     background: rgba(255, 255, 255, 0.3);
     border-radius: 50%;
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
     transform: translate(-50%, -50%);
 }
 

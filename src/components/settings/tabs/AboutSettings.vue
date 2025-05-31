@@ -108,7 +108,7 @@ const openDocs = () => {
 
 <style scoped>
 .settings-tab-content {
-    animation: fadeIn 0.5s ease;
+    animation: fadeIn 0.25s ease;
     padding: 1rem;
     color: hsl(var(--bc));
 }

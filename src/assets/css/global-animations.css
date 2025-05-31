@@ -1,42 +1,42 @@
 /* 全局动画类 */
 .animated-page {
-  animation: pageSlideIn 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation: pageSlideIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .animated-header {
-  animation: headerSlideDown 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation: headerSlideDown 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .animated-navbar {
-  animation: navbarSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation: navbarSlideIn 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .animated-grid {
-  animation: gridFadeIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation: gridFadeIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .animated-card {
-  animation: cardSlideUp 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  animation: cardSlideUp 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
 
 .animated-status {
-  animation: statusPulse 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation: statusPulse 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .animated-backdrop {
-  animation: backdropFadeIn 0.4s ease;
+  animation: backdropFadeIn 0.2s ease;
 }
 
 .animated-drawer {
-  animation: drawerSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: drawerSlideIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .animated-sidebar {
-  animation: sidebarSlideRight 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation: sidebarSlideRight 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .animated-menu-item {
-  animation: menuItemSlideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  animation: menuItemSlideIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
 
 /* 页面进入动画 */
@@ -169,17 +169,17 @@
 .animated-card:hover {
   transform: translateY(-8px) scale(1.02);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .animated-status:hover {
   transform: scale(1.05);
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* 按钮动画增强 */
 .btn {
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
   overflow: hidden;
 }
@@ -193,7 +193,7 @@
   height: 0;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.3);
-  transition: width 0.3s ease, height 0.3s ease;
+  transition: width 0.15s ease, height 0.15s ease;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -210,14 +210,14 @@
 
 .btn:active {
   transform: translateY(0);
-  transition: transform 0.1s ease;
+  transition: transform 0.05s ease;
 }
 
 /* 输入框聚焦动画 */
 .input,
 .select,
 .textarea {
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .input:focus,
@@ -230,12 +230,12 @@
 /* 复选框和单选按钮动画 */
 .checkbox,
 .radio {
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .checkbox:checked,
 .radio:checked {
-  animation: checkBounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: checkBounce 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes checkBounce {
@@ -252,11 +252,11 @@
 
 /* 模态框动画 */
 .modal {
-  animation: modalFadeIn 0.3s ease;
+  animation: modalFadeIn 0.15s ease;
 }
 
 .modal-box {
-  animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: modalSlideIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes modalFadeIn {
@@ -314,7 +314,7 @@
 
 /* 加载状态动画 */
 .loading {
-  animation: loadingPulse 1.5s ease-in-out infinite;
+  animation: loadingPulse 0.8s ease-in-out infinite;
 }
 
 @keyframes loadingPulse {
@@ -328,7 +328,7 @@
 }
 
 .loading-spinner {
-  animation: spin 1s linear infinite;
+  animation: spin 0.5s linear infinite;
 }
 
 @keyframes spin {
@@ -343,11 +343,11 @@
 /* 响应式动画调整 */
 @media (max-width: 768px) {
   .animated-card {
-    animation-duration: 0.4s;
+    animation-duration: 0.2s;
   }
 
   .animated-page {
-    animation-duration: 0.5s;
+    animation-duration: 0.25s;
   }
 }
 

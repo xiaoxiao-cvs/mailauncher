@@ -18,7 +18,7 @@ body {
 .content-area {
   overflow-x: hidden;
   box-sizing: border-box;
-  transition: margin-left 0.3s ease, width 0.3s ease;
+  transition: margin-left 0.15s ease, width 0.15s ease;
   margin-left: var(--sidebar-width, 64px); /* 使用CSS变量 */
   width: var(--content-width, calc(100% - 64px));
 }
@@ -193,7 +193,7 @@ html.no-animations *::after {
 .page-leave-active,
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .page-enter-from,
@@ -210,7 +210,7 @@ html.no-animations *::after {
   flex-direction: column;
   flex: 1;
   padding: 20px;
-  animation: fadeIn 0.3s ease; /* 统一动画时间 */
+  animation: fadeIn 0.15s ease; /* 统一动画时间 */
 }
 
 /* 更新动画效果保持一致 */
@@ -228,7 +228,7 @@ html.no-animations *::after {
 /* 统一组件过渡效果 - 替换Element Plus过渡为通用过渡 */
 .collapse-transition-enter-active,
 .collapse-transition-leave-active {
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
 }
 
 .collapse-transition-enter-from,
@@ -260,7 +260,7 @@ html.no-animations *::after {
 
 /* 添加DaisyUI主题过渡 */
 [data-theme] {
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 /* 确保按钮内图标对齐 */

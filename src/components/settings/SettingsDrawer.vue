@@ -172,7 +172,7 @@ onBeforeUnmount(() => {
     justify-content: center;
     align-items: center;
     z-index: 1000;
-    animation: fadeIn 0.3s ease;
+    animation: fadeIn 0.15s ease;
 }
 
 /* 外层容器 - 添加黑色边框 */
@@ -289,7 +289,7 @@ onBeforeUnmount(() => {
 
 /* 菜单项美化 */
 .settings-sidebar .menu a {
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
     border-left: 3px solid transparent;
 }
 
@@ -335,7 +335,7 @@ onBeforeUnmount(() => {
 
 .tab-transition-enter-active,
 .tab-transition-leave-active {
-    transition: opacity 0.3s, transform 0.3s;
+    transition: opacity 0.15s, transform 0.15s;
 }
 
 .tab-transition-enter-from,
