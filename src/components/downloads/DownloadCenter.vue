@@ -44,9 +44,11 @@
                     </div>
 
                     <!-- 添加已有实例页面 -->
-                    <div v-else-if="currentStep === 'existing-instance'" key="existing-instance" class="existing-instance-setup">
+                    <div v-else-if="currentStep === 'existing-instance'" key="existing-instance"
+                        class="existing-instance-setup">
                         <div class="flex items-center mb-6">
-                            <button @click="goBack" class="btn btn-ghost btn-sm mr-3 hover:scale-105 transition-transform">
+                            <button @click="goBack"
+                                class="btn btn-ghost btn-sm mr-3 hover:scale-105 transition-transform">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
                                     stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -62,11 +64,11 @@
                                 <span class="label-text">实例路径</span>
                             </label>
                             <div class="input-group">
-                                <input v-model="existingInstancePath" type="text" 
-                                    placeholder="例如：D:\MaiBot\existing-instance" 
-                                    class="input input-bordered flex-1" />
+                                <input v-model="existingInstancePath" type="text"
+                                    placeholder="例如：D:\MaiBot\existing-instance" class="input input-bordered flex-1" />
                                 <button @click="selectFolder" class="btn btn-outline">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+                                        viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
                                     </svg>
@@ -79,22 +81,32 @@
                         <div v-if="existingInstancePath" class="mb-4">
                             <div class="card p-3 rounded-lg border border-base-200 bg-base-100">
                                 <div class="flex items-center gap-3">
-                                    <div v-if="instanceDetection.loading" class="loading loading-spinner loading-sm"></div>
+                                    <div v-if="instanceDetection.loading" class="loading loading-spinner loading-sm">
+                                    </div>
                                     <div v-else-if="instanceDetection.valid" class="text-success">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
+                                            fill="currentColor">
+                                            <path fill-rule="evenodd"
+                                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                                clip-rule="evenodd" />
                                         </svg>
                                     </div>
                                     <div v-else-if="instanceDetection.error" class="text-error">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
+                                            fill="currentColor">
+                                            <path fill-rule="evenodd"
+                                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                                                clip-rule="evenodd" />
                                         </svg>
                                     </div>
                                     <div class="flex-1">
                                         <div v-if="instanceDetection.loading" class="text-sm">检测实例中...</div>
-                                        <div v-else-if="instanceDetection.valid" class="text-sm text-success">实例检测成功</div>
-                                        <div v-else-if="instanceDetection.error" class="text-sm text-error">{{ instanceDetection.error }}</div>
-                                        <div v-if="instanceDetection.version" class="text-xs opacity-70">版本: {{ instanceDetection.version }}</div>
+                                        <div v-else-if="instanceDetection.valid" class="text-sm text-success">实例检测成功
+                                        </div>
+                                        <div v-else-if="instanceDetection.error" class="text-sm text-error">{{
+                                            instanceDetection.error }}</div>
+                                        <div v-if="instanceDetection.version" class="text-xs opacity-70">版本: {{
+                                            instanceDetection.version }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -107,8 +119,7 @@
                                 <label class="label">
                                     <span class="label-text">实例名称</span>
                                 </label>
-                                <input v-model="existingInstanceName" type="text" 
-                                    placeholder="请输入实例名称" 
+                                <input v-model="existingInstanceName" type="text" placeholder="请输入实例名称"
                                     class="input input-bordered w-full" />
                             </div>
 
@@ -117,8 +128,7 @@
                                 <label class="label">
                                     <span class="label-text">MaiBot 端口</span>
                                 </label>
-                                <input v-model="existingMaibotPort" type="number" 
-                                    placeholder="例如：8000" 
+                                <input v-model="existingMaibotPort" type="number" placeholder="例如：8000"
                                     class="input input-bordered w-full" />
                             </div>
 
@@ -127,7 +137,7 @@
                                 <div class="card p-3 rounded-lg border border-base-200 bg-base-100">
                                     <div class="form-control">
                                         <label class="label cursor-pointer justify-start gap-3">
-                                            <input type="checkbox" v-model="existingEulaAgreed" 
+                                            <input type="checkbox" v-model="existingEulaAgreed"
                                                 class="checkbox checkbox-primary" />
                                             <div class="flex-1">
                                                 <div class="font-medium text-sm">我已阅读并同意</div>
@@ -145,7 +155,8 @@
 
                             <!-- 添加按钮 -->
                             <div class="flex justify-end">
-                                <button class="btn btn-primary" @click="addExistingInstance" :disabled="!canAddExisting">
+                                <button class="btn btn-primary" @click="addExistingInstance"
+                                    :disabled="!canAddExisting">
                                     <span v-if="addingInstance" class="loading loading-spinner loading-xs mr-2"></span>
                                     添加实例
                                 </button>
@@ -156,7 +167,8 @@
                     <!-- 下载新实例页面 -->
                     <div v-else-if="currentStep === 'new-instance'" key="new-instance" class="new-instance-setup">
                         <div class="flex items-center mb-6">
-                            <button @click="goBack" class="btn btn-ghost btn-sm mr-3 hover:scale-105 transition-transform">
+                            <button @click="goBack"
+                                class="btn btn-ghost btn-sm mr-3 hover:scale-105 transition-transform">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
                                     stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -174,7 +186,8 @@
                             <select v-model="selectedVersion" class="select select-bordered w-full"
                                 :disabled="loading || installing">
                                 <option disabled value="">请选择一个版本</option>
-                                <option v-for="version in availableVersions" :key="version" :value="version">{{ version }}
+                                <option v-for="version in availableVersions" :key="version" :value="version">{{ version
+                                }}
                                 </option>
                             </select>
                         </div>
@@ -235,8 +248,9 @@
                                             <label class="label">
                                                 <span class="label-text">Napcat-ada 端口</span>
                                             </label>
-                                            <input v-model="servicePorts['napcat-ada']" type="number" placeholder="例如：8095"
-                                                class="input input-bordered w-full" :disabled="installing" />
+                                            <input v-model="servicePorts['napcat-ada']" type="number"
+                                                placeholder="例如：8095" class="input input-bordered w-full"
+                                                :disabled="installing" />
                                         </div>
                                     </div>
                                 </div>
@@ -648,7 +662,7 @@ const addExistingInstance = async () => {
 
         // 调用后端API
         const response = await addExistingInstanceAPI(instanceConfig);
-        
+
         toastService.success(response.message || '实例添加成功');
 
         // 触发实例列表刷新
