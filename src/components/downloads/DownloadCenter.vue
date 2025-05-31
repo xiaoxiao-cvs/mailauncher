@@ -76,6 +76,27 @@
                             </div>
                         </div>
 
+                        <!-- EULA 同意选项 -->
+                        <div class="mb-4">
+                            <div class="card p-3 rounded-lg border border-base-200 bg-base-100">
+                                <div class="form-control">
+                                    <label class="label cursor-pointer justify-start gap-3">
+                                        <input type="checkbox" v-model="eulaAgreed" class="checkbox checkbox-primary"
+                                            :disabled="installing" />
+                                        <div class="flex-1">
+                                            <div class="font-medium text-sm">我已阅读并同意</div>
+                                            <div class="text-xs text-base-content/70">
+                                                <a href="https://gitee.com/DrSmooth/MaiBot/blob/main/EULA.md"
+                                                    target="_blank" class="link link-primary hover:link-accent">
+                                                    最终用户许可协议 (EULA)
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- 安装按钮 -->
                         <div class="flex justify-end">
                             <button class="btn btn-primary" @click="startInstall" :disabled="!canInstall || installing">
@@ -177,6 +198,7 @@ const installPath = ref('D:\\MaiBot\\MaiBot-1');
 const maibotPort = ref('8000');
 const selectedServices = reactive({});
 const servicePorts = reactive({});
+const eulaAgreed = ref(false); // EULA 同意状态
 
 // 事件
 const emit = defineEmits(['refresh']);
@@ -204,6 +226,11 @@ const canInstall = computed(() => {
 
     // 如果选择了Napcat-ada服务，必须有对应端口
     if (selectedServices['napcat-ada'] && !servicePorts['napcat-ada']) {
+        return false;
+    }
+
+    // EULA 必须同意
+    if (!eulaAgreed.value) {
         return false;
     }
 
@@ -274,6 +301,12 @@ const getLogClass = (log) => {
 const startInstall = async () => {
     if (!canInstall.value) {
         toastService.error('请完成所有必填项');
+        return;
+    }
+
+    // 再次检查 EULA 是否已同意
+    if (!eulaAgreed.value) {
+        toastService.error('请先阅读并同意最终用户许可协议 (EULA)');
         return;
     }
 
