@@ -286,6 +286,43 @@ export const fetchSystemMetrics = async () => {
   };
 };
 
+/**
+ * 添加已有实例
+ * @param {Object} instanceConfig 实例配置
+ * @returns {Promise<Object>} 添加结果
+ */
+export const addExistingInstance = async (instanceConfig) => {
+  try {
+    console.log("正在添加已有实例:", instanceConfig);
+
+    // 调用后端API
+    const response = await axios.post(
+      "http://localhost:23456/api/v1/instances/add",
+      instanceConfig,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log("添加已有实例成功:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("添加已有实例失败:", error);
+
+    // 处理后端返回的错误信息
+    if (error.response && error.response.data) {
+      const errorData = error.response.data;
+      if (errorData.detail) {
+        throw new Error(errorData.detail);
+      }
+    }
+
+    throw new Error(error.message || "添加实例失败");
+  }
+};
+
 export default {
   fetchInstances,
   fetchInstanceStats,
@@ -299,4 +336,5 @@ export default {
   deleteInstance,
   openFolder,
   fetchSystemMetrics,
+  addExistingInstance,
 };

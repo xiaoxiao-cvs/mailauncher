@@ -1,0 +1,372 @@
+.download-center {
+  width: 100%;
+}
+
+.version-select-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* 页面切换动画 */
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: all 0.4s ease;
+}
+
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all 0.4s ease;
+  max-height: 2000px;
+  opacity: 1;
+  overflow: hidden;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* 安装模式选择动画 */
+.install-mode-selection {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.install-option {
+  animation: scaleIn 0.5s ease-out;
+  animation-fill-mode: both;
+}
+
+.install-option:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.install-option:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+/* 按钮悬停动画 */
+.install-option button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+/* 页面切换动画 */
+.existing-instance-setup,
+.new-instance-setup {
+  animation: slideInFromRight 0.5s ease-out;
+}
+
+/* 实例检测状态动画 */
+.loading {
+  animation: pulse 1.5s infinite;
+}
+
+/* 输入框聚焦动画 */
+.input:focus,
+.select:focus {
+  transform: scale(1.02);
+  transition: transform 0.2s ease;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* 卡片悬停动画 */
+.card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+/* 进度条动画 */
+.progress {
+  animation: progressSlide 0.5s ease-out;
+}
+
+/* 日志容器动画 */
+.log-container {
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
+  animation: fadeIn 0.5s ease-out;
+}
+
+.log-line {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  padding: 2px 0;
+  animation: fadeInLeft 0.3s ease-out;
+}
+
+/* 按钮动画 */
+.btn {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* 复选框动画 */
+.checkbox {
+  transition: all 0.3s ease;
+}
+
+.checkbox:checked {
+  animation: checkboxBounce 0.3s ease;
+}
+
+/* 链接悬停动画 */
+.link {
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.link:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+
+/* 状态图标动画 */
+.text-success svg,
+.text-error svg,
+.text-warning svg {
+  animation: iconBounce 0.5s ease-out;
+}
+
+/* 加载旋转动画 */
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* 键帧动画定义 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes checkboxBounce {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes iconBounce {
+  0% {
+    transform: scale(0);
+  }
+  60% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes progressSlide {
+  from {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  to {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}
+
+/* 响应式动画调整 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 确保圆角设计一致性 */
+.rounded-xl {
+  border-radius: 1rem;
+}
+
+.card {
+  border-radius: 0.75rem;
+}
+
+/* 服务选择区域 */
+.service-info {
+  flex-grow: 1;
+}
+
+/* 增强进度条对比度 */
+.progress-primary {
+  --progress-color: hsl(var(--p));
+}
+
+.progress-success {
+  --progress-color: hsl(var(--su));
+}
+
+.progress-info {
+  --progress-color: hsl(var(--in));
+}
+
+/* 网格布局动画 */
+.grid > * {
+  animation: staggerFadeIn 0.5s ease-out;
+  animation-fill-mode: both;
+}
+
+.grid > *:nth-child(1) {
+  animation-delay: 0.1s;
+}
+.grid > *:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.grid > *:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.grid > *:nth-child(4) {
+  animation-delay: 0.4s;
+}
+
+@keyframes staggerFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 表单元素聚焦增强 */
+.form-control:focus-within {
+  transform: scale(1.01);
+  transition: transform 0.2s ease;
+}
+
+/* 卡片标题动画 */
+.card-title {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-title::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, hsl(var(--p)), hsl(var(--s)));
+  transition: width 0.5s ease;
+}
+
+.card:hover .card-title::after {
+  width: 100%;
+}
