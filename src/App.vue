@@ -25,10 +25,11 @@
       <transition name="page-transition" mode="out-in">
         <component :is="currentComponent" :key="activeTab" />
       </transition>
-    </div>
-
-    <!-- 设置抽屉 -->
+    </div> <!-- 设置抽屉 -->
     <SettingsDrawer :is-open="isSettingsOpen" @close="closeSettings" />
+
+    <!-- 欢迎弹窗 -->
+    <WelcomeModal :visible="showWelcomeModal" @close="closeWelcomeModal" @dont-show-again="handleDontShowAgain" />
 
     <!-- 编辑模式覆盖层 - 当任何组件进入编辑模式时显示 -->
     <div v-if="isAnyEditModeActive" class="dashboard-edit-overlay"></div>
@@ -42,6 +43,7 @@ import DownloadsPanel from './components/DownloadsPanel.vue'
 import InstancesPanel from './components/InstancesPanel.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import SettingsDrawer from './components/settings/SettingsDrawer.vue'
+import WelcomeModal from './components/common/WelcomeModal.vue'
 import PluginsView from './views/PluginsView.vue'
 import ChatRoom from './components/chat/ChatRoom.vue' // 导入聊天室组件
 import settingsService from './services/settingsService'
@@ -70,6 +72,27 @@ const sidebarExpanded = ref(false);
 const isSettingsOpen = ref(false);
 // 任何编辑模式状态
 const isAnyEditModeActive = ref(false);
+
+// 欢迎弹窗状态
+const showWelcomeModal = ref(false);
+
+// 欢迎弹窗相关方法
+const closeWelcomeModal = () => {
+  showWelcomeModal.value = false;
+};
+
+const handleDontShowAgain = () => {
+  localStorage.setItem('welcomeModalDontShow', 'true');
+  showWelcomeModal.value = false;
+};
+
+// 检查是否应该显示欢迎弹窗
+const checkWelcomeModal = () => {
+  const dontShow = localStorage.getItem('welcomeModalDontShow');
+  if (!dontShow || dontShow !== 'true') {
+    showWelcomeModal.value = true;
+  }
+};
 
 // 当前主题
 const currentTheme = computed(() => {
@@ -308,6 +331,11 @@ const closeSettings = () => {
 
 // 监听日志查看事件和页面导航
 onMounted(() => {
+  // 检查是否显示欢迎弹窗 (在所有初始化完成后)
+  setTimeout(() => {
+    checkWelcomeModal();
+  }, 1000);
+
   // 初始化模拟数据设置 - 如果localStorage中没有值，默认为false
   if (localStorage.getItem("useMockData") === null) {
     localStorage.setItem("useMockData", "false");

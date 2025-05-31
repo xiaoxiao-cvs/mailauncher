@@ -1,8 +1,12 @@
 <template>
-    <div class="instance-detail-container animate-slide-in">
-        <!-- 顶部应用标题栏 -->
+    <div class="instance-detail-container animate-slide-in"> <!-- 顶部应用标题栏 -->
         <div class="app-header shadow-sm">
             <div class="flex items-center">
+                <!-- 返回按钮 -->
+                <button class="btn btn-xs btn-ghost mr-3" @click="goBack" title="返回">
+                    <Icon icon="mdi:arrow-left" class="mr-1" width="16" height="16" />
+                    返回
+                </button>
                 <span class="text-primary font-bold">MaiBot</span>
                 <span class="mx-2 text-gray-300">|</span>
                 <span class="status-text">{{ isRunning ? '运行中' : '未运行' }}</span>
@@ -15,10 +19,6 @@
                     {{ isTerminalConnecting ? '连接中...' : (isTerminalConnected ? '已连接' : '未连接') }}
                 </span>
             </div>
-            <button class="btn btn-xs btn-ghost" @click="restartTerminal" title="重启终端">
-                <Icon icon="mdi:refresh" class="mr-1" width="14" height="14" />
-                重启终端
-            </button>
         </div>
 
         <div class="main-content">
@@ -108,8 +108,7 @@
             </div>
 
             <!-- 右侧终端区域 -->
-            <div class="terminal-container shadow-md">
-                <!-- 终端标题栏和控制按钮 -->
+            <div class="terminal-container shadow-md"> <!-- 终端标题栏和控制按钮 -->
                 <div class="terminal-header">
                     <div class="flex items-center">
                         <span class="text-primary font-bold">MaiBot</span>
@@ -117,29 +116,6 @@
                         <span class="status-text" :class="{ 'text-success': isRunning, 'text-neutral': !isRunning }">
                             {{ isRunning ? '运行中' : '未运行' }}
                         </span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <!-- 启动按钮 -->
-                        <button class="btn btn-xs" :class="(isRunning || isStarting) ? 'btn-disabled' : 'btn-success'"
-                            @click="startInstance" :disabled="isRunning || isStarting || isStopping">
-                            <span v-if="isStarting" class="loading loading-spinner loading-xs mr-1"></span>
-                            <Icon v-else icon="mdi:play" class="mr-1" width="14" height="14" />
-                            {{ isStarting ? '启动中...' : '启动' }}
-                        </button>
-
-                        <!-- 停止按钮 -->
-                        <button class="btn btn-xs" :class="(!isRunning || isStopping) ? 'btn-disabled' : 'btn-error'"
-                            @click="stopInstance" :disabled="!isRunning || isStopping || isStarting">
-                            <span v-if="isStopping" class="loading loading-spinner loading-xs mr-1"></span>
-                            <Icon v-else icon="mdi:stop" class="mr-1" width="14" height="14" />
-                            {{ isStopping ? '停止中...' : '停止' }}
-                        </button>
-
-                        <!-- 重启终端按钮 -->
-                        <button class="btn btn-xs btn-ghost" @click="restartTerminal" title="重启终端">
-                            <Icon icon="mdi:refresh" class="mr-1" width="14" height="14" />
-                            重启终端
-                        </button>
                     </div>
                 </div>
                 <div class="terminal-tabs">
@@ -587,9 +563,12 @@ const sendCommand = () => {
                 currentState.term.writeln(`\r\n\x1b[31m命令发送失败: ${error.message}\x1b[0m`);
             }
         }
-    }
+    } commandInput.value = '';
+};
 
-    commandInput.value = '';
+// 返回函数
+const goBack = () => {
+    emit('back');
 };
 
 // 重启终端
@@ -729,87 +708,6 @@ const openModule = (moduleName) => {
                 }
                 break;
         }
-    }
-};
-
-// 添加加载状态管理
-const isStarting = ref(false);
-const isStopping = ref(false);
-
-// 添加实例启动和停止函数
-const startInstance = async () => {
-    if (!props.instance?.id || isRunning.value || isStarting.value) return;
-
-    isStarting.value = true;
-    const currentState = terminalStates.value[activeTerminal.value];
-
-    if (currentState.term) {
-        currentState.term.writeln('\r\n\x1b[33m正在启动实例...\x1b[0m');
-    }
-
-    try {
-        const response = await instancesApi.startInstance(props.instance.id);
-        if (response.success) {
-            if (currentState.term) {
-                currentState.term.writeln('\r\n\x1b[32m实例启动成功!\x1b[0m');
-            }
-            // 触发emitter以通知其他组件实例状态变化
-            if (emitter) {
-                emitter.emit('instance-status-changed', {
-                    id: props.instance.id,
-                    status: 'running'
-                });
-            }
-        } else {
-            if (currentState.term) {
-                currentState.term.writeln(`\r\n\x1b[31m启动失败: ${response.message}\x1b[0m`);
-            }
-        }
-    } catch (error) {
-        console.error('启动实例出错:', error);
-        if (currentState.term) {
-            currentState.term.writeln(`\r\n\x1b[31m启动出错: ${error.message || '未知错误'}\x1b[0m`);
-        }
-    } finally {
-        isStarting.value = false;
-    }
-};
-
-const stopInstance = async () => {
-    if (!props.instance?.id || !isRunning.value || isStopping.value) return;
-
-    isStopping.value = true;
-    const currentState = terminalStates.value[activeTerminal.value];
-
-    if (currentState.term) {
-        currentState.term.writeln('\r\n\x1b[33m正在停止实例...\x1b[0m');
-    }
-
-    try {
-        const response = await instancesApi.stopInstance(props.instance.id);
-        if (response.success) {
-            if (currentState.term) {
-                currentState.term.writeln('\r\n\x1b[32m实例已停止!\x1b[0m');
-            }
-            // 触发emitter以通知其他组件实例状态变化
-            if (emitter) {
-                emitter.emit('instance-status-changed', {
-                    id: props.instance.id,
-                    status: 'stopped'
-                });
-            }
-        } else {
-            if (currentState.term) {
-                currentState.term.writeln(`\r\n\x1b[31m停止失败: ${response.message}\x1b[0m`);
-            }
-        }
-    } catch (error) {
-        console.error('停止实例出错:', error);
-        if (currentState.term) {
-            currentState.term.writeln(`\r\n\x1b[31m停止出错: ${error.message || '未知错误'}\x1b[0m`);
-        }
-    } finally {
-        isStopping.value = false;
     }
 };
 
