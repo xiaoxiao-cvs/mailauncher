@@ -87,7 +87,7 @@
                         <!-- 实例标题与描述 -->
                         <div class="mb-3">
                             <h3 class="card-title text-lg">{{ instance.name }}</h3>
-                            <p class="text-sm opacity-70">Maibot-Napcat_ada</p>
+                            <p class="text-sm opacity-70">Maibot-Napcat-ada</p>
                         </div>
 
                         <!-- 实例信息 -->

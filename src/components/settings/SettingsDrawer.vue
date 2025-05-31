@@ -190,7 +190,7 @@ onBeforeUnmount(() => {
     display: flex;
     justify-content: center;
     align-items: center;
-    animation: scaleIn 0.3s ease;
+    animation: scaleIn 0.15s ease;
 }
 
 .settings-drawer-container {
