@@ -30,6 +30,11 @@
   color: rgba(0, 0, 0, 0.8);
 }
 
+/* 确保暗色模式下标题栏文本为白色 */
+[data-theme="dark"] .header-bar {
+  color: rgba(255, 255, 255, 0.9);
+}
+
 .title-area {
   @apply flex items-center gap-3 pt-1 pl-2;
 }

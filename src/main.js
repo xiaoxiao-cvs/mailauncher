@@ -7,6 +7,8 @@ import { createPinia } from "pinia";
 import App from "./App.vue";
 import "./assets/tailwind.css";
 import "./assets/global.css";
+import "./assets/css/dark-theme-fix.css"; // 导入深色主题修复样式
+import "./assets/css/dark-text-override.css"; // 导入暗色模式文本颜色覆盖
 import toastService from "./services/toastService";
 import eventBus from "./services/eventBus"; // 导入改进的事件总线
 

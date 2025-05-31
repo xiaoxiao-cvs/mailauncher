@@ -209,14 +209,43 @@ export function initTheme() {
     } else {
       document.documentElement.classList.remove("dark-mode");
       document.body.classList.remove("dark-mode");
-    }
-
-    // 立即应用颜色
+    } // 立即应用颜色
     updateThemeColors(savedColor);
+
+    // 如果是暗色模式，修复文本颜色
+    if (currentTheme === "dark") {
+      // 立即执行一次
+      fixDarkModeTextColor();
+
+      // 页面完全加载后再执行一次，确保处理所有动态内容
+      window.addEventListener("DOMContentLoaded", () => {
+        setTimeout(fixDarkModeTextColor, 200);
+      });
+    }
   } catch (err) {
     console.error("初始化主题时出错:", err);
     // 使用默认颜色
     applyThemeColor("#3b82f6");
+  }
+}
+
+/**
+ * 修复暗色模式下的文本颜色
+ * 这个函数主要处理那些使用内联样式的黑色文本
+ */
+export function fixDarkModeTextColor() {
+  if (document.documentElement.getAttribute("data-theme") === "dark") {
+    // 查找所有可能包含内联黑色文本的元素
+    const elementsWithBlackText = document.querySelectorAll(
+      '[style*="color: black"],[style*="color:#000"],[style*="color: #000"],[style*="color:black"],[style*="color: rgb(0, 0, 0)"]'
+    );
+
+    // 将它们的颜色修改为白色
+    elementsWithBlackText.forEach((element) => {
+      element.style.color = "#FFFFFF";
+    });
+
+    console.log(`已修复 ${elementsWithBlackText.length} 个黑色文本元素`);
   }
 }
 
@@ -294,12 +323,15 @@ export const useTheme = () => {
         el.style.backgroundColor = `hsl(var(--b1) / 1)`;
         el.style.opacity = "1";
       }
-    });
-
-    // 触发主题更改事件 - 立即执行处理
+    }); // 触发主题更改事件 - 立即执行处理
     window.dispatchEvent(
       new CustomEvent("theme-changed", { detail: { theme: themeName } })
     );
+
+    // 修复暗色模式下的文本颜色
+    if (themeName === "dark") {
+      fixDarkModeTextColor();
+    }
 
     // 避免多次触发和事件循环
     clearTimeout(window.themeChangeTimeout);
@@ -307,6 +339,11 @@ export const useTheme = () => {
       window.dispatchEvent(
         new CustomEvent("theme-changed-after", { detail: { theme: themeName } })
       );
+
+      // 延迟再次调用修复函数，处理可能动态加载的内容
+      if (themeName === "dark") {
+        fixDarkModeTextColor();
+      }
     }, 100);
   };
 
