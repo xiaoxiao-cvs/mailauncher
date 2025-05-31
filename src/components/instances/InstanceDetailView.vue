@@ -7,10 +7,9 @@
                     <Icon icon="mdi:arrow-left" class="mr-1" width="16" height="16" />
                     返回
                 </button>
-                <span class="text-primary font-bold">MaiBot</span>
-                <span class="mx-2 text-gray-300">|</span>
+                <span class="text-primary font-bold">MaiBot</span> <span class="mx-2 text-base-content/30">|</span>
                 <span class="status-text">{{ isRunning ? '运行中' : '未运行' }}</span>
-                <span class="mx-2 text-gray-300">|</span>
+                <span class="mx-2 text-base-content/30">|</span>
                 <span class="terminal-connection-status" :class="{
                     'text-green-500': isTerminalConnected,
                     'text-yellow-500': isTerminalConnecting,
@@ -59,10 +58,9 @@
                 <!-- 功能模块 -->
                 <div class="feature-modules">
                     <h3 class="section-title">功能组</h3>
-                    <div class="modules-grid">
-                        <!-- 文件管理模块 -->
+                    <div class="modules-grid"> <!-- 文件管理模块 -->
                         <div class="module-card" @click="openModule('file')">
-                            <div class="module-icon bg-blue-50">
+                            <div class="module-icon module-icon-blue">
                                 <Icon icon="mdi:folder-outline" class="text-blue-500" />
                             </div>
                             <div class="module-name">文件管理</div>
@@ -73,7 +71,7 @@
 
                         <!-- 自动任务模块 -->
                         <div class="module-card" @click="openModule('tasks')">
-                            <div class="module-icon bg-purple-50">
+                            <div class="module-icon module-icon-purple">
                                 <Icon icon="mdi:calendar-clock" class="text-purple-500" />
                             </div>
                             <div class="module-name">自动任务</div>
@@ -84,7 +82,7 @@
 
                         <!-- Bot配置模块 -->
                         <div class="module-card" @click="openModule('bot')">
-                            <div class="module-icon bg-amber-50">
+                            <div class="module-icon module-icon-amber">
                                 <Icon icon="mdi:robot" class="text-amber-500" />
                             </div>
                             <div class="module-name">Bot配置</div>
@@ -95,7 +93,7 @@
 
                         <!-- 适配器配置模块 -->
                         <div class="module-card" @click="openModule('adapter')">
-                            <div class="module-icon bg-cyan-50">
+                            <div class="module-icon module-icon-cyan">
                                 <Icon icon="mdi:connection" class="text-cyan-500" />
                             </div>
                             <div class="module-name">适配器配置</div>
@@ -112,7 +110,7 @@
                 <div class="terminal-header">
                     <div class="flex items-center">
                         <span class="text-primary font-bold">MaiBot</span>
-                        <span class="mx-2 text-gray-300">|</span>
+                        <span class="mx-2 text-base-content/30">|</span>
                         <span class="status-text" :class="{ 'text-success': isRunning, 'text-neutral': !isRunning }">
                             {{ isRunning ? '运行中' : '未运行' }}
                         </span>
@@ -674,38 +672,30 @@ const switchTerminal = (terminalType) => {
 const openModule = (moduleName) => {
     console.log('打开模块:', moduleName);
 
+    // 测试Toast功能
+    if (moduleName === 'file') {
+        toastService.show('测试文件管理模块Toast', { type: 'info', duration: 5000 });
+    } else if (moduleName === 'tasks') {
+        toastService.show('测试自动任务模块Toast', { type: 'success', duration: 4000 });
+    } else if (moduleName === 'adapter') {
+        toastService.show('测试适配器配置模块Toast', { type: 'warning', duration: 6000 });
+    }
+
     // 根据不同模块进行处理
     if (moduleName === 'bot') {
         // 发送打开Bot配置的事件，带上实例信息、tab标识和来源标识
         if (emitter) {
             emitter.emit('open-bot-config', props.instance);
         }
+        toastService.show('打开Bot配置模块', { type: 'info', duration: 3000 });
     } else {
         // 其他模块的处理
         switch (moduleName) {
             case 'file':
-                console.log('打开文件管理');
-                // 显示文件管理功能开发中的提示
-                toastService.info('文件管理功能开发中');
                 break;
             case 'tasks':
-                console.log('打开自动任务');
-                // 显示自动任务功能开发中的提示
-                toastService.info('自动任务功能开发中');
                 break;
             case 'adapter':
-                console.log('打开适配器配置');
-                // 使用事件总线打开实例设置并指定适配器配置标签页
-                if (emitter) {
-                    emitter.emit('open-instance-settings', {
-                        name: props.instance.name,
-                        path: props.instance.path || '',
-                        tab: 'adapter', // 指定打开适配器配置标签页
-                        fromDetailView: true // 标记是从详情页面打开的
-                    });
-                } else {
-                    toastService.error('无法打开适配器配置');
-                }
                 break;
         }
     }
@@ -834,7 +824,7 @@ watch(() => props.instance, (newInstance, oldInstance) => {
 <style scoped lang="postcss">
 /* 整体容器样式 */
 .instance-detail-container {
-    @apply bg-gray-50 min-h-screen flex flex-col;
+    @apply bg-base-200 min-h-screen flex flex-col;
     animation: slideInFromRight 0.4s ease-out forwards;
 }
 
@@ -852,7 +842,7 @@ watch(() => props.instance, (newInstance, oldInstance) => {
 
 /* 顶部应用标题栏 */
 .app-header {
-    @apply bg-white p-4 flex justify-between items-center mb-5;
+    @apply bg-base-100 p-4 flex justify-between items-center mb-5;
 }
 
 .app-status-badge {
@@ -908,11 +898,11 @@ watch(() => props.instance, (newInstance, oldInstance) => {
 
 /* 基本信息卡片 */
 .info-card {
-    @apply bg-white rounded-lg shadow-sm p-6;
+    @apply bg-base-100 rounded-lg shadow-sm p-6;
 }
 
 .card-title {
-    @apply text-lg font-medium mb-4 pb-2 border-b;
+    @apply text-lg font-medium mb-4 pb-2 border-b border-base-300 text-base-content;
 }
 
 .info-grid {
@@ -924,20 +914,20 @@ watch(() => props.instance, (newInstance, oldInstance) => {
 }
 
 .info-label {
-    @apply text-gray-500;
+    @apply text-base-content/60;
 }
 
 .info-value {
-    @apply font-medium;
+    @apply font-medium text-base-content;
 }
 
 /* 功能模块区域 */
 .feature-modules {
-    @apply bg-white rounded-lg shadow-sm p-6;
+    @apply bg-base-100 rounded-lg shadow-sm p-6;
 }
 
 .section-title {
-    @apply text-lg font-medium mb-4 pb-2 border-b;
+    @apply text-lg font-medium mb-4 pb-2 border-b border-base-300 text-base-content;
 }
 
 .modules-grid {
@@ -945,37 +935,71 @@ watch(() => props.instance, (newInstance, oldInstance) => {
 }
 
 .module-card {
-    @apply bg-gray-50 rounded-md p-4 flex items-center gap-3 cursor-pointer hover:bg-gray-100 transition-colors;
+    @apply bg-base-200 rounded-md p-4 flex items-center gap-3 cursor-pointer hover:bg-base-300 transition-all duration-300;
 }
 
 .module-icon {
     @apply w-10 h-10 rounded-md flex items-center justify-center;
 }
 
+/* 模块图标深色模式兼容的背景色 */
+.module-icon-blue {
+    @apply bg-blue-50;
+}
+
+.module-icon-purple {
+    @apply bg-purple-50;
+}
+
+.module-icon-amber {
+    @apply bg-amber-50;
+}
+
+.module-icon-cyan {
+    @apply bg-cyan-50;
+}
+
+/* 深色模式下的图标背景色 */
+[data-theme="dark"] .module-icon-blue {
+    @apply bg-blue-900/30;
+}
+
+[data-theme="dark"] .module-icon-purple {
+    @apply bg-purple-900/30;
+}
+
+[data-theme="dark"] .module-icon-amber {
+    @apply bg-amber-900/30;
+}
+
+[data-theme="dark"] .module-icon-cyan {
+    @apply bg-cyan-900/30;
+}
+
 .module-name {
-    @apply flex-1 font-medium;
+    @apply flex-1 font-medium text-base-content;
 }
 
 .module-action {
-    @apply text-gray-400;
+    @apply text-base-content/40;
 }
 
 /* 右侧终端区域 */
 .terminal-container {
-    @apply w-3/5 bg-white rounded-lg flex flex-col overflow-hidden;
+    @apply w-3/5 bg-base-100 rounded-lg flex flex-col overflow-hidden;
     height: calc(100vh - 15rem);
 }
 
 .terminal-header {
-    @apply bg-gray-100 px-4 py-3 flex justify-between items-center;
+    @apply bg-base-200 px-4 py-3 flex justify-between items-center;
 }
 
 .terminal-connection-status {
-    @apply text-xs font-medium;
+    @apply text-xs font-medium text-base-content;
 }
 
 .terminal-tabs {
-    @apply bg-gray-50 px-2 pt-1 border-b border-gray-200;
+    @apply bg-base-200/50 px-2 pt-1 border-b border-base-300;
 }
 
 .tab {
@@ -985,16 +1009,16 @@ watch(() => props.instance, (newInstance, oldInstance) => {
 }
 
 .tab:hover {
-    @apply bg-gray-100;
+    @apply bg-base-200;
 }
 
 .tab.active {
-    @apply bg-white border-t border-l border-r border-gray-200 rounded-t-md relative -mb-px font-medium;
+    @apply bg-base-100 border-t border-l border-r border-base-300 rounded-t-md relative -mb-px font-medium;
 }
 
 /* xterm 相关样式 */
 .xterm-wrapper {
-    @apply flex-1 flex flex-col bg-gray-900 overflow-hidden;
+    @apply flex-1 flex flex-col bg-base-content overflow-hidden;
     min-height: 300px;
 }
 
@@ -1012,11 +1036,11 @@ watch(() => props.instance, (newInstance, oldInstance) => {
 }
 
 :deep(.xterm-viewport) {
-    @apply bg-gray-900;
+    @apply bg-base-content;
 }
 
 .terminal-input-area {
-    @apply p-3 border-t border-gray-200 flex items-center gap-2 bg-gray-100;
+    @apply p-3 border-t border-base-300 flex items-center gap-2 bg-base-200;
 }
 
 .terminal-prompt {
@@ -1024,11 +1048,11 @@ watch(() => props.instance, (newInstance, oldInstance) => {
 }
 
 .terminal-input-field {
-    @apply bg-white border border-gray-300 rounded px-2 py-1 outline-none flex-1 text-sm;
+    @apply bg-base-100 border border-base-300 rounded px-2 py-1 outline-none flex-1 text-sm text-base-content;
 }
 
 .terminal-input-field:disabled {
-    @apply bg-gray-200 text-gray-500 cursor-not-allowed;
+    @apply bg-base-200 text-base-content/50 cursor-not-allowed;
 }
 
 /* 确保响应式布局 */

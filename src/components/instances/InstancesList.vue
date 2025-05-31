@@ -677,7 +677,7 @@ const viewInstanceLogs = (instance) => {
 };
 </script>
 
-<style scoped>
+<style lang="postcss" scoped>
 /* 调整按钮为非常小的尺寸 */
 .btn-square {
     width: 28px !important;
@@ -854,11 +854,10 @@ const viewInstanceLogs = (instance) => {
 
 /* 恢复卡片样式 */
 .instance-card {
-    background-color: white;
+    @apply bg-base-100 border-base-300;
     border-radius: 12px;
     display: flex;
     flex-direction: column;
-    border: 1px solid #e5e7eb;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     transition: all 0.3s ease;
     overflow: hidden;
@@ -906,7 +905,7 @@ const viewInstanceLogs = (instance) => {
 }
 
 .modal-box {
-    background-color: white;
+    @apply bg-base-100 text-base-content;
     border-radius: 8px;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     padding: 1.5rem;

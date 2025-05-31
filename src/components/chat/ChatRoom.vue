@@ -7,7 +7,7 @@
         <div class="flex-1 flex flex-col h-full bg-base-100 animated-main-chat">
             <!-- 顶部栏 -->
             <div
-                class="chat-top-bar animated-header flex items-center justify-between px-6 py-3 border-b border-base-200 bg-white/80 backdrop-blur">
+                class="chat-top-bar animated-header flex items-center justify-between px-6 py-3 border-b border-base-200 bg-base-100/80 backdrop-blur">
                 <div class="font-bold text-lg flex items-center gap-2">
                     <Icon icon="mdi:chat" class="text-primary animated-icon" width="22" height="22" />
                     <span class="animated-text">{{ currentSession?.title || '新会话' }}</span>
@@ -32,7 +32,7 @@
             </div>
             <!-- 输入区 -->
             <div
-                class="chat-input-area animated-input-area px-6 py-4 border-t border-base-200 bg-white/80 backdrop-blur">
+                class="chat-input-area animated-input-area px-6 py-4 border-t border-base-200 bg-base-100/80 backdrop-blur">
                 <div class="flex gap-2 items-end max-w-2xl mx-auto">
                     <input ref="inputRef" v-model="input" @keydown.enter.exact.prevent="sendMessage"
                         @drop.prevent="handleDrop" @dragover.prevent type="text"
