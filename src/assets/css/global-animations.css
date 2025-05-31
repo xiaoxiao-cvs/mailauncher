@@ -1,0 +1,369 @@
+/* 全局动画类 */
+.animated-page {
+  animation: pageSlideIn 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.animated-header {
+  animation: headerSlideDown 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.animated-navbar {
+  animation: navbarSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.animated-grid {
+  animation: gridFadeIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.animated-card {
+  animation: cardSlideUp 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.animated-status {
+  animation: statusPulse 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.animated-backdrop {
+  animation: backdropFadeIn 0.4s ease;
+}
+
+.animated-drawer {
+  animation: drawerSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animated-sidebar {
+  animation: sidebarSlideRight 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.animated-menu-item {
+  animation: menuItemSlideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+/* 页面进入动画 */
+@keyframes pageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.98);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+/* 头部滑入动画 */
+@keyframes headerSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 导航栏滑入动画 */
+@keyframes navbarSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+    box-shadow: none;
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* 网格淡入动画 */
+@keyframes gridFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 卡片上滑动画 */
+@keyframes cardSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+    box-shadow: none;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* 状态脉冲动画 */
+@keyframes statusPulse {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 背景淡入动画 */
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* 抽屉滑入动画 */
+@keyframes drawerSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%) scale(0.95);
+    box-shadow: none;
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* 侧边栏右滑动画 */
+@keyframes sidebarSlideRight {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 菜单项滑入动画 */
+@keyframes menuItemSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-15px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* 悬停动画增强 */
+.animated-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animated-status:hover {
+  transform: scale(1.05);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 按钮动画增强 */
+.btn {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transition: width 0.3s ease, height 0.3s ease;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.btn:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.btn:active {
+  transform: translateY(0);
+  transition: transform 0.1s ease;
+}
+
+/* 输入框聚焦动画 */
+.input,
+.select,
+.textarea {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  transform: scale(1.02);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 复选框和单选按钮动画 */
+.checkbox,
+.radio {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.checkbox:checked,
+.radio:checked {
+  animation: checkBounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes checkBounce {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 模态框动画 */
+.modal {
+  animation: modalFadeIn 0.3s ease;
+}
+
+.modal-box {
+  animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 进度条动画 */
+.progress {
+  overflow: hidden;
+  position: relative;
+}
+
+.progress::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: progressShimmer 2s infinite;
+}
+
+@keyframes progressShimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* 加载状态动画 */
+.loading {
+  animation: loadingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes loadingPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 响应式动画调整 */
+@media (max-width: 768px) {
+  .animated-card {
+    animation-duration: 0.4s;
+  }
+
+  .animated-page {
+    animation-duration: 0.5s;
+  }
+}
+
+/* 减少动画效果（无障碍） */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.1s !important;
+  }
+
+  .btn:hover {
+    transform: none;
+  }
+
+  .animated-card:hover {
+    transform: none;
+  }
+}
