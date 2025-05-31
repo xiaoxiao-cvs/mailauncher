@@ -28,7 +28,13 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["icons/maimai.ico"],
+    "icon": [
+      "icons/maimai_32x32.png",
+      "icons/maimai_128x128.png",
+      "icons/128x128@2x.png",
+      "icons/maimai.icns",
+      "icons/maimai.ico"
+    ],
     "externalBin": ["binaries/MaiLauncher-Backend"]
   }
 }
