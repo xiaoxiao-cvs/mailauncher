@@ -259,11 +259,11 @@ export const useTheme = () => {
     { name: "coffee", label: "咖啡", color: "#6F4E37" },
     { name: "winter", label: "冬天", color: "#D0F0F7" },
   ]);
-
   // 设置主题
   const setTheme = (themeName) => {
     if (!themeName) return;
 
+    // 立即应用主题，不等待任何过渡
     document.documentElement.setAttribute("data-theme", themeName);
     localStorage.setItem("theme", themeName);
     currentTheme.value = themeName;
@@ -288,8 +288,8 @@ export const useTheme = () => {
       localStorage.setItem("darkMode", "false");
     }
 
-    // 更新主题颜色
-    updateThemeColors();
+    // 强制浏览器重新计算样式
+    void document.documentElement.offsetHeight;
 
     // 触发主题更改事件
     window.dispatchEvent(

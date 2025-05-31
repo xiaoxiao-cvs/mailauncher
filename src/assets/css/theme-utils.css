@@ -1,10 +1,19 @@
-/* 主题切换过渡效果 */
+/* 主题切换过渡效果 - 优化为更快的过渡 */
 html {
-  transition: color 0.15s, background-color 0.15s;
+  transition: color 0.1s, background-color 0.1s;
 }
 
 html[data-theme] {
   color-scheme: light dark;
+}
+
+/* 主题切换时的即时模式 */
+html.theme-switching {
+  transition: none !important;
+}
+
+html.theme-switching * {
+  transition: none !important;
 }
 
 /* 针对DaisyUI主题的相关修复 */

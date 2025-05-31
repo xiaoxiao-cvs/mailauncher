@@ -118,6 +118,7 @@ const resetSettings = () => {
   const settingsToReset = [
     "darkMode",
     "theme",
+    "themeMode",
     "animationsEnabled",
     "sidebarExpanded",
     "dashboard-layout",

@@ -1,12 +1,20 @@
 <template>
-    <div v-if="visible" class="modal modal-open">
-        <div class="modal-box max-w-2xl">
+    <div v-if="visible" class="fixed inset-0 z-50 bg-base-100 overflow-y-auto">
+        <div class="min-h-screen w-full max-w-4xl mx-auto p-6">
             <!-- 头部 -->
-            <div class="flex items-center gap-3 mb-6">
-                <img src="/assets/icon.ico" alt="MaiLauncher" class="w-12 h-12" />
-                <div>
-                    <h3 class="font-bold text-xl">MaiLauncher 启动器</h3>
-                    <p class="text-sm text-base-content/70">功能介绍</p>
+            <div class="flex items-center justify-between gap-3 mb-6">
+                <div class="flex items-center gap-3">
+                    <img src="/assets/icon.ico" alt="MaiLauncher" class="w-12 h-12" />
+                    <div>
+                        <h3 class="font-bold text-xl">MaiLauncher 启动器</h3>
+                        <p class="text-sm text-base-content/70">功能介绍</p>
+                    </div>
+                </div>
+
+                <!-- 倒计时提示 -->
+                <div v-if="countdown > 0" class="flex items-center gap-2 text-sm text-base-content/70">
+                    <Icon icon="mdi:clock-outline" class="w-4 h-4" />
+                    <span>{{ countdown }} 秒后可关闭</span>
                 </div>
             </div>
 
@@ -114,7 +122,7 @@
             </div>
 
             <!-- 底部操作 -->
-            <div class="modal-action flex items-center justify-between">
+            <div class="flex items-center justify-between mt-8">
                 <label class="label cursor-pointer flex items-center gap-2">
                     <input type="checkbox" v-model="dontShowAgain" class="checkbox checkbox-primary checkbox-sm" />
                     <span class="label-text text-sm">我已知悉，不再显示</span>
@@ -124,19 +132,19 @@
                         <Icon icon="mdi:book-open" class="w-4 h-4 mr-1" />
                         查看文档
                     </button>
-                    <button class="btn btn-primary btn-sm" @click="close">
+                    <button class="btn btn-primary btn-sm" @click="close" :disabled="countdown > 0"
+                        :class="{ 'btn-disabled': countdown > 0 }">
                         <Icon icon="mdi:check" class="w-4 h-4 mr-1" />
-                        开始使用
+                        {{ countdown > 0 ? `请等待 ${countdown} 秒` : '开始使用' }}
                     </button>
                 </div>
             </div>
         </div>
-        <div class="modal-backdrop" @click="close"></div>
     </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { isMockModeActive } from '@/services/apiService'
 
@@ -150,6 +158,36 @@ const props = defineProps({
 const emit = defineEmits(['close', 'dont-show-again'])
 
 const dontShowAgain = ref(false)
+const countdown = ref(30)
+let countdownTimer = null
+
+// 监听弹窗显示状态，启动倒计时
+watch(() => props.visible, (newVisible) => {
+    if (newVisible) {
+        startCountdown()
+    } else {
+        stopCountdown()
+    }
+})
+
+// 启动倒计时
+const startCountdown = () => {
+    countdown.value = 30
+    countdownTimer = setInterval(() => {
+        countdown.value--
+        if (countdown.value <= 0) {
+            stopCountdown()
+        }
+    }, 1000)
+}
+
+// 停止倒计时
+const stopCountdown = () => {
+    if (countdownTimer) {
+        clearInterval(countdownTimer)
+        countdownTimer = null
+    }
+}
 
 // 连接状态计算属性
 const connectionStatus = computed(() => {
@@ -174,6 +212,10 @@ const connectionStatus = computed(() => {
 
 // 关闭弹窗
 const close = () => {
+    if (countdown.value > 0) {
+        return // 倒计时未结束，不能关闭
+    }
+
     if (dontShowAgain.value) {
         // 保存用户选择，下次启动不再显示
         localStorage.setItem('welcomeModalDontShow', 'true')
@@ -187,14 +229,14 @@ const openDocs = () => {
     // 可以打开在线文档或本地文档
     window.open('https://github.com/MaiM-with-u/MaiBot', '_blank')
 }
+
+// 组件卸载时清理倒计时
+onUnmounted(() => {
+    stopCountdown()
+})
 </script>
 
 <style scoped>
-.modal-backdrop {
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-}
-
 .card {
     transition: all 0.2s ease;
 }
@@ -208,14 +250,19 @@ const openDocs = () => {
     font-size: 0.75rem;
 }
 
+/* 禁用状态的按钮样式 */
+.btn-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* 响应式调整 */
 @media (max-width: 768px) {
-    .modal-box {
-        margin: 1rem;
-        max-width: calc(100vw - 2rem);
+    .min-h-screen {
+        padding: 1rem;
     }
 
-    .grid-cols-1.md\\:grid-cols-2 {
+    .grid-cols-1 {
         grid-template-columns: 1fr;
     }
 }

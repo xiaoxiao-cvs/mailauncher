@@ -258,9 +258,18 @@ html.no-animations *::after {
   font-size: 2rem;
 }
 
-/* 添加DaisyUI主题过渡 */
+/* 添加DaisyUI主题过渡 - 优化为更快的过渡 */
 [data-theme] {
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+/* 主题切换时的即时模式 - 禁用过渡 */
+[data-theme].theme-switching {
+  transition: none !important;
+}
+
+[data-theme].theme-switching * {
+  transition: none !important;
 }
 
 /* 确保按钮内图标对齐 */

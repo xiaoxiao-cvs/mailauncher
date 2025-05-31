@@ -423,11 +423,10 @@ onMounted(() => {
     // 触发窗口的resize事件，让图表重新绘制
     window.dispatchEvent(new Event('resize'));
   });
-
-  // 添加主题变化监听
-  emitter.on('theme-changed', (themeName) => {
-    changeTheme(themeName);
-  });
+  // 添加主题变化监听 - 移除以防止无限循环
+  // emitter.on('theme-changed', (themeName) => {
+  //   changeTheme(themeName);
+  // });
   // 应用初始化
   checkApiConnection().then(() => {
     console.log("应用初始化完成：使用模拟数据模式");
@@ -587,14 +586,14 @@ const checkApiConnection = async () => {
   }
 };
 
-// 添加安全的主题应用函数
+// 添加安全的主题应用函数 - 移除事件发送以防止循环
 const safeApplyTheme = (themeName) => {
   try {
     localStorage.setItem('theme', themeName);
     document.documentElement.setAttribute('data-theme', themeName);
 
-    // 发送主题变化事件
-    emitter.emit('theme-changed', themeName);
+    // 移除事件发送，避免无限循环
+    // emitter.emit('theme-changed', themeName);
 
     // 确保颜色变量正确更新
     const savedColor = localStorage.getItem('themeColor') || '#3b82f6';
