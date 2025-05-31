@@ -8,7 +8,7 @@
                     <img src="/assets/icon.ico" alt="App Logo" class="app-logo">
                     <div class="app-details">
                         <h2>MaiLauncher</h2>
-                        <p class="app-version">版本: 0.1.0-Preview.1</p>
+                        <p class="app-version">版本: 0.1.0</p>
                         <p class="app-description">MaiBot 启动器</p>
                     </div>
                 </div>
