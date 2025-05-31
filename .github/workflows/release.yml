@@ -258,9 +258,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
-    # 下载所有构建产物
+      uses: actions/checkout@v4    # 下载所有构建产物
     - name: Download Linux artifacts
       uses: actions/download-artifact@v4
       with:
@@ -279,15 +277,42 @@ jobs:
         name: macos-artifacts
         path: ./artifacts/macos
 
-    # 显示下载的文件用于调试
-    - name: List downloaded artifacts
+    # 解压并整理构建产物
+    - name: Extract and organize artifacts
       run: |
-        echo "=== Linux artifacts ==="
-        find ./artifacts/linux -type f || echo "No Linux artifacts found"
-        echo "=== Windows artifacts ==="
-        find ./artifacts/windows -type f || echo "No Windows artifacts found"
-        echo "=== macOS artifacts ==="
-        find ./artifacts/macos -type f || echo "No macOS artifacts found"
+        echo "=== Extracting artifacts ==="
+        
+        # 创建提取目录
+        mkdir -p extracted/linux extracted/windows extracted/macos
+        
+        # 处理 Linux artifacts
+        if [ -d "./artifacts/linux" ]; then
+          echo "Processing Linux artifacts..."
+          find ./artifacts/linux -name "*.deb" -exec cp {} extracted/linux/ \;
+          find ./artifacts/linux -name "*.rpm" -exec cp {} extracted/linux/ \;
+        fi
+        
+        # 处理 Windows artifacts  
+        if [ -d "./artifacts/windows" ]; then
+          echo "Processing Windows artifacts..."
+          find ./artifacts/windows -name "*.exe" -exec cp {} extracted/windows/ \;
+        fi
+        
+        # 处理 macOS artifacts
+        if [ -d "./artifacts/macos" ]; then
+          echo "Processing macOS artifacts..."
+          find ./artifacts/macos -name "*.dmg" -exec cp {} extracted/macos/ \;
+        fi
+
+    # 显示提取的文件用于调试
+    - name: List extracted artifacts
+      run: |
+        echo "=== Extracted Linux artifacts ==="
+        find ./extracted/linux -type f || echo "No Linux artifacts found"
+        echo "=== Extracted Windows artifacts ==="
+        find ./extracted/windows -type f || echo "No Windows artifacts found"
+        echo "=== Extracted macOS artifacts ==="
+        find ./extracted/macos -type f || echo "No macOS artifacts found"
 
     # 获取版本信息
     - name: Get version
@@ -301,9 +326,7 @@ jobs:
           VERSION="0.1.0"
         fi
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-        echo "Version: $VERSION"
-
-    # 重命名文件以匹配期望的格式
+        echo "Version: $VERSION"    # 重命名文件以匹配期望的格式
     - name: Rename artifacts
       run: |
         VERSION=${{ steps.version.outputs.VERSION }}
@@ -312,7 +335,7 @@ jobs:
         mkdir -p release-files
         
         # Windows NSIS 安装包
-        for file in ./artifacts/windows/*.exe; do
+        for file in ./extracted/windows/*.exe; do
           if [ -f "$file" ]; then
             cp "$file" "release-files/mailauncher_${VERSION}_x64-setup.exe"
             echo "✓ Windows installer: mailauncher_${VERSION}_x64-setup.exe"
@@ -321,7 +344,7 @@ jobs:
         done
         
         # macOS DMG 文件
-        for file in ./artifacts/macos/*.dmg; do
+        for file in ./extracted/macos/*.dmg; do
           if [ -f "$file" ]; then
             cp "$file" "release-files/MaiLauncher_${VERSION}_aarch64.dmg"
             echo "✓ macOS DMG: MaiLauncher_${VERSION}_aarch64.dmg"
@@ -330,7 +353,7 @@ jobs:
         done
         
         # Linux DEB 文件
-        for file in ./artifacts/linux/*.deb; do
+        for file in ./extracted/linux/*.deb; do
           if [ -f "$file" ]; then
             cp "$file" "release-files/MaiLauncher_${VERSION}_amd64.deb"
             echo "✓ Linux DEB: MaiLauncher_${VERSION}_amd64.deb"
@@ -339,7 +362,7 @@ jobs:
         done
         
         # Linux RPM 文件
-        for file in ./artifacts/linux/*.rpm; do
+        for file in ./extracted/linux/*.rpm; do
           if [ -f "$file" ]; then
             cp "$file" "release-files/MaiLauncher-${VERSION}-1.x86_64.rpm"
             echo "✓ Linux RPM: MaiLauncher-${VERSION}-1.x86_64.rpm"
@@ -349,33 +372,43 @@ jobs:
         
         # 显示最终文件
         echo "=== Release files ==="
-        ls -la release-files/ || echo "No release files found"
-
-    # 准备发布文件列表
+        ls -la release-files/ || echo "No release files found"    # 准备发布文件列表
     - name: Prepare release files
       id: files
+      continue-on-error: false
       run: |
         VERSION=${{ steps.version.outputs.VERSION }}
         FILES=""
         
         if [ -f "release-files/mailauncher_${VERSION}_x64-setup.exe" ]; then
           FILES="$FILES release-files/mailauncher_${VERSION}_x64-setup.exe"
+          echo "Found Windows installer"
         fi
         
         if [ -f "release-files/MaiLauncher_${VERSION}_aarch64.dmg" ]; then
           FILES="$FILES release-files/MaiLauncher_${VERSION}_aarch64.dmg"
+          echo "Found macOS DMG"
         fi
         
         if [ -f "release-files/MaiLauncher_${VERSION}_amd64.deb" ]; then
           FILES="$FILES release-files/MaiLauncher_${VERSION}_amd64.deb"
+          echo "Found Linux DEB"
         fi
         
         if [ -f "release-files/MaiLauncher-${VERSION}-1.x86_64.rpm" ]; then
           FILES="$FILES release-files/MaiLauncher-${VERSION}-1.x86_64.rpm"
+          echo "Found Linux RPM"
         fi
+        
+        # 移除开头的空格
+        FILES=$(echo "$FILES" | xargs)
         
         echo "FILES=$FILES" >> $GITHUB_OUTPUT
         echo "Release files: $FILES"
+        
+        if [ -z "$FILES" ]; then
+          echo "⚠️ Warning: No release files found! Still proceeding with release creation..."
+        fi
 
     # 创建或更新 Release
     - name: Create/Update Release
@@ -420,10 +453,8 @@ jobs:
           
           ---
           
-          构建时间: ${{ github.run_number }} | 提交: ${{ github.sha }}
-        files: ${{ steps.files.outputs.FILES }}
+          构建时间: ${{ github.run_number }} | 提交: ${{ github.sha }}        files: ${{ steps.files.outputs.FILES }}
         draft: false
         prerelease: false
-        make_latest: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
