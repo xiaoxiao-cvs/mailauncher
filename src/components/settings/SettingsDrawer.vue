@@ -33,7 +33,7 @@
                 <!-- 设置页脚 -->
                 <div class="settings-drawer-footer">
                     <div class="flex justify-between items-center w-full">
-                        <span class="text-sm opacity-70 text-base-content">版本 0.1.0-preview.1</span>
+                        <span class="text-sm opacity-70 text-base-content">版本 0.1.0-Preview.1</span>
                         <button class="btn btn-sm btn-outline text-base-content" @click="closeDrawer">关闭</button>
                     </div>
                 </div>
