@@ -40,8 +40,8 @@ class ToastService {
       toast.style.padding = "12px 36px 12px 16px";
       toast.style.marginBottom = "10px";
       toast.style.position = "relative";
-      toast.style.minWidth = "300px";
-      toast.style.maxWidth = "450px";
+      toast.style.minWidth = "320px"; // 增加最小宽度
+      toast.style.maxWidth = "500px"; // 增加最大宽度以容纳更多文本
       toast.style.overflow = "hidden";
       toast.style.animation = "toastInBottom 0.3s ease forwards";
       toast.style.display = "flex";
@@ -99,14 +99,17 @@ class ToastService {
         setTimeout(() => this.close(id), 300);
       };
 
-      toast.appendChild(closeBtn);
-
-      // 创建消息内容容器
+      toast.appendChild(closeBtn); // 创建消息内容容器
       const messageEl = document.createElement("div");
       messageEl.className = "toast-message";
       messageEl.textContent = message;
       messageEl.style.marginLeft = "24px"; // 为左侧关闭按钮留出空间
       messageEl.style.flex = "1";
+      messageEl.style.wordWrap = "break-word"; // 长文本换行
+      messageEl.style.wordBreak = "break-word"; // 强制换行长单词
+      messageEl.style.lineHeight = "1.4"; // 增加行高提高可读性
+      messageEl.style.maxHeight = "120px"; // 限制最大高度
+      messageEl.style.overflowY = "auto"; // 超出时显示滚动条
       toast.appendChild(messageEl);
 
       // 添加进度条容器
@@ -354,12 +357,16 @@ class ToastService {
   success(message, options = {}) {
     return this.show(message, { ...options, type: "success" });
   }
-
   /**
    * 快捷方法: 显示错误消息
    */
   error(message, options = {}) {
-    return this.show(message, { ...options, type: "error" });
+    // 错误消息默认显示更长时间
+    const defaultOptions = {
+      type: "error",
+      duration: options.duration || 8000, // 默认8秒，比普通消息更长
+    };
+    return this.show(message, { ...defaultOptions, ...options });
   }
 
   /**

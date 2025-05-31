@@ -281,8 +281,17 @@ export const useDeployStore = defineStore("deploy", () => {
           deployment.installing = false;
           deployment.error = statusData.message || "安装失败";
           deployment.endTime = new Date();
-          addLog(deploymentId, `❌ 安装失败: ${deployment.error}`, "error");
-          toastService.error(`安装失败: ${deployment.error}`);
+
+          // 构建详细的错误信息
+          let errorDetails = deployment.error;
+          if (statusData.detail && statusData.detail !== statusData.message) {
+            errorDetails += ` (详细: ${statusData.detail})`;
+          }
+
+          addLog(deploymentId, `❌ 安装失败: ${errorDetails}`, "error");
+
+          // 显示详细的错误Toast，持续时间更长
+          toastService.error(`安装失败: ${errorDetails}`, { duration: 10000 });
 
           // 停止轮询
           pollingStore.stopPolling(`deploy_status_${deploymentId}`);
@@ -300,7 +309,19 @@ export const useDeployStore = defineStore("deploy", () => {
       }
     } catch (error) {
       console.error("检查安装状态失败:", error);
-      addLog(deploymentId, `检查安装状态失败: ${error.message}`, "error");
+
+      // 构建详细的错误信息
+      let errorMessage = error.message || "未知错误";
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        if (errorData.detail) {
+          errorMessage += ` (详细: ${errorData.detail})`;
+        } else if (errorData.message && errorData.message !== error.message) {
+          errorMessage += ` (后端: ${errorData.message})`;
+        }
+      }
+
+      addLog(deploymentId, `检查安装状态失败: ${errorMessage}`, "error");
 
       // 如果连续失败多次，停止轮询
       deployment.errorCount = (deployment.errorCount || 0) + 1;
@@ -312,6 +333,11 @@ export const useDeployStore = defineStore("deploy", () => {
         deployment.installing = false;
         deployment.error = "状态检查失败";
         deployment.endTime = new Date();
+
+        // 显示最终失败的详细Toast
+        toastService.error(`部署失败: 状态检查连续失败，${errorMessage}`, {
+          duration: 12000,
+        });
       }
     }
   };
@@ -351,14 +377,19 @@ export const useDeployStore = defineStore("deploy", () => {
         "info"
       ); // 修复响应检查逻辑 - 后端返回的可能在 data 字段中
       const responseData = deployResponse?.data || deployResponse;
-      console.log("解析后的响应数据:", responseData);
-
-      // 检查成功标志 - 后端返回 success: true
+      console.log("解析后的响应数据:", responseData); // 检查成功标志 - 后端返回 success: true
       if (!responseData || responseData.success !== true) {
         const errorMessage =
           responseData?.message || responseData?.detail || "部署失败";
-        addLog(deploymentId, `❌ 部署失败: ${errorMessage}`, "error");
-        throw new Error(errorMessage);
+        const detailMessage = responseData?.detail
+          ? ` (详细: ${responseData.detail})`
+          : "";
+        const fullErrorMessage = `${errorMessage}${detailMessage}`;
+        addLog(deploymentId, `❌ 部署失败: ${fullErrorMessage}`, "error");
+
+        // 显示详细的错误Toast，持续时间更长
+        toastService.error(fullErrorMessage, { duration: 8000 });
+        throw new Error(fullErrorMessage);
       } // 检查是否有 instance_id
       if (!responseData.instance_id) {
         addLog(
@@ -403,10 +434,25 @@ export const useDeployStore = defineStore("deploy", () => {
       return deploymentId;
     } catch (error) {
       console.error("安装过程出错:", error);
-      addLog(deploymentId, `❌ 安装失败: ${error.message}`, "error");
-      toastService.error(`安装失败: ${error.message}`);
+
+      // 构建详细的错误信息
+      let errorMessage = error.message || "未知错误";
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        if (errorData.detail) {
+          errorMessage += ` (详细: ${errorData.detail})`;
+        } else if (errorData.message && errorData.message !== error.message) {
+          errorMessage += ` (后端: ${errorData.message})`;
+        }
+      }
+
+      addLog(deploymentId, `❌ 安装失败: ${errorMessage}`, "error");
+
+      // 显示详细的错误Toast，持续时间更长
+      toastService.error(`安装失败: ${errorMessage}`, { duration: 10000 });
+
       deployment.installing = false;
-      deployment.error = error.message;
+      deployment.error = errorMessage;
       deployment.endTime = new Date();
       throw error;
     }

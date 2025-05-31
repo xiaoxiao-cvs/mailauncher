@@ -94,14 +94,31 @@ const deploy = async (config) => {
     // 增强错误信息
     if (error.code === "ECONNABORTED") {
       throw new Error("部署请求超时，但后端可能正在处理，请查看实时日志");
-    }
-
-    // 如果有响应数据，尝试提取错误信息
+    } // 如果有响应数据，尝试提取错误信息
     if (error.response?.data) {
       const errorData = error.response.data;
-      const errorMessage =
-        errorData.detail || errorData.message || error.message;
-      throw new Error(errorMessage);
+
+      // 处理结构化错误信息
+      if (typeof errorData === "object") {
+        let errorMessage =
+          errorData.message || errorData.detail || error.message;
+
+        // 如果有更详细的信息，添加到错误消息中
+        if (errorData.detail && errorData.detail !== errorData.message) {
+          errorMessage += ` (${errorData.detail})`;
+        }
+
+        // 如果有建议信息，也添加进去
+        if (errorData.suggestion) {
+          errorMessage += ` 建议: ${errorData.suggestion}`;
+        }
+
+        throw new Error(errorMessage);
+      } else {
+        // 如果是字符串格式的错误
+        const errorMessage = errorData || error.message;
+        throw new Error(errorMessage);
+      }
     }
 
     throw error;
