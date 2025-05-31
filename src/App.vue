@@ -12,15 +12,14 @@
       </div>
     </div>
   </div>
-
   <div id="app" class="app-container"
-    :class="{ 'dark-mode': darkMode, 'sidebar-expanded': sidebarExpanded, 'sidebar-collapsed': !sidebarExpanded }"
+    :class="{ 'dark-mode': darkMode, 'sidebar-expanded': sidebarExpanded, 'sidebar-collapsed': !sidebarExpanded, 'theme-dark': currentTheme === 'dark', 'theme-light': currentTheme === 'light' }"
     :data-theme="currentTheme">
     <!-- 侧边栏 -->
     <AppSidebar :is-expanded="sidebarExpanded" @toggle="toggleSidebar" />
 
     <!-- 主内容区域 -->
-    <div class="content-area" :class="{ 'sidebar-expanded': sidebarExpanded }">
+    <div class="content-area" :class="{ 'sidebar-expanded': sidebarExpanded }" :data-theme="currentTheme">
       <!-- 页面切换动画 -->
       <transition name="page-transition" mode="out-in">
         <component :is="currentComponent" :key="activeTab" />
@@ -233,7 +232,7 @@ const updateDarkMode = (isDark) => {
     document.documentElement.classList.remove('dark-mode');
 
     // 更新与主题相关的状态
-    if (['dark', 'night', 'dracula', 'black'].includes(currentTheme.value)) {
+    if (currentTheme.value === 'dark') {
       // 如果当前主题是暗色系主题，自动切换到light主题
       changeTheme('light');
     }
@@ -469,7 +468,144 @@ onMounted(() => {
     // 通知实例面板直接打开Bot配置 - 添加fromDetailView标记
     emitter.emit('instance-panel-open-bot-config', instance);
   });
+  // 主题变更监听处理
+  const handleThemeChange = (event) => {
+    console.log('App.vue 接收到主题变更事件:', event.type, new Date().toISOString());
+
+    // 获取新主题
+    const newTheme = event.detail?.theme || (event.detail?.isDark ? 'dark' : 'light');
+
+    // 仅当主题发生实际变化时才执行操作
+    const currentAppTheme = document.documentElement.getAttribute('data-theme');
+    if (currentAppTheme === newTheme) {
+      console.log('主题未变化, 跳过操作:', newTheme);
+      return;
+    }
+
+    console.log('应用新主题:', newTheme, '当前主题:', currentAppTheme);
+
+    // 设置主题到所有关键元素
+    document.documentElement.setAttribute('data-theme', newTheme);
+    document.body.setAttribute('data-theme', newTheme);
+
+    // 应用到所有主要容器元素
+    document.querySelectorAll('.app-container, .content-area, .home-view, .instances-panel').forEach(el => {
+      if (el) {
+        el.setAttribute('data-theme', newTheme);
+        // 添加适当的主题类
+        if (newTheme === 'dark') {
+          el.classList.add('dark-mode', 'theme-dark');
+          el.classList.remove('theme-light');
+        } else {
+          el.classList.remove('dark-mode', 'theme-dark');
+          el.classList.add('theme-light');
+        }
+      }
+    });
+
+    // 强制重新渲染应用
+    nextTick(() => {
+      // 确保设置面板保持不透明
+      const settingsContainer = document.querySelector('.settings-drawer-container');
+      if (settingsContainer) {
+        settingsContainer.style.backgroundColor = 'var(--b1)';
+        settingsContainer.style.opacity = '1';
+      }
+
+      // 确保其他容器也应用正确的颜色
+      document.querySelectorAll('.app-container, .content-area').forEach(el => {
+        el.style.transition = 'background-color 0.3s ease';
+      });
+
+      // 强制重新计算样式
+      void document.documentElement.offsetHeight;
+    });
+  };
+
+  // 添加主题变更事件监听
+  window.addEventListener('theme-changed', handleThemeChange);
+  window.addEventListener('theme-mode-changed', handleThemeChange);
+
+  // 组件卸载时清理事件监听
+  onBeforeUnmount(() => {
+    window.removeEventListener('theme-changed', handleThemeChange);
+    window.removeEventListener('theme-mode-changed', handleThemeChange);
+  });
 });
+
+// 确保整个应用统一应用主题
+const applyThemeToAllComponents = () => {
+  // 获取当前主题
+  const themeName = document.documentElement.getAttribute('data-theme') || localStorage.getItem('theme') || 'light';
+  const isDark = themeName === 'dark';
+
+  console.log(`统一应用主题: ${themeName}，深色模式: ${isDark}`);
+
+  // 应用到文档根元素
+  document.documentElement.setAttribute('data-theme', themeName);
+  document.body.setAttribute('data-theme', themeName);
+
+  // 添加适当的主题类
+  if (isDark) {
+    document.documentElement.classList.add('dark-mode', 'theme-dark');
+    document.documentElement.classList.remove('theme-light');
+    document.body.classList.add('dark-mode', 'theme-dark');
+    document.body.classList.remove('theme-light');
+  } else {
+    document.documentElement.classList.remove('dark-mode', 'theme-dark');
+    document.documentElement.classList.add('theme-light');
+    document.body.classList.remove('dark-mode', 'theme-dark');
+    document.body.classList.add('theme-light');
+  }
+
+  // 应用到所有主要容器元素
+  const selectors = [
+    '.app-container',
+    '.content-area',
+    '.animated-page',
+    '.instances-tab',
+    '.downloads-tab',
+    '.settings-drawer-container',
+    '.home-view',
+    '.plugins-view'
+  ];
+
+  selectors.forEach(selector => {
+    document.querySelectorAll(selector).forEach(el => {
+      if (el) {
+        el.setAttribute('data-theme', themeName);
+
+        // 添加适当的主题类
+        if (isDark) {
+          el.classList.add('dark-mode', 'theme-dark');
+          el.classList.remove('theme-light');
+        } else {
+          el.classList.remove('dark-mode', 'theme-dark');
+          el.classList.add('theme-light');
+        }
+      }
+    });
+  });
+
+  // 强制重新计算样式
+  void document.documentElement.offsetHeight;
+
+  // 触发主题变更事件，确保所有组件都能接收
+  window.dispatchEvent(
+    new CustomEvent("theme-changed", { detail: { theme: themeName } })
+  );
+};
+
+// 在应用初始化和主题变更时应用
+onMounted(() => {
+  // ...existing code...
+
+  // 初始化应用后立即应用统一主题
+  setTimeout(() => {
+    applyThemeToAllComponents();
+  }, 100);
+});
+
 
 // 颜色亮度调整工具函数
 const adjustColorBrightness = (hex, percent) => {
@@ -521,12 +657,31 @@ watch(darkMode, (newValue) => {
 watch(currentTheme, (newValue) => {
   // 当主题变化时，更新data-theme属性
   document.documentElement.setAttribute('data-theme', newValue);
+  document.body.setAttribute('data-theme', newValue);
+
+  // 确保主题应用到所有主要容器
+  document.querySelectorAll('.app-container, .content-area, .home-view, .instances-panel').forEach(el => {
+    el.setAttribute('data-theme', newValue);
+  });
 
   // 根据新主题判断是否为深色主题，并更新darkMode状态
-  const isDarkTheme = ['dark', 'night', 'dracula', 'black'].includes(newValue);
+  const isDarkTheme = newValue === 'dark';
   if (isDarkTheme !== darkMode.value) {
     darkMode.value = isDarkTheme;
     localStorage.setItem('darkMode', isDarkTheme);
+  }
+
+  // 应用适当的主题类，确保CSS选择器能正确匹配
+  if (isDarkTheme) {
+    document.documentElement.classList.add('dark-mode', 'theme-dark');
+    document.documentElement.classList.remove('theme-light');
+    document.body.classList.add('dark-mode', 'theme-dark');
+    document.body.classList.remove('theme-light');
+  } else {
+    document.documentElement.classList.remove('dark-mode', 'theme-dark');
+    document.documentElement.classList.add('theme-light');
+    document.body.classList.remove('dark-mode', 'theme-dark');
+    document.body.classList.add('theme-light');
   }
 });
 
@@ -615,6 +770,11 @@ const safeApplyTheme = (themeName) => {
 // 替换原来的changeTheme函数
 const changeTheme = (themeName) => {
   safeApplyTheme(themeName);
+
+  // 使用统一主题应用函数
+  setTimeout(() => {
+    applyThemeToAllComponents();
+  }, 50);
 };
 </script>
 
@@ -636,5 +796,69 @@ const changeTheme = (themeName) => {
   z-index: 1000;
   width: 100%;
   max-width: 30rem;
+}
+
+/* 主题切换过渡效果 */
+#app,
+#app * {
+  transition-property: color, background-color, border-color, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: ease-out;
+}
+
+/* 确保深色模式下应用正确的背景和文本颜色 */
+#app.dark-mode {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+/* 确保设置抽屉在深色模式下不透明 */
+:root[data-theme="dark"] .settings-drawer-container,
+.dark-mode .settings-drawer-container {
+  background-color: hsl(var(--b1) / 1) !important;
+  color: hsl(var(--bc)) !important;
+  opacity: 1 !important;
+}
+
+/* 加强暗色模式选择器优先级，确保主题正确应用 */
+.app-container[data-theme="dark"],
+.content-area[data-theme="dark"],
+.theme-dark,
+[data-theme="dark"],
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+/* 确保亮色主题也正确应用 */
+.app-container[data-theme="light"],
+.content-area[data-theme="light"],
+.theme-light,
+[data-theme="light"],
+:root[data-theme="light"] {
+  color-scheme: light;
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+/* 确保主内容区域也应用正确的主题 */
+.content-area[data-theme="dark"],
+.dark-mode .content-area {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+/* 实例管理等页面特别选择器 */
+.home-view[data-theme="dark"],
+.instances-panel[data-theme="dark"],
+.downloads-panel[data-theme="dark"],
+.plugins-view[data-theme="dark"],
+.home-view.dark-mode,
+.instances-panel.dark-mode,
+.downloads-panel.dark-mode,
+.plugins-view.dark-mode {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
 }
 </style>

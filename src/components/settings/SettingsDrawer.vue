@@ -68,39 +68,6 @@
                                 </div>
                             </div>
 
-                            <!-- 主题选择 -->
-                            <div class="setting-group">
-                                <h4 class="group-title">主题风格</h4>
-                                <div class="setting-item">
-                                    <div class="setting-info">
-                                        <label class="setting-label">界面主题</label>
-                                        <p class="setting-desc">选择系统的整体配色方案</p>
-                                    </div>
-                                    <div class="setting-control">
-                                        <div class="theme-selector">
-                                            <button v-for="theme in availableThemes" :key="theme.name" :class="[
-                                                'theme-option',
-                                                { active: currentTheme === theme.name }
-                                            ]" @click="applyTheme(theme.name)"
-                                                :style="{ backgroundColor: theme.color }" :title="theme.label">
-                                                <span class="theme-name">{{ theme.label }}</span>
-                                                <IconifyIcon v-if="currentTheme === theme.name" icon="mdi:check-circle"
-                                                    class="theme-check-icon" />
-                                            </button>
-                                        </div>
-                                        <!-- 刷新前端按钮 -->
-                                        <div class="refresh-frontend-section">
-                                            <button class="btn btn-warning btn-sm refresh-btn" @click="refreshFrontend"
-                                                title="如果主题背景没有立即更新，点击此按钮刷新前端">
-                                                <IconifyIcon icon="mdi:refresh" size="sm" />
-                                                刷新前端
-                                            </button>
-                                            <p class="refresh-hint">如果背景颜色未立即更新，请点击刷新</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
                             <!-- 其他外观设置 -->
                             <div class="setting-group">
                                 <h4 class="group-title">界面调整</h4>
@@ -276,8 +243,10 @@ const toggleThemeMode = () => {
 
 // 主题模式改变
 const changeThemeMode = () => {
+    console.log('主题模式改变:', themeMode.value, new Date().toISOString());
     localStorage.setItem('themeMode', themeMode.value)
 
+    // 直接应用对应主题，不再重复触发事件
     if (themeMode.value === 'system') {
         // 跟随系统
         applySystemTheme()
@@ -288,101 +257,33 @@ const changeThemeMode = () => {
         // 强制暗色
         applyDarkTheme()
     }
+
+    // 注意：setTheme 函数中已经处理了事件触发，这里不再重复触发
 }
 
 // 应用系统主题
 const applySystemTheme = () => {
+    console.log('应用系统主题', new Date().toISOString());
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    if (isDark) {
-        setTheme('dark')
-    } else {
-        setTheme('light')
-    }
     darkMode.value = isDark
+    // 使用setTheme来统一处理主题切换，避免重复操作DOM
+    setTheme(isDark ? 'dark' : 'light')
 }
 
 // 应用亮色主题
 const applyLightTheme = () => {
-    setTheme('light')
+    console.log('应用亮色主题', new Date().toISOString());
     darkMode.value = false
+    // 使用setTheme来统一处理主题切换，避免重复操作DOM
+    setTheme('light')
 }
 
 // 应用暗色主题
 const applyDarkTheme = () => {
-    setTheme('dark')
+    console.log('应用暗色主题', new Date().toISOString());
     darkMode.value = true
-}
-
-// 应用主题并立即刷新
-const applyTheme = async (themeName) => {
-    console.log('🎨 开始应用主题:', themeName)
-
-    // 添加即时切换类来禁用过渡
-    document.documentElement.classList.add('theme-switching')
-    document.body.classList.add('theme-switching')
-
-    try {
-        // 使用主题服务统一处理主题切换
-        setTheme(themeName)
-
-        // 同步暗色模式状态
-        const isDarkTheme = ['dark', 'night', 'dracula', 'black'].includes(themeName)
-        if (isDarkTheme) {
-            document.documentElement.classList.add('dark-mode')
-            darkMode.value = true
-            localStorage.setItem('darkMode', 'true')
-        } else {
-            document.documentElement.classList.remove('dark-mode')
-            darkMode.value = false
-            localStorage.setItem('darkMode', 'false')
-        }
-
-        // 强制多次重新渲染 - 更强力的刷新
-        document.documentElement.offsetHeight
-        await nextTick()
-        document.body.offsetHeight
-
-        // 强制重新计算所有CSS变量
-        const computedStyle = getComputedStyle(document.documentElement)
-        const themeVars = ['--b1', '--b2', '--b3', '--bc', '--p', '--s', '--a', '--n']
-        themeVars.forEach(varName => {
-            const value = computedStyle.getPropertyValue(varName)
-            document.documentElement.style.setProperty(varName, value)
-        })
-
-        console.log('✅ 主题应用完成:', themeName)
-    } finally {
-        // 移除即时切换类，恢复正常过渡
-        setTimeout(() => {
-            document.documentElement.classList.remove('theme-switching')
-            document.body.classList.remove('theme-switching')
-        }, 150) // 稍微延长时间确保样式完全应用
-    }
-
-    // 触发全局主题变化事件
-    window.dispatchEvent(new CustomEvent('theme-changed', {
-        detail: { theme: themeName }
-    }))
-
-    // 使用 emitter 通知其他组件
-    if (emitter) {
-        emitter.emit('theme-changed', themeName)
-    }
-}
-
-// 刷新前端
-const refreshFrontend = () => {
-    console.log('🔄 刷新前端页面')
-    // 显示确认对话框
-    if (confirm('确定要刷新前端页面吗？这将重新加载整个应用。')) {
-        // 先关闭设置抽屉
-        closeDrawer()
-
-        // 短暂延迟后刷新页面
-        setTimeout(() => {
-            window.location.reload()
-        }, 200)
-    }
+    // 使用setTheme来统一处理主题切换，避免重复操作DOM
+    setTheme('dark')
 }
 
 // 动画切换
@@ -472,16 +373,31 @@ onMounted(() => {
         }
     }
 
-    mediaQuery.addEventListener('change', handleSystemThemeChange)
+    mediaQuery.addEventListener('change', handleSystemThemeChange)    // 添加主题变化全局监听器
+    const handleThemeChanged = (event) => {
+        console.log('SettingsDrawer 接收到主题变更事件:', event.type, new Date().toISOString());
+
+        // 强制刷新设置抽屉的样式
+        nextTick(() => {
+            // 确保设置抽屉保持不透明
+            const container = document.querySelector('.settings-drawer-container')
+            if (container) {
+                container.style.backgroundColor = 'var(--b1)'
+                container.style.opacity = '1'
+            }
+        })
+    }
+
+    // 只监听theme-changed-after事件，这样可以避免与其他处理冲突
+    window.addEventListener('theme-changed-after', handleThemeChanged)
 
     // 初始化主题模式
     if (themeMode.value === 'system') {
         applySystemTheme()
-    }
-
-    // 在组件卸载时清理监听器
+    }    // 在组件卸载时清理监听器
     onBeforeUnmount(() => {
         mediaQuery.removeEventListener('change', handleSystemThemeChange)
+        window.removeEventListener('theme-changed-after', handleThemeChanged)
     })
 })
 
@@ -508,6 +424,11 @@ onBeforeUnmount(() => {
     animation: backdrop-fade-in 0.2s ease;
 }
 
+/* 确保深色模式下背景遮罩效果也正常 */
+:root[data-theme="dark"] .settings-drawer-backdrop {
+    background: rgba(0, 0, 0, 0.7);
+}
+
 @keyframes backdrop-fade-in {
     from {
         opacity: 0;
@@ -524,7 +445,8 @@ onBeforeUnmount(() => {
     max-width: 1000px;
     height: 85%;
     max-height: 700px;
-    background: white;
+    background-color: hsl(var(--b1) / 1) !important;
+    /* 确保背景不透明 */
     border-radius: 16px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4),
         0 8px 32px rgba(0, 0, 0, 0.2),
@@ -534,6 +456,18 @@ onBeforeUnmount(() => {
     overflow: hidden;
     border: 1px solid hsl(var(--b3) / 0.3);
     animation: container-scale-in 0.2s ease;
+    /* 确保在任何主题模式下都不透明 */
+    opacity: 1 !important;
+}
+
+/* 深色模式下的样式调整 */
+:root[data-theme="dark"] .settings-drawer-container,
+.dark-mode .settings-drawer-container {
+    background-color: hsl(var(--b1) / 1) !important;
+    border-color: hsl(var(--b3) / 0.5);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6),
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 @keyframes container-scale-in {
@@ -554,8 +488,18 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: space-between;
     padding: 1.5rem 2rem;
-    background: hsl(var(--b2));
+    background: hsl(var(--b2) / 1) !important;
+    /* 保证头部不透明 */
     border-bottom: 1px solid hsl(var(--b3) / 0.3);
+}
+
+.settings-header .btn {
+    color: hsl(var(--bc));
+}
+
+.settings-header .btn:hover {
+    background: hsl(var(--b3) / 0.3);
+    color: hsl(var(--bc));
 }
 
 .settings-title {
@@ -575,7 +519,8 @@ onBeforeUnmount(() => {
 /* 侧边栏 */
 .settings-sidebar {
     width: 240px;
-    background: hsl(var(--b2));
+    background: hsl(var(--b2) / 1) !important;
+    /* 确保侧边栏不透明 */
     border-right: 1px solid hsl(var(--b3) / 0.3);
     padding: 1.5rem 0;
     overflow-y: auto;
@@ -693,6 +638,13 @@ onBeforeUnmount(() => {
     border: 1px solid hsl(var(--b3) / 0.3);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08),
         0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* 深色模式下的设置组背景 */
+:root[data-theme="dark"] .setting-group,
+.dark-mode .setting-group {
+    background: hsl(var(--b2) / 0.9) !important;
+    border-color: hsl(var(--b3) / 0.5);
 }
 
 .group-title {
@@ -1056,7 +1008,8 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: space-between;
     padding: 1rem 2rem;
-    background: hsl(var(--b2));
+    background: hsl(var(--b2) / 1) !important;
+    /* 确保底部不透明 */
     border-top: 1px solid hsl(var(--b3) / 0.3);
 }
 
@@ -1110,15 +1063,22 @@ onBeforeUnmount(() => {
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
 }
 
+/* 确保图标在按钮中正确显示 */
+.btn .iconify {
+    color: inherit;
+    vertical-align: middle;
+}
+
 .btn-primary {
     background: hsl(var(--p));
-    color: white;
+    color: hsl(var(--pc)) !important;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2),
         0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .btn-primary:hover {
     background: hsl(var(--p) / 0.9);
+    color: hsl(var(--pc)) !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25),
         0 2px 6px rgba(0, 0, 0, 0.15);
 }
@@ -1216,5 +1176,29 @@ onBeforeUnmount(() => {
 .settings-sidebar::-webkit-scrollbar-thumb:hover,
 .settings-main::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--bc) / 0.3);
+}
+
+/* 针对暗色主题的额外样式 */
+[data-theme="dark"] .settings-drawer-container {
+    background: hsl(var(--b1));
+    border-color: hsl(var(--b3) / 0.3);
+}
+
+[data-theme="dark"] .btn-primary .iconify {
+    color: hsl(var(--pc)) !important;
+}
+
+[data-theme="dark"] .btn-ghost .iconify {
+    color: inherit;
+}
+
+[data-theme="dark"] .settings-header .btn .iconify {
+    color: hsl(var(--bc));
+}
+
+/* 强制确保图标可见性 */
+.btn .iconify {
+    opacity: 1 !important;
+    visibility: visible !important;
 }
 </style>

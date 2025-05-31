@@ -1,5 +1,5 @@
 <template>
-  <div class="instances-tab">
+  <div class="instances-tab" :data-theme="currentTheme" :class="themeClasses">
     <!-- 实例详情视图 - 当showInstanceDetail为true时显示 -->
     <transition name="instance-detail-transition" mode="out-in">
       <InstanceDetailView v-if="showInstanceDetail" :instance="currentInstance" @back="closeInstanceDetail" />
@@ -20,7 +20,7 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted, onBeforeUnmount } from 'vue';
+import { ref, inject, onMounted, onBeforeUnmount, computed } from 'vue';
 import InstancesList from './instances/InstancesList.vue';
 import InstanceSettingsDrawer from './settings/InstanceSettingsDrawer.vue';
 import InstanceDetailView from './instances/InstanceDetailView.vue';
@@ -44,6 +44,25 @@ const currentInstance = ref({
   status: 'stopped'
 });
 const initialSettingsTab = ref('basic'); // 新增：用于记录实例设置的初始标签页
+
+// 计算属性获取当前主题
+const currentTheme = computed(() => {
+  return inject('currentTheme', ref('light'));
+});
+
+// 是否为暗色模式
+const isDarkMode = computed(() => {
+  return inject('darkMode', ref(false));
+});
+
+// 主题类计算
+const themeClasses = computed(() => {
+  return {
+    'dark-mode': isDarkMode.value,
+    'theme-dark': currentTheme.value === 'dark',
+    'theme-light': currentTheme.value === 'light' || !currentTheme.value
+  };
+});
 
 // 加载实例列表方法 - 使用适配器处理实例数据
 const loadInstances = async () => {
@@ -230,6 +249,54 @@ onMounted(() => {
       openModelSettings(instance);
     });
   }
+
+  // 当前主题
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+  const isDark = currentTheme === 'dark';
+
+  // 立即应用当前主题
+  const instancesPanel = document.querySelector('.instances-tab');
+  if (instancesPanel) {
+    instancesPanel.setAttribute('data-theme', currentTheme);
+    if (isDark) {
+      instancesPanel.classList.add('dark-mode', 'theme-dark');
+      instancesPanel.classList.remove('theme-light');
+    } else {
+      instancesPanel.classList.remove('dark-mode', 'theme-dark');
+      instancesPanel.classList.add('theme-light');
+    }
+  }
+
+  // 添加主题变更事件监听
+  const handleThemeChanged = (event) => {
+    const newTheme = event.detail?.theme || localStorage.getItem('theme') || 'light';
+    const isDark = newTheme === 'dark';
+
+    // 获取组件根元素
+    const instancesPanelElement = document.querySelector('.instances-tab');
+    if (instancesPanelElement) {
+      // 设置数据主题
+      instancesPanelElement.setAttribute('data-theme', newTheme);
+
+      // 添加或移除暗色模式类
+      if (isDark) {
+        instancesPanelElement.classList.add('dark-mode', 'theme-dark');
+        instancesPanelElement.classList.remove('theme-light');
+      } else {
+        instancesPanelElement.classList.remove('dark-mode', 'theme-dark');
+        instancesPanelElement.classList.add('theme-light');
+      }
+    }
+  };
+
+  window.addEventListener('theme-changed', handleThemeChanged);
+  window.addEventListener('theme-changed-after', handleThemeChanged);
+
+  // 组件卸载时移除事件监听
+  onBeforeUnmount(() => {
+    window.removeEventListener('theme-changed', handleThemeChanged);
+    window.removeEventListener('theme-changed-after', handleThemeChanged);
+  });
 });
 
 // 组件卸载时清理事件监听

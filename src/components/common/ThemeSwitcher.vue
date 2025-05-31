@@ -28,37 +28,10 @@ import IconifyIcon from './IconifyIcon.vue';
 // 使用主题服务
 const { currentTheme, availableThemes, setTheme } = useTheme();
 
-// 主题映射到图标
+// 主题映射到图标 - 只保留使用的主题
 const themeIcons = {
   light: 'mdi:weather-sunny',
   dark: 'mdi:weather-night',
-  cupcake: 'mdi:cake',
-  bumblebee: 'mdi:bee',
-  emerald: 'mdi:diamond',
-  corporate: 'mdi:office-building',
-  synthwave: 'mdi:synthesizer',
-  retro: 'mdi:alarm',
-  cyberpunk: 'mdi:robot',
-  valentine: 'mdi:heart',
-  halloween: 'mdi:pumpkin',
-  garden: 'mdi:flower',
-  forest: 'mdi:pine-tree',
-  aqua: 'mdi:water',
-  lofi: 'mdi:music-note',
-  pastel: 'mdi:palette-swatch',
-  fantasy: 'mdi:castle',
-  wireframe: 'mdi:vector-square',
-  black: 'mdi:circle',
-  luxury: 'mdi:crown',
-  dracula: 'mdi:vampire',
-  cmyk: 'mdi:printer',
-  autumn: 'mdi:leaf-maple',
-  business: 'mdi:briefcase',
-  acid: 'mdi:flask',
-  lemonade: 'mdi:fruit-citrus',
-  night: 'mdi:moon-waning-crescent',
-  coffee: 'mdi:coffee',
-  winter: 'mdi:snowflake'
 };
 
 // 转换availableThemes，添加图标

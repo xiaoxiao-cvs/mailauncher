@@ -5,49 +5,28 @@ export const useDarkMode = (emitter = null) => {
   const darkMode = ref(
     localStorage.getItem("darkMode") === "true" ||
       window.matchMedia("(prefers-color-scheme: dark)").matches
-  );
-
-  // 切换深色模式
+  ); // 切换深色模式
   const toggleDarkMode = () => {
+    console.log("切换深色模式:", !darkMode.value, new Date().toISOString());
     darkMode.value = !darkMode.value;
     localStorage.setItem("darkMode", darkMode.value);
 
-    // 根据深色模式状态切换DaisyUI主题
-    if (darkMode.value) {
-      document.documentElement.classList.add("dark-mode");
-      // 自动切换到深色主题
-      const currentTheme = localStorage.getItem("theme");
-      if (!["dark", "night", "dracula", "black"].includes(currentTheme)) {
-        document.documentElement.setAttribute("data-theme", "dark");
-        localStorage.setItem("theme", "dark");
+    // 使用统一的主题设置方法，避免重复DOM操作
+    const newTheme = darkMode.value ? "dark" : "light";
 
-        // 重新获取主题色并应用
-        setTimeout(() => updateThemeColors(), 50);
-      }
-    } else {
-      document.documentElement.classList.remove("dark-mode");
-      // 自动切换到浅色主题
-      const currentTheme = localStorage.getItem("theme");
-      if (["dark", "night", "dracula", "black"].includes(currentTheme)) {
-        document.documentElement.setAttribute("data-theme", "light");
-        localStorage.setItem("theme", "light");
+    // 由于我们会调用setTheme，这里不需要直接操作DOM
+    localStorage.setItem("theme", newTheme);
 
-        // 重新获取主题色并应用
-        setTimeout(() => updateThemeColors(), 50);
-      }
-    }
+    // 调用统一的主题设置函数
+    setTheme(newTheme);
 
-    // 通知主题变化
+    // 立即应用主题色
+    updateThemeColors();
+
+    // 通知主题变化 (setTheme中已经触发了全局事件)
     if (emitter) {
       emitter.emit("dark-mode-changed", darkMode.value);
     }
-
-    // 触发全局事件，让其他组件能够响应主题切换
-    window.dispatchEvent(
-      new CustomEvent("theme-mode-changed", {
-        detail: { isDark: darkMode.value },
-      })
-    );
   };
 
   // 初始化深色模式
@@ -212,10 +191,28 @@ export function initTheme() {
     // 获取保存的颜色设置
     const savedColor = localStorage.getItem("themeColor") || "#3b82f6";
 
-    // 添加一个小延迟,确保DOM已完全加载
-    setTimeout(() => {
-      updateThemeColors(savedColor);
-    }, 0);
+    // 获取当前主题
+    const currentTheme =
+      localStorage.getItem("theme") ||
+      (window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light");
+
+    // 立即应用主题到HTML和body元素
+    document.documentElement.setAttribute("data-theme", currentTheme);
+    document.body.setAttribute("data-theme", currentTheme);
+
+    // 设置暗色模式类
+    if (currentTheme === "dark") {
+      document.documentElement.classList.add("dark-mode");
+      document.body.classList.add("dark-mode");
+    } else {
+      document.documentElement.classList.remove("dark-mode");
+      document.body.classList.remove("dark-mode");
+    }
+
+    // 立即应用颜色
+    updateThemeColors(savedColor);
   } catch (err) {
     console.error("初始化主题时出错:", err);
     // 使用默认颜色
@@ -226,75 +223,91 @@ export function initTheme() {
 // 使用主题配置
 export const useTheme = () => {
   const currentTheme = ref(localStorage.getItem("theme") || "light");
-
-  // DaisyUI的主题列表
+  // DaisyUI的主题列表 - 只保留明暗色主题
   const availableThemes = ref([
     { name: "light", label: "明亮", color: "#FFFFFF" },
     { name: "dark", label: "深色", color: "#2a303c" },
-    { name: "cupcake", label: "杯子蛋糕", color: "#faf7f5" },
-    { name: "bumblebee", label: "大黄蜂", color: "#fde68a" },
-    { name: "emerald", label: "祖母绿", color: "#10b981" },
-    { name: "corporate", label: "企业", color: "#4b6bfb" },
-    { name: "synthwave", label: "合成波", color: "#e779c1" },
-    { name: "retro", label: "复古", color: "#ef9995" },
-    { name: "cyberpunk", label: "赛博朋克", color: "#ff7598" },
-    { name: "valentine", label: "情人节", color: "#e96d7b" },
-    { name: "halloween", label: "万圣节", color: "#f28c18" },
-    { name: "garden", label: "花园", color: "#5c7f67" },
-    { name: "forest", label: "森林", color: "#1eb854" },
-    { name: "aqua", label: "水色", color: "#09ecf3" },
-    { name: "lofi", label: "低保真", color: "#808080" },
-    { name: "pastel", label: "柔和", color: "#d1c1d7" },
-    { name: "fantasy", label: "幻想", color: "#6e0b75" },
-    { name: "wireframe", label: "线框", color: "#b8b8b8" },
-    { name: "black", label: "纯黑", color: "#000000" },
-    { name: "luxury", label: "奢华", color: "#171618" },
-    { name: "dracula", label: "德古拉", color: "#ff79c6" },
-    { name: "cmyk", label: "CMYK", color: "#45AEEE" },
-    { name: "autumn", label: "秋天", color: "#D8A25B" },
-    { name: "business", label: "商务", color: "#1C4E80" },
-    { name: "acid", label: "酸性", color: "#FF00FF" },
-    { name: "lemonade", label: "柠檬水", color: "#FFFF00" },
-    { name: "night", label: "夜晚", color: "#192437" },
-    { name: "coffee", label: "咖啡", color: "#6F4E37" },
-    { name: "winter", label: "冬天", color: "#D0F0F7" },
-  ]);
-  // 设置主题
+  ]); // 设置主题
   const setTheme = (themeName) => {
     if (!themeName) return;
 
+    // 检查当前主题，如果没有变化则不重复操作
+    const currentDomTheme = document.documentElement.getAttribute("data-theme");
+    if (currentDomTheme === themeName && currentTheme.value === themeName) {
+      console.log(`主题已经是 ${themeName}，不需要重复设置`);
+      return;
+    }
+
+    console.log(`设置主题: ${themeName}`, new Date().toISOString());
+
     // 立即应用主题，不等待任何过渡
     document.documentElement.setAttribute("data-theme", themeName);
+    document.body.setAttribute("data-theme", themeName); // 同时应用到body
+
+    // 应用到所有主要容器元素，确保主题得到广泛应用
+    document
+      .querySelectorAll(
+        ".app-container, .content-area, .settings-drawer-container, .home-view, .instances-panel"
+      )
+      .forEach((el) => {
+        el.setAttribute("data-theme", themeName);
+      });
+
     localStorage.setItem("theme", themeName);
-    currentTheme.value = themeName;
+    currentTheme.value = themeName; // 检查是否是深色主题
+    const isDarkTheme = themeName === "dark";
 
-    // 检查是否是深色主题
-    const isDarkTheme = ["dark", "night", "dracula", "black"].includes(
-      themeName
-    );
-
-    // 同步darkMode状态
-    if (
-      isDarkTheme &&
-      !document.documentElement.classList.contains("dark-mode")
-    ) {
+    // 同步darkMode状态并应用到所有主要容器
+    if (isDarkTheme) {
       document.documentElement.classList.add("dark-mode");
+      document.body.classList.add("dark-mode");
+      document
+        .querySelectorAll(
+          ".app-container, .content-area, .home-view, .instances-panel"
+        )
+        .forEach((el) => {
+          el.classList.add("dark-mode", "theme-dark");
+          el.classList.remove("theme-light");
+        });
       localStorage.setItem("darkMode", "true");
-    } else if (
-      !isDarkTheme &&
-      document.documentElement.classList.contains("dark-mode")
-    ) {
+    } else {
       document.documentElement.classList.remove("dark-mode");
+      document.body.classList.remove("dark-mode");
+      document
+        .querySelectorAll(
+          ".app-container, .content-area, .home-view, .instances-panel"
+        )
+        .forEach((el) => {
+          el.classList.remove("dark-mode", "theme-dark");
+          el.classList.add("theme-light");
+        });
       localStorage.setItem("darkMode", "false");
     }
 
     // 强制浏览器重新计算样式
     void document.documentElement.offsetHeight;
 
-    // 触发主题更改事件
+    // 对所有UI组件强制刷新应用主题
+    document.querySelectorAll('[class*="settings-"]').forEach((el) => {
+      // 重新应用样式
+      if (el.classList.contains("settings-drawer-container")) {
+        el.style.backgroundColor = `hsl(var(--b1) / 1)`;
+        el.style.opacity = "1";
+      }
+    });
+
+    // 触发主题更改事件 - 立即执行处理
     window.dispatchEvent(
       new CustomEvent("theme-changed", { detail: { theme: themeName } })
     );
+
+    // 避免多次触发和事件循环
+    clearTimeout(window.themeChangeTimeout);
+    window.themeChangeTimeout = setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("theme-changed-after", { detail: { theme: themeName } })
+      );
+    }, 100);
   };
 
   return {

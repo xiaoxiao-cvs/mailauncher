@@ -1,5 +1,6 @@
 <template>
-  <div class="animated-page bg-gradient-to-br from-primary/10 to-secondary/10 min-h-screen p-4 lg:p-6">
+  <div class="animated-page bg-gradient-to-br from-primary/10 to-secondary/10 min-h-screen p-4 lg:p-6"
+    :data-theme="currentTheme" :class="themeClasses">
     <div class="max-w-7xl mx-auto">
       <!-- 页面标题 -->
       <div class="animated-header mb-6 flex justify-between items-center">
@@ -162,7 +163,25 @@ import { useInstanceStore } from '../stores/instanceStore';
 import { useSystemStore } from '../stores/systemStore';
 import { usePollingStore } from '../stores/pollingStore';
 
-const isDarkMode = inject('darkMode', ref(false));
+// 计算属性获取当前主题
+const currentTheme = computed(() => {
+  return inject('currentTheme', ref('light'));
+});
+
+// 是否为暗色模式
+const isDarkMode = computed(() => {
+  return inject('darkMode', ref(false));
+});
+
+// 主题类计算
+const themeClasses = computed(() => {
+  return {
+    'dark-mode': isDarkMode.value,
+    'theme-dark': currentTheme.value === 'dark',
+    'theme-light': currentTheme.value === 'light' || !currentTheme.value
+  };
+});
+
 const emitter = inject('emitter', null);
 
 // 使用优化的状态管理
@@ -323,6 +342,64 @@ const updateMessageChart = () => {
   }
 };
 
+// 更新图表主题
+const updateChartTheme = (isDark) => {
+  if (!messageChart.value) return;
+
+  const theme = {
+    backgroundColor: isDark ? 'transparent' : 'transparent',
+    textStyle: {
+      color: isDark ? '#cccccc' : '#333333'
+    },
+    axisPointer: {
+      lineStyle: {
+        color: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'
+      },
+      crossStyle: {
+        color: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'
+      }
+    },
+    xAxis: {
+      axisLine: {
+        lineStyle: {
+          color: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'
+        }
+      },
+      splitLine: {
+        lineStyle: {
+          color: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+        }
+      }
+    },
+    yAxis: {
+      axisLine: {
+        lineStyle: {
+          color: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'
+        }
+      },
+      splitLine: {
+        lineStyle: {
+          color: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+        }
+      }
+    }
+  };
+
+  messageChart.value.setOption({
+    backgroundColor: theme.backgroundColor,
+    textStyle: theme.textStyle,
+    axisPointer: theme.axisPointer,
+    xAxis: {
+      axisLine: theme.xAxis.axisLine,
+      splitLine: theme.xAxis.splitLine
+    },
+    yAxis: {
+      axisLine: theme.yAxis.axisLine,
+      splitLine: theme.yAxis.splitLine
+    }
+  });
+};
+
 // 窗口大小变化处理 - 重命名为handleWindowResize
 const handleWindowResize = () => {
   messageChart.value?.resize();
@@ -468,7 +545,7 @@ const stopAutoRefresh = () => {
 
 
 
-// 初始化
+// 添加主题变更监听
 onMounted(() => {
   initCharts();
 
@@ -479,6 +556,40 @@ onMounted(() => {
 
   // 启动自动刷新
   startAutoRefresh();
+
+  // 添加主题变更事件监听
+  const handleThemeChanged = (event) => {
+    const newTheme = event.detail?.theme || localStorage.getItem('theme') || 'light';
+    const isDark = newTheme === 'dark';
+
+    // 获取当前组件根元素
+    const homeViewElement = document.querySelector('.animated-page');
+    if (homeViewElement) {
+      // 设置数据主题
+      homeViewElement.setAttribute('data-theme', newTheme);
+
+      // 添加或移除暗色模式类
+      if (isDark) {
+        homeViewElement.classList.add('dark-mode', 'theme-dark');
+        homeViewElement.classList.remove('theme-light');
+      } else {
+        homeViewElement.classList.remove('dark-mode', 'theme-dark');
+        homeViewElement.classList.add('theme-light');
+      }
+    }
+
+    // 如果有图表，可能需要更新图表主题
+    updateChartTheme(isDark);
+  };
+
+  window.addEventListener('theme-changed', handleThemeChanged);
+  window.addEventListener('theme-changed-after', handleThemeChanged);
+
+  // 组件卸载时移除事件监听
+  onBeforeUnmount(() => {
+    window.removeEventListener('theme-changed', handleThemeChanged);
+    window.removeEventListener('theme-changed-after', handleThemeChanged);
+  });
 });
 
 // 清理
