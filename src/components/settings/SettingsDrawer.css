@@ -1,12 +1,13 @@
-/* 背景遮罩 - 移除模糊效果，使用纯色填充 */
+/* 背景遮罩 - 使用毛玻璃效果，确保不会让页面变黑 */
 .settings-drawer-backdrop {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.75);
-  /* 移除backdrop-filter模糊效果 */
+  background: rgba(0, 0, 0, 0.25); /* 更低的透明度，避免过暗 */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -14,9 +15,33 @@
   animation: backdrop-fade-in 0.2s ease;
 }
 
-/* 确保深色模式下背景遮罩效果也正常 */
+/* 确保深色模式下背景遮罩效果也不会过暗 */
 :root[data-theme="dark"] .settings-drawer-backdrop {
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.35); /* 稍微深一点但仍然适中 */
+}
+
+/* 亮色主题下的背景遮罩 - 使用非常轻的覆盖 */
+:root[data-theme="light"] .settings-drawer-backdrop,
+:root[data-theme="cupcake"] .settings-drawer-backdrop,
+:root[data-theme="bumblebee"] .settings-drawer-backdrop {
+  background: rgba(255, 255, 255, 0.1); /* 几乎透明的白色遮罩 */
+}
+
+/* 防止设置面板打开时页面变暗 */
+body.settings-open {
+  /* 确保页面背景和主题不被改变 */
+  /* 只是标记设置面板已打开的状态 */
+}
+
+/* 强制确保设置面板打开时页面主体不变色 */
+body.settings-open * {
+  /* 不要覆盖现有的颜色属性 */
+}
+
+/* 防止任何可能导致页面变暗的样式 */
+body.settings-open:not(.settings-drawer-container) {
+  background-color: inherit !important;
+  color: inherit !important;
 }
 
 @keyframes backdrop-fade-in {
@@ -29,14 +54,13 @@
   }
 }
 
-/* 主容器 - 使用纯色背景，移除所有透明效果 */
+/* 主容器 - 根据主题动态调整背景色 */
 .settings-drawer-container {
   width: 90%;
   max-width: 1000px;
   height: 85%;
   max-height: 700px;
   background-color: hsl(var(--b1)) !important;
-  /* 确保背景完全不透明 */
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 8px 32px rgba(0, 0, 0, 0.2),
     0 0 0 1px rgba(0, 0, 0, 0.1);
@@ -50,6 +74,16 @@
   /* 移除所有可能的透明度和模糊效果 */
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+/* 亮色主题下的设置容器 */
+:root[data-theme="light"] .settings-drawer-container,
+:root[data-theme="cupcake"] .settings-drawer-container,
+:root[data-theme="bumblebee"] .settings-drawer-container {
+  background-color: hsl(var(--b1)) !important;
+  border-color: hsl(var(--b3) / 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 32px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
 }
 
 /* 深色模式下的样式调整 - 确保文字颜色正确 */
@@ -160,17 +194,30 @@ body.dark-mode .settings-drawer-container .btn {
   }
 }
 
-/* 头部 - 使用纯色背景 */
+/* 头部 - 根据主题动态调整背景色 */
 .settings-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 1.5rem 2rem;
   background: hsl(var(--b2)) !important;
-  /* 保证头部不透明，移除任何透明度 */
   border-bottom: 1px solid hsl(var(--b3) / 0.3);
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+/* 亮色主题下的头部 */
+:root[data-theme="light"] .settings-header,
+:root[data-theme="cupcake"] .settings-header,
+:root[data-theme="bumblebee"] .settings-header {
+  background: hsl(var(--b2)) !important;
+}
+
+/* 暗色主题下的头部 */
+:root[data-theme="dark"] .settings-header,
+:root[data-theme="night"] .settings-header,
+:root[data-theme="black"] .settings-header {
+  background: hsl(var(--b2)) !important;
 }
 
 .settings-header .btn {
@@ -196,17 +243,33 @@ body.dark-mode .settings-drawer-container .btn {
   overflow: hidden;
 }
 
-/* 侧边栏 - 使用纯色背景 */
+/* 侧边栏 - 根据主题动态调整背景色 */
 .settings-sidebar {
   width: 240px;
   background: hsl(var(--b2)) !important;
-  /* 确保侧边栏完全不透明 */
   border-right: 1px solid hsl(var(--b3) / 0.3);
   padding: 1.5rem 0;
   overflow-y: auto;
   box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.1), 2px 0 8px rgba(0, 0, 0, 0.08);
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+/* 亮色主题下的侧边栏 */
+:root[data-theme="light"] .settings-sidebar,
+:root[data-theme="cupcake"] .settings-sidebar,
+:root[data-theme="bumblebee"] .settings-sidebar {
+  background: hsl(var(--b2)) !important;
+  box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.05), 2px 0 8px rgba(0, 0, 0, 0.05);
+}
+
+/* 暗色主题下的侧边栏 */
+:root[data-theme="dark"] .settings-sidebar,
+:root[data-theme="night"] .settings-sidebar,
+:root[data-theme="black"] .settings-sidebar {
+  background: hsl(var(--b2)) !important;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.1),
+    2px 0 8px rgba(0, 0, 0, 0.2);
 }
 
 .settings-nav {
@@ -260,11 +323,25 @@ body.dark-mode .settings-drawer-container .btn {
   flex: 1;
 }
 
-/* 主内容区 */
+/* 主内容区 - 根据主题动态调整背景色 */
 .settings-main {
   flex: 1;
   overflow-y: auto;
-  background: hsl(var(--b1));
+  background: hsl(var(--b1)) !important;
+}
+
+/* 亮色主题下的主内容区 */
+:root[data-theme="light"] .settings-main,
+:root[data-theme="cupcake"] .settings-main,
+:root[data-theme="bumblebee"] .settings-main {
+  background: hsl(var(--b1)) !important;
+}
+
+/* 暗色主题下的主内容区 */
+:root[data-theme="dark"] .settings-main,
+:root[data-theme="night"] .settings-main,
+:root[data-theme="black"] .settings-main {
+  background: hsl(var(--b1)) !important;
 }
 
 .settings-panel {
@@ -318,11 +395,31 @@ body.dark-mode .settings-drawer-container .btn {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
-/* 深色模式下的设置组背景 */
+/* 设置组 - 根据主题动态调整背景色 */
+.setting-group {
+  background: hsl(var(--b2) / 0.5) !important;
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid hsl(var(--b3) / 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* 亮色主题下的设置组背景 */
+:root[data-theme="light"] .setting-group,
+:root[data-theme="cupcake"] .setting-group,
+:root[data-theme="bumblebee"] .setting-group {
+  background: hsl(var(--b2) / 0.5) !important;
+  border-color: hsl(var(--b3) / 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05), 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+/* 暗色主题下的设置组背景 */
 :root[data-theme="dark"] .setting-group,
-.dark-mode .setting-group {
-  background: hsl(var(--b2) / 0.9) !important;
+:root[data-theme="night"] .setting-group,
+:root[data-theme="black"] .setting-group {
+  background: hsl(var(--b2) / 0.8) !important;
   border-color: hsl(var(--b3) / 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
 .group-title {
@@ -673,17 +770,30 @@ body.dark-mode .settings-drawer-container .btn {
   color: hsl(var(--bc) / 0.4);
 }
 
-/* 底部 - 使用纯色背景 */
+/* 底部 - 根据主题动态调整背景色 */
 .settings-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 1rem 2rem;
   background: hsl(var(--b2)) !important;
-  /* 确保底部完全不透明 */
   border-top: 1px solid hsl(var(--b3) / 0.3);
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+/* 亮色主题下的底部 */
+:root[data-theme="light"] .settings-footer,
+:root[data-theme="cupcake"] .settings-footer,
+:root[data-theme="bumblebee"] .settings-footer {
+  background: hsl(var(--b2)) !important;
+}
+
+/* 暗色主题下的底部 */
+:root[data-theme="dark"] .settings-footer,
+:root[data-theme="night"] .settings-footer,
+:root[data-theme="black"] .settings-footer {
+  background: hsl(var(--b2)) !important;
 }
 
 .footer-info {
@@ -774,6 +884,166 @@ body.dark-mode .settings-drawer-container .btn {
   justify-content: center;
 }
 
+/* 关于部分样式 */
+.about-app-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.app-icon {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  background: hsl(var(--p) / 0.1);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid hsl(var(--p) / 0.2);
+}
+
+.app-icon-img {
+  font-size: 2rem;
+  color: hsl(var(--p));
+}
+
+.app-details {
+  flex: 1;
+}
+
+.app-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: hsl(var(--bc));
+  margin: 0 0 0.5rem 0;
+}
+
+.app-description {
+  font-size: 0.95rem;
+  color: hsl(var(--bc) / 0.7);
+  margin: 0 0 1rem 0;
+}
+
+.version-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.version-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid hsl(var(--b3) / 0.2);
+}
+
+.version-item:last-child {
+  border-bottom: none;
+}
+
+.version-label {
+  font-size: 0.875rem;
+  color: hsl(var(--bc) / 0.7);
+  font-weight: 500;
+}
+
+.version-value {
+  font-size: 0.875rem;
+  color: hsl(var(--bc));
+  font-weight: 600;
+  font-family: monospace;
+}
+
+/* 系统信息网格 */
+.system-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.system-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: hsl(var(--b2) / 0.5);
+  border-radius: 8px;
+  border: 1px solid hsl(var(--b3) / 0.3);
+}
+
+.info-label {
+  font-size: 0.75rem;
+  color: hsl(var(--bc) / 0.6);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 0.875rem;
+  color: hsl(var(--bc));
+  font-weight: 600;
+  word-break: break-all;
+}
+
+/* 开源信息 */
+.open-source-info {
+  padding: 1rem 0;
+}
+
+.license-info p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  color: hsl(var(--bc) / 0.8);
+}
+
+.license-info strong {
+  color: hsl(var(--bc));
+}
+
+/* 依赖信息 */
+.dependencies-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.dependency-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: hsl(var(--b2) / 0.5);
+  border-radius: 8px;
+  border: 1px solid hsl(var(--b3) / 0.3);
+  transition: all 0.2s ease;
+}
+
+.dependency-item:hover {
+  background: hsl(var(--b2) / 0.8);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dep-name {
+  font-size: 0.875rem;
+  color: hsl(var(--bc));
+  font-weight: 500;
+}
+
+.dep-version {
+  font-size: 0.8rem;
+  color: hsl(var(--bc) / 0.7);
+  font-weight: 600;
+  font-family: monospace;
+  background: hsl(var(--b3) / 0.3);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .settings-drawer-container {
@@ -816,6 +1086,19 @@ body.dark-mode .settings-drawer-container .btn {
 
   .theme-selector {
     grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  }
+
+  .about-app-info {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .system-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dependencies-info {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -121,6 +121,115 @@
                                 </div>
                             </div>
                         </div>
+                    </div> <!-- 关于标签页 -->
+                    <div v-else-if="activeTab === 'about'" class="settings-panel">
+                        <div class="panel-header">
+                            <h3 class="panel-title">关于 MaiLauncher</h3>
+                            <p class="panel-description">查看应用版本信息和相关资源</p>
+                        </div>
+
+                        <div class="settings-section">
+                            <!-- 应用信息 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">应用信息</h4>
+
+                                <div class="about-app-info">
+                                    <div class="app-icon">
+                                        <IconifyIcon icon="mdi:rocket-launch" class="app-icon-img" />
+                                    </div>
+                                    <div class="app-details">
+                                        <h5 class="app-name">MaiLauncher</h5>
+                                        <p class="app-description">MaiBot 实例管理和部署工具</p>
+                                        <div class="version-details">
+                                            <div class="version-item">
+                                                <span class="version-label">前端版本:</span>
+                                                <span class="version-value">0.1.0-Preview.1</span>
+                                            </div>
+                                            <div class="version-item">
+                                                <span class="version-label">后端版本:</span>
+                                                <span class="version-value">0.1.0-Preview.1</span>
+                                            </div>
+                                            <div class="version-item">
+                                                <span class="version-label">构建时间:</span>
+                                                <span class="version-value">{{ buildDate }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 系统信息 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">系统信息</h4>
+                                <div class="system-info-grid">
+                                    <div class="system-info-item">
+                                        <span class="info-label">操作系统:</span>
+                                        <span class="info-value">{{ systemInfo.platform }}</span>
+                                    </div>
+                                    <div class="system-info-item">
+                                        <span class="info-label">系统架构:</span>
+                                        <span class="info-value">{{ systemInfo.arch }}</span>
+                                    </div>
+                                    <div class="system-info-item">
+                                        <span class="info-label">Node.js 版本:</span>
+                                        <span class="info-value">{{ systemInfo.nodeVersion }}</span>
+                                    </div>
+                                    <div class="system-info-item">
+                                        <span class="info-label">浏览器引擎:</span>
+                                        <span class="info-value">{{ systemInfo.userAgent }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 开源信息 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">开源信息</h4>
+                                <div class="open-source-info">
+                                    <div class="license-info">
+                                        <p><strong>许可证:</strong> GNU General Public License v3.0</p>
+                                        <p><strong>项目地址:</strong>
+                                            <a href="https://github.com/MaiM-with-u/MaiLauncher" target="_blank"
+                                                class="link link-primary">
+                                                GitHub Repository
+                                            </a>
+                                        </p>
+                                        <p><strong>Bug 反馈:</strong>
+                                            <a href="https://github.com/MaiM-with-u/MaiLauncher/issues" target="_blank"
+                                                class="link link-primary">
+                                                提交 Issue
+                                            </a>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 依赖信息 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">主要依赖</h4>
+                                <div class="dependencies-info">
+                                    <div class="dependency-item">
+                                        <span class="dep-name">Vue.js</span>
+                                        <span class="dep-version">3.5.13</span>
+                                    </div>
+                                    <div class="dependency-item">
+                                        <span class="dep-name">Tauri</span>
+                                        <span class="dep-version">2.x</span>
+                                    </div>
+                                    <div class="dependency-item">
+                                        <span class="dep-name">Vite</span>
+                                        <span class="dep-version">6.0.3</span>
+                                    </div>
+                                    <div class="dependency-item">
+                                        <span class="dep-name">DaisyUI</span>
+                                        <span class="dep-version">4.5.0</span>
+                                    </div>
+                                    <div class="dependency-item">
+                                        <span class="dep-name">Python Backend</span>
+                                        <span class="dep-version">3.10+</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- 其他标签页的占位内容 -->
@@ -217,6 +326,15 @@ const enableAnimations = ref(localStorage.getItem('enableAnimations') !== 'false
 const fontSize = ref(parseInt(localStorage.getItem('fontSize') || '14'))
 const layoutDensity = ref(localStorage.getItem('layoutDensity') || 'comfortable')
 
+// 关于页面数据
+const buildDate = ref('2025-01-01 12:00:00')
+const systemInfo = ref({
+    platform: 'Unknown',
+    arch: 'Unknown',
+    nodeVersion: 'Unknown',
+    userAgent: 'Unknown'
+})
+
 // 方法
 const switchTab = (tab) => {
     activeTab.value = tab
@@ -235,6 +353,21 @@ const handleBackdropClick = () => {
 const getCurrentTabTitle = () => {
     const tab = settingTabs.find(t => t.key === activeTab.value)
     return tab ? tab.title : '设置'
+}
+
+// 初始化系统信息
+const initSystemInfo = () => {
+    // 设置构建时间
+    buildDate.value = new Date().toLocaleString('zh-CN')
+
+    // 检测系统信息
+    systemInfo.value = {
+        platform: navigator.platform || 'Unknown',
+        arch: navigator.userAgent.includes('x64') ? 'x64' :
+            navigator.userAgent.includes('x86') ? 'x86' : 'Unknown',
+        nodeVersion: process?.versions?.node || 'Unknown',
+        userAgent: navigator.userAgent.substring(0, 80) + '...'
+    }
 }
 
 // 主题切换
@@ -259,46 +392,58 @@ const changeThemeMode = () => {
         applyDarkTheme()
     }
 
-    // 确保暗色模式下文本颜色正确应用
+    // 确保设置面板样式正确应用
     nextTick(() => {
-        forceDarkModeTextStyles()
+        ensureSettingsDrawerStyles()
     })
 
     // 注意：setTheme 函数中已经处理了事件触发，这里不再重复触发
 }
 
-// 强制应用暗色模式文本样式
-const forceDarkModeTextStyles = () => {
-    // 检查当前是否为暗色模式
-    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark' ||
-        themeMode.value === 'dark' ||
-        (themeMode.value === 'system' && systemDarkMode.value)
+// 确保设置抽屉样式正确应用
+const ensureSettingsDrawerStyles = () => {
+    const container = document.querySelector('.settings-drawer-container')
+    if (container) {
+        // 确保设置抽屉保持不透明背景
+        container.style.backgroundColor = 'hsl(var(--b1))'
+        container.style.opacity = '1'
 
-    if (isDarkMode) {
-        console.log('强制应用暗色模式文本样式')
-        // 设置容器
-        const container = document.querySelector('.settings-drawer-container')
-        if (container) {
-            // 添加明确的暗色模式类
+        // 移除任何可能导致透明的类
+        container.classList.remove('transparent', 'backdrop-blur')
+
+        // 根据当前主题应用正确的文字颜色，但只影响设置抽屉内部
+        const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark' ||
+            themeMode.value === 'dark' ||
+            (themeMode.value === 'system' && systemDarkMode.value)
+
+        // 只为设置抽屉内的元素应用样式，不影响页面其他部分
+        if (isDarkMode) {
             container.classList.add('force-dark-text')
-            container.style.color = 'hsl(var(--bc))'
+        } else {
+            container.classList.remove('force-dark-text')
+        }
 
-            // 强制应用文本颜色到所有关键元素
-            const selectors = [
-                '.settings-title', '.panel-title', '.setting-label',
-                '.setting-desc', '.panel-description', '.version-info',
-                '.nav-label', '.option-label', '.group-title',
-                'input', 'select', 'textarea', 'button', '.btn',
-                '.theme-option', '.theme-name', '.footer-info'
-            ].join(', ')
+        // 强制应用文本颜色到设置抽屉内的关键元素，使用容器作为范围限制
+        const settingsSelectors = [
+            '.settings-title', '.panel-title', '.setting-label',
+            '.setting-desc', '.panel-description', '.version-info',
+            '.nav-label', '.option-label', '.group-title',
+            'input', 'select', 'textarea', 'button', '.btn',
+            '.theme-option', '.theme-name', '.footer-info'
+        ]
 
-            const elements = container.querySelectorAll(selectors)
+        settingsSelectors.forEach(selector => {
+            const elements = container.querySelectorAll(selector)
             elements.forEach(el => {
-                el.classList.add('force-dark-text')
                 el.style.color = 'hsl(var(--bc))'
             })
-        }
+        })
     }
+}
+
+// 强制应用暗色模式文本样式（保留原方法以兼容现有代码）
+const forceDarkModeTextStyles = () => {
+    ensureSettingsDrawerStyles()
 }
 
 // 应用系统主题
@@ -378,7 +523,13 @@ const handleEscKey = (e) => {
 // 监听设置变化
 watch(() => props.isOpen, (newValue) => {
     if (newValue) {
+        // 当设置面板打开时，不要改变页面主题，只添加必要的类
         document.body.classList.add('settings-open')
+
+        // 确保设置抽屉样式正确
+        nextTick(() => {
+            ensureSettingsDrawerStyles()
+        })
     } else {
         document.body.classList.remove('settings-open')
     }
@@ -387,6 +538,9 @@ watch(() => props.isOpen, (newValue) => {
 // 生命周期
 onMounted(() => {
     document.addEventListener('keydown', handleEscKey)
+
+    // 初始化系统信息
+    initSystemInfo()
 
     // 从设置服务获取当前标签页
     const currentTab = settingsService.getTab()
@@ -417,17 +571,9 @@ onMounted(() => {
     const handleThemeChanged = (event) => {
         console.log('SettingsDrawer 接收到主题变更事件:', event.type, new Date().toISOString());
 
-        // 强制刷新设置抽屉的样式
+        // 强制刷新设置抽屉的样式，但不影响页面其他部分
         nextTick(() => {
-            // 确保设置抽屉保持不透明
-            const container = document.querySelector('.settings-drawer-container')
-            if (container) {
-                container.style.backgroundColor = 'hsl(var(--b1))'
-                container.style.opacity = '1'
-
-                // 调用强制应用暗色模式文本样式的方法
-                forceDarkModeTextStyles()
-            }
+            ensureSettingsDrawerStyles()
         })
     }
 
