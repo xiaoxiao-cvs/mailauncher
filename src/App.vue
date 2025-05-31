@@ -14,17 +14,16 @@
   </div>
   <div id="app" class="app-container"
     :class="{ 'dark-mode': darkMode, 'sidebar-expanded': sidebarExpanded, 'sidebar-collapsed': !sidebarExpanded, 'theme-dark': currentTheme === 'dark', 'theme-light': currentTheme === 'light' }"
-    :data-theme="currentTheme">
-    <!-- 侧边栏 -->
-    <AppSidebar :is-expanded="sidebarExpanded" @toggle="toggleSidebar" />
+    :data-theme="currentTheme"> <!-- 侧边栏 -->
+    <AppSidebar :is-expanded="sidebarExpanded" :is-settings-open="isSettingsOpen" @toggle="toggleSidebar" />
 
     <!-- 主内容区域 -->
     <div class="content-area" :class="{ 'sidebar-expanded': sidebarExpanded }" :data-theme="currentTheme">
       <!-- 页面切换动画 -->
       <transition name="page-transition" mode="out-in">
-        <component :is="currentComponent" :key="activeTab" />
+        <component :is="currentComponent" :key="componentKey" />
       </transition>
-    </div> <!-- 设置抽屉 -->
+    </div><!-- 设置抽屉 -->
     <SettingsDrawer :is-open="isSettingsOpen" @close="closeSettings" />
 
     <!-- 欢迎弹窗 -->
@@ -168,6 +167,8 @@ provide('menuItems', menuItems);
 
 // 标签页相关
 const activeTab = ref('home')
+// 添加一个ref来追踪当设置打开时应该显示的页面
+const lastNonSettingsTab = ref('home')
 
 // 处理标签页切换 - 将通过事件总线由HomeView的侧边栏触发
 const handleTabSelect = (tab) => {
@@ -177,30 +178,28 @@ const handleTabSelect = (tab) => {
 // 提供activeTab供侧边栏组件使用
 provide('activeTab', activeTab);
 
-// 计算当前组件 - 确保使用SettingsDrawer而非SettingsPanel
+// 计算当前组件 - 简化逻辑，移除设置页面
 const currentComponent = computed(() => {
-  switch (activeTab.value) {
+  // 如果当前标签是设置，使用最后的非设置标签页
+  const tabToShow = activeTab.value === 'settings' ? lastNonSettingsTab.value : activeTab.value;
+
+  switch (tabToShow) {
     case 'home': return HomeView;
     case 'instances': return InstancesPanel;
     case 'downloads': return DownloadsPanel;
-    case 'chat': return ChatRoom; // 添加聊天室组件
-    case 'settings':
-      // 使用设置抽屉而不是旧的设置组件
-      openSettings();
-      return HomeView; // 保持当前页面为首页
-    case 'plugins':
-      return PluginsView;
+    case 'chat': return ChatRoom;
+    case 'plugins': return PluginsView;
     default:
-      // 默认处理逻辑保持不变
-      return {
-        render() {
-          return h('div', { class: 'tab-content' }, [
-            h('h3', {}, menuItems[activeTab.value]?.title || activeTab.value),
-            h('p', {}, '页面内容建设中...')
-          ]);
-        }
-      };
+      // 如果是未知标签页，返回主页
+      return HomeView;
   }
+});
+
+// 计算组件key，避免设置时的动画
+const componentKey = computed(() => {
+  // 如果当前是设置模式，使用lastNonSettingsTab作为key
+  // 这样可以避免在打开/关闭设置时触发组件重新渲染
+  return activeTab.value === 'settings' ? lastNonSettingsTab.value : activeTab.value;
 });
 
 // 提供处理安装事件 - 添加实例名称验证
@@ -324,8 +323,7 @@ const openSettings = (tab) => {
 const closeSettings = () => {
   isSettingsOpen.value = false;
   settingsService.closeSettings();
-
-  // 不再自动跳转到主页，保持在当前页面
+  // 设置关闭后保持在设置页面，用户可以手动切换到其他页面
 };
 
 // 监听日志查看事件和页面导航
@@ -367,42 +365,29 @@ onMounted(() => {
       checkSidebarState();
     }
   });
-
   // 定期检查侧边栏状态 - 改用事件监听
   window.addEventListener('sidebar-state-changed', () => {
     checkSidebarState();
   });
-
-  // 重写导航事件处理,添加调试日志
+  // 简化导航事件处理
   emitter.on('navigate-to-tab', (tabName) => {
-    console.log(`接收到导航事件: ${tabName}`);
+    console.log(`接收到导航事件: ${tabName}, 当前页面: ${activeTab.value}`);
 
-    // 强制延迟执行导航，确保任何组件内的操作都完成
-    setTimeout(() => {
-      // 清除已有处理器并重新绑定
-      if (tabName === 'settings') {
-        console.log('正在打开设置抽屉');
-        // 如果是导航到设置，打开设置抽屉
-        openSettings();
-      } else if (menuItems[tabName] || tabName === 'home') {
-        console.log(`切换标签页到: ${tabName}`);
-        // 如果是其他有效选项卡，切换标签页
-        activeTab.value = tabName;
-
-        // 添加额外的强制更新机制
-        nextTick(() => {
-          // 强制触发DOM更新
-          if (document.querySelector('.content-area')) {
-            document.querySelector('.content-area').classList.add('tab-changing');
-            setTimeout(() => {
-              document.querySelector('.content-area')?.classList.remove('tab-changing');
-            }, 50);
-          }
-        });
-      } else {
-        console.warn(`未知标签页: ${tabName}`);
+    if (tabName === 'settings') {
+      // 设置页面：记录当前页面作为背景页面，只打开设置抽屉
+      if (activeTab.value !== 'settings') {
+        lastNonSettingsTab.value = activeTab.value;
       }
-    }, 10);
+      console.log(`打开设置，背景页面保持为: ${lastNonSettingsTab.value}`);
+      openSettings();
+    } else if (menuItems[tabName] || tabName === 'home') {
+      // 其他页面：更新背景页面记录并切换
+      console.log(`从 ${activeTab.value} 切换到 ${tabName}`);
+      lastNonSettingsTab.value = tabName;
+      activeTab.value = tabName;
+    } else {
+      console.warn(`未知标签页: ${tabName}`);
+    }
   });
 
   // 添加深色模式变化监听

@@ -23,10 +23,9 @@
 
     <!-- 设置菜单项 - 确保在收起按钮上方 -->
     <div class="sidebar-footer-section px-2 pb-2">
-      <ul class="menu menu-md menu-vertical">
-        <!-- 设置项 -->
+      <ul class="menu menu-md menu-vertical"> <!-- 设置项 -->
         <li>
-          <a href="#" @click.prevent="selectTab('settings')" :class="{ 'active': activeTab === 'settings' }">
+          <a href="#" @click.prevent="selectTab('settings')" :class="{ 'active': isSettingsOpen }">
             <Icon icon="ri:settings-3-line" width="18" height="18" />
             <span class="sidebar-text">{{ menuItems.settings?.title }}</span>
           </a>
@@ -51,6 +50,10 @@ import { Icon } from '@iconify/vue';
 // 接收是否展开的属性
 const props = defineProps({
   isExpanded: {
+    type: Boolean,
+    default: false
+  },
+  isSettingsOpen: {
     type: Boolean,
     default: false
   }
