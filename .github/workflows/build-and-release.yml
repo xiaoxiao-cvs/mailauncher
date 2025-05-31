@@ -1,0 +1,419 @@
+name: Build and Release Tauri App
+
+on:
+  push:
+    tags:
+      - 'v*' # 当推送 tag 时触发构建和发布
+  workflow_dispatch: # 允许手动触发
+
+# 限制并发执行，防止不必要的资源消耗
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 克隆后端仓库
+    - name: Clone backend repository
+      run: |
+        git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
+        
+    # 设置 Python 环境用于构建后端
+    - name: Set up Python for backend
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        
+    # 缓存 pip 依赖
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    # 安装后端构建依赖
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    # 安装 Linux 后端构建依赖
+    - name: Install Linux backend build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential
+        
+    # 创建数据目录
+    - name: Create backend data directory
+      run: |
+        cd backend
+        mkdir -p data
+        
+    # 构建 Linux 后端
+    - name: Build Linux backend
+      run: |
+        cd backend
+        pyinstaller main-linux.spec
+        
+    # 创建 Tauri binaries 目录并复制后端可执行文件
+    - name: Copy backend executable to Tauri binaries
+      run: |
+        mkdir -p src-tauri/binaries
+        cp backend/dist/MaiLauncher-Backend src-tauri/binaries/MaiLauncher-Backend-x86_64-unknown-linux-gnu
+        chmod +x src-tauri/binaries/MaiLauncher-Backend-x86_64-unknown-linux-gnu
+
+    - name: Setup Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: latest
+        run_install: true
+
+    - name: Install Linux Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y webkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+
+    - name: Build Tauri (Linux)
+      run: pnpm tauri build
+
+    - name: Upload Linux Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-artifacts
+        path: |
+          src-tauri/target/release/bundle/deb/*.deb
+          src-tauri/target/release/bundle/rpm/*.rpm
+
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 克隆后端仓库
+    - name: Clone backend repository
+      run: |
+        git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
+        
+    # 设置 Python 环境用于构建后端
+    - name: Set up Python for backend
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        
+    # 缓存 pip 依赖
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~\AppData\Local\pip\Cache
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    # 安装后端构建依赖
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    # 创建数据目录
+    - name: Create backend data directory
+      run: |
+        cd backend
+        if (!(Test-Path "data")) { New-Item -ItemType Directory -Path "data" }
+        
+    # 构建 Windows 后端
+    - name: Build Windows backend
+      run: |
+        cd backend
+        pyinstaller main.spec
+        
+    # 创建 Tauri binaries 目录并复制后端可执行文件
+    - name: Copy backend executable to Tauri binaries
+      run: |
+        if (!(Test-Path "src-tauri\binaries")) { New-Item -ItemType Directory -Path "src-tauri\binaries" -Force }
+        Copy-Item "backend\dist\MaiLauncher-Backend.exe" "src-tauri\binaries\MaiLauncher-Backend-x86_64-pc-windows-msvc.exe"
+
+    - name: Setup Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: latest
+        run_install: true
+
+    - name: Build Tauri (Windows)
+      run: pnpm tauri build
+
+    - name: Upload Windows Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-artifacts
+        path: src-tauri/target/release/bundle/nsis/*.exe
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 克隆后端仓库
+    - name: Clone backend repository
+      run: |
+        git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
+        
+    # 设置 Python 环境用于构建后端
+    - name: Set up Python for backend
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        
+    # 缓存 pip 依赖
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    # 安装后端构建依赖
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    # 创建数据目录
+    - name: Create backend data directory
+      run: |
+        cd backend
+        mkdir -p data
+        
+    # 构建 macOS 后端
+    - name: Build macOS backend
+      run: |
+        cd backend
+        pyinstaller main-macos.spec
+        
+    # 创建 Tauri binaries 目录并复制后端可执行文件
+    - name: Copy backend executable to Tauri binaries
+      run: |
+        mkdir -p src-tauri/binaries
+        cp backend/dist/MaiLauncher-Backend src-tauri/binaries/MaiLauncher-Backend-aarch64-apple-darwin
+        chmod +x src-tauri/binaries/MaiLauncher-Backend-aarch64-apple-darwin
+
+    - name: Setup Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: latest
+        run_install: true
+
+    - name: Build Tauri (macOS)
+      run: pnpm tauri build
+
+    - name: Upload macOS Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-artifacts
+        path: src-tauri/target/release/bundle/dmg/*.dmg
+
+  release:
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 下载所有构建产物
+    - name: Download Linux artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: linux-artifacts
+        path: ./artifacts/linux
+
+    - name: Download Windows artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: windows-artifacts
+        path: ./artifacts/windows
+
+    - name: Download macOS artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: macos-artifacts
+        path: ./artifacts/macos
+
+    # 显示下载的文件用于调试
+    - name: List downloaded artifacts
+      run: |
+        echo "=== Linux artifacts ==="
+        find ./artifacts/linux -type f
+        echo "=== Windows artifacts ==="
+        find ./artifacts/windows -type f
+        echo "=== macOS artifacts ==="
+        find ./artifacts/macos -type f
+
+    # 获取版本信息
+    - name: Get version
+      id: version
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
+        else
+          VERSION="0.1.0"
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"    # 重命名文件以匹配期望的格式
+    - name: Rename artifacts
+      run: |
+        VERSION=${{ steps.version.outputs.VERSION }}
+        
+        # 创建目标目录
+        mkdir -p release-files
+        
+        # Windows NSIS 安装包
+        for file in ./artifacts/windows/*.exe; do
+          if [ -f "$file" ]; then
+            cp "$file" "release-files/mailauncher_${VERSION}_x64-setup.exe"
+            break
+          fi
+        done
+        
+        # macOS DMG 文件
+        for file in ./artifacts/macos/*.dmg; do
+          if [ -f "$file" ]; then
+            cp "$file" "release-files/MaiLauncher_${VERSION}_aarch64.dmg"
+            break
+          fi
+        done
+        
+        # Linux DEB 文件
+        for file in ./artifacts/linux/*.deb; do
+          if [ -f "$file" ]; then
+            cp "$file" "release-files/MaiLauncher_${VERSION}_amd64.deb"
+            break
+          fi
+        done
+        
+        # Linux RPM 文件
+        for file in ./artifacts/linux/*.rpm; do
+          if [ -f "$file" ]; then
+            cp "$file" "release-files/MaiLauncher-${VERSION}-1.x86_64.rpm"
+            break
+          fi
+        done
+        
+        # 显示最终文件
+        echo "=== Release files ==="
+        ls -la release-files/ || echo "No release files found"
+
+    # 创建 Release
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: MaiLauncher v${{ steps.version.outputs.VERSION }}
+        body: |
+          ## MaiLauncher v${{ steps.version.outputs.VERSION }}
+          
+          ### 下载链接
+          
+          **Windows:**
+          - [mailauncher_${{ steps.version.outputs.VERSION }}_x64-setup.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/mailauncher_${{ steps.version.outputs.VERSION }}_x64-setup.exe)
+          
+          **macOS:**
+          - [MaiLauncher_${{ steps.version.outputs.VERSION }}_aarch64.dmg](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/MaiLauncher_${{ steps.version.outputs.VERSION }}_aarch64.dmg)
+          
+          **Linux:**
+          - [MaiLauncher_${{ steps.version.outputs.VERSION }}_amd64.deb](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/MaiLauncher_${{ steps.version.outputs.VERSION }}_amd64.deb)
+          - [MaiLauncher-${{ steps.version.outputs.VERSION }}-1.x86_64.rpm](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/MaiLauncher-${{ steps.version.outputs.VERSION }}-1.x86_64.rpm)
+          
+          ### 安装说明
+          
+          **Windows:** 下载 `.exe` 文件并运行安装
+          **macOS:** 下载 `.dmg` 文件，打开后将应用拖拽到 Applications 文件夹
+          **Linux:** 
+          - Ubuntu/Debian: `sudo dpkg -i MaiLauncher_${{ steps.version.outputs.VERSION }}_amd64.deb`
+          - CentOS/RHEL/Fedora: `sudo rpm -i MaiLauncher-${{ steps.version.outputs.VERSION }}-1.x86_64.rpm`
+        draft: false
+        prerelease: false    # 上传 Windows 安装包
+    - name: Upload Windows Setup
+      if: hashFiles('./release-files/mailauncher_${{ steps.version.outputs.VERSION }}_x64-setup.exe') != ''
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release-files/mailauncher_${{ steps.version.outputs.VERSION }}_x64-setup.exe
+        asset_name: mailauncher_${{ steps.version.outputs.VERSION }}_x64-setup.exe
+        asset_content_type: application/octet-stream
+
+    # 上传 macOS DMG
+    - name: Upload macOS DMG
+      if: hashFiles('./release-files/MaiLauncher_${{ steps.version.outputs.VERSION }}_aarch64.dmg') != ''
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release-files/MaiLauncher_${{ steps.version.outputs.VERSION }}_aarch64.dmg
+        asset_name: MaiLauncher_${{ steps.version.outputs.VERSION }}_aarch64.dmg
+        asset_content_type: application/octet-stream
+
+    # 上传 Linux DEB
+    - name: Upload Linux DEB
+      if: hashFiles('./release-files/MaiLauncher_${{ steps.version.outputs.VERSION }}_amd64.deb') != ''
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release-files/MaiLauncher_${{ steps.version.outputs.VERSION }}_amd64.deb
+        asset_name: MaiLauncher_${{ steps.version.outputs.VERSION }}_amd64.deb
+        asset_content_type: application/octet-stream
+
+    # 上传 Linux RPM
+    - name: Upload Linux RPM
+      if: hashFiles('./release-files/MaiLauncher-${{ steps.version.outputs.VERSION }}-1.x86_64.rpm') != ''
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release-files/MaiLauncher-${{ steps.version.outputs.VERSION }}-1.x86_64.rpm
+        asset_name: MaiLauncher-${{ steps.version.outputs.VERSION }}-1.x86_64.rpm
+        asset_content_type: application/octet-stream
