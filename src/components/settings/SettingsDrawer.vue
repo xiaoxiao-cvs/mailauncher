@@ -140,8 +140,7 @@
                                     <div class="app-details">
                                         <h5 class="app-name">MaiLauncher</h5>
                                         <p class="app-description">MaiBot 实例管理和部署工具</p>
-                                        <div class="version-details">
-                                            <div class="version-item">
+                                        <div class="version-details">                                            <div class="version-item">
                                                 <span class="version-label">前端版本:</span>
                                                 <span class="version-value">0.1.0-Preview.2</span>
                                             </div>
@@ -441,8 +440,7 @@
             </div>
 
             <!-- 底部 -->
-            <div class="settings-footer">
-                <div class="footer-info">
+            <div class="settings-footer">                <div class="footer-info">
                     <span class="version-info">版本 0.1.0-Preview.2</span>
                 </div>
                 <div class="footer-actions"> <button class="btn btn-ghost btn-sm" @click="resetSettings">
