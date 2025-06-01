@@ -111,7 +111,7 @@ Invoke-WebRequest -Uri "http://127.0.0.1:23456/api/test" -Method GET
 成功打包后，您将在以下位置找到文件：
 
 - 可执行文件: `src-tauri/target/release/mailauncher.exe`
-- 安装程序: `src-tauri/target/release/bundle/nsis/MaiLauncher_0.1.0_x64-setup.exe`
+- 安装程序: `src-tauri/target/release/bundle/nsis/MaiLauncher_0.1.0-Preview.2_x64-setup.exe`
 
 ## ❗ 常见问题
 

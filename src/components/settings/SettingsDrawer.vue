@@ -143,11 +143,11 @@
                                         <div class="version-details">
                                             <div class="version-item">
                                                 <span class="version-label">前端版本:</span>
-                                                <span class="version-value">0.1.0-Preview.1</span>
+                                                <span class="version-value">0.1.0-Preview.2</span>
                                             </div>
                                             <div class="version-item">
                                                 <span class="version-label">后端版本:</span>
-                                                <span class="version-value">0.1.0-Preview.1</span>
+                                                <span class="version-value">0.1.0-Preview.2</span>
                                             </div>
                                             <div class="version-item">
                                                 <span class="version-label">构建时间:</span>
@@ -443,7 +443,7 @@
             <!-- 底部 -->
             <div class="settings-footer">
                 <div class="footer-info">
-                    <span class="version-info">版本 0.1.0-Preview.1</span>
+                    <span class="version-info">版本 0.1.0-Preview.2</span>
                 </div>
                 <div class="footer-actions"> <button class="btn btn-ghost btn-sm" @click="resetSettings">
                         <IconifyIcon icon="mdi:refresh" size="sm" />
