@@ -259,18 +259,41 @@ export const useDeployStore = defineStore("deploy", () => {
           statusData.logs.forEach((log) => {
             addLog(deploymentId, log.message || log, log.level || "info");
           });
-        }
-
-        // 检查是否已安装完成
+        } // 检查是否已安装完成
         const status = statusData.status || statusData.install_status;
         if (status === "completed" || progress >= 100) {
           deployment.installComplete = true;
           deployment.installing = false;
           deployment.endTime = new Date();
           addLog(deploymentId, "✅ 安装已完成！", "success");
-          toastService.success(
-            `MaiBot ${deployment.config.version} 安装成功！`
-          );
+
+          // 检查用户是否启用了部署完成通知
+          const notificationsEnabled =
+            localStorage.getItem("deploymentNotifications") !== "false";
+
+          if (notificationsEnabled) {
+            // 显示成功通知
+            toastService.success(
+              `MaiBot ${deployment.config.version} 安装成功！实例名称: ${deployment.config.instance_name}`,
+              { duration: 8000 }
+            );
+
+            // 如果支持系统通知，也发送系统通知
+            if (
+              "Notification" in window &&
+              Notification.permission === "granted"
+            ) {
+              new Notification("MaiBot 部署完成", {
+                body: `实例 "${deployment.config.instance_name}" (${deployment.config.version}) 已成功安装`,
+                icon: "/assets/icon.ico",
+              });
+            }
+          } else {
+            // 即使通知被禁用，仍然显示简单的成功消息
+            toastService.success(
+              `MaiBot ${deployment.config.version} 安装成功！`
+            );
+          }
 
           // 停止轮询
           pollingStore.stopPolling(`deploy_status_${deploymentId}`);
@@ -341,7 +364,6 @@ export const useDeployStore = defineStore("deploy", () => {
       }
     }
   };
-
   // 开始部署
   const startDeployment = async (config) => {
     const deploymentId = createDeployment(config);
@@ -354,6 +376,22 @@ export const useDeployStore = defineStore("deploy", () => {
       `🚀 开始安装 MaiBot ${config.version} 实例: ${config.instance_name}`
     );
     toastService.info(`开始安装 MaiBot ${config.version}`);
+
+    // 如果启用了通知且支持系统通知，请求权限
+    const notificationsEnabled =
+      localStorage.getItem("deploymentNotifications") !== "false";
+    if (
+      notificationsEnabled &&
+      "Notification" in window &&
+      Notification.permission === "default"
+    ) {
+      try {
+        await Notification.requestPermission();
+      } catch (error) {
+        console.log("通知权限请求失败:", error);
+      }
+    }
+
     try {
       // 准备部署配置
       addLog(deploymentId, "⚙️ 步骤 1/2: 准备部署配置...", "info");

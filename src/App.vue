@@ -30,10 +30,9 @@
         <component :is="currentComponent" :key="componentKey" />
       </transition>
     </div><!-- 设置抽屉 -->
-    <SettingsDrawer :is-open="isSettingsOpen" @close="closeSettings" />
-
-    <!-- 欢迎弹窗 -->
-    <WelcomeModal :visible="showWelcomeModal" @close="closeWelcomeModal" @dont-show-again="handleDontShowAgain" />
+    <SettingsDrawer :is-open="isSettingsOpen" @close="closeSettings" /> <!-- 欢迎弹窗 -->
+    <WelcomeModal :visible="showWelcomeModal" @close="closeWelcomeModal" @dont-show-again="handleDontShowAgain"
+      @open-settings="openSettingsFromWelcome" />
 
     <!-- 编辑模式覆盖层 - 当任何组件进入编辑模式时显示 -->
     <div v-if="isAnyEditModeActive" class="dashboard-edit-overlay"></div>
@@ -92,6 +91,14 @@ const closeWelcomeModal = () => {
 const handleDontShowAgain = () => {
   localStorage.setItem('welcomeModalDontShow', 'true');
   showWelcomeModal.value = false;
+};
+
+// 从欢迎弹窗打开设置
+const openSettingsFromWelcome = () => {
+  showWelcomeModal.value = false;
+  setTimeout(() => {
+    openSettings('system'); // 默认打开系统设置标签页
+  }, 300);
 };
 
 // 检查是否应该显示欢迎弹窗

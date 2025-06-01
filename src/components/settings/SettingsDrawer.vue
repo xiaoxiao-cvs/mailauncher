@@ -320,6 +320,110 @@
                                 </div>
                             </div>
                         </div>
+                    </div> <!-- 系统设置标签页 -->
+                    <div v-else-if="activeTab === 'system'" class="settings-panel">
+                        <div class="panel-header">
+                            <h3 class="panel-title">系统设置</h3>
+                            <p class="panel-description">配置应用的系统行为和存储路径</p>
+                        </div>
+
+                        <div class="settings-section">
+                            <!-- 数据存储配置 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">数据存储</h4>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">数据存放路径</label>
+                                        <p class="setting-desc">选择MaiBot实例数据的存放位置，建议选择磁盘空间充足的位置</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <div class="data-path-control">
+                                            <div class="flex gap-2 mb-2">
+                                                <input v-model="dataStoragePath" type="text" placeholder="数据存放路径"
+                                                    class="input input-bordered input-sm flex-1" readonly />
+                                                <button @click="selectDataFolder" class="btn btn-outline btn-sm"
+                                                    :disabled="isSelectingFolder">
+                                                    <IconifyIcon v-if="!isSelectingFolder" icon="mdi:folder-open"
+                                                        class="w-4 h-4" />
+                                                    <span v-if="isSelectingFolder"
+                                                        class="loading loading-spinner loading-xs"></span>
+                                                    {{ isSelectingFolder ? '选择中...' : '浏览' }}
+                                                </button>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <IconifyIcon icon="mdi:information" class="w-4 h-4 text-info" />
+                                                <span class="text-xs text-base-content/60">
+                                                    当前路径: {{ dataStoragePath || '未设置' }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">部署下载路径</label>
+                                        <p class="setting-desc">设置新实例安装时的默认下载目录</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <div class="data-path-control">
+                                            <div class="flex gap-2 mb-2">
+                                                <input v-model="deploymentPath" type="text" placeholder="部署下载路径"
+                                                    class="input input-bordered input-sm flex-1" readonly />
+                                                <button @click="selectDeploymentFolder" class="btn btn-outline btn-sm"
+                                                    :disabled="isSelectingDeploymentFolder">
+                                                    <IconifyIcon v-if="!isSelectingDeploymentFolder"
+                                                        icon="mdi:folder-open" class="w-4 h-4" />
+                                                    <span v-if="isSelectingDeploymentFolder"
+                                                        class="loading loading-spinner loading-xs"></span>
+                                                    {{ isSelectingDeploymentFolder ? '选择中...' : '浏览' }}
+                                                </button>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <IconifyIcon icon="mdi:information" class="w-4 h-4 text-info" />
+                                                <span class="text-xs text-base-content/60">
+                                                    当前路径: {{ deploymentPath || '未设置' }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 通知设置 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">通知设置</h4>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">部署完成通知</label>
+                                        <p class="setting-desc">当实例部署完成时显示通知</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" v-model="deploymentNotifications"
+                                                @change="toggleDeploymentNotifications" class="toggle-input" />
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">实例状态变化通知</label>
+                                        <p class="setting-desc">当实例启动、停止或出错时显示通知</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" v-model="instanceNotifications"
+                                                @change="toggleInstanceNotifications" class="toggle-input" />
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- 其他标签页的占位内容 -->
@@ -403,6 +507,16 @@ const themeMode = ref(localStorage.getItem('themeMode') || 'system')
 
 // 系统暗色模式检测
 const systemDarkMode = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+// 数据存放路径相关
+const dataStoragePath = ref('')
+const isSelectingFolder = ref(false)
+const deploymentPath = ref('')
+const isSelectingDeploymentFolder = ref(false)
+
+// 通知设置
+const deploymentNotifications = ref(localStorage.getItem('deploymentNotifications') !== 'false')
+const instanceNotifications = ref(localStorage.getItem('instanceNotifications') !== 'false')
 
 // 外观设置状态
 const isDarkMode = computed(() => {
@@ -493,6 +607,138 @@ const initSystemInfo = () => {
         nodeVersion: process?.versions?.node || 'Unknown',
         userAgent: navigator.userAgent.substring(0, 80) + '...'
     }
+}
+
+// 初始化数据存放路径
+const initDataPath = () => {
+    const savedDataPath = localStorage.getItem('dataStoragePath')
+    const savedDeploymentPath = localStorage.getItem('deploymentPath')
+
+    if (savedDataPath) {
+        dataStoragePath.value = savedDataPath
+    } else {
+        // 设置默认路径
+        const defaultPath = getDefaultDataPath()
+        dataStoragePath.value = defaultPath
+        localStorage.setItem('dataStoragePath', defaultPath)
+    }
+
+    if (savedDeploymentPath) {
+        deploymentPath.value = savedDeploymentPath
+    } else {
+        // 设置默认部署路径
+        const defaultDeployPath = getDefaultDeploymentPath()
+        deploymentPath.value = defaultDeployPath
+        localStorage.setItem('deploymentPath', defaultDeployPath)
+    }
+}
+
+// 获取默认部署路径
+const getDefaultDeploymentPath = () => {
+    // Windows 默认路径
+    if (window.__TAURI_INTERNALS__?.platform === "windows") {
+        return "D:\\MaiBot\\Deployments"
+    }
+    // macOS 默认路径
+    if (window.__TAURI_INTERNALS__?.platform === "macos") {
+        return "~/Documents/MaiBot/Deployments"
+    }
+    // Linux 默认路径
+    return "~/MaiBot/Deployments"
+}
+
+// 获取默认数据路径 (从 folderSelector.js 移植)
+const getDefaultDataPath = () => {
+    // Windows 默认路径
+    if (window.__TAURI_INTERNALS__?.platform === "windows") {
+        return "D:\\MaiBot\\Data"
+    }
+    // macOS 默认路径
+    if (window.__TAURI_INTERNALS__?.platform === "macos") {
+        return "~/Documents/MaiBot/Data"
+    }
+    // Linux 默认路径
+    return "~/MaiBot/Data"
+}
+
+// 选择数据存放文件夹
+const selectDataFolder = async () => {
+    if (isSelectingFolder.value) return
+
+    isSelectingFolder.value = true
+    try {
+        // 动态导入 folderSelector
+        const { selectFolder } = await import('@/utils/folderSelector')
+
+        const selectedPath = await selectFolder({
+            title: '选择数据存放文件夹',
+            defaultPath: dataStoragePath.value || getDefaultDataPath()
+        })
+
+        if (selectedPath) {
+            dataStoragePath.value = selectedPath
+            localStorage.setItem('dataStoragePath', selectedPath)
+
+            // 通知其他组件路径已更改
+            window.dispatchEvent(new CustomEvent('data-path-changed', {
+                detail: { path: selectedPath }
+            }))
+
+            const { default: toastService } = await import('@/services/toastService')
+            toastService.success(`数据存放路径已设置为: ${selectedPath}`)
+        }
+    } catch (error) {
+        console.error('选择文件夹失败:', error)
+        const { default: toastService } = await import('@/services/toastService')
+        toastService.error('选择文件夹失败，请重试')
+    } finally {
+        isSelectingFolder.value = false
+    }
+}
+
+// 选择部署文件夹
+const selectDeploymentFolder = async () => {
+    if (isSelectingDeploymentFolder.value) return
+
+    isSelectingDeploymentFolder.value = true
+    try {
+        // 动态导入 folderSelector
+        const { selectFolder } = await import('@/utils/folderSelector')
+
+        const selectedPath = await selectFolder({
+            title: '选择部署下载文件夹',
+            defaultPath: deploymentPath.value || getDefaultDeploymentPath()
+        })
+
+        if (selectedPath) {
+            deploymentPath.value = selectedPath
+            localStorage.setItem('deploymentPath', selectedPath)
+
+            // 通知其他组件部署路径已更改
+            window.dispatchEvent(new CustomEvent('deployment-path-changed', {
+                detail: { path: selectedPath }
+            }))
+
+            const { default: toastService } = await import('@/services/toastService')
+            toastService.success(`部署下载路径已设置为: ${selectedPath}`)
+        }
+    } catch (error) {
+        console.error('选择文件夹失败:', error)
+        const { default: toastService } = await import('@/services/toastService')
+        toastService.error('选择文件夹失败，请重试')
+    } finally {
+        isSelectingDeploymentFolder.value = false
+    }
+}
+
+// 切换部署完成通知
+const toggleDeploymentNotifications = () => {
+    localStorage.setItem('deploymentNotifications', deploymentNotifications.value.toString())
+}
+
+// 切换实例状态通知
+const toggleInstanceNotifications = () => {
+    localStorage.setItem('instanceNotifications', instanceNotifications.value.toString())
 }
 
 // 主题切换
@@ -826,6 +1072,9 @@ onMounted(() => {
 
     // 初始化系统信息
     initSystemInfo()
+
+    // 初始化数据路径
+    initDataPath()
 
     // 初始化连接状态
     const currentUseMockData = localStorage.getItem('useMockData') === 'true'

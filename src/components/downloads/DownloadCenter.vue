@@ -187,7 +187,7 @@
                                 :disabled="loading || installing">
                                 <option disabled value="">请选择一个版本</option>
                                 <option v-for="version in availableVersions" :key="version" :value="version">{{ version
-                                }}
+                                    }}
                                 </option>
                             </select>
                         </div>
@@ -382,7 +382,7 @@ const currentStep = ref('select-mode'); // 当前步骤: 'select-mode', 'existin
 // 下载新实例相关状态
 const selectedVersion = ref('');
 const instanceName = ref('');
-const installPath = ref('D:\\MaiBot\\MaiBot-1');
+const installPath = ref('');
 const maibotPort = ref('8000');
 const selectedServices = reactive({});
 const servicePorts = reactive({});
@@ -481,6 +481,10 @@ const initializeData = async () => {
         // 初始化服务选择状态和端口
         selectedServices['napcat-ada'] = true; // 默认选中
         servicePorts['napcat-ada'] = '8095'; // 默认端口
+
+        // 初始化部署路径
+        initializeDeploymentPath();
+
         console.log('数据初始化完成');
     } catch (error) {
         console.error('数据初始化失败:', error);
@@ -488,6 +492,39 @@ const initializeData = async () => {
     } finally {
         loading.value = false;
     }
+};
+
+// 初始化部署路径
+const initializeDeploymentPath = () => {
+    // 从本地存储获取部署路径，如果没有则使用默认值
+    const savedDeploymentPath = localStorage.getItem('deploymentPath');
+
+    if (savedDeploymentPath) {
+        // 使用保存的部署路径作为基础路径
+        if (!installPath.value) {
+            installPath.value = `${savedDeploymentPath}\\MaiBot-1`;
+        }
+    } else {
+        // 使用默认路径
+        const defaultPath = getDefaultDeploymentPath();
+        if (!installPath.value) {
+            installPath.value = `${defaultPath}\\MaiBot-1`;
+        }
+    }
+};
+
+// 获取默认部署路径
+const getDefaultDeploymentPath = () => {
+    // Windows 默认路径
+    if (window.__TAURI_INTERNALS__?.platform === "windows") {
+        return "D:\\MaiBot\\Deployments";
+    }
+    // macOS 默认路径
+    if (window.__TAURI_INTERNALS__?.platform === "macos") {
+        return "~/Documents/MaiBot/Deployments";
+    }
+    // Linux 默认路径
+    return "~/MaiBot/Deployments";
 };
 
 // 获取日志类样式
@@ -683,6 +720,9 @@ const addExistingInstance = async () => {
 // 当组件挂载时初始化数据
 onMounted(() => {
     initializeData();
+
+    // 监听部署路径变更事件
+    window.addEventListener('deployment-path-changed', handleDeploymentPathChange);
 });
 
 // 组件卸载时清理资源
@@ -691,7 +731,19 @@ onBeforeUnmount(() => {
     if (deployStore.currentDeployment) {
         deployStore.cleanup();
     }
+
+    // 移除事件监听器
+    window.removeEventListener('deployment-path-changed', handleDeploymentPathChange);
 });
+
+// 处理部署路径变更
+const handleDeploymentPathChange = (event) => {
+    const newPath = event.detail.path;
+    if (newPath && selectedVersion.value) {
+        // 更新安装路径
+        installPath.value = `${newPath}\\MaiBot-${selectedVersion.value}-1`;
+    }
+};
 
 // 监听选择版本变化
 watch(selectedVersion, (newValue) => {
@@ -701,10 +753,9 @@ watch(selectedVersion, (newValue) => {
             instanceName.value = `maibot-${newValue}-1`;
         }
 
-        // 预填充安装路径
-        if (!installPath.value) {
-            installPath.value = `D:\\MaiBot\\MaiBot-${newValue}-1`;
-        }
+        // 根据设置的部署路径预填充安装路径
+        const savedDeploymentPath = localStorage.getItem('deploymentPath') || getDefaultDeploymentPath();
+        installPath.value = `${savedDeploymentPath}\\MaiBot-${newValue}-1`;
     }
 });
 

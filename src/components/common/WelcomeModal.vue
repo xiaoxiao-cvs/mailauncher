@@ -102,9 +102,7 @@
                         <h4 class="font-bold">{{ connectionStatus.title }}</h4>
                         <p class="text-sm">{{ connectionStatus.description }}</p>
                     </div>
-                </div>
-
-                <!-- 技术栈 -->
+                </div> <!-- 技术栈 -->
                 <div class="bg-base-200 rounded-lg p-4">
                     <h5 class="font-semibold mb-2 flex items-center gap-2">
                         <Icon icon="mdi:cog" class="w-4 h-4" />
@@ -120,32 +118,20 @@
                     </div>
                 </div>
 
-                <!-- 数据存放路径设置 -->
+                <!-- 快速设置提示 -->
                 <div class="bg-base-200 rounded-lg p-4">
                     <h5 class="font-semibold mb-3 flex items-center gap-2">
-                        <Icon icon="mdi:folder-cog" class="w-4 h-4" />
-                        数据存放路径
+                        <Icon icon="mdi:cog-outline" class="w-4 h-4" />
+                        快速设置
                     </h5>
-                    <div class="space-y-3">
+                    <div class="space-y-2">
                         <p class="text-sm text-base-content/70">
-                            选择MaiBot实例数据的存放位置，建议选择磁盘空间充足的位置
+                            您可以在设置页面中配置数据存放路径、部署路径等重要选项
                         </p>
-                        <div class="flex gap-2">
-                            <input v-model="dataStoragePath" type="text" placeholder="数据存放路径"
-                                class="input input-bordered input-sm flex-1" readonly />
-                            <button @click="selectDataFolder" class="btn btn-outline btn-sm"
-                                :disabled="isSelectingFolder">
-                                <Icon v-if="!isSelectingFolder" icon="mdi:folder-open" class="w-4 h-4" />
-                                <span v-if="isSelectingFolder" class="loading loading-spinner loading-xs"></span>
-                                {{ isSelectingFolder ? '选择中...' : '浏览' }}
-                            </button>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <Icon icon="mdi:information" class="w-4 h-4 text-info" />
-                            <span class="text-xs text-base-content/60">
-                                当前路径: {{ dataStoragePath || '未设置' }}
-                            </span>
-                        </div>
+                        <button @click="openSettings" class="btn btn-outline btn-sm">
+                            <Icon icon="mdi:settings" class="w-4 h-4" />
+                            打开设置
+                        </button>
                     </div>
                 </div>
             </div>
@@ -176,7 +162,6 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { isMockModeActive } from '@/services/apiService'
-import { selectFolder, getDefaultDataPath, saveDataPath, getSavedDataPath } from '@/utils/folderSelector'
 import toastService from '@/services/toastService'
 
 const props = defineProps({
@@ -186,15 +171,11 @@ const props = defineProps({
     }
 })
 
-const emit = defineEmits(['close', 'dont-show-again'])
+const emit = defineEmits(['close', 'dont-show-again', 'open-settings'])
 
 const dontShowAgain = ref(false)
 const countdown = ref(30)
 let countdownTimer = null
-
-// 数据存放路径相关
-const dataStoragePath = ref('')
-const isSelectingFolder = ref(false)
 
 // 监听弹窗显示状态，启动倒计时
 watch(() => props.visible, (newVisible) => {
@@ -265,39 +246,14 @@ const openDocs = () => {
     window.open('https://github.com/MaiM-with-u/MaiBot', '_blank')
 }
 
-// 选择数据存放文件夹
-const selectDataFolder = async () => {
-    if (isSelectingFolder.value) return
-
-    isSelectingFolder.value = true
-    try {
-        const selectedPath = await selectFolder({
-            title: '选择数据存放文件夹',
-            defaultPath: dataStoragePath.value || getDefaultDataPath()
-        })
-
-        if (selectedPath) {
-            dataStoragePath.value = selectedPath
-            saveDataPath(selectedPath)
-            toastService.success(`数据存放路径已设置为: ${selectedPath}`)
-        }
-    } catch (error) {
-        console.error('选择文件夹失败:', error)
-        toastService.error('选择文件夹失败，请重试')
-    } finally {
-        isSelectingFolder.value = false
-    }
-}
-
-// 初始化数据存放路径
-const initDataPath = () => {
-    const savedPath = getSavedDataPath()
-    dataStoragePath.value = savedPath
+// 打开设置页面
+const openSettings = () => {
+    emit('open-settings')
 }
 
 // 组件挂载时初始化
 onMounted(() => {
-    initDataPath()
+    // 初始化已移至设置页面
 })
 
 // 组件卸载时清理倒计时
