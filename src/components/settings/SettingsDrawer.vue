@@ -143,11 +143,12 @@
                                         <div class="version-details">
                                             <div class="version-item">
                                                 <span class="version-label">前端版本:</span>
-                                                <span class="version-value">0.1.0-preview.2</span>
+                                                <span class="version-value">0.1.0-Preview.1</span>
                                             </div>
                                             <div class="version-item">
                                                 <span class="version-label">后端版本:</span>
                                                 <span class="version-value">0.1.0-preview.2</span>
+                                                <span class="version-value">0.1.0-Preview.2</span>
                                             </div>
                                             <div class="version-item">
                                                 <span class="version-label">构建时间:</span>
