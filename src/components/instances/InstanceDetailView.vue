@@ -820,14 +820,24 @@ const checkAndRestoreTerminalConnection = (terminalType = 'maibot') => {
             }
         }, 1000); // 增加延迟到1秒，减少频繁重连
         return;
-    }
-
-    console.log(`${terminalType} 终端状态检查完成:`, {
+    } console.log(`${terminalType} 终端状态检查完成:`, {
         hasTerm: !!state.term,
         isConnected: state.isConnected,
         isConnecting: state.isConnecting,
         hasDOM: !!terminalContent.value?.querySelector('.xterm')
     });
+};
+
+// 页面可见性监听器函数
+const visibilityChangeHandler = () => {
+    if (document.visibilityState === 'visible') {
+        console.log('页面重新可见，检查终端状态');
+        // 添加防抖，避免频繁触发
+        clearTimeout(visibilityChangeHandler.timer);
+        visibilityChangeHandler.timer = setTimeout(() => {
+            checkAndRestoreTerminalConnection(activeTerminal.value);
+        }, 500); // 增加延迟到500ms，减少频繁触发
+    }
 };
 
 // 组件挂载后的初始化
@@ -941,17 +951,7 @@ onMounted(() => {
                 });
             }
         });
-    }    // 页面可见性监听器函数
-    const visibilityChangeHandler = () => {
-        if (document.visibilityState === 'visible') {
-            console.log('页面重新可见，检查终端状态');
-            // 添加防抖，避免频繁触发
-            clearTimeout(visibilityChangeHandler.timer);
-            visibilityChangeHandler.timer = setTimeout(() => {
-                checkAndRestoreTerminalConnection(activeTerminal.value);
-            }, 500); // 增加延迟到500ms，减少频繁触发
-        }
-    };
+    }
 
     // 添加页面可见性监听，处理页面切换
     document.addEventListener('visibilitychange', visibilityChangeHandler);
