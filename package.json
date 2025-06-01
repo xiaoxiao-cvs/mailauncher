@@ -1,7 +1,7 @@
 {
   "name": "mailauncher",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.0-preview.2",
   "type": "module",
   "scripts": {
     "dev": "vite",

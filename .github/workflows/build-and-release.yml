@@ -287,11 +287,10 @@ jobs:
     # 获取版本信息
     - name: Get version
       id: version
-      run: |
-        if [[ $GITHUB_REF == refs/tags/* ]]; then
+      run: |        if [[ $GITHUB_REF == refs/tags/* ]]; then
           VERSION=${GITHUB_REF#refs/tags/v}
         else
-          VERSION="0.1.0"
+          VERSION="0.1.0-Preview.2"
         fi
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         echo "Version: $VERSION"    # 重命名文件以匹配期望的格式
