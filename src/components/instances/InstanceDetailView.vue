@@ -106,7 +106,7 @@
             </div>
 
             <!-- 右侧终端区域 -->
-            <div class="terminal-container shadow-md"> <!-- 终端标题栏和控制按钮 -->
+            <div class="terminal-container shadow-md">                <!-- 终端标题栏和控制按钮 -->
                 <div class="terminal-header">
                     <div class="flex items-center">
                         <span class="text-primary font-bold">MaiBot</span>
@@ -114,6 +114,14 @@
                         <span class="status-text" :class="{ 'text-success': isRunning, 'text-neutral': !isRunning }">
                             {{ isRunning ? '运行中' : '未运行' }}
                         </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button class="btn btn-xs btn-outline" @click="restartTerminal" title="重启终端">
+                            <Icon icon="mdi:restart" />
+                        </button>
+                        <button class="btn btn-xs btn-ghost" @click="checkAndRestoreTerminalConnection(activeTerminal)" title="检查连接">
+                            <Icon icon="mdi:connection" />
+                        </button>
                     </div>
                 </div>
                 <div class="terminal-tabs">
@@ -170,6 +178,7 @@ const props = defineProps({
 
 const emit = defineEmits(['back']);
 const emitter = inject('emitter', null);
+const showInstanceDetail = inject('showInstanceDetail', ref(true));
 
 // 实例运行状态
 const isRunning = computed(() => props.instance.status === 'running');
@@ -629,41 +638,12 @@ const switchTerminal = (terminalType) => {
             // 延迟初始化WebSocket连接
             setTimeout(() => {
                 initTerminalWebSocket(terminalType);
-            }, 200);
-        } else {
+            }, 200);        } else {
             // 显示已存在的终端
             console.log(`重新渲染已存在的终端: ${terminalType}`);
-            try {
-                newState.term.open(terminalContent.value);
-                console.log(`${terminalType} 终端成功渲染到DOM`);
-
-                // 自适应大小
-                setTimeout(() => {
-                    try {
-                        if (newState.fitAddon) {
-                            newState.fitAddon.fit();
-                            console.log(`${terminalType} 终端大小已调整`);
-                        }
-                    } catch (e) {
-                        console.error("Error fitting terminal on switch:", e);
-                    }
-                }, 100);
-
-                // 如果WebSocket未连接，尝试重新连接
-                if (!newState.isConnected && !newState.isConnecting) {
-                    console.log(`重新连接 ${terminalType} 终端WebSocket`);
-                    setTimeout(() => {
-                        initTerminalWebSocket(terminalType);
-                    }, 200);
-                }
-            } catch (e) {
-                console.error(`渲染终端失败: ${terminalType}`, e);
-                // 如果渲染失败，重新初始化
-                initXterm(terminalType);
-                setTimeout(() => {
-                    initTerminalWebSocket(terminalType);
-                }, 200);
-            }
+            
+            // 使用新的状态检查和恢复方法
+            checkAndRestoreTerminalConnection(terminalType);
         }
     });
 };
@@ -723,15 +703,139 @@ const handleResize = () => {
     }
 };
 
+// 检查并恢复终端连接状态
+const checkAndRestoreTerminalConnection = (terminalType = 'maibot') => {
+    const state = terminalStates.value[terminalType];
+    
+    if (!state.term) {
+        console.log(`${terminalType} 终端实例不存在，重新初始化`);
+        initXterm(terminalType);
+        return;
+    }
+    
+    // 检查WebSocket连接状态，但要避免频繁重连
+    if (!state.isConnected && !state.isConnecting) {
+        // 添加防抖机制，避免频繁重连
+        if (checkAndRestoreTerminalConnection.timers) {
+            clearTimeout(checkAndRestoreTerminalConnection.timers[terminalType]);
+        } else {
+            checkAndRestoreTerminalConnection.timers = {};
+        }
+        
+        checkAndRestoreTerminalConnection.timers[terminalType] = setTimeout(() => {
+            // 二次检查状态，避免竞态条件
+            const currentState = terminalStates.value[terminalType];
+            if (!currentState.isConnected && !currentState.isConnecting) {
+                console.log(`${terminalType} 终端WebSocket未连接，尝试重新连接`);
+                initTerminalWebSocket(terminalType);
+            } else {
+                console.log(`${terminalType} 终端WebSocket状态已恢复，跳过重连`);
+            }
+        }, 1000); // 增加延迟到1秒，减少频繁重连
+        return;
+    }
+    
+    // 如果终端已连接但没有在DOM中渲染，重新渲染
+    if (state.isConnected && state.term && terminalContent.value) {
+        const hasTerminalContent = terminalContent.value.querySelector('.xterm');
+        if (!hasTerminalContent) {
+            console.log(`${terminalType} 终端已连接但未渲染，重新渲染到DOM`);
+            try {
+                state.term.open(terminalContent.value);
+                setTimeout(() => {
+                    try {
+                        if (state.fitAddon) {
+                            state.fitAddon.fit();
+                        }
+                    } catch (e) {
+                        console.error("Error fitting terminal on restore:", e);
+                    }
+                }, 100);
+            } catch (e) {
+                console.error(`重新渲染 ${terminalType} 终端失败:`, e);
+                // 如果渲染失败，重新初始化（但延迟执行）
+                setTimeout(() => {
+                    initXterm(terminalType);
+                    setTimeout(() => {
+                        initTerminalWebSocket(terminalType);
+                    }, 200);
+                }, 500);
+            }
+        }
+    }
+    
+    console.log(`${terminalType} 终端状态检查完成:`, {
+        hasTerm: !!state.term,
+        isConnected: state.isConnected,
+        isConnecting: state.isConnecting,
+        hasDOM: !!terminalContent.value?.querySelector('.xterm')
+    });
+};
+
 // 组件挂载后的初始化
 onMounted(() => {
     console.log('InstanceDetailView 组件已挂载，实例:', props.instance);
 
-    // 初始化默认终端 (MaiBot)
-    initXterm('maibot');
+    // 延迟初始化，确保DOM已渲染
+    nextTick(() => {
+        // 初始化默认终端 (MaiBot)
+        initXterm('maibot');
 
-    // 初始化MaiBot终端连接
-    initTerminalWebSocket('maibot');
+        // 初始化MaiBot终端连接
+        setTimeout(() => {
+            initTerminalWebSocket('maibot');
+        }, 200);
+
+        // 如果有napcat-ada服务，预创建终端但不连接
+        if (hasNapcatAdaService.value) {
+            setTimeout(() => {
+                // 预创建napcat-ada终端实例
+                const napcatState = terminalStates.value['napcat-ada'];
+                if (!napcatState.term) {
+                    // 创建xterm实例但不渲染到DOM
+                    napcatState.term = new Terminal({
+                        cursorBlink: true,
+                        convertEol: true,
+                        fontFamily: '"Cascadia Code", "Fira Code", Consolas, "Courier New", monospace',
+                        fontSize: 14,
+                        theme: {
+                            background: '#1e1e1e',
+                            foreground: '#d4d4d4',
+                            cursor: '#ffffff',
+                            selectionBackground: '#555555',
+                        },
+                        allowProposedApi: true
+                    });
+
+                    // 加载插件
+                    napcatState.fitAddon = new FitAddon();
+                    napcatState.term.loadAddon(napcatState.fitAddon);
+                    napcatState.term.loadAddon(new WebLinksAddon());
+                    napcatState.term.loadAddon(new Unicode11Addon());
+
+                    // 设置事件处理
+                    napcatState.term.onData(data => {
+                        if (napcatState.isConnected && napcatState.websocket) {
+                            napcatState.websocket.send({
+                                type: 'input',
+                                data: data
+                            });
+                        }
+                    });
+
+                    napcatState.term.onResize(size => {
+                        if (napcatState.isConnected && napcatState.websocket) {
+                            napcatState.websocket.send({
+                                type: 'resize',
+                                cols: size.cols,
+                                rows: size.rows
+                            });
+                        }
+                    });
+                }
+            }, 300);
+        }
+    });
 
     // 如果有napcat-ada服务，预创建终端实例（但不渲染到DOM）
     if (hasNapcatAdaService.value) {
@@ -778,8 +882,20 @@ onMounted(() => {
                     rows: size.rows
                 });
             }
-        });
-    }
+        });    }    // 页面可见性监听器函数
+    const visibilityChangeHandler = () => {
+        if (document.visibilityState === 'visible') {
+            console.log('页面重新可见，检查终端状态');
+            // 添加防抖，避免频繁触发
+            clearTimeout(visibilityChangeHandler.timer);
+            visibilityChangeHandler.timer = setTimeout(() => {
+                checkAndRestoreTerminalConnection(activeTerminal.value);
+            }, 500); // 增加延迟到500ms，减少频繁触发
+        }
+    };
+
+    // 添加页面可见性监听，处理页面切换
+    document.addEventListener('visibilitychange', visibilityChangeHandler);
 
     // 添加窗口大小调整监听
     window.addEventListener('resize', handleResize);
@@ -787,8 +903,34 @@ onMounted(() => {
 
 // 组件卸载时清理
 onUnmounted(() => {
-    console.log('InstanceDetailView 组件即将卸载，清理WebSocket连接');
-    closeTerminalConnection(); // 关闭所有终端连接
+    console.log('InstanceDetailView 组件即将卸载');
+    
+    // 清理页面可见性监听器 - 移除在mounted中添加的监听器
+    document.removeEventListener('visibilitychange', visibilityChangeHandler);
+    
+    // 清理防抖计时器
+    if (visibilityChangeHandler.timer) {
+        clearTimeout(visibilityChangeHandler.timer);
+    }
+    
+    // 清理终端连接恢复的计时器
+    if (checkAndRestoreTerminalConnection.timers) {
+        Object.values(checkAndRestoreTerminalConnection.timers).forEach(timer => {
+            clearTimeout(timer);
+        });
+    }
+
+    // 不立即清理WebSocket连接，而是延迟清理，给页面切换留出时间
+    setTimeout(() => {
+        // 只有在真正离开实例管理页面时才清理连接
+        const currentPath = window.location.hash || window.location.pathname;
+        if (!currentPath.includes('instances') && !showInstanceDetail.value) {
+            console.log('离开实例管理页面，清理WebSocket连接');
+            closeTerminalConnection();
+        } else {
+            console.log('仍在实例管理页面，保持WebSocket连接');
+        }
+    }, 1000); // 1秒延迟，给页面切换留出时间
 
     // 移除窗口大小调整监听
     window.removeEventListener('resize', handleResize);
@@ -816,6 +958,12 @@ watch(() => props.instance, (newInstance, oldInstance) => {
             setTimeout(() => {
                 initTerminalWebSocket('maibot');
             }, 500);
+        });
+    } else if (newInstance?.id === oldInstance?.id) {
+        // 相同实例，检查并恢复终端状态
+        console.log('相同实例，检查终端状态');
+        nextTick(() => {
+            checkAndRestoreTerminalConnection(activeTerminal.value);
         });
     }
 }, { deep: true });

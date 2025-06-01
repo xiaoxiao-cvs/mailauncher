@@ -20,7 +20,7 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, inject, onMounted, onBeforeUnmount, computed, provide } from 'vue';
 import InstancesList from './instances/InstancesList.vue';
 import InstanceSettingsDrawer from './settings/InstanceSettingsDrawer.vue';
 import InstanceDetailView from './instances/InstanceDetailView.vue';
@@ -44,6 +44,9 @@ const currentInstance = ref({
   status: 'stopped'
 });
 const initialSettingsTab = ref('basic'); // 新增：用于记录实例设置的初始标签页
+
+// 提供showInstanceDetail状态给子组件
+provide('showInstanceDetail', showInstanceDetail);
 
 // 计算属性获取当前主题
 const currentTheme = computed(() => {
@@ -143,6 +146,8 @@ const openInstanceDetail = (instance) => {
 // 关闭实例详情
 const closeInstanceDetail = () => {
   showInstanceDetail.value = false;
+  // 保持WebSocket连接活跃，不清理连接
+  console.log('关闭实例详情页面，保持WebSocket连接');
 };
 
 // 打开实例设置

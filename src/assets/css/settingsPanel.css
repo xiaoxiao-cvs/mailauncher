@@ -144,3 +144,58 @@
 .dialog-actions {
   @apply flex justify-end gap-2 mt-4;
 }
+
+/* 连接控制样式 */
+.connection-controls {
+  @apply flex flex-col gap-3 w-full;
+}
+
+.connection-status {
+  @apply flex items-center justify-start;
+}
+
+.connection-buttons {
+  @apply flex gap-2 justify-start;
+}
+
+.status-badge {
+  @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200;
+}
+
+.status-connected {
+  @apply bg-success/20 text-success border border-success/30;
+}
+
+.status-mock {
+  @apply bg-warning/20 text-warning border border-warning/30;
+}
+
+.status-error {
+  @apply bg-error/20 text-error border border-error/30;
+}
+
+.status-checking {
+  @apply bg-info/20 text-info border border-info/30;
+}
+
+.status-inactive {
+  @apply bg-base-300 text-base-content/70 border border-base-300;
+}
+
+.status-active {
+  @apply bg-primary/20 text-primary border border-primary/30;
+}
+
+/* 状态指示器动画 */
+.status-checking .iconify {
+  @apply animate-spin;
+}
+
+/* 连接按钮样式增强 */
+.connection-buttons .btn {
+  @apply min-w-[100px];
+}
+
+.connection-buttons .btn.loading {
+  @apply cursor-not-allowed opacity-70;
+}

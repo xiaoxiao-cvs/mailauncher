@@ -3,6 +3,25 @@
  */
 
 /**
+ * 状态映射 - 将后端中文状态转换为前端英文状态
+ * @param {string} chineseStatus - 后端返回的中文状态
+ * @returns {string} - 前端期望的英文状态
+ */
+const mapChineseStatusToEnglish = (chineseStatus) => {
+  const statusMap = {
+    运行中: "running",
+    已停止: "stopped",
+    启动中: "starting",
+    停止中: "stopping",
+    维护中: "maintenance",
+    未运行: "stopped",
+  };
+
+  // 如果是中文状态，进行转换；如果已经是英文或未知状态，保持原样
+  return statusMap[chineseStatus] || chineseStatus;
+};
+
+/**
  * 适配实例数据 - 处理后端数据格式不一致的问题
  * @param {Object} instance - 后端返回的实例数据
  * @returns {Object} - 适配后的实例数据
@@ -24,7 +43,7 @@ export const adaptInstanceData = (instance) => {
   return {
     id: instance.id || instance.instance_id,
     name: instance.name,
-    status: instance.status,
+    status: mapChineseStatusToEnglish(instance.status), // 应用状态映射
     // 使用 created_at 作为 installedAt 的回退
     installedAt: formatDateIfExists(
       instance.installedAt || instance.created_at

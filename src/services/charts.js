@@ -1,4 +1,5 @@
 import * as echarts from "echarts";
+import { defaultEChartsOptions } from "../config/echartsConfig.js";
 
 /**
  * 初始化CPU使用率图表
@@ -9,7 +10,7 @@ import * as echarts from "echarts";
  * @returns {echarts.ECharts} 图表实例
  */
 export const initCpuChart = (container, data, timeLabels, isDarkMode) => {
-  const chart = echarts.init(container);
+  const chart = echarts.init(container, null, defaultEChartsOptions);
   const option = {
     animation: false,
     title: {
@@ -96,6 +97,7 @@ export const initMemoryChart = (
     console.error("echarts is not defined");
     return null;
   }
+  const chart = echarts.init(container, null, defaultEChartsOptions);
 
   const option = {
     animation: false,
@@ -161,7 +163,8 @@ export const initMemoryChart = (
       : "hsl(var(--b1) / 0.6)",
   };
 
-  return option;
+  chart.setOption(option);
+  return chart;
 };
 
 /**
@@ -180,7 +183,7 @@ export const initNetworkChart = (
   maxNetworkKBs,
   isDarkMode
 ) => {
-  const chart = echarts.init(container);
+  const chart = echarts.init(container, null, defaultEChartsOptions);
   const option = {
     animation: false,
     title: {
@@ -260,7 +263,7 @@ export const initNetworkChart = (
  * @returns {echarts.ECharts} 图表实例
  */
 export const initMessageChart = (container, data, labels, isDarkMode) => {
-  const chart = echarts.init(container);
+  const chart = echarts.init(container, null, defaultEChartsOptions);
   const option = {
     tooltip: {
       trigger: "axis",

@@ -156,6 +156,7 @@
 import { ref, onMounted, inject, watch, onBeforeUnmount, nextTick, computed } from 'vue';
 import * as echarts from 'echarts';
 import { initMessageChart } from '../services/charts';
+import { defaultEChartsOptions } from '../config/echartsConfig.js';
 import { adaptInstancesList, adaptInstancesListWithUptime } from '../utils/apiAdapters';
 
 // 导入优化的状态管理
@@ -268,7 +269,8 @@ const initCharts = () => {
   nextTick(() => {
     // 消息图表
     if (messageChartRef.value && !messageChart.value) {
-      messageChart.value = echarts.init(messageChartRef.value);
+      // 使用全局配置创建 ECharts 实例
+      messageChart.value = echarts.init(messageChartRef.value, null, defaultEChartsOptions);
       updateMessageChart();
     }
   });

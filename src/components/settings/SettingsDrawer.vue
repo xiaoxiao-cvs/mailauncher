@@ -230,6 +230,96 @@
                                 </div>
                             </div>
                         </div>
+                    </div> <!-- 高级设置 -->
+                    <div v-else-if="activeTab === 'advanced'" class="settings-panel">
+                        <div class="panel-header">
+                            <h3 class="panel-title">高级设置</h3>
+                            <p class="panel-description">配置高级功能和调试选项</p>
+                        </div>
+
+                        <div class="settings-section">
+                            <!-- 模拟数据控制 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">数据源设置</h4>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">强制禁用模拟数据</label>
+                                        <p class="setting-desc">启用后，即使后端连接失败也不会使用模拟数据。适合生产环境使用。</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" v-model="forceMockDisabled"
+                                                @change="toggleForceMockDisabled" class="toggle-input" />
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">当前模拟数据状态</label>
+                                        <p class="setting-desc">显示当前应用是否正在使用模拟数据</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <div class="status-indicator">
+                                            <span
+                                                :class="['status-badge', isMockDataActive ? 'status-active' : 'status-inactive']">
+                                                {{ isMockDataActive ? '使用模拟数据' : '使用真实数据' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 调试设置 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">调试设置</h4>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">后端连接状态</label>
+                                        <p class="setting-desc">手动检查后端服务器连接状态，支持自动重连</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <div class="connection-controls">
+                                            <div class="connection-status">
+                                                <span :class="['status-badge', backendConnectionStatus]">
+                                                    <IconifyIcon :icon="connectionStatusIcon" />
+                                                    {{ connectionStatusText }}
+                                                </span>
+                                            </div>
+                                            <div class="connection-buttons">
+                                                <button class="btn btn-outline btn-sm" @click="checkBackendConnection"
+                                                    :class="{ 'loading': isCheckingConnection }"
+                                                    :disabled="isCheckingConnection">
+                                                    <IconifyIcon v-if="!isCheckingConnection" icon="mdi:refresh" />
+                                                    {{ isCheckingConnection ? '检查中...' : '重新检查' }}
+                                                </button>
+                                                <button v-if="!isConnected && !forceMockDisabled"
+                                                    class="btn btn-primary btn-sm" @click="attemptReconnection"
+                                                    :class="{ 'loading': isReconnecting }" :disabled="isReconnecting">
+                                                    <IconifyIcon v-if="!isReconnecting" icon="mdi:connection" />
+                                                    {{ isReconnecting ? '重连中...' : '尝试重连' }}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">清除本地缓存</label>
+                                        <p class="setting-desc">清除应用的本地存储和缓存数据</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <button class="btn btn-outline btn-sm btn-warning" @click="clearLocalData">
+                                            <IconifyIcon icon="mdi:delete-sweep" />
+                                            清除缓存
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- 其他标签页的占位内容 -->
@@ -325,6 +415,41 @@ const isDarkMode = computed(() => {
 const enableAnimations = ref(localStorage.getItem('enableAnimations') !== 'false')
 const fontSize = ref(parseInt(localStorage.getItem('fontSize') || '14'))
 const layoutDensity = ref(localStorage.getItem('layoutDensity') || 'comfortable')
+
+// 高级设置状态
+const forceMockDisabled = ref(localStorage.getItem('forceMockDisabled') === 'true')
+const isCheckingConnection = ref(false)
+const isReconnecting = ref(false)
+const isConnected = ref(false)
+const lastConnectionCheck = ref(null)
+
+// 计算属性：后端连接状态
+const backendConnectionStatus = computed(() => {
+    if (isCheckingConnection.value || isReconnecting.value) return 'status-checking'
+    if (isConnected.value) return 'status-connected'
+    if (forceMockDisabled.value) return 'status-error'
+    return 'status-mock'
+})
+
+const connectionStatusIcon = computed(() => {
+    if (isCheckingConnection.value || isReconnecting.value) return 'mdi:loading'
+    if (isConnected.value) return 'mdi:check-circle'
+    if (forceMockDisabled.value) return 'mdi:alert-circle'
+    return 'mdi:database'
+})
+
+const connectionStatusText = computed(() => {
+    if (isCheckingConnection.value) return '检查中...'
+    if (isReconnecting.value) return '重连中...'
+    if (isConnected.value) return '已连接后端'
+    if (forceMockDisabled.value) return '连接失败'
+    return '使用模拟数据'
+})
+
+// 计算属性：检查当前是否使用模拟数据
+const isMockDataActive = computed(() => {
+    return localStorage.getItem('useMockData') === 'true'
+})
 
 // 关于页面数据
 const buildDate = ref('2025-01-01 12:00:00')
@@ -504,12 +629,172 @@ const resetSettings = () => {
         enableAnimations.value = true
         fontSize.value = 14
         layoutDensity.value = 'comfortable'
+        forceMockDisabled.value = false
 
         // 应用设置
         changeThemeMode()
         toggleAnimations()
         changeFontSize()
         setLayoutDensity('comfortable')
+        toggleForceMockDisabled()
+    }
+}
+
+// 高级设置方法
+const toggleForceMockDisabled = () => {
+    localStorage.setItem('forceMockDisabled', forceMockDisabled.value.toString())
+
+    if (forceMockDisabled.value) {
+        // 强制禁用模拟数据，立即关闭模拟数据模式
+        localStorage.setItem('useMockData', 'false')
+        console.log('模拟数据功能已被强制禁用')
+
+        // 通知用户
+        import('../../services/toastService').then(({ default: toastService }) => {
+            toastService.info('模拟数据功能已禁用，应用将只使用真实后端数据')
+        })
+    } else {
+        console.log('模拟数据功能禁用已解除')
+
+        // 通知用户
+        import('../../services/toastService').then(({ default: toastService }) => {
+            toastService.info('模拟数据功能禁用已解除，后端连接失败时将自动启用模拟数据')
+        })
+    }
+}
+
+const checkBackendConnection = async () => {
+    isCheckingConnection.value = true
+    lastConnectionCheck.value = new Date()
+
+    try {
+        // 动态导入需要的服务
+        const [{ default: apiService }, { default: toastService }] = await Promise.all([
+            import('../../services/apiService'),
+            import('../../services/toastService')
+        ])
+
+        console.log('开始检查后端连接...')
+        const connected = await apiService.testBackendConnection()
+        isConnected.value = connected
+
+        if (connected) {
+            toastService.success('后端连接正常')
+            localStorage.setItem('useMockData', 'false')
+
+            // 通知App.vue更新状态
+            window.dispatchEvent(new CustomEvent('backend-connection-changed', {
+                detail: { connected: true, useMockData: false }
+            }))
+        } else {
+            if (!forceMockDisabled.value) {
+                localStorage.setItem('useMockData', 'true')
+                toastService.warning('后端连接失败，已启用模拟数据模式')
+
+                // 通知App.vue更新状态
+                window.dispatchEvent(new CustomEvent('backend-connection-changed', {
+                    detail: { connected: false, useMockData: true }
+                }))
+            } else {
+                toastService.error('后端连接失败，且模拟数据功能已被禁用')
+
+                // 通知App.vue更新状态
+                window.dispatchEvent(new CustomEvent('backend-connection-changed', {
+                    detail: { connected: false, useMockData: false }
+                }))
+            }
+        }
+    } catch (error) {
+        console.error('检查后端连接时出错:', error)
+        isConnected.value = false
+        const { default: toastService } = await import('../../services/toastService')
+        toastService.error('检查连接时出错: ' + error.message)
+    } finally {
+        isCheckingConnection.value = false
+    }
+}
+
+const attemptReconnection = async () => {
+    isReconnecting.value = true
+
+    try {
+        const [{ default: apiService }, { default: toastService }] = await Promise.all([
+            import('../../services/apiService'),
+            import('../../services/toastService')
+        ])
+
+        console.log('开始尝试重连后端...')
+        toastService.info('正在尝试重新连接后端服务...')
+
+        // 尝试多次连接
+        const maxRetries = 3
+        let connected = false
+
+        for (let i = 0; i < maxRetries && !connected; i++) {
+            console.log(`重连尝试 ${i + 1}/${maxRetries}`)
+
+            if (i > 0) {
+                // 等待一段时间后再试
+                await new Promise(resolve => setTimeout(resolve, 2000))
+            }
+
+            connected = await apiService.testBackendConnection()
+
+            if (connected) {
+                isConnected.value = true
+                localStorage.setItem('useMockData', 'false')
+                toastService.success('重连成功！已连接到后端服务')
+
+                // 通知App.vue更新状态
+                window.dispatchEvent(new CustomEvent('backend-connection-changed', {
+                    detail: { connected: true, useMockData: false }
+                }))
+                break
+            }
+        }
+
+        if (!connected) {
+            isConnected.value = false
+            toastService.error(`重连失败，已尝试 ${maxRetries} 次`)
+        }
+
+    } catch (error) {
+        console.error('重连时出错:', error)
+        isConnected.value = false
+        const { default: toastService } = await import('../../services/toastService')
+        toastService.error('重连时出错: ' + error.message)
+    } finally {
+        isReconnecting.value = false
+    }
+}
+
+const clearLocalData = async () => {
+    if (confirm('确定要清除所有本地缓存数据吗？这将清除设置、缓存和历史记录。')) {
+        try {
+            // 保存重要设置
+            const themeModeBak = themeMode.value
+            const forceMockDisabledBak = forceMockDisabled.value
+
+            // 清除localStorage
+            localStorage.clear()
+
+            // 恢复重要设置
+            localStorage.setItem('themeMode', themeModeBak)
+            localStorage.setItem('forceMockDisabled', forceMockDisabledBak.toString())
+
+            // 通知用户
+            const { default: toastService } = await import('../../services/toastService')
+            toastService.success('本地缓存已清除')
+
+            // 刷新页面以重新初始化
+            setTimeout(() => {
+                window.location.reload()
+            }, 1000)
+        } catch (error) {
+            console.error('清除缓存时出错:', error)
+            const { default: toastService } = await import('../../services/toastService')
+            toastService.error('清除缓存失败: ' + error.message)
+        }
     }
 }
 
@@ -541,6 +826,10 @@ onMounted(() => {
 
     // 初始化系统信息
     initSystemInfo()
+
+    // 初始化连接状态
+    const currentUseMockData = localStorage.getItem('useMockData') === 'true'
+    isConnected.value = !currentUseMockData
 
     // 从设置服务获取当前标签页
     const currentTab = settingsService.getTab()

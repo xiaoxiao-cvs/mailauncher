@@ -14,7 +14,9 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_opener::init()).setup(|app| {
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
             // 在 externalBin 配置下，Tauri 会处理不同平台的二进制文件
             // 开发模式和生产模式下都使用相同的逻辑
             let backend_exe = if cfg!(dev) {

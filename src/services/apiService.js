@@ -3,6 +3,13 @@ import backendConfig from "../config/backendConfig.js";
 
 // 检查是否应该使用模拟模式
 export const isMockModeActive = () => {
+  // 如果用户强制禁用了模拟数据，则永远不使用模拟模式
+  const forceMockDisabled =
+    localStorage.getItem("forceMockDisabled") === "true";
+  if (forceMockDisabled) {
+    return false;
+  }
+
   return (
     localStorage.getItem("useMockData") === "true" ||
     window._useMockData === true
@@ -50,8 +57,13 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error("API 请求错误:", error); // 检查是否需要使用模拟数据
-    if (isMockModeActive()) {
+    console.error("API 请求错误:", error);
+
+    // 检查是否需要使用模拟数据 - 但要考虑强制禁用的情况
+    const forceMockDisabled =
+      localStorage.getItem("forceMockDisabled") === "true";
+
+    if (isMockModeActive() && !forceMockDisabled) {
       console.log("使用模拟数据响应请求");
       const url = error.config.url;
       const method = error.config.method;

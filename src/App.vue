@@ -1,14 +1,20 @@
-<template>
-  <!-- 修复：移除直接访问window，改用计算属性 -->
+<template> <!-- 修复：移除直接访问window，改用计算属性 -->
   <div v-if="isMockMode" class="backend-offline-warning">
     <div class="alert alert-warning shadow-lg max-w-md mx-auto">
-      <div>
-        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none"
-          viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-        </svg>
-        <span>后端连接失败，当前使用模拟数据</span>
+      <div class="flex items-center justify-between w-full">
+        <div class="flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none"
+            viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span>后端连接失败，当前使用模拟数据</span>
+        </div>
+        <button class="btn btn-sm btn-ghost" @click="quickReconnect" :class="{ 'loading': isQuickReconnecting }"
+          title="快速重连">
+          <IconifyIcon v-if="!isQuickReconnecting" icon="mdi:refresh" />
+          {{ isQuickReconnecting ? '重连中...' : '重连' }}
+        </button>
       </div>
     </div>
   </div>
@@ -44,6 +50,7 @@ import SettingsDrawer from './components/settings/SettingsDrawer.vue'
 import WelcomeModal from './components/common/WelcomeModal.vue'
 import PluginsView from './views/PluginsView.vue'
 import ChatRoom from './components/chat/ChatRoom.vue' // 导入聊天室组件
+import IconifyIcon from './components/common/IconifyIcon.vue' // 导入图标组件
 import settingsService from './services/settingsService'
 import { initTheme, applyThemeColor, useDarkMode } from './services/theme'
 import toastService from './services/toastService';
@@ -54,6 +61,9 @@ import { usePollingStore } from './stores/pollingStore';
 
 // 添加模拟模式状态
 const useMockData = ref(localStorage.getItem("useMockData") === "true");
+
+// 快速重连状态
+const isQuickReconnecting = ref(false);
 
 // 添加计算属性，替代直接访问window属性
 const isMockMode = computed(() => useMockData.value);
@@ -410,16 +420,52 @@ onMounted(() => {
   // 添加主题变化监听 - 移除以防止无限循环
   // emitter.on('theme-changed', (themeName) => {
   //   changeTheme(themeName);
-  // });
-  // 应用初始化
-  checkApiConnection().then(() => {
-    console.log("应用初始化完成：使用模拟数据模式");
-  });
+  // });  // 应用初始化 - 仅在用户未强制禁用模拟数据时进行连接检查
+  const forceMockDisabled = localStorage.getItem("forceMockDisabled") === "true";
+  if (!forceMockDisabled) {
+    checkApiConnection().then(() => {
+      console.log("应用初始化完成");
+    });
+  } else {
+    // 用户强制禁用模拟数据，直接设置为不使用模拟数据
+    localStorage.setItem("useMockData", "false");
+    useMockData.value = false;
+    console.log("应用初始化完成：模拟数据功能已被用户强制禁用");
+  }
 
   // 初始化轮询系统
   console.log("正在初始化轮询系统...");
   pollingStore.initializeDefaultPolling();
   console.log("轮询系统初始化完成");
+  // 监听localStorage变化，特别是forceMockDisabled和useMockData的变化
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'forceMockDisabled') {
+      const newValue = e.newValue === 'true';
+      console.log('forceMockDisabled设置变更:', newValue);
+
+      if (newValue) {
+        // 强制禁用模拟数据
+        localStorage.setItem("useMockData", "false");
+        useMockData.value = false;
+      }
+    } else if (e.key === 'useMockData') {
+      const newValue = e.newValue === 'true';
+      console.log('useMockData设置变更:', newValue);
+      useMockData.value = newValue;
+    }
+  });
+
+  // 监听后端连接状态变化事件（从设置面板触发）
+  window.addEventListener('backend-connection-changed', (e) => {
+    const { connected, useMockData: shouldUseMockData } = e.detail;
+    console.log('接收到后端连接状态变化:', { connected, useMockData: shouldUseMockData });
+
+    // 更新本地状态
+    if (shouldUseMockData !== undefined) {
+      localStorage.setItem("useMockData", shouldUseMockData.toString());
+      useMockData.value = shouldUseMockData;
+    }
+  });
 
   // 监听系统深色模式变化
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
@@ -692,10 +738,13 @@ onBeforeUnmount(() => {
   window.removeEventListener('theme-reset', () => { });
 });
 
-// 检查API连接 - 更新为使用实际后端连接检测
+// 检查API连接 - 更新为支持强制禁用模拟数据
 const checkApiConnection = async () => {
   console.log("检查后端连接...");
   console.log(`后端地址: ${backendConfig.getBackendUrl()}`);
+
+  // 检查用户是否强制禁用了模拟数据
+  const forceMockDisabled = localStorage.getItem("forceMockDisabled") === "true";
 
   try {
     // 尝试连接到health端点
@@ -711,18 +760,55 @@ const checkApiConnection = async () => {
       throw new Error("连接测试失败");
     }
   } catch (error) {
-    console.warn("无法连接到后端服务，将使用模拟数据:", error);
+    console.warn("无法连接到后端服务:", error);
 
-    // 自动切换到模拟数据模式
-    localStorage.setItem("useMockData", "true");
-    useMockData.value = true;
+    // 只有在用户未强制禁用模拟数据时，才自动切换到模拟数据模式
+    if (!forceMockDisabled) {
+      localStorage.setItem("useMockData", "true");
+      useMockData.value = true;
 
-    // 显示提示
-    setTimeout(() => {
-      toastService.warning("无法连接到后端服务，应用将使用模拟数据");
-    }, 1500);
+      setTimeout(() => {
+        toastService.warning("无法连接到后端服务，应用将使用模拟数据");
+      }, 1500);
+    } else {
+      // 用户强制禁用模拟数据，保持为false
+      localStorage.setItem("useMockData", "false");
+      useMockData.value = false;
+
+      setTimeout(() => {
+        toastService.error("后端服务连接失败，且模拟数据功能已被禁用");
+      }, 1500);
+    }
 
     return false;
+  }
+};
+
+// 快速重连方法 - 供顶部警告栏使用
+const quickReconnect = async () => {
+  if (isQuickReconnecting.value) return;
+
+  isQuickReconnecting.value = true;
+
+  try {
+    console.log('开始快速重连...');
+    toastService.info('正在尝试重新连接后端服务...');
+
+    const connected = await apiService.testBackendConnection();
+
+    if (connected) {
+      console.log("快速重连成功!");
+      localStorage.setItem("useMockData", "false");
+      useMockData.value = false;
+      toastService.success("重连成功！已连接到后端服务");
+    } else {
+      toastService.error('重连失败，请检查后端服务是否正常运行');
+    }
+  } catch (error) {
+    console.error('快速重连失败:', error);
+    toastService.error('重连失败: ' + error.message);
+  } finally {
+    isQuickReconnecting.value = false;
   }
 };
 

@@ -77,3 +77,25 @@
 [data-theme] {
   transition: var(--transition-theme);
 }
+
+/* 后端离线警告栏样式 */
+.backend-offline-warning {
+  @apply fixed top-0 left-0 right-0 z-50 p-4;
+}
+
+.backend-offline-warning .alert {
+  @apply relative;
+}
+
+.backend-offline-warning .btn {
+  @apply ml-4 text-xs;
+}
+
+.backend-offline-warning .btn.loading {
+  @apply opacity-70 cursor-not-allowed;
+}
+
+/* 确保警告栏在所有内容之上但在模态框之下 */
+.backend-offline-warning {
+  z-index: 40;
+}

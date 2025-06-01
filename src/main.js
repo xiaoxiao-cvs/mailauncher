@@ -2,6 +2,26 @@
 import setupNodePolyfills from "./utils/node-polyfill.js";
 setupNodePolyfills();
 
+// 全局配置被动事件监听器以提高页面响应性
+// 这将解决 ECharts 和其他库的滚轮事件监听器警告
+if (typeof window !== "undefined") {
+  // 重写 addEventListener 方法来默认使用被动监听器
+  const originalAddEventListener = EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener = function (type, listener, options) {
+    // 对于滚轮相关事件，默认使用被动监听器
+    if (["wheel", "mousewheel", "touchstart", "touchmove"].includes(type)) {
+      if (typeof options === "boolean") {
+        options = { capture: options, passive: true };
+      } else if (typeof options === "object" && options !== null) {
+        options = { ...options, passive: true };
+      } else {
+        options = { passive: true };
+      }
+    }
+    return originalAddEventListener.call(this, type, listener, options);
+  };
+}
+
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 import App from "./App.vue";
