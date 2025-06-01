@@ -92,7 +92,11 @@ export const getDefaultDeploymentPath = () => {
 export const generateInstancePath = (instanceName, version) => {
   const basePath = getDeploymentPath();
   const safeName = instanceName.replace(/[^a-zA-Z0-9\-_]/g, "-");
-  return `${basePath}\\${safeName}-${version}`;
+
+  // 根据平台使用正确的路径分隔符
+  const separator =
+    window.__TAURI_INTERNALS__?.platform === "windows" ? "\\" : "/";
+  return `${basePath}${separator}${safeName}-${version}`;
 };
 
 /**

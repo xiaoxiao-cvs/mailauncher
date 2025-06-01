@@ -106,7 +106,7 @@
             </div>
 
             <!-- 右侧终端区域 -->
-            <div class="terminal-container shadow-md">                <!-- 终端标题栏和控制按钮 -->
+            <div class="terminal-container shadow-md"> <!-- 终端标题栏和控制按钮 -->
                 <div class="terminal-header">
                     <div class="flex items-center">
                         <span class="text-primary font-bold">MaiBot</span>
@@ -119,7 +119,8 @@
                         <button class="btn btn-xs btn-outline" @click="restartTerminal" title="重启终端">
                             <Icon icon="mdi:restart" />
                         </button>
-                        <button class="btn btn-xs btn-ghost" @click="checkAndRestoreTerminalConnection(activeTerminal)" title="检查连接">
+                        <button class="btn btn-xs btn-ghost" @click="checkAndRestoreTerminalConnection(activeTerminal)"
+                            title="检查连接">
                             <Icon icon="mdi:connection" />
                         </button>
                     </div>
@@ -609,9 +610,18 @@ const switchTerminal = (terminalType) => {
     console.log('当前实例服务:', props.instance?.services);
     console.log('hasNapcatAdaService:', hasNapcatAdaService.value);
 
-    // 清空终端容器
-    if (terminalContent.value) {
-        terminalContent.value.innerHTML = '';
+    // 保存上一个终端状态（不清空DOM，避免丢失终端内容）
+    const previousTerminal = activeTerminal.value;
+    const previousState = terminalStates.value[previousTerminal];
+
+    // 如果上一个终端存在且已经渲染到DOM，先将其从DOM中分离（但不销毁）
+    if (previousState.term && terminalContent.value && terminalContent.value.querySelector('.xterm')) {
+        try {
+            // 将终端从DOM中分离但保持实例
+            previousState.term.element?.remove?.();
+        } catch (e) {
+            console.warn('分离上一个终端时出错:', e);
+        }
     }
 
     // 切换到新终端
@@ -621,15 +631,17 @@ const switchTerminal = (terminalType) => {
     console.log(`${terminalType} 终端状态:`, {
         hasTerm: !!newState.term,
         isConnected: newState.isConnected,
-        isConnecting: newState.isConnecting
-    });
-
-    // 确保新终端在下一个tick中渲染
-    nextTick(() => {
+        isConnecting: newState.isConnecting,
+        hasElement: !!newState.term?.element
+    });    // 确保新终端在下一个tick中渲染
+    nextTick(async () => {
         if (!terminalContent.value) {
             console.error('终端容器不存在');
             return;
         }
+
+        // 清空容器准备渲染新终端
+        terminalContent.value.innerHTML = '';
 
         // 如果新终端还没初始化，先初始化
         if (!newState.term) {
@@ -638,12 +650,53 @@ const switchTerminal = (terminalType) => {
             // 延迟初始化WebSocket连接
             setTimeout(() => {
                 initTerminalWebSocket(terminalType);
-            }, 200);        } else {
-            // 显示已存在的终端
+            }, 200);
+        } else {
+            // 重新将已存在的终端渲染到DOM
             console.log(`重新渲染已存在的终端: ${terminalType}`);
-            
-            // 使用新的状态检查和恢复方法
-            checkAndRestoreTerminalConnection(terminalType);
+
+            try {
+                // 确保终端已分离
+                if (newState.term.element && newState.term.element.parentNode) {
+                    try {
+                        newState.term.element.remove();
+                    } catch (e) {
+                        console.warn(`分离 ${terminalType} 终端时出错:`, e);
+                    }
+                }
+
+                // 使用异步方式确保DOM已准备好
+                await nextTick();
+
+                // 确保终端重新渲染到DOM
+                newState.term.open(terminalContent.value);
+
+                // 自适应大小
+                if (newState.fitAddon) {
+                    setTimeout(() => {
+                        try {
+                            newState.fitAddon.fit();
+
+                            // 重新写入一个空行，确保显示更新
+                            newState.term.write('\r\n');
+                        } catch (e) {
+                            console.warn('终端自适应大小失败:', e);
+                        }
+                    }, 100);
+                }
+
+                // 延迟检查确保连接状态
+                setTimeout(() => {
+                    checkAndRestoreTerminalConnection(terminalType);
+                }, 50);
+            } catch (e) {
+                console.error(`重新渲染 ${terminalType} 终端失败:`, e);
+                // 如果重新渲染失败，尝试重新初始化
+                initXterm(terminalType);
+                setTimeout(() => {
+                    initTerminalWebSocket(terminalType);
+                }, 200);
+            }
         }
     });
 };
@@ -706,13 +759,47 @@ const handleResize = () => {
 // 检查并恢复终端连接状态
 const checkAndRestoreTerminalConnection = (terminalType = 'maibot') => {
     const state = terminalStates.value[terminalType];
-    
+
     if (!state.term) {
         console.log(`${terminalType} 终端实例不存在，重新初始化`);
         initXterm(terminalType);
         return;
     }
-    
+
+    // 首先检查终端是否已经渲染到DOM中
+    if (terminalContent.value) {
+        const hasTerminalInDOM = terminalContent.value.querySelector('.xterm');
+
+        if (!hasTerminalInDOM) {
+            console.log(`${terminalType} 终端未在DOM中，重新渲染`);
+            try {
+                state.term.open(terminalContent.value);
+
+                // 自适应大小
+                setTimeout(() => {
+                    try {
+                        if (state.fitAddon) {
+                            state.fitAddon.fit();
+                        }
+                    } catch (e) {
+                        console.warn(`${terminalType} 终端自适应大小失败:`, e);
+                    }
+                }, 100);
+
+            } catch (e) {
+                console.error(`重新渲染 ${terminalType} 终端失败:`, e);
+                // 如果渲染失败，重新初始化
+                setTimeout(() => {
+                    initXterm(terminalType);
+                    setTimeout(() => {
+                        initTerminalWebSocket(terminalType);
+                    }, 200);
+                }, 300);
+                return;
+            }
+        }
+    }
+
     // 检查WebSocket连接状态，但要避免频繁重连
     if (!state.isConnected && !state.isConnecting) {
         // 添加防抖机制，避免频繁重连
@@ -721,7 +808,7 @@ const checkAndRestoreTerminalConnection = (terminalType = 'maibot') => {
         } else {
             checkAndRestoreTerminalConnection.timers = {};
         }
-        
+
         checkAndRestoreTerminalConnection.timers[terminalType] = setTimeout(() => {
             // 二次检查状态，避免竞态条件
             const currentState = terminalStates.value[terminalType];
@@ -734,36 +821,7 @@ const checkAndRestoreTerminalConnection = (terminalType = 'maibot') => {
         }, 1000); // 增加延迟到1秒，减少频繁重连
         return;
     }
-    
-    // 如果终端已连接但没有在DOM中渲染，重新渲染
-    if (state.isConnected && state.term && terminalContent.value) {
-        const hasTerminalContent = terminalContent.value.querySelector('.xterm');
-        if (!hasTerminalContent) {
-            console.log(`${terminalType} 终端已连接但未渲染，重新渲染到DOM`);
-            try {
-                state.term.open(terminalContent.value);
-                setTimeout(() => {
-                    try {
-                        if (state.fitAddon) {
-                            state.fitAddon.fit();
-                        }
-                    } catch (e) {
-                        console.error("Error fitting terminal on restore:", e);
-                    }
-                }, 100);
-            } catch (e) {
-                console.error(`重新渲染 ${terminalType} 终端失败:`, e);
-                // 如果渲染失败，重新初始化（但延迟执行）
-                setTimeout(() => {
-                    initXterm(terminalType);
-                    setTimeout(() => {
-                        initTerminalWebSocket(terminalType);
-                    }, 200);
-                }, 500);
-            }
-        }
-    }
-    
+
     console.log(`${terminalType} 终端状态检查完成:`, {
         hasTerm: !!state.term,
         isConnected: state.isConnected,
@@ -882,7 +940,8 @@ onMounted(() => {
                     rows: size.rows
                 });
             }
-        });    }    // 页面可见性监听器函数
+        });
+    }    // 页面可见性监听器函数
     const visibilityChangeHandler = () => {
         if (document.visibilityState === 'visible') {
             console.log('页面重新可见，检查终端状态');
@@ -904,15 +963,15 @@ onMounted(() => {
 // 组件卸载时清理
 onUnmounted(() => {
     console.log('InstanceDetailView 组件即将卸载');
-    
+
     // 清理页面可见性监听器 - 移除在mounted中添加的监听器
     document.removeEventListener('visibilitychange', visibilityChangeHandler);
-    
+
     // 清理防抖计时器
     if (visibilityChangeHandler.timer) {
         clearTimeout(visibilityChangeHandler.timer);
     }
-    
+
     // 清理终端连接恢复的计时器
     if (checkAndRestoreTerminalConnection.timers) {
         Object.values(checkAndRestoreTerminalConnection.timers).forEach(timer => {
