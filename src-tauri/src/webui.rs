@@ -53,7 +53,30 @@ impl WebuiServer {
             port: 11111,
             enabled: false,
         }
-    }    pub async fn start_server_dev(&mut self, port: u16, frontend_dist: PathBuf) -> Result<(), String> {
+    }
+
+    // 获取本机IP地址
+    fn get_local_ip(&self) -> Option<String> {
+        // 尝试连接到外部地址来获取本机IP
+        match std::net::UdpSocket::bind("0.0.0.0:0") {
+            Ok(socket) => {
+                if let Ok(_) = socket.connect("8.8.8.8:80") {
+                    if let Ok(addr) = socket.local_addr() {
+                        let ip = addr.ip();
+                        // 过滤掉回环地址
+                        if !ip.is_loopback() {
+                            return Some(ip.to_string());
+                        }
+                    }
+                }
+            }
+            Err(_) => {}
+        }
+        
+        None
+    }
+
+    pub async fn start_server_dev(&mut self, port: u16, frontend_dist: PathBuf) -> Result<(), String> {
         // 停止现有服务器
         self.stop_server().await;
         
@@ -86,7 +109,9 @@ impl WebuiServer {
             });
 
         self.setup_server_routes(addr, static_files, spa_route).await
-    }    pub async fn start_server_prod(&mut self, port: u16, _app_handle: tauri::AppHandle) -> Result<(), String> {
+    }
+
+    pub async fn start_server_prod(&mut self, port: u16, _app_handle: tauri::AppHandle) -> Result<(), String> {
         // 停止现有服务器
         self.stop_server().await;
         
@@ -115,50 +140,61 @@ impl WebuiServer {
         S::Extract: warp::Reply,
         P: warp::Filter + Clone + Send + Sync + 'static,
         P::Extract: warp::Reply,
-    {        // API 代理 - 转发到后端服务
+    {
+        // 获取本机IP地址，如果获取失败则使用回环地址
+        let backend_host = self.get_local_ip().unwrap_or_else(|| "127.0.0.1".to_string());
+        println!("🔗 WebUI 将代理API请求到后端: {}:23456", backend_host);
+        
+        // API 代理 - 转发到后端服务
         let api_proxy = warp::path("api")
             .and(warp::path::full())
             .and(warp::method())
             .and(warp::header::headers_cloned())
             .and(warp::body::bytes())
-            .and_then(|path: warp::path::FullPath, method: warp::http::Method, headers: warp::http::HeaderMap, body: bytes::Bytes| async move {
-                let backend_url = format!("http://127.0.0.1:23456{}", path.as_str());
-                
-                let client = reqwest::Client::new();
-                let mut request = match method {
-                    warp::http::Method::GET => client.get(&backend_url),
-                    warp::http::Method::POST => client.post(&backend_url),
-                    warp::http::Method::PUT => client.put(&backend_url),
-                    warp::http::Method::DELETE => client.delete(&backend_url),
-                    warp::http::Method::PATCH => client.patch(&backend_url),
-                    _ => return Err(warp::reject::not_found()),
-                };
+            .and_then(move |path: warp::path::FullPath, method: warp::http::Method, headers: warp::http::HeaderMap, body: bytes::Bytes| {
+                let backend_host = backend_host.clone();
+                async move {
+                    let backend_url = format!("http://{}:23456{}", backend_host, path.as_str());
+                    
+                    let client = reqwest::Client::new();
+                    let mut request = match method {
+                        warp::http::Method::GET => client.get(&backend_url),
+                        warp::http::Method::POST => client.post(&backend_url),
+                        warp::http::Method::PUT => client.put(&backend_url),
+                        warp::http::Method::DELETE => client.delete(&backend_url),
+                        warp::http::Method::PATCH => client.patch(&backend_url),
+                        _ => return Err(warp::reject::not_found()),
+                    };
 
-                // 转发请求头（过滤一些不需要的）
-                for (name, value) in headers.iter() {
-                    let name_str = name.as_str();
-                    if !["host", "connection", "content-length"].contains(&name_str) {
-                        request = request.header(name, value);
+                    // 转发请求头（过滤一些不需要的）
+                    for (name, value) in headers.iter() {
+                        let name_str = name.as_str();
+                        if !["host", "connection", "content-length"].contains(&name_str) {
+                            request = request.header(name, value);
+                        }
                     }
-                }
 
-                // 添加请求体
-                if !body.is_empty() {
-                    request = request.body(body);
-                }
+                    // 添加请求体
+                    if !body.is_empty() {
+                        request = request.body(body);
+                    }
 
-                match request.send().await {
-                    Ok(response) => {
-                        let status = response.status();
-                        let body = response.bytes().await.unwrap_or_default();
-                        
-                        // 简化响应处理，直接返回状态码和内容
-                        Ok(warp::reply::with_status(
-                            body.to_vec(),
-                            warp::http::StatusCode::from_u16(status.as_u16()).unwrap_or(warp::http::StatusCode::INTERNAL_SERVER_ERROR)
-                        ))
-                    },
-                    Err(_) => Err(warp::reject::not_found()),
+                    match request.send().await {
+                        Ok(response) => {
+                            let status = response.status();
+                            let body = response.bytes().await.unwrap_or_default();
+                            
+                            // 简化响应处理，直接返回状态码和内容
+                            Ok(warp::reply::with_status(
+                                body.to_vec(),
+                                warp::http::StatusCode::from_u16(status.as_u16()).unwrap_or(warp::http::StatusCode::INTERNAL_SERVER_ERROR)
+                            ))
+                        },
+                        Err(e) => {
+                            println!("❌ 代理请求失败: {} -> {}", backend_url, e);
+                            Err(warp::reject::not_found())
+                        }
+                    }
                 }
             });
 
