@@ -1,29 +1,12 @@
 <template>
     <div v-if="visible" class="fixed inset-0 z-50 bg-base-100 overflow-y-auto">
-        <div class="min-h-screen w-full max-w-5xl mx-auto p-6">
-            <!-- 头部 -->
-            <div class="flex items-center justify-between gap-3 mb-8">
+        <div class="min-h-screen w-full max-w-5xl mx-auto p-6"> <!-- 头部 -->
+            <div class="flex items-center justify-center gap-3 mb-8">
                 <div class="flex items-center gap-3">
                     <img src="/assets/icon.ico" alt="MaiLauncher" class="w-12 h-12" />
                     <div>
                         <h1 class="font-bold text-2xl">MaiLauncher 初始化设置</h1>
                         <p class="text-sm text-base-content/70">让我们来配置您的 MaiBot 启动器</p>
-                    </div>
-                </div>
-
-                <!-- 步骤指示器 -->
-                <div class="flex items-center gap-2">
-                    <div v-for="(step, index) in steps" :key="step.id" class="flex items-center gap-2">
-                        <div class="step-indicator" :class="{
-                            'step-completed': index < currentStepIndex,
-                            'step-current': index === currentStepIndex,
-                            'step-pending': index > currentStepIndex
-                        }">
-                            <Icon v-if="index < currentStepIndex" icon="mdi:check" class="w-4 h-4" />
-                            <span v-else class="text-sm font-medium">{{ index + 1 }}</span>
-                        </div>
-                        <div v-if="index < steps.length - 1" class="step-connector"
-                            :class="{ 'step-connector-completed': index < currentStepIndex }"></div>
                     </div>
                 </div>
             </div>
@@ -155,17 +138,15 @@
                             配置后端服务连接以启用完整功能。如果没有后端服务，系统将以演示模式运行。
                         </p>
 
-                        <div class="space-y-6">
-                            <!-- 连接状态 -->
+                        <div class="space-y-6"> <!-- 连接状态 -->
                             <div class="bg-base-200 rounded-lg p-6">
                                 <div class="flex items-center justify-between mb-4">
                                     <h3 class="font-semibold">连接状态</h3>
-                                    <button class="btn btn-outline btn-sm" @click="testConnection"
-                                        :disabled="isTestingConnection">
-                                        <span v-if="isTestingConnection"
-                                            class="loading loading-spinner loading-xs"></span>
-                                        <Icon v-else icon="mdi:connection" class="w-4 h-4" />
-                                        {{ isTestingConnection ? '测试中...' : '测试连接' }}
+                                    <button v-if="config.mockMode" class="btn btn-primary btn-sm"
+                                        @click="attemptReconnect" :disabled="isReconnecting">
+                                        <span v-if="isReconnecting" class="loading loading-spinner loading-xs"></span>
+                                        <Icon v-else icon="mdi:refresh" class="w-4 h-4" />
+                                        {{ isReconnecting ? '重连中...' : '重连' }}
                                     </button>
                                 </div>
                                 <div class="alert" :class="backendConnectionStatus.alertClass">
@@ -191,44 +172,15 @@
                                 <div class="space-y-3">
                                     <div class="flex gap-3">
                                         <input type="text" v-model="config.backendUrl"
-                                            class="input input-bordered flex-1" placeholder="http://localhost:8000">
+                                            class="input input-bordered flex-1" placeholder="http://localhost:23456">
                                         <button class="btn btn-ghost" @click="resetBackendUrl">
                                             <Icon icon="mdi:refresh" class="w-4 h-4" />
                                             默认
                                         </button>
                                     </div>
                                     <p class="text-xs text-base-content/50">
-                                        默认地址: http://localhost:8000
+                                        默认地址: http://localhost:23456
                                     </p>
-                                </div>
-                            </div>
-
-                            <!-- 功能模式选择 -->
-                            <div class="config-section">
-                                <h3 class="font-semibold mb-4">运行模式</h3>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <label class="mode-option" :class="{ 'mode-selected': !config.mockMode }">
-                                        <input type="radio" name="mode" :value="false" v-model="config.mockMode"
-                                            class="hidden">
-                                        <div class="mode-content">
-                                            <div class="mode-icon bg-green-500/10">
-                                                <Icon icon="mdi:server-network" class="w-6 h-6 text-green-500" />
-                                            </div>
-                                            <h4 class="font-medium">完整模式</h4>
-                                            <p class="text-sm text-base-content/70">连接后端服务，启用所有功能</p>
-                                        </div>
-                                    </label>
-                                    <label class="mode-option" :class="{ 'mode-selected': config.mockMode }">
-                                        <input type="radio" name="mode" :value="true" v-model="config.mockMode"
-                                            class="hidden">
-                                        <div class="mode-content">
-                                            <div class="mode-icon bg-amber-500/10">
-                                                <Icon icon="mdi:eye-outline" class="w-6 h-6 text-amber-500" />
-                                            </div>
-                                            <h4 class="font-medium">演示模式</h4>
-                                            <p class="text-sm text-base-content/70">使用模拟数据，仅用于预览</p>
-                                        </div>
-                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -454,7 +406,7 @@
                                     </div>
                                     <div class="flex items-center gap-3">
                                         <span class="text-sm font-medium">{{ config.webui.enabled ? '已启用' : '已禁用'
-                                        }}</span>
+                                            }}</span>
                                         <label class="toggle-switch">
                                             <input type="checkbox" v-model="config.webui.enabled"
                                                 class="toggle-input" />
@@ -538,33 +490,6 @@
                                                 <div class="opacity-80">请确保防火墙设置允许访问此端口</div>
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- WebUI功能说明 -->
-                            <div
-                                class="bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-lg p-6 border border-purple-200/50">
-                                <h4 class="font-semibold mb-3 flex items-center gap-2">
-                                    <Icon icon="mdi:information" class="w-5 h-5 text-purple-500" />
-                                    WebUI 功能特性
-                                </h4>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                    <div class="flex items-start gap-2">
-                                        <Icon icon="mdi:check-circle" class="w-4 h-4 text-green-500 mt-0.5" />
-                                        <span>实时监控实例状态</span>
-                                    </div>
-                                    <div class="flex items-start gap-2">
-                                        <Icon icon="mdi:check-circle" class="w-4 h-4 text-green-500 mt-0.5" />
-                                        <span>远程管理和控制</span>
-                                    </div>
-                                    <div class="flex items-start gap-2">
-                                        <Icon icon="mdi:check-circle" class="w-4 h-4 text-green-500 mt-0.5" />
-                                        <span>日志查看和分析</span>
-                                    </div>
-                                    <div class="flex items-start gap-2">
-                                        <Icon icon="mdi:check-circle" class="w-4 h-4 text-green-500 mt-0.5" />
-                                        <span>配置文件在线编辑</span>
                                     </div>
                                 </div>
                             </div>
@@ -661,12 +586,6 @@
                                     <span class="font-mono text-sm">{{ config.backendUrl }}</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-base-content/70">运行模式:</span>
-                                    <span class="badge" :class="config.mockMode ? 'badge-warning' : 'badge-success'">
-                                        {{ config.mockMode ? '演示模式' : '完整模式' }}
-                                    </span>
-                                </div>
-                                <div class="flex justify-between">
                                     <span class="text-base-content/70">主题模式:</span>
                                     <span class="badge badge-outline">{{ getThemeDisplayName(config.themeMode) }}</span>
                                 </div>
@@ -681,8 +600,8 @@
                             </div>
                             <div class="next-step-card">
                                 <Icon icon="mdi:server" class="w-8 h-8 text-green-500 mb-3" />
-                                <h4 class="font-semibold mb-2">创建实例</h4>
-                                <p class="text-sm text-base-content/70">部署并配置您的第一个 MaiBot 实例</p>
+                                <h4 class="font-semibold mb-2">实例管理</h4>
+                                <p class="text-sm text-base-content/70">管理和配置您的 MaiBot 实例</p>
                             </div>
                             <div class="next-step-card">
                                 <Icon icon="mdi:settings" class="w-8 h-8 text-purple-500 mb-3" />
@@ -692,29 +611,15 @@
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- 底部导航 -->
-            <div class="flex items-center justify-between mt-12 pt-6 border-t border-base-300">
-                <div class="flex items-center gap-2">
-                    <span class="text-sm text-base-content/70">
-                        步骤 {{ currentStepIndex + 1 }} / {{ steps.length }}
-                    </span>
-                    <div class="progress progress-primary w-32">
-                        <div class="progress-value"
-                            :style="{ width: `${((currentStepIndex + 1) / steps.length) * 100}%` }"></div>
-                    </div>
-                </div>
-
+            </div> <!-- 底部导航 -->
+            <div class="flex items-center justify-center mt-12 pt-6 border-t border-base-300">
                 <div class="flex gap-3">
                     <button v-if="currentStepIndex > 0" class="btn btn-outline" @click="previousStep">
                         <Icon icon="mdi:arrow-left" class="w-4 h-4" />
-                        上一步
                     </button>
 
                     <button v-if="currentStepIndex < steps.length - 1" class="btn btn-primary" @click="nextStep"
                         :disabled="!canProceed">
-                        下一步
                         <Icon icon="mdi:arrow-right" class="w-4 h-4" />
                     </button>
 
@@ -757,12 +662,13 @@ const steps = [
 
 const currentStepIndex = ref(0)
 const isTestingConnection = ref(false)
+const isReconnecting = ref(false)
 
 // 配置状态
 const config = ref({
     dataStoragePath: getDefaultDataPath(),
     deploymentPath: getDefaultDeploymentPath(),
-    backendUrl: 'http://localhost:8000',
+    backendUrl: 'http://localhost:23456',
     mockMode: false,
     themeMode: 'system',
     enableAnimations: true,
@@ -891,7 +797,31 @@ const resetDeploymentPath = () => {
 }
 
 const resetBackendUrl = () => {
-    config.value.backendUrl = 'http://localhost:8000'
+    config.value.backendUrl = 'http://localhost:23456'
+}
+
+// 重连功能
+const attemptReconnect = async () => {
+    isReconnecting.value = true
+    try {
+        // 尝试重新连接后端服务
+        const response = await fetch(`${config.value.backendUrl}/api/v1/status`, {
+            method: 'GET',
+            timeout: 5000
+        })
+
+        if (response.ok) {
+            config.value.mockMode = false
+            toastService.success('重连成功！已切换到完整模式')
+        } else {
+            toastService.error('重连失败，继续使用演示模式')
+        }
+    } catch (error) {
+        console.error('重连失败:', error)
+        toastService.error('重连失败，继续使用演示模式')
+    } finally {
+        isReconnecting.value = false
+    }
 }
 
 // 连接测试
@@ -1230,33 +1160,45 @@ onMounted(() => {
     display: block;
     cursor: pointer;
     transition: all 0.3s ease;
+    width: 100%;
 }
 
 .theme-content {
-    padding: 1rem;
+    padding: 1.5rem;
     border: 2px solid hsl(var(--b3));
-    border-radius: 0.5rem;
+    border-radius: 0.75rem;
     text-align: center;
     transition: all 0.3s ease;
+    background-color: hsl(var(--b1));
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
 }
 
 .theme-content:hover {
     border-color: hsl(var(--p) / 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .theme-selected .theme-content {
     border-color: hsl(var(--p));
-    background-color: hsl(var(--p) / 0.05);
+    background-color: hsl(var(--p) / 0.1);
+    box-shadow: 0 4px 12px hsl(var(--p) / 0.2);
 }
 
 .theme-icon {
     width: 3rem;
     height: 3rem;
-    border-radius: 0.5rem;
+    border-radius: 0.75rem;
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0 auto 0.75rem auto;
+    transition: all 0.3s ease;
 }
 
 .next-step-card {

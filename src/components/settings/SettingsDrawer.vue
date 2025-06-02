@@ -624,12 +624,12 @@
                                                 <div class="flex justify-between">
                                                     <span class="text-base-content/70">数据存储:</span>
                                                     <span class="text-primary font-mono">{{ dataStoragePath || '未设置'
-                                                    }}</span>
+                                                        }}</span>
                                                 </div>
                                                 <div class="flex justify-between">
                                                     <span class="text-base-content/70">实例部署:</span>
                                                     <span class="text-primary font-mono">{{ deploymentPath || '未设置'
-                                                    }}</span>
+                                                        }}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1241,7 +1241,7 @@ const changeBackendUrl = () => {
 }
 
 const resetBackendUrl = () => {
-    backendUrl.value = 'http://localhost:8000'
+    backendUrl.value = 'http://localhost:23456'
     changeBackendUrl()
 }
 

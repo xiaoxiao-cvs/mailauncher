@@ -91,8 +91,7 @@ impl WebuiServer {    pub fn new() -> Self {
                             Ok(content) => Ok(warp::reply::html(String::from_utf8_lossy(&content).to_string())),
                             Err(_) => Err(warp::reject::not_found()),
                         }
-                    }
-                }            });
+                    }                }            });
 
         // API 代理 - 转发到后端服务
         let backend_host = self.backend_host.clone();
@@ -105,7 +104,8 @@ impl WebuiServer {    pub fn new() -> Self {
             .and_then(move |path: warp::path::FullPath, method: warp::http::Method, headers: warp::http::HeaderMap, body: bytes::Bytes| {
                 let backend_host = backend_host.clone();
                 async move {
-                    let backend_url = format!("http://{}:{}{}", backend_host, backend_port, path.as_str());
+                    let backend_url = format!("http://{}:{}/api{}", backend_host, backend_port, path.as_str());
+                    println!("🔄 API 代理请求: {} {}", method, backend_url);
                 
                 let client = reqwest::Client::new();
                 let mut request = match method {
@@ -197,9 +197,7 @@ impl WebuiServer {    pub fn new() -> Self {
             .and(warp::get())
             .and_then(|| async move {
                 serve_embedded_file("index.html").await
-            });
-
-        // API 代理 - 转发到后端服务
+            });        // API 代理 - 转发到后端服务
         let backend_host = self.backend_host.clone();
         let backend_port = self.backend_port;
         let api_proxy = warp::path("api")
@@ -210,7 +208,8 @@ impl WebuiServer {    pub fn new() -> Self {
             .and_then(move |path: warp::path::FullPath, method: warp::http::Method, headers: warp::http::HeaderMap, body: bytes::Bytes| {
                 let backend_host = backend_host.clone();
                 async move {
-                    let backend_url = format!("http://{}:{}{}", backend_host, backend_port, path.as_str());
+                    let backend_url = format!("http://{}:{}/api{}", backend_host, backend_port, path.as_str());
+                    println!("🔄 API 代理请求: {} {}", method, backend_url);
                 
                 let client = reqwest::Client::new();
                 let mut request = match method {
