@@ -49,14 +49,17 @@ pub struct WebuiServer {
     server_handle: Arc<TokioMutex<Option<tokio::task::JoinHandle<()>>>>,
     port: u16,
     enabled: bool,
+    backend_host: String,
+    backend_port: u16,
 }
 
-impl WebuiServer {
-    pub fn new() -> Self {
+impl WebuiServer {    pub fn new() -> Self {
         Self {
             server_handle: Arc::new(TokioMutex::new(None)),
             port: 11111,
             enabled: false,
+            backend_host: "127.0.0.1".to_string(),
+            backend_port: 23456,
         }
     }
 
@@ -89,17 +92,20 @@ impl WebuiServer {
                             Err(_) => Err(warp::reject::not_found()),
                         }
                     }
-                }
-            });
+                }            });
 
         // API 代理 - 转发到后端服务
+        let backend_host = self.backend_host.clone();
+        let backend_port = self.backend_port;
         let api_proxy = warp::path("api")
             .and(warp::path::full())
             .and(warp::method())
             .and(warp::header::headers_cloned())
             .and(warp::body::bytes())
-            .and_then(|path: warp::path::FullPath, method: warp::http::Method, headers: warp::http::HeaderMap, body: bytes::Bytes| async move {
-                let backend_url = format!("http://127.0.0.1:23456{}", path.as_str());
+            .and_then(move |path: warp::path::FullPath, method: warp::http::Method, headers: warp::http::HeaderMap, body: bytes::Bytes| {
+                let backend_host = backend_host.clone();
+                async move {
+                    let backend_url = format!("http://{}:{}{}", backend_host, backend_port, path.as_str());
                 
                 let client = reqwest::Client::new();
                 let mut request = match method {
@@ -133,9 +139,9 @@ impl WebuiServer {
                         Ok(warp::reply::with_status(
                             body.to_vec(),
                             warp::http::StatusCode::from_u16(status.as_u16()).unwrap_or(warp::http::StatusCode::INTERNAL_SERVER_ERROR)
-                        ))
-                    },
+                        ))                    },
                     Err(_) => Err(warp::reject::not_found()),
+                }
                 }
             });
 
@@ -186,9 +192,7 @@ impl WebuiServer {
             .and(warp::get())
             .and_then(|tail: warp::path::Tail| async move {
                 serve_embedded_file(tail.as_str()).await
-            });
-
-        // SPA 路由处理 - 对于不存在的路径返回 index.html
+            });        // SPA 路由处理 - 对于不存在的路径返回 index.html
         let spa_route = warp::any()
             .and(warp::get())
             .and_then(|| async move {
@@ -196,13 +200,17 @@ impl WebuiServer {
             });
 
         // API 代理 - 转发到后端服务
+        let backend_host = self.backend_host.clone();
+        let backend_port = self.backend_port;
         let api_proxy = warp::path("api")
             .and(warp::path::full())
             .and(warp::method())
             .and(warp::header::headers_cloned())
             .and(warp::body::bytes())
-            .and_then(|path: warp::path::FullPath, method: warp::http::Method, headers: warp::http::HeaderMap, body: bytes::Bytes| async move {
-                let backend_url = format!("http://127.0.0.1:23456{}", path.as_str());
+            .and_then(move |path: warp::path::FullPath, method: warp::http::Method, headers: warp::http::HeaderMap, body: bytes::Bytes| {
+                let backend_host = backend_host.clone();
+                async move {
+                    let backend_url = format!("http://{}:{}{}", backend_host, backend_port, path.as_str());
                 
                 let client = reqwest::Client::new();
                 let mut request = match method {
@@ -237,8 +245,8 @@ impl WebuiServer {
                             body.to_vec(),
                             warp::http::StatusCode::from_u16(status.as_u16()).unwrap_or(warp::http::StatusCode::INTERNAL_SERVER_ERROR)
                         ))
-                    },
-                    Err(_) => Err(warp::reject::not_found()),
+                    },                    Err(_) => Err(warp::reject::not_found()),
+                }
                 }
             });
 
@@ -287,14 +295,25 @@ impl WebuiServer {
             println!("🛑 WebUI 服务器已停止");
         }
         self.enabled = false;
-    }
-
-    pub fn is_enabled(&self) -> bool {
+    }    pub fn is_enabled(&self) -> bool {
         self.enabled
     }
 
     pub fn get_port(&self) -> u16 {
         self.port
+    }
+
+    pub fn get_backend_host(&self) -> &str {
+        &self.backend_host
+    }
+
+    pub fn get_backend_port(&self) -> u16 {
+        self.backend_port
+    }
+
+    pub fn set_backend_config(&mut self, host: String, port: u16) {
+        self.backend_host = host;
+        self.backend_port = port;
     }
 }
 
@@ -308,15 +327,23 @@ fn greet(name: &str) -> String {
 async fn start_webui_server(
     app_handle: tauri::AppHandle,
     port: u16,
+    backend_host: Option<String>,
+    backend_port: Option<u16>,
 ) -> Result<String, String> {
     let webui_state = app_handle.state::<Arc<TokioMutex<WebuiServer>>>();
     let mut webui = webui_state.lock().await;
     
+    // 如果提供了后端配置，则更新配置
+    if let (Some(host), Some(port)) = (backend_host, backend_port) {
+        webui.set_backend_config(host, port);
+    }
+    
     // 始终使用内置资源服务
     println!("使用内置资源启动 WebUI 服务器");
+    println!("后端配置: {}:{}", webui.get_backend_host(), webui.get_backend_port());
     webui.start_server_prod(port).await?;
     
-    Ok(format!("WebUI 服务器已启动在端口 {}", port))
+    Ok(format!("WebUI 服务器已启动在端口 {}, 后端: {}:{}", port, webui.get_backend_host(), webui.get_backend_port()))
 }
 
 #[tauri::command]
@@ -339,6 +366,30 @@ async fn get_webui_status(
     let webui = webui_state.lock().await;
     
     Ok((webui.is_enabled(), webui.get_port()))
+}
+
+#[tauri::command]
+async fn get_backend_config(
+    app_handle: tauri::AppHandle,
+) -> Result<(String, u16), String> {
+    let webui_state = app_handle.state::<Arc<TokioMutex<WebuiServer>>>();
+    let webui = webui_state.lock().await;
+    
+    Ok((webui.get_backend_host().to_string(), webui.get_backend_port()))
+}
+
+#[tauri::command]
+async fn set_backend_config(
+    app_handle: tauri::AppHandle,
+    host: String,
+    port: u16,
+) -> Result<String, String> {
+    let webui_state = app_handle.state::<Arc<TokioMutex<WebuiServer>>>();
+    let mut webui = webui_state.lock().await;
+    
+    webui.set_backend_config(host.clone(), port);
+    
+    Ok(format!("后端配置已更新: {}:{}", host, port))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -407,7 +458,9 @@ pub fn run() {
             greet,
             start_webui_server,
             stop_webui_server,
-            get_webui_status
+            get_webui_status,
+            get_backend_config,
+            set_backend_config
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
