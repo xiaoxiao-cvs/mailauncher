@@ -4,10 +4,10 @@
  */
 
 const backendConfig = {
-  // 后端服务配置 - 固定端口23456
+  // 后端服务配置 - 支持动态设置
   server: {
-    host: "127.0.0.1", // 固定使用本地回环地址
-    port: 23456, // 固定后端端口号
+    host: "127.0.0.1", // 默认本地回环地址
+    port: 23456, // 默认后端端口号
     api_prefix: "/api/v1", // API前缀
   },
 
@@ -15,9 +15,40 @@ const backendConfig = {
   debug: {
     level: "INFO",
   },
+  // 设置后端服务器地址
+  setBackendServer(host, port = 23456) {
+    this.server.host = host;
+    this.server.port = port;
+    // 保存到localStorage
+    localStorage.setItem("backendHost", host);
+    localStorage.setItem("backendPort", port.toString());
+
+    // 动态更新axios实例的baseURL
+    // 延迟导入以避免循环依赖
+    setTimeout(() => {
+      import("../services/apiService.js").then((module) => {
+        if (module.updateAxiosBaseURL) {
+          module.updateAxiosBaseURL();
+        }
+      });
+    }, 0);
+  },
+
+  // 从localStorage加载配置
+  loadFromStorage() {
+    const savedHost = localStorage.getItem("backendHost");
+    const savedPort = localStorage.getItem("backendPort");
+
+    if (savedHost) {
+      this.server.host = savedHost;
+    }
+    if (savedPort) {
+      this.server.port = parseInt(savedPort, 10);
+    }
+  },
+
   // 获取完整的后端API地址
   getBackendUrl() {
-    // 固定返回后端地址，不再依赖代理
     return `http://${this.server.host}:${this.server.port}`;
   },
 

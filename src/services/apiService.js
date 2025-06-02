@@ -29,6 +29,12 @@ const axiosInstance = axios.create({
   },
 });
 
+// 更新axios实例的baseURL（当后端配置更改时调用）
+export const updateAxiosBaseURL = () => {
+  axiosInstance.defaults.baseURL = backendConfig.getBackendUrl();
+  console.log("axios baseURL 已更新为:", axiosInstance.defaults.baseURL);
+};
+
 // 请求拦截器
 axiosInstance.interceptors.request.use(
   (config) => {

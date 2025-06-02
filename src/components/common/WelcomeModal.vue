@@ -55,14 +55,84 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- 后端连接状态 -->
+                </div> <!-- 后端连接状态 -->
                 <div class="alert mb-6" :class="connectionStatus.alertClass">
                     <Icon :icon="connectionStatus.icon" class="shrink-0 w-6 h-6" />
-                    <div>
+                    <div class="flex-1">
                         <h4 class="font-bold">{{ connectionStatus.title }}</h4>
                         <p class="text-sm">{{ connectionStatus.description }}</p>
+                    </div>
+                    <button v-if="!connectionStatus.isConnected" @click="showBackendConfig = true"
+                        class="btn btn-sm btn-outline">
+                        <Icon icon="mdi:settings" class="w-4 h-4" />
+                        配置后端
+                    </button>
+                </div>
+
+                <!-- 后端服务配置 -->
+                <div v-if="showBackendConfig" class="card bg-base-200 border border-warning mb-6">
+                    <div class="card-body p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="font-bold flex items-center gap-2">
+                                <Icon icon="mdi:server-network" class="w-5 h-5" />
+                                后端服务配置
+                            </h4>
+                            <button @click="showBackendConfig = false" class="btn btn-ghost btn-sm">
+                                <Icon icon="mdi:close" class="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div class="alert alert-info mb-4">
+                            <Icon icon="mdi:information" class="shrink-0 w-5 h-5" />
+                            <div class="text-sm">
+                                <p class="font-medium">局域网访问说明</p>
+                                <p>当前后端地址为 {{ currentBackendUrl }}，如果您在局域网中的其他设备上访问，请输入运行后端服务的机器的局域网IP地址。</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text font-medium">服务器地址</span>
+                                </label>
+                                <input type="text" v-model="backendHost" placeholder="例如: 192.168.31.152"
+                                    class="input input-bordered" :class="{ 'input-error': hostError }" />
+                                <label v-if="hostError" class="label">
+                                    <span class="label-text-alt text-error">{{ hostError }}</span>
+                                </label>
+                            </div>
+
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text font-medium">端口号</span>
+                                </label>
+                                <input type="number" v-model.number="backendPort" placeholder="23456"
+                                    class="input input-bordered" min="1" max="65535" />
+                            </div>
+                        </div>
+
+                        <div class="alert alert-warning mb-4">
+                            <Icon icon="mdi:alert" class="shrink-0 w-5 h-5" />
+                            <div class="text-sm">
+                                <p class="font-medium">常见IP地址示例：</p>
+                                <p>• 本机访问：127.0.0.1 或 localhost</p>
+                                <p>• 局域网访问：192.168.x.x 或 10.x.x.x 或 172.16-31.x.x</p>
+                                <p>• 公网访问：您的公网IP地址</p>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3">
+                            <button @click="testConnection" class="btn btn-primary flex-1"
+                                :class="{ 'loading': testingConnection }">
+                                <Icon v-if="!testingConnection" icon="mdi:connection" class="w-4 h-4" />
+                                {{ testingConnection ? '测试中...' : '测试连接' }}
+                            </button>
+                            <button @click="saveBackendConfig" class="btn btn-success flex-1"
+                                :disabled="!backendHost || hostError">
+                                <Icon icon="mdi:content-save" class="w-4 h-4" />
+                                保存配置
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -130,10 +200,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { isMockModeActive } from '@/services/apiService'
 import toastService from '@/services/toastService'
+import backendConfig from '@/config/backendConfig'
 
 const props = defineProps({
     visible: {
@@ -146,6 +217,104 @@ const emit = defineEmits(['close', 'open-settings', 'start-setup-wizard'])
 
 const dontShowAgain = ref(false)
 
+// 后端配置相关状态
+const showBackendConfig = ref(false)
+const backendHost = ref('192.168.31.152')
+const backendPort = ref(23456)
+const testingConnection = ref(false)
+const hostError = ref('')
+
+// 计算属性：当前后端URL
+const currentBackendUrl = computed(() => {
+    return backendConfig.getBackendUrl()
+})
+
+// IP地址验证
+const validateHost = (host) => {
+    if (!host) {
+        return '请输入服务器地址'
+    }
+
+    // 简单的IP地址或域名验证
+    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$|^localhost$|^[\w.-]+\.[a-z]{2,}$/i
+
+    if (!ipRegex.test(host)) {
+        return '请输入有效的IP地址或域名'
+    }
+
+    // 验证IP地址范围
+    if (host.includes('.')) {
+        const parts = host.split('.')
+        if (parts.length === 4) {
+            for (const part of parts) {
+                const num = parseInt(part, 10)
+                if (isNaN(num) || num < 0 || num > 255) {
+                    return 'IP地址格式不正确'
+                }
+            }
+        }
+    }
+
+    return ''
+}
+
+// 监听输入变化进行验证
+watch(backendHost, (newHost) => {
+    hostError.value = validateHost(newHost)
+})
+
+// 测试连接
+const testConnection = async () => {
+    if (!backendHost.value || hostError.value) {
+        toastService.error('请输入有效的服务器地址')
+        return
+    }
+
+    testingConnection.value = true
+
+    try {
+        const testUrl = `http://${backendHost.value}:${backendPort.value}/api/v1/status`
+        const response = await fetch(testUrl, {
+            method: 'GET',
+            timeout: 5000
+        })
+
+        if (response.ok) {
+            toastService.success('后端连接测试成功！')
+        } else {
+            toastService.error(`连接失败：HTTP ${response.status}`)
+        }
+    } catch (error) {
+        console.error('后端连接测试失败:', error)
+        if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+            toastService.error('连接被拒绝，请检查：\n1. 后端服务是否已启动\n2. IP地址和端口是否正确\n3. 防火墙设置')
+        } else {
+            toastService.error('连接测试失败：' + error.message)
+        }
+    } finally {
+        testingConnection.value = false
+    }
+}
+
+// 保存后端配置
+const saveBackendConfig = () => {
+    if (!backendHost.value || hostError.value) {
+        toastService.error('请输入有效的服务器地址')
+        return
+    }
+
+    // 更新后端配置
+    backendConfig.setBackendServer(backendHost.value, backendPort.value)
+
+    toastService.success(`后端地址已更新为: ${backendHost.value}:${backendPort.value}`)
+    showBackendConfig.value = false
+
+    // 刷新页面以应用新配置
+    setTimeout(() => {
+        window.location.reload()
+    }, 1000)
+}
+
 // 连接状态计算属性
 const connectionStatus = computed(() => {
     const isMockMode = isMockModeActive()
@@ -154,17 +323,29 @@ const connectionStatus = computed(() => {
         return {
             alertClass: 'alert-warning',
             icon: 'mdi:alert-circle',
-            title: '演示模式运行',
-            description: '当前使用模拟数据，部分功能为演示效果。请启动后端服务以获得完整功能。'
+            title: '后端连接异常',
+            description: '无法连接到后端服务，当前使用模拟数据。请检查后端服务或配置正确的服务器地址。',
+            isConnected: false
         }
     } else {
         return {
             alertClass: 'alert-success',
             icon: 'mdi:check-circle',
             title: '后端连接正常',
-            description: '所有功能已就绪，可以正常使用实例管理、终端控制等完整功能。'
+            description: '所有功能已就绪，可以正常使用实例管理、终端控制等完整功能。',
+            isConnected: true
         }
     }
+})
+
+// 组件挂载时加载配置
+onMounted(() => {
+    // 从localStorage加载已保存的配置
+    backendConfig.loadFromStorage()
+
+    // 初始化表单值
+    backendHost.value = backendConfig.server.host
+    backendPort.value = backendConfig.server.port
 })
 
 // 开始设置向导
