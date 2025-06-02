@@ -6,6 +6,41 @@ use std::path::PathBuf;
 use tokio::sync::Mutex as TokioMutex;
 use warp::Filter;
 use tauri::Manager;
+use rust_embed::RustEmbed;
+
+#[derive(RustEmbed)]
+#[folder = "../dist/"]
+struct Assets;
+
+async fn serve_embedded_file(path: &str) -> Result<impl warp::Reply, warp::Rejection> {
+    let path = if path.is_empty() || path == "/" {
+        "index.html"
+    } else {
+        path
+    };
+
+    match Assets::get(path) {
+        Some(content) => {
+            let mime = mime_guess::from_path(path).first_or_octet_stream();
+            Ok(warp::reply::with_header(
+                content.data.to_vec(),
+                "content-type",
+                mime.as_ref(),
+            ))
+        }
+        None => {
+            // 如果文件不存在，返回 index.html (SPA 路由)
+            match Assets::get("index.html") {
+                Some(content) => Ok(warp::reply::with_header(
+                    content.data.to_vec(),
+                    "content-type",
+                    "text/html",
+                )),
+                None => Err(warp::reject::not_found()),
+            }
+        }
+    }
+}
 
 struct BackendProcess(Mutex<Option<std::process::Child>>);
 
@@ -136,6 +171,109 @@ impl WebuiServer {
         }
 
         self.port = port;
+        self.enabled = true;        println!("✅ WebUI 服务器已启动在端口: {}", port);
+        Ok(())
+    }
+
+    pub async fn start_server_prod(&mut self, port: u16) -> Result<(), String> {
+        // 停止现有服务器
+        self.stop_server().await;
+        
+        let addr: SocketAddr = ([0, 0, 0, 0], port).into();
+        
+        // 生产模式下，使用嵌入的前端资源
+        let embedded_static = warp::path::tail()
+            .and(warp::get())
+            .and_then(|tail: warp::path::Tail| async move {
+                serve_embedded_file(tail.as_str()).await
+            });
+
+        // SPA 路由处理 - 对于不存在的路径返回 index.html
+        let spa_route = warp::any()
+            .and(warp::get())
+            .and_then(|| async move {
+                serve_embedded_file("index.html").await
+            });
+
+        // API 代理 - 转发到后端服务
+        let api_proxy = warp::path("api")
+            .and(warp::path::full())
+            .and(warp::method())
+            .and(warp::header::headers_cloned())
+            .and(warp::body::bytes())
+            .and_then(|path: warp::path::FullPath, method: warp::http::Method, headers: warp::http::HeaderMap, body: bytes::Bytes| async move {
+                let backend_url = format!("http://127.0.0.1:23456{}", path.as_str());
+                
+                let client = reqwest::Client::new();
+                let mut request = match method {
+                    warp::http::Method::GET => client.get(&backend_url),
+                    warp::http::Method::POST => client.post(&backend_url),
+                    warp::http::Method::PUT => client.put(&backend_url),
+                    warp::http::Method::DELETE => client.delete(&backend_url),
+                    warp::http::Method::PATCH => client.patch(&backend_url),
+                    _ => return Err(warp::reject::not_found()),
+                };
+
+                // 转发请求头（过滤一些不需要的）
+                for (name, value) in headers.iter() {
+                    let name_str = name.as_str();
+                    if !["host", "connection", "content-length"].contains(&name_str) {
+                        request = request.header(name, value);
+                    }
+                }
+
+                // 添加请求体
+                if !body.is_empty() {
+                    request = request.body(body);
+                }
+
+                match request.send().await {
+                    Ok(response) => {
+                        let status = response.status();
+                        let body = response.bytes().await.unwrap_or_default();
+                        
+                        // 简化响应处理，直接返回状态码和内容
+                        Ok(warp::reply::with_status(
+                            body.to_vec(),
+                            warp::http::StatusCode::from_u16(status.as_u16()).unwrap_or(warp::http::StatusCode::INTERNAL_SERVER_ERROR)
+                        ))
+                    },
+                    Err(_) => Err(warp::reject::not_found()),
+                }
+            });
+
+        // WebSocket 代理
+        let ws_proxy = warp::path("ws")
+            .and(warp::ws())
+            .map(|ws: warp::ws::Ws| {
+                ws.on_upgrade(|_websocket| async {
+                    // 实现 WebSocket 代理逻辑
+                    // 这里可以转发到后端的 WebSocket 服务
+                    println!("WebSocket connection established for WebUI");
+                })
+            });
+
+        // 组合路由
+        let routes = api_proxy
+            .or(ws_proxy)
+            .or(embedded_static)
+            .or(spa_route)
+            .with(warp::cors()
+                .allow_any_origin()
+                .allow_methods(vec!["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+                .allow_headers(vec!["content-type", "authorization"]));
+
+        // 启动服务器
+        let server = warp::serve(routes).run(addr);
+        let handle = tokio::spawn(server);
+
+        // 保存服务器句柄
+        {
+            let mut server_guard = self.server_handle.lock().await;
+            *server_guard = Some(handle);
+        }
+
+        self.port = port;
         self.enabled = true;
 
         println!("✅ WebUI 服务器已启动在端口: {}", port);
@@ -174,26 +312,9 @@ async fn start_webui_server(
     let webui_state = app_handle.state::<Arc<TokioMutex<WebuiServer>>>();
     let mut webui = webui_state.lock().await;
     
-    // 获取前端构建目录
-    let frontend_dist = if cfg!(dev) {
-        // 开发模式：使用项目根目录下的 dist 文件夹
-        std::env::current_dir()
-            .unwrap()
-            .join("dist")
-    } else {
-        // 生产模式：使用 Tauri 的资源目录
-        app_handle
-            .path()
-            .resolve("dist", tauri::path::BaseDirectory::Resource)
-            .map_err(|e| format!("无法找到前端构建文件: {}", e))?
-    };
-
-    // 检查目录是否存在
-    if !frontend_dist.exists() {
-        return Err(format!("前端构建目录不存在: {:?}", frontend_dist));
-    }
-
-    webui.start_server(port, frontend_dist).await?;
+    // 始终使用内置资源服务
+    println!("使用内置资源启动 WebUI 服务器");
+    webui.start_server_prod(port).await?;
     
     Ok(format!("WebUI 服务器已启动在端口 {}", port))
 }

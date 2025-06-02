@@ -227,28 +227,9 @@ pub async fn start_webui_server(
     let webui_state = app_handle.state::<Arc<Mutex<WebuiServer>>>();
     let mut webui = webui_state.lock().await;
 
-    // 在开发模式下使用文件系统服务，生产模式下使用内置资源
-    if cfg!(debug_assertions) {
-        // 开发模式：尝试使用项目根目录下的 dist 文件夹
-        let frontend_dist = std::env::current_dir()
-            .map_err(|e| format!("无法获取当前目录: {}", e))?
-            .parent() // 从 src-tauri 目录回到项目根目录
-            .ok_or("无法获取父目录")?
-            .join("dist");
-
-        // 检查目录是否存在，如果不存在则使用内置资源
-        if frontend_dist.exists() {
-            println!("开发模式：使用文件系统 dist 目录: {:?}", frontend_dist);
-            webui.start_server_dev(port, frontend_dist).await?;
-        } else {
-            println!("开发模式：dist 目录不存在，使用内置资源");
-            webui.start_server_prod(port, app_handle.clone()).await?;
-        }
-    } else {
-        // 生产模式：始终使用内置资源服务
-        println!("生产模式：使用内置资源");
-        webui.start_server_prod(port, app_handle.clone()).await?;
-    }
+    // 始终使用内置资源服务
+    println!("使用内置资源启动 WebUI 服务器");
+    webui.start_server_prod(port, app_handle.clone()).await?;
     
     Ok(format!("WebUI 服务器已启动在端口 {}", port))
 }
