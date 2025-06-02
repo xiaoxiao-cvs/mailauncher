@@ -121,6 +121,197 @@
                                 </div>
                             </div>
                         </div>
+                    </div> <!-- WebUI 设置标签页 -->
+                    <div v-else-if="activeTab === 'webui'" class="settings-panel">
+                        <div class="panel-header">
+                            <h3 class="panel-title">WebUI 配置</h3>
+                            <p class="panel-description">配置 Web 用户界面的访问设置和功能</p>
+                        </div>
+
+                        <div class="settings-section">
+                            <!-- WebUI启用设置 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">WebUI 启用状态</h4>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">启用 Web 用户界面</label>
+                                        <p class="setting-desc">启用后可通过浏览器访问管理界面</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" v-model="webuiEnabled" @change="toggleWebuiEnabled"
+                                                class="toggle-input" />
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- WebUI端口配置 -->
+                            <div v-show="webuiEnabled" class="setting-group">
+                                <h4 class="group-title">端口配置</h4>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">访问端口</label>
+                                        <p class="setting-desc">设置 WebUI 的访问端口 (1024-65535)</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <div class="port-control">
+                                            <input type="number" v-model.number="webuiPort" @change="changeWebuiPort"
+                                                class="input input-bordered input-sm" min="1024" max="65535"
+                                                placeholder="11111" />
+                                            <button class="btn btn-ghost btn-sm" @click="resetWebuiPort">
+                                                <IconifyIcon icon="mdi:refresh" />
+                                                默认
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 访问信息预览 -->
+                                <div class="bg-base-200 rounded-lg p-4 mt-4">
+                                    <h4 class="font-medium mb-3 flex items-center gap-2">
+                                        <IconifyIcon icon="mdi:eye-outline" class="w-4 h-4" />
+                                        访问信息
+                                    </h4>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="flex justify-between">
+                                            <span class="text-base-content/70">本地访问:</span>
+                                            <span class="font-mono text-primary">http://localhost:{{ webuiPort }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-base-content/70">局域网访问:</span>
+                                            <span class="font-mono text-primary">http://[本机IP]:{{ webuiPort }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-base-content/70">状态:</span>
+                                            <span class="badge badge-sm"
+                                                :class="webuiEnabled ? 'badge-success' : 'badge-neutral'">
+                                                {{ webuiEnabled ? '启用' : '禁用' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- WebUI功能特性 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">功能特性</h4>
+                                <div
+                                    class="bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-lg p-6 border border-purple-200/50">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                        <div class="flex items-start gap-2">
+                                            <IconifyIcon icon="mdi:check-circle"
+                                                class="w-4 h-4 text-green-500 mt-0.5" />
+                                            <span>实时监控实例状态</span>
+                                        </div>
+                                        <div class="flex items-start gap-2">
+                                            <IconifyIcon icon="mdi:check-circle"
+                                                class="w-4 h-4 text-green-500 mt-0.5" />
+                                            <span>远程管理和控制</span>
+                                        </div>
+                                        <div class="flex items-start gap-2">
+                                            <IconifyIcon icon="mdi:check-circle"
+                                                class="w-4 h-4 text-green-500 mt-0.5" />
+                                            <span>日志查看和分析</span>
+                                        </div>
+                                        <div class="flex items-start gap-2">
+                                            <IconifyIcon icon="mdi:check-circle"
+                                                class="w-4 h-4 text-green-500 mt-0.5" />
+                                            <span>配置文件在线编辑</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 安全提示 -->
+                                <div class="alert alert-info mt-4">
+                                    <IconifyIcon icon="mdi:shield-outline" class="w-4 h-4" />
+                                    <div class="text-sm">
+                                        <div class="font-medium">安全提示</div>
+                                        <div class="opacity-80">请确保防火墙设置允许访问此端口</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div> <!-- 后端服务设置标签页 -->
+                    <div v-else-if="activeTab === 'backend'" class="settings-panel">
+                        <div class="panel-header">
+                            <h3 class="panel-title">后端服务配置</h3>
+                            <p class="panel-description">配置后端服务连接和运行模式</p>
+                        </div>
+
+                        <div class="settings-section">
+                            <!-- 后端地址配置 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">服务地址</h4>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">后端服务地址</label>
+                                        <p class="setting-desc">配置后端API服务的连接地址</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <div class="backend-url-control">
+                                            <input type="text" v-model="backendUrl" @change="changeBackendUrl"
+                                                class="input input-bordered input-sm flex-1"
+                                                placeholder="http://localhost:8000" />
+                                            <button class="btn btn-ghost btn-sm" @click="resetBackendUrl">
+                                                <IconifyIcon icon="mdi:refresh" />
+                                                默认
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 连接测试 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">连接测试</h4>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">测试后端连接</label>
+                                        <p class="setting-desc">检查后端服务是否可以正常连接</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <button class="btn btn-outline btn-sm" @click="testBackendConnection"
+                                            :class="{ 'loading': isTestingBackendConnection }"
+                                            :disabled="isTestingBackendConnection">
+                                            <IconifyIcon v-if="!isTestingBackendConnection" icon="mdi:connection" />
+                                            {{ isTestingBackendConnection ? '测试中...' : '测试连接' }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 运行模式 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">运行模式</h4>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="mode-option" :class="{ 'mode-selected': !isMockDataActive }">
+                                        <div class="mode-content">
+                                            <div class="mode-icon bg-green-500/10">
+                                                <IconifyIcon icon="mdi:server-network" class="w-6 h-6 text-green-500" />
+                                            </div>
+                                            <h4 class="font-medium">完整模式</h4>
+                                            <p class="text-sm text-base-content/70">连接后端服务，启用所有功能</p>
+                                        </div>
+                                    </div>
+                                    <div class="mode-option" :class="{ 'mode-selected': isMockDataActive }">
+                                        <div class="mode-content">
+                                            <div class="mode-icon bg-amber-500/10">
+                                                <IconifyIcon icon="mdi:eye-outline" class="w-6 h-6 text-amber-500" />
+                                            </div>
+                                            <h4 class="font-medium">演示模式</h4>
+                                            <p class="text-sm text-base-content/70">使用模拟数据，仅用于预览</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div> <!-- 关于标签页 -->
                     <div v-else-if="activeTab === 'about'" class="settings-panel">
                         <div class="panel-header">
@@ -325,76 +516,48 @@
                     <div v-else-if="activeTab === 'system'" class="settings-panel">
                         <div class="panel-header">
                             <h3 class="panel-title">系统设置</h3>
-                            <p class="panel-description">配置应用的系统行为和存储路径</p>
+                            <p class="panel-description">配置应用的系统行为和通知</p>
                         </div>
 
                         <div class="settings-section">
-                            <!-- 数据存储配置 -->
+                            <!-- 启动设置 -->
                             <div class="setting-group">
-                                <h4 class="group-title">数据存储</h4>
-
-                                <div class="setting-item">
-                                    <div class="setting-info">
-                                        <label class="setting-label">数据存放路径</label>
-                                        <p class="setting-desc">选择MaiBot实例数据的存放位置，建议选择磁盘空间充足的位置</p>
+                                <div class="flex items-center gap-3 mb-4">
+                                    <div class="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                                        <IconifyIcon icon="mdi:rocket-launch" class="w-5 h-5 text-purple-500" />
                                     </div>
-                                    <div class="setting-control">
-                                        <div class="data-path-control">
-                                            <div class="flex gap-2 mb-2">
-                                                <input v-model="dataStoragePath" type="text" placeholder="数据存放路径"
-                                                    class="input input-bordered input-sm flex-1" readonly />
-                                                <button @click="selectDataFolder" class="btn btn-outline btn-sm"
-                                                    :disabled="isSelectingFolder">
-                                                    <IconifyIcon v-if="!isSelectingFolder" icon="mdi:folder-open"
-                                                        class="w-4 h-4" />
-                                                    <span v-if="isSelectingFolder"
-                                                        class="loading loading-spinner loading-xs"></span>
-                                                    {{ isSelectingFolder ? '选择中...' : '浏览' }}
-                                                </button>
-                                            </div>
-                                            <div class="flex items-center gap-2">
-                                                <IconifyIcon icon="mdi:information" class="w-4 h-4 text-info" />
-                                                <span class="text-xs text-base-content/60">
-                                                    当前路径: {{ dataStoragePath || '未设置' }}
-                                                </span>
-                                            </div>
-                                        </div>
+                                    <div>
+                                        <h4 class="group-title">启动设置</h4>
+                                        <p class="text-sm text-base-content/70">配置应用启动时的行为</p>
                                     </div>
                                 </div>
 
                                 <div class="setting-item">
                                     <div class="setting-info">
-                                        <label class="setting-label">部署下载路径</label>
-                                        <p class="setting-desc">设置新实例安装时的默认下载目录</p>
+                                        <label class="setting-label">启动时显示欢迎页面</label>
+                                        <p class="setting-desc">每次启动应用程序时显示欢迎界面和功能介绍</p>
                                     </div>
                                     <div class="setting-control">
-                                        <div class="data-path-control">
-                                            <div class="flex gap-2 mb-2">
-                                                <input v-model="deploymentPath" type="text" placeholder="部署下载路径"
-                                                    class="input input-bordered input-sm flex-1" readonly />
-                                                <button @click="selectDeploymentFolder" class="btn btn-outline btn-sm"
-                                                    :disabled="isSelectingDeploymentFolder">
-                                                    <IconifyIcon v-if="!isSelectingDeploymentFolder"
-                                                        icon="mdi:folder-open" class="w-4 h-4" />
-                                                    <span v-if="isSelectingDeploymentFolder"
-                                                        class="loading loading-spinner loading-xs"></span>
-                                                    {{ isSelectingDeploymentFolder ? '选择中...' : '浏览' }}
-                                                </button>
-                                            </div>
-                                            <div class="flex items-center gap-2">
-                                                <IconifyIcon icon="mdi:information" class="w-4 h-4 text-info" />
-                                                <span class="text-xs text-base-content/60">
-                                                    当前路径: {{ deploymentPath || '未设置' }}
-                                                </span>
-                                            </div>
-                                        </div>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" v-model="showWelcomeOnStartup"
+                                                @change="toggleShowWelcomeOnStartup" class="toggle-input" />
+                                            <span class="toggle-slider"></span>
+                                        </label>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- 通知设置 -->
                             <div class="setting-group">
-                                <h4 class="group-title">通知设置</h4>
+                                <div class="flex items-center gap-3 mb-4">
+                                    <div class="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                                        <IconifyIcon icon="mdi:bell" class="w-5 h-5 text-amber-500" />
+                                    </div>
+                                    <div>
+                                        <h4 class="group-title">通知设置</h4>
+                                        <p class="text-sm text-base-content/70">配置系统通知行为</p>
+                                    </div>
+                                </div>
 
                                 <div class="setting-item">
                                     <div class="setting-info">
@@ -422,6 +585,189 @@
                                             <span class="toggle-slider"></span>
                                         </label>
                                     </div>
+                                </div>
+                            </div>
+
+                            <!-- 路径快捷访问 -->
+                            <div class="setting-group">
+                                <div class="flex items-center gap-3 mb-4">
+                                    <div class="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                                        <IconifyIcon icon="mdi:folder-cog" class="w-5 h-5 text-emerald-500" />
+                                    </div>
+                                    <div>
+                                        <h4 class="group-title">路径快捷访问</h4>
+                                        <p class="text-sm text-base-content/70">快速访问和配置路径</p>
+                                    </div>
+                                </div>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">路径配置</label>
+                                        <p class="setting-desc">前往路径配置页面设置数据存储和部署路径</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <button @click="switchTab('paths')" class="btn btn-outline btn-sm">
+                                            <IconifyIcon icon="mdi:folder-cog" class="w-4 h-4" />
+                                            配置路径
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">当前路径状态</label>
+                                        <p class="setting-desc">查看当前配置的路径信息</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <div class="bg-base-200 rounded-lg p-3">
+                                            <div class="space-y-1 text-xs">
+                                                <div class="flex justify-between">
+                                                    <span class="text-base-content/70">数据存储:</span>
+                                                    <span class="text-primary font-mono">{{ dataStoragePath || '未设置'
+                                                    }}</span>
+                                                </div>
+                                                <div class="flex justify-between">
+                                                    <span class="text-base-content/70">实例部署:</span>
+                                                    <span class="text-primary font-mono">{{ deploymentPath || '未设置'
+                                                    }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 路径配置标签页 -->
+                    <div v-else-if="activeTab === 'paths'" class="settings-panel">
+                        <div class="panel-header">
+                            <h3 class="panel-title">路径配置</h3>
+                            <p class="panel-description">配置数据存储和实例部署的路径</p>
+                        </div>
+
+                        <div class="settings-section">
+                            <!-- 数据存储路径 -->
+                            <div class="setting-group">
+                                <div class="flex items-center gap-3 mb-4">
+                                    <div class="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                                        <IconifyIcon icon="mdi:database" class="w-5 h-5 text-blue-500" />
+                                    </div>
+                                    <div>
+                                        <h4 class="group-title">数据存储路径</h4>
+                                        <p class="text-sm text-base-content/70">用于存储配置文件、日志和数据</p>
+                                    </div>
+                                </div>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">数据存放路径</label>
+                                        <p class="setting-desc">选择MaiBot实例数据的存放位置，建议选择磁盘空间充足的位置</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <div class="data-path-control">
+                                            <div class="flex gap-2 mb-2">
+                                                <input v-model="dataStoragePath" type="text" placeholder="数据存放路径"
+                                                    class="input input-bordered input-sm flex-1" readonly />
+                                                <button @click="selectDataFolder" class="btn btn-outline btn-sm"
+                                                    :disabled="isSelectingFolder">
+                                                    <IconifyIcon v-if="!isSelectingFolder" icon="mdi:folder-open"
+                                                        class="w-4 h-4" />
+                                                    <span v-if="isSelectingFolder"
+                                                        class="loading loading-spinner loading-xs"></span>
+                                                    {{ isSelectingFolder ? '选择中...' : '浏览' }}
+                                                </button>
+                                                <button @click="resetDataPath" class="btn btn-ghost btn-sm">
+                                                    <IconifyIcon icon="mdi:refresh" class="w-4 h-4" />
+                                                    默认
+                                                </button>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <IconifyIcon icon="mdi:information" class="w-4 h-4 text-info" />
+                                                <span class="text-xs text-base-content/60">
+                                                    当前路径: {{ dataStoragePath || '未设置' }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 实例部署路径 -->
+                            <div class="setting-group">
+                                <div class="flex items-center gap-3 mb-4">
+                                    <div class="w-8 h-8 bg-green-500/10 rounded-lg flex items-center justify-center">
+                                        <IconifyIcon icon="mdi:package-variant" class="w-5 h-5 text-green-500" />
+                                    </div>
+                                    <div>
+                                        <h4 class="group-title">实例部署路径</h4>
+                                        <p class="text-sm text-base-content/70">用于安装和运行 MaiBot 实例</p>
+                                    </div>
+                                </div>
+
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label class="setting-label">实例部署路径</label>
+                                        <p class="setting-desc">选择MaiBot实例的部署和运行位置</p>
+                                    </div>
+                                    <div class="setting-control">
+                                        <div class="deployment-path-control">
+                                            <div class="flex gap-2 mb-2">
+                                                <input v-model="deploymentPath" type="text" placeholder="实例部署路径"
+                                                    class="input input-bordered input-sm flex-1" readonly />
+                                                <button @click="selectDeploymentFolder" class="btn btn-outline btn-sm"
+                                                    :disabled="isSelectingDeploymentFolder">
+                                                    <IconifyIcon v-if="!isSelectingDeploymentFolder"
+                                                        icon="mdi:folder-open" class="w-4 h-4" />
+                                                    <span v-if="isSelectingDeploymentFolder"
+                                                        class="loading loading-spinner loading-xs"></span>
+                                                    {{ isSelectingDeploymentFolder ? '选择中...' : '浏览' }}
+                                                </button>
+                                                <button @click="resetDeploymentPath" class="btn btn-ghost btn-sm">
+                                                    <IconifyIcon icon="mdi:refresh" class="w-4 h-4" />
+                                                    默认
+                                                </button>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <IconifyIcon icon="mdi:information" class="w-4 h-4 text-info" />
+                                                <span class="text-xs text-base-content/60">
+                                                    当前路径: {{ deploymentPath || '未设置' }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 路径预览 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">路径预览</h4>
+                                <div class="bg-base-200 rounded-lg p-4">
+                                    <div class="space-y-2 text-sm font-mono">
+                                        <div class="flex justify-between">
+                                            <span class="text-base-content/70">数据存储:</span>
+                                            <span class="text-primary">{{ dataStoragePath || '未设置' }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-base-content/70">实例部署:</span>
+                                            <span class="text-primary">{{ deploymentPath || '未设置' }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 路径操作 -->
+                            <div class="setting-group">
+                                <h4 class="group-title">路径操作</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <button class="btn btn-outline" @click="openDataFolder">
+                                        <IconifyIcon icon="mdi:folder-open" class="w-4 h-4" />
+                                        打开数据文件夹
+                                    </button>
+                                    <button class="btn btn-outline" @click="openDeploymentFolder">
+                                        <IconifyIcon icon="mdi:folder-open" class="w-4 h-4" />
+                                        打开部署文件夹
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -488,6 +834,9 @@ const activeTab = ref('appearance')
 const settingTabs = [
     { key: 'appearance', title: '外观', icon: 'mdi:palette' },
     { key: 'system', title: '系统', icon: 'mdi:cog' },
+    { key: 'paths', title: '路径配置', icon: 'mdi:folder-cog' },
+    { key: 'webui', title: 'WebUI', icon: 'mdi:web' },
+    { key: 'backend', title: '后端服务', icon: 'mdi:server-network' },
     { key: 'notifications', title: '通知', icon: 'mdi:bell' },
     { key: 'privacy', title: '隐私', icon: 'mdi:shield-lock' },
     { key: 'about', title: '关于', icon: 'mdi:information' },
@@ -518,6 +867,17 @@ const isSelectingDeploymentFolder = ref(false)
 // 通知设置
 const deploymentNotifications = ref(localStorage.getItem('deploymentNotifications') !== 'false')
 const instanceNotifications = ref(localStorage.getItem('instanceNotifications') !== 'false')
+
+// 启动设置
+const showWelcomeOnStartup = ref(localStorage.getItem('showWelcomeOnStartup') !== 'false')
+
+// WebUI 设置
+const webuiEnabled = ref(localStorage.getItem('webuiEnabled') !== 'false')
+const webuiPort = ref(parseInt(localStorage.getItem('webuiPort')) || 11111)
+
+// 后端服务设置
+const backendUrl = ref(localStorage.getItem('backendUrl') || 'http://localhost:8000')
+const isTestingBackendConnection = ref(false)
 
 // 外观设置状态
 const isDarkMode = computed(() => {
@@ -742,177 +1102,151 @@ const toggleInstanceNotifications = () => {
     localStorage.setItem('instanceNotifications', instanceNotifications.value.toString())
 }
 
-// 主题切换
-const toggleThemeMode = () => {
-    toggleDarkMode()
+// 切换启动时显示欢迎页面
+const toggleShowWelcomeOnStartup = () => {
+    localStorage.setItem('showWelcomeOnStartup', showWelcomeOnStartup.value.toString())
+    console.log('启动时显示欢迎页面设置已更新:', showWelcomeOnStartup.value)
 }
 
-// 主题模式改变
-const changeThemeMode = () => {
-    console.log('主题模式改变:', themeMode.value, new Date().toISOString());
-    localStorage.setItem('themeMode', themeMode.value)
+// WebUI 配置方法
+const toggleWebuiEnabled = async () => {
+    try {
+        if (webuiEnabled.value) {
+            // 启动 WebUI 服务器
+            const { invoke } = await import('@tauri-apps/api/core')
+            const result = await invoke('start_webui_server', { port: webuiPort.value })
 
-    // 直接应用对应主题，不再重复触发事件
-    if (themeMode.value === 'system') {
-        // 跟随系统
-        applySystemTheme()
-    } else if (themeMode.value === 'light') {
-        // 强制亮色
-        applyLightTheme()
-    } else if (themeMode.value === 'dark') {
-        // 强制暗色
-        applyDarkTheme()
-    }
+            localStorage.setItem('webuiEnabled', webuiEnabled.value.toString())
+            console.log('WebUI 启用状态已更新:', webuiEnabled.value)
 
-    // 确保设置面板样式正确应用
-    nextTick(() => {
-        ensureSettingsDrawerStyles()
-    })
-
-    // 注意：setTheme 函数中已经处理了事件触发，这里不再重复触发
-}
-
-// 确保设置抽屉样式正确应用
-const ensureSettingsDrawerStyles = () => {
-    const container = document.querySelector('.settings-drawer-container')
-    if (container) {
-        // 确保设置抽屉保持不透明背景
-        container.style.backgroundColor = 'hsl(var(--b1))'
-        container.style.opacity = '1'
-
-        // 移除任何可能导致透明的类
-        container.classList.remove('transparent', 'backdrop-blur')
-
-        // 根据当前主题应用正确的文字颜色，但只影响设置抽屉内部
-        const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark' ||
-            themeMode.value === 'dark' ||
-            (themeMode.value === 'system' && systemDarkMode.value)
-
-        // 只为设置抽屉内的元素应用样式，不影响页面其他部分
-        if (isDarkMode) {
-            container.classList.add('force-dark-text')
+            const { default: toastService } = await import('../../services/toastService')
+            toastService.success(result)
         } else {
-            container.classList.remove('force-dark-text')
+            // 停止 WebUI 服务器
+            const { invoke } = await import('@tauri-apps/api/core')
+            const result = await invoke('stop_webui_server')
+
+            localStorage.setItem('webuiEnabled', webuiEnabled.value.toString())
+            console.log('WebUI 启用状态已更新:', webuiEnabled.value)
+
+            const { default: toastService } = await import('../../services/toastService')
+            toastService.success(result)
         }
 
-        // 强制应用文本颜色到设置抽屉内的关键元素，使用容器作为范围限制
-        const settingsSelectors = [
-            '.settings-title', '.panel-title', '.setting-label',
-            '.setting-desc', '.panel-description', '.version-info',
-            '.nav-label', '.option-label', '.group-title',
-            'input', 'select', 'textarea', 'button', '.btn',
-            '.theme-option', '.theme-name', '.footer-info'
-        ]
+        // 通知其他组件 WebUI 状态已更改
+        window.dispatchEvent(new CustomEvent('webui-status-changed', {
+            detail: { enabled: webuiEnabled.value, port: webuiPort.value }
+        }))
+    } catch (error) {
+        console.error('切换 WebUI 状态失败:', error)
+        // 回滚状态
+        webuiEnabled.value = !webuiEnabled.value
 
-        settingsSelectors.forEach(selector => {
-            const elements = container.querySelectorAll(selector)
-            elements.forEach(el => {
-                el.style.color = 'hsl(var(--bc))'
-            })
-        })
+        const { default: toastService } = await import('../../services/toastService')
+        toastService.error('WebUI 操作失败: ' + error)
     }
 }
 
-// 强制应用暗色模式文本样式（保留原方法以兼容现有代码）
-const forceDarkModeTextStyles = () => {
-    ensureSettingsDrawerStyles()
-}
-
-// 应用系统主题
-const applySystemTheme = () => {
-    console.log('应用系统主题', new Date().toISOString());
-    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    darkMode.value = isDark
-    // 使用setTheme来统一处理主题切换，避免重复操作DOM
-    setTheme(isDark ? 'dark' : 'light')
-}
-
-// 应用亮色主题
-const applyLightTheme = () => {
-    console.log('应用亮色主题', new Date().toISOString());
-    darkMode.value = false
-    // 使用setTheme来统一处理主题切换，避免重复操作DOM
-    setTheme('light')
-}
-
-// 应用暗色主题
-const applyDarkTheme = () => {
-    console.log('应用暗色主题', new Date().toISOString());
-    darkMode.value = true
-    // 使用setTheme来统一处理主题切换，避免重复操作DOM
-    setTheme('dark')
-}
-
-// 动画切换
-const toggleAnimations = () => {
-    if (enableAnimations.value) {
-        document.documentElement.classList.remove('no-animations')
-    } else {
-        document.documentElement.classList.add('no-animations')
-    }
-    localStorage.setItem('enableAnimations', enableAnimations.value)
-}
-
-// 字体大小调整
-const changeFontSize = () => {
-    document.documentElement.style.setProperty('--base-font-size', `${fontSize.value}px`)
-    localStorage.setItem('fontSize', fontSize.value)
-}
-
-// 布局密度设置
-const setLayoutDensity = (density) => {
-    layoutDensity.value = density
-    document.documentElement.setAttribute('data-density', density)
-    localStorage.setItem('layoutDensity', density)
-}
-
-// 重置设置
-const resetSettings = () => {
-    if (confirm('确定要重置所有设置吗？这将恢复默认配置。')) {
-        settingsService.resetSettings()
-
-        // 重新加载设置
-        themeMode.value = 'system'
-        enableAnimations.value = true
-        fontSize.value = 14
-        layoutDensity.value = 'comfortable'
-        forceMockDisabled.value = false
-
-        // 应用设置
-        changeThemeMode()
-        toggleAnimations()
-        changeFontSize()
-        setLayoutDensity('comfortable')
-        toggleForceMockDisabled()
-    }
-}
-
-// 高级设置方法
-const toggleForceMockDisabled = () => {
-    localStorage.setItem('forceMockDisabled', forceMockDisabled.value.toString())
-
-    if (forceMockDisabled.value) {
-        // 强制禁用模拟数据，立即关闭模拟数据模式
-        localStorage.setItem('useMockData', 'false')
-        console.log('模拟数据功能已被强制禁用')
-
-        // 通知用户
+const changeWebuiPort = async () => {
+    // 验证端口范围
+    if (webuiPort.value < 1024 || webuiPort.value > 65535) {
+        webuiPort.value = 11111 // 重置为默认值
         import('../../services/toastService').then(({ default: toastService }) => {
-            toastService.info('模拟数据功能已禁用，应用将只使用真实后端数据')
+            toastService.error('端口号必须在 1024-65535 范围内')
         })
-    } else {
-        console.log('模拟数据功能禁用已解除')
+        return
+    } try {
+        localStorage.setItem('webuiPort', webuiPort.value.toString())
+        console.log('WebUI 端口已更新:', webuiPort.value)
 
-        // 通知用户
-        import('../../services/toastService').then(({ default: toastService }) => {
-            toastService.info('模拟数据功能禁用已解除，后端连接失败时将自动启用模拟数据')
-        })
+        // 如果 WebUI 当前启用，重启服务器以应用新端口
+        if (webuiEnabled.value) {
+            const { invoke } = await import('@tauri-apps/api/core')
+
+            // 停止现有服务器
+            await invoke('stop_webui_server')
+
+            // 启动新服务器
+            const result = await invoke('start_webui_server', { port: webuiPort.value })
+
+            const { default: toastService } = await import('../../services/toastService')
+            toastService.success(`WebUI 端口已更新为 ${webuiPort.value}，服务器已重启`)
+        } else {
+            const { default: toastService } = await import('../../services/toastService')
+            toastService.success(`WebUI 端口已设置为 ${webuiPort.value}`)
+        }
+
+        // 通知其他组件端口已更改
+        window.dispatchEvent(new CustomEvent('webui-port-changed', {
+            detail: { port: webuiPort.value, enabled: webuiEnabled.value }
+        }))
+    } catch (error) {
+        console.error('更新 WebUI 端口失败:', error)
+        const { default: toastService } = await import('../../services/toastService')
+        toastService.error('更新端口失败: ' + error)
     }
 }
 
-const checkBackendConnection = async () => {
-    isCheckingConnection.value = true
-    lastConnectionCheck.value = new Date()
+const resetWebuiPort = () => {
+    webuiPort.value = 11111
+    changeWebuiPort()
+}
+
+// 初始化 WebUI 状态检查
+const initializeWebuiStatus = async () => {
+    try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const [enabled, port] = await invoke('get_webui_status')
+
+        // 同步实际状态和本地设置
+        if (enabled !== webuiEnabled.value) {
+            console.log('同步 WebUI 状态:', enabled)
+            webuiEnabled.value = enabled
+            localStorage.setItem('webuiEnabled', enabled.toString())
+        }
+
+        if (port !== webuiPort.value) {
+            console.log('同步 WebUI 端口:', port)
+            webuiPort.value = port
+            localStorage.setItem('webuiPort', port.toString())
+        }
+    } catch (error) {
+        console.warn('无法获取 WebUI 状态，可能是在开发模式:', error)
+    }
+}
+
+// 后端服务配置方法
+const changeBackendUrl = () => {
+    // 验证 URL 格式
+    try {
+        new URL(backendUrl.value)
+    } catch (error) {
+        import('../../services/toastService').then(({ default: toastService }) => {
+            toastService.error('请输入有效的 URL 格式')
+        })
+        return
+    }
+
+    localStorage.setItem('backendUrl', backendUrl.value)
+    console.log('后端服务地址已更新:', backendUrl.value)
+
+    // 通知其他组件后端地址已更改
+    window.dispatchEvent(new CustomEvent('backend-url-changed', {
+        detail: { url: backendUrl.value }
+    }))
+
+    import('../../services/toastService').then(({ default: toastService }) => {
+        toastService.success('后端服务地址已更新')
+    })
+}
+
+const resetBackendUrl = () => {
+    backendUrl.value = 'http://localhost:8000'
+    changeBackendUrl()
+}
+
+const testBackendConnection = async () => {
+    isTestingBackendConnection.value = true
 
     try {
         // 动态导入需要的服务
@@ -921,221 +1255,97 @@ const checkBackendConnection = async () => {
             import('../../services/toastService')
         ])
 
-        console.log('开始检查后端连接...')
-        const connected = await apiService.testBackendConnection()
-        isConnected.value = connected
+        console.log('测试后端连接:', backendUrl.value)
+
+        // 这里需要使用当前设置的后端地址进行测试
+        const connected = await apiService.testConnection(backendUrl.value)
 
         if (connected) {
-            toastService.success('后端连接正常')
-            localStorage.setItem('useMockData', 'false')
-
-            // 通知App.vue更新状态
-            window.dispatchEvent(new CustomEvent('backend-connection-changed', {
-                detail: { connected: true, useMockData: false }
-            }))
+            toastService.success('后端连接测试成功')
         } else {
-            if (!forceMockDisabled.value) {
-                localStorage.setItem('useMockData', 'true')
-                toastService.warning('后端连接失败，已启用模拟数据模式')
-
-                // 通知App.vue更新状态
-                window.dispatchEvent(new CustomEvent('backend-connection-changed', {
-                    detail: { connected: false, useMockData: true }
-                }))
-            } else {
-                toastService.error('后端连接失败，且模拟数据功能已被禁用')
-
-                // 通知App.vue更新状态
-                window.dispatchEvent(new CustomEvent('backend-connection-changed', {
-                    detail: { connected: false, useMockData: false }
-                }))
-            }
+            toastService.error('后端连接测试失败')
         }
     } catch (error) {
-        console.error('检查后端连接时出错:', error)
-        isConnected.value = false
+        console.error('测试后端连接时出错:', error)
         const { default: toastService } = await import('../../services/toastService')
-        toastService.error('检查连接时出错: ' + error.message)
+        toastService.error('连接测试失败: ' + error.message)
     } finally {
-        isCheckingConnection.value = false
+        isTestingBackendConnection.value = false
     }
 }
 
-const attemptReconnection = async () => {
-    isReconnecting.value = true
+// 路径配置方法
+const resetDataPath = () => {
+    const defaultPath = getDefaultDataPath()
+    dataStoragePath.value = defaultPath
+    localStorage.setItem('dataStoragePath', defaultPath)
+
+    import('../../services/toastService').then(({ default: toastService }) => {
+        toastService.success(`数据存放路径已重置为默认: ${defaultPath}`)
+    })
+}
+
+const resetDeploymentPath = () => {
+    const defaultPath = getDefaultDeploymentPath()
+    deploymentPath.value = defaultPath
+    localStorage.setItem('deploymentPath', defaultPath)
+
+    import('../../services/toastService').then(({ default: toastService }) => {
+        toastService.success(`实例部署路径已重置为默认: ${defaultPath}`)
+    })
+}
+
+const openDataFolder = async () => {
+    if (!dataStoragePath.value) {
+        import('../../services/toastService').then(({ default: toastService }) => {
+            toastService.error('数据存放路径未设置')
+        })
+        return
+    }
 
     try {
-        const [{ default: apiService }, { default: toastService }] = await Promise.all([
-            import('../../services/apiService'),
-            import('../../services/toastService')
-        ])
-
-        console.log('开始尝试重连后端...')
-        toastService.info('正在尝试重新连接后端服务...')
-
-        // 尝试多次连接
-        const maxRetries = 3
-        let connected = false
-
-        for (let i = 0; i < maxRetries && !connected; i++) {
-            console.log(`重连尝试 ${i + 1}/${maxRetries}`)
-
-            if (i > 0) {
-                // 等待一段时间后再试
-                await new Promise(resolve => setTimeout(resolve, 2000))
-            }
-
-            connected = await apiService.testBackendConnection()
-
-            if (connected) {
-                isConnected.value = true
-                localStorage.setItem('useMockData', 'false')
-                toastService.success('重连成功！已连接到后端服务')
-
-                // 通知App.vue更新状态
-                window.dispatchEvent(new CustomEvent('backend-connection-changed', {
-                    detail: { connected: true, useMockData: false }
-                }))
-                break
-            }
-        }
-
-        if (!connected) {
-            isConnected.value = false
-            toastService.error(`重连失败，已尝试 ${maxRetries} 次`)
-        }
-
+        // 这里可以使用 Tauri 的 API 打开文件夹
+        const { shell } = await import('@tauri-apps/api')
+        await shell.open(dataStoragePath.value)
     } catch (error) {
-        console.error('重连时出错:', error)
-        isConnected.value = false
-        const { default: toastService } = await import('../../services/toastService')
-        toastService.error('重连时出错: ' + error.message)
-    } finally {
-        isReconnecting.value = false
-    }
-}
-
-const clearLocalData = async () => {
-    if (confirm('确定要清除所有本地缓存数据吗？这将清除设置、缓存和历史记录。')) {
-        try {
-            // 保存重要设置
-            const themeModeBak = themeMode.value
-            const forceMockDisabledBak = forceMockDisabled.value
-
-            // 清除localStorage
-            localStorage.clear()
-
-            // 恢复重要设置
-            localStorage.setItem('themeMode', themeModeBak)
-            localStorage.setItem('forceMockDisabled', forceMockDisabledBak.toString())
-
-            // 通知用户
-            const { default: toastService } = await import('../../services/toastService')
-            toastService.success('本地缓存已清除')
-
-            // 刷新页面以重新初始化
-            setTimeout(() => {
-                window.location.reload()
-            }, 1000)
-        } catch (error) {
-            console.error('清除缓存时出错:', error)
-            const { default: toastService } = await import('../../services/toastService')
-            toastService.error('清除缓存失败: ' + error.message)
-        }
-    }
-}
-
-// ESC键处理
-const handleEscKey = (e) => {
-    if (e.key === 'Escape' && props.isOpen) {
-        closeDrawer()
-    }
-}
-
-// 监听设置变化
-watch(() => props.isOpen, (newValue) => {
-    if (newValue) {
-        // 当设置面板打开时，不要改变页面主题，只添加必要的类
-        document.body.classList.add('settings-open')
-
-        // 确保设置抽屉样式正确
-        nextTick(() => {
-            ensureSettingsDrawerStyles()
-        })
-    } else {
-        document.body.classList.remove('settings-open')
-    }
-})
-
-// 生命周期
-onMounted(() => {
-    document.addEventListener('keydown', handleEscKey)
-
-    // 初始化系统信息
-    initSystemInfo()
-
-    // 初始化数据路径
-    initDataPath()
-
-    // 初始化连接状态
-    const currentUseMockData = localStorage.getItem('useMockData') === 'true'
-    isConnected.value = !currentUseMockData
-
-    // 从设置服务获取当前标签页
-    const currentTab = settingsService.getTab()
-    if (currentTab) {
-        activeTab.value = currentTab
-    }
-
-    // 同步当前主题
-    const domTheme = document.documentElement.getAttribute('data-theme')
-    const localTheme = localStorage.getItem('theme')
-    const actualTheme = domTheme || localTheme || 'light'
-
-    if (currentTheme.value !== actualTheme) {
-        console.log('🔄 同步主题状态:', { current: currentTheme.value, actual: actualTheme })
-        currentTheme.value = actualTheme
-    }
-
-    // 监听系统主题变化
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleSystemThemeChange = (e) => {
-        systemDarkMode.value = e.matches
-        if (themeMode.value === 'system') {
-            applySystemTheme()
-        }
-    }
-
-    mediaQuery.addEventListener('change', handleSystemThemeChange)    // 添加主题变化全局监听器
-    const handleThemeChanged = (event) => {
-        console.log('SettingsDrawer 接收到主题变更事件:', event.type, new Date().toISOString());
-
-        // 强制刷新设置抽屉的样式，但不影响页面其他部分
-        nextTick(() => {
-            ensureSettingsDrawerStyles()
+        console.error('打开数据文件夹失败:', error)
+        import('../../services/toastService').then(({ default: toastService }) => {
+            toastService.error('打开文件夹失败')
         })
     }
+}
 
-    // 只监听theme-changed-after事件，这样可以避免与其他处理冲突
-    window.addEventListener('theme-changed-after', handleThemeChanged)    // 初始化主题模式
-    if (themeMode.value === 'system') {
-        applySystemTheme()
+const openDeploymentFolder = async () => {
+    if (!deploymentPath.value) {
+        import('../../services/toastService').then(({ default: toastService }) => {
+            toastService.error('实例部署路径未设置')
+        })
+        return
     }
 
-    // 确保初始应用暗色模式文本样式
-    nextTick(() => {
-        forceDarkModeTextStyles()
-    })
+    try {
+        // 这里可以使用 Tauri 的 API 打开文件夹
+        const { shell } = await import('@tauri-apps/api')
+        await shell.open(deploymentPath.value)
+    } catch (error) {
+        console.error('打开部署文件夹失败:', error)
+        import('../../services/toastService').then(({ default: toastService }) => {
+            toastService.error('打开文件夹失败')
+        })
+    }
+}
 
-    // 在组件卸载时清理监听器
-    onBeforeUnmount(() => {
-        mediaQuery.removeEventListener('change', handleSystemThemeChange)
-        window.removeEventListener('theme-changed-after', handleThemeChanged)
-    })
-})
+// 组件挂载时初始化
+onMounted(async () => {
+    // 初始化路径设置
+    if (!dataStoragePath.value) {
+        dataStoragePath.value = localStorage.getItem('dataStoragePath') || getDefaultDataPath()
+    }
+    if (!deploymentPath.value) {
+        deploymentPath.value = localStorage.getItem('deploymentPath') || getDefaultDeploymentPath()
+    }
 
-onBeforeUnmount(() => {
-    document.removeEventListener('keydown', handleEscKey)
-    document.body.classList.remove('settings-open')
+    // 初始化 WebUI 状态
+    await initializeWebuiStatus()
 })
 </script>

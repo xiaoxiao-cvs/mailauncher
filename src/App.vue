@@ -31,8 +31,11 @@
       </transition>
     </div><!-- 设置抽屉 -->
     <SettingsDrawer :is-open="isSettingsOpen" @close="closeSettings" /> <!-- 欢迎弹窗 -->
-    <WelcomeModal :visible="showWelcomeModal" @close="closeWelcomeModal" @dont-show-again="handleDontShowAgain"
+    <WelcomeModal :visible="showWelcomeModal" @close="closeWelcomeModal" @start-setup-wizard="startSetupWizard"
       @open-settings="openSettingsFromWelcome" />
+
+    <!-- 首次设置向导 -->
+    <FirstTimeSetupWizard :visible="showSetupWizard" @close="closeSetupWizard" @complete="handleSetupComplete" />
 
     <!-- 编辑模式覆盖层 - 当任何组件进入编辑模式时显示 -->
     <div v-if="isAnyEditModeActive" class="dashboard-edit-overlay"></div>
@@ -47,6 +50,7 @@ import InstancesPanel from './components/InstancesPanel.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import SettingsDrawer from './components/settings/SettingsDrawer.vue'
 import WelcomeModal from './components/common/WelcomeModal.vue'
+import FirstTimeSetupWizard from './components/setup/FirstTimeSetupWizard.vue'
 import PluginsView from './views/PluginsView.vue'
 import ChatRoom from './components/chat/ChatRoom.vue' // 导入聊天室组件
 import IconifyIcon from './components/common/IconifyIcon.vue' // 导入图标组件
@@ -82,6 +86,7 @@ const isAnyEditModeActive = ref(false);
 
 // 欢迎弹窗状态
 const showWelcomeModal = ref(false);
+const showSetupWizard = ref(false);
 
 // 欢迎弹窗相关方法
 const closeWelcomeModal = () => {
@@ -101,9 +106,35 @@ const openSettingsFromWelcome = () => {
   }, 300);
 };
 
-// 检查是否应该显示欢迎弹窗
+// 开始首次设置向导
+const startSetupWizard = () => {
+  showWelcomeModal.value = false;
+  showSetupWizard.value = true;
+};
+
+// 关闭设置向导
+const closeSetupWizard = () => {
+  showSetupWizard.value = false;
+};
+
+// 设置向导完成
+const handleSetupComplete = () => {
+  showSetupWizard.value = false;
+  toastService.success('配置完成，欢迎使用 MaiLauncher！');
+};
+
+// 检查是否应该显示欢迎弹窗或设置向导
 const checkWelcomeModal = () => {
   const dontShow = localStorage.getItem('welcomeModalDontShow');
+  const setupCompleted = localStorage.getItem('firstTimeSetupCompleted');
+
+  // 如果是首次使用且没有完成设置，直接显示设置向导
+  if (!setupCompleted) {
+    showSetupWizard.value = true;
+    return;
+  }
+
+  // 否则检查是否应该显示欢迎弹窗
   if (!dontShow || dontShow !== 'true') {
     showWelcomeModal.value = true;
   }

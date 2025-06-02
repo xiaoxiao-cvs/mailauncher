@@ -1,17 +1,47 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-use std::process::{Command, Stdio};
-use std::sync::{Arc, Mutex};
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use tokio::sync::Mutex as TokioMutex;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use warp::Filter;
 use tauri::Manager;
+use rust_embed::RustEmbed;
 
-struct BackendProcess(Mutex<Option<std::process::Child>>);
+#[derive(RustEmbed)]
+#[folder = "../dist/"]
+struct Assets;
 
-// WebUI 服务器结构
+async fn serve_embedded_file(path: &str) -> Result<impl warp::Reply, warp::Rejection> {
+    let path = if path.is_empty() || path == "/" {
+        "index.html"
+    } else {
+        path
+    };
+
+    match Assets::get(path) {
+        Some(content) => {
+            let mime = mime_guess::from_path(path).first_or_octet_stream();
+            Ok(warp::reply::with_header(
+                content.data,
+                "content-type",
+                mime.as_ref(),
+            ))
+        }
+        None => {
+            // 如果文件不存在，返回 index.html (SPA 路由)
+            match Assets::get("index.html") {
+                Some(content) => Ok(warp::reply::with_header(
+                    content.data,
+                    "content-type",
+                    "text/html",
+                )),
+                None => Err(warp::reject::not_found()),
+            }
+        }
+    }
+}
+
 pub struct WebuiServer {
-    server_handle: Arc<TokioMutex<Option<tokio::task::JoinHandle<()>>>>,
+    server_handle: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
     port: u16,
     enabled: bool,
 }
@@ -19,13 +49,11 @@ pub struct WebuiServer {
 impl WebuiServer {
     pub fn new() -> Self {
         Self {
-            server_handle: Arc::new(TokioMutex::new(None)),
+            server_handle: Arc::new(Mutex::new(None)),
             port: 11111,
             enabled: false,
         }
-    }
-
-    pub async fn start_server(&mut self, port: u16, frontend_dist: PathBuf) -> Result<(), String> {
+    }    pub async fn start_server_dev(&mut self, port: u16, frontend_dist: PathBuf) -> Result<(), String> {
         // 停止现有服务器
         self.stop_server().await;
         
@@ -57,7 +85,37 @@ impl WebuiServer {
                 }
             });
 
-        // API 代理 - 转发到后端服务
+        self.setup_server_routes(addr, static_files, spa_route).await
+    }    pub async fn start_server_prod(&mut self, port: u16, _app_handle: tauri::AppHandle) -> Result<(), String> {
+        // 停止现有服务器
+        self.stop_server().await;
+        
+        let addr: SocketAddr = ([0, 0, 0, 0], port).into();
+        
+        // 生产模式下，使用嵌入的前端资源
+        let embedded_static = warp::path::tail()
+            .and(warp::get())
+            .and_then(|tail: warp::path::Tail| async move {
+                serve_embedded_file(tail.as_str()).await
+            });
+
+        // SPA 路由处理 - 对于不存在的路径返回 index.html
+        let spa_route = warp::any()
+            .and(warp::get())
+            .and_then(|| async move {
+                serve_embedded_file("index.html").await
+            });
+
+        self.setup_server_routes(addr, embedded_static, spa_route).await
+    }
+
+    async fn setup_server_routes<S, P>(&mut self, addr: SocketAddr, static_files: S, spa_route: P) -> Result<(), String> 
+    where 
+        S: warp::Filter + Clone + Send + Sync + 'static,
+        S::Extract: warp::Reply,
+        P: warp::Filter + Clone + Send + Sync + 'static,
+        P::Extract: warp::Reply,
+    {        // API 代理 - 转发到后端服务
         let api_proxy = warp::path("api")
             .and(warp::path::full())
             .and(warp::method())
@@ -108,7 +166,7 @@ impl WebuiServer {
         let ws_proxy = warp::path("ws")
             .and(warp::ws())
             .map(|ws: warp::ws::Ws| {
-                ws.on_upgrade(|_websocket| async {
+                ws.on_upgrade(|websocket| async {
                     // 实现 WebSocket 代理逻辑
                     // 这里可以转发到后端的 WebSocket 服务
                     println!("WebSocket connection established for WebUI");
@@ -160,49 +218,41 @@ impl WebuiServer {
     }
 }
 
+// Tauri 命令
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
-// WebUI Tauri 命令
-#[tauri::command]
-async fn start_webui_server(
+pub async fn start_webui_server(
     app_handle: tauri::AppHandle,
     port: u16,
 ) -> Result<String, String> {
-    let webui_state = app_handle.state::<Arc<TokioMutex<WebuiServer>>>();
-    let mut webui = webui_state.lock().await;
-    
-    // 获取前端构建目录
-    let frontend_dist = if cfg!(dev) {
+    let webui_state = app_handle.state::<Arc<Mutex<WebuiServer>>>();
+    let mut webui = webui_state.lock().await;    // 在开发模式下使用文件系统服务，生产模式下使用内置资源
+    if cfg!(debug_assertions) {
         // 开发模式：使用项目根目录下的 dist 文件夹
-        std::env::current_dir()
-            .unwrap()
-            .join("dist")
+        let frontend_dist = std::env::current_dir()
+            .map_err(|e| format!("无法获取当前目录: {}", e))?
+            .parent() // 从 src-tauri 目录回到项目根目录
+            .ok_or("无法获取父目录")?
+            .join("dist");
+
+        // 检查目录是否存在
+        if !frontend_dist.exists() {
+            return Err(format!("前端构建目录不存在: {:?}，请先运行 npm run build 构建前端", frontend_dist));
+        }
+
+        webui.start_server_dev(port, frontend_dist).await?;
     } else {
-        // 生产模式：使用 Tauri 的资源目录
-        app_handle
-            .path()
-            .resolve("dist", tauri::path::BaseDirectory::Resource)
-            .map_err(|e| format!("无法找到前端构建文件: {}", e))?
-    };
-
-    // 检查目录是否存在
-    if !frontend_dist.exists() {
-        return Err(format!("前端构建目录不存在: {:?}", frontend_dist));
+        // 生产模式：使用内置资源服务
+        webui.start_server_prod(port, app_handle.clone()).await?;
     }
-
-    webui.start_server(port, frontend_dist).await?;
     
     Ok(format!("WebUI 服务器已启动在端口 {}", port))
 }
 
 #[tauri::command]
-async fn stop_webui_server(
+pub async fn stop_webui_server(
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
-    let webui_state = app_handle.state::<Arc<TokioMutex<WebuiServer>>>();
+    let webui_state = app_handle.state::<Arc<Mutex<WebuiServer>>>();
     let mut webui = webui_state.lock().await;
     
     webui.stop_server().await;
@@ -211,83 +261,11 @@ async fn stop_webui_server(
 }
 
 #[tauri::command]
-async fn get_webui_status(
+pub async fn get_webui_status(
     app_handle: tauri::AppHandle,
 ) -> Result<(bool, u16), String> {
-    let webui_state = app_handle.state::<Arc<TokioMutex<WebuiServer>>>();
+    let webui_state = app_handle.state::<Arc<Mutex<WebuiServer>>>();
     let webui = webui_state.lock().await;
     
     Ok((webui.is_enabled(), webui.get_port()))
-}
-
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_dialog::init())        .setup(|app| {
-            // 初始化 WebUI 服务器状态
-            let webui_server = Arc::new(TokioMutex::new(WebuiServer::new()));
-            app.manage(webui_server);
-
-            // 在 externalBin 配置下，Tauri 会处理不同平台的二进制文件
-            // 开发模式和生产模式下都使用相同的逻辑
-            let backend_exe = if cfg!(dev) {
-                // 开发模式：直接使用 binaries 目录中的文件
-                std::env::current_dir()
-                    .unwrap()
-                    .join("src-tauri")
-                    .join("binaries")
-                    .join("MaiLauncher-Backend-x86_64-pc-windows-msvc.exe")
-            } else {
-                // 生产模式：使用 Tauri 的资源解析
-                // Tauri 会自动根据平台查找正确的二进制文件
-                app.path()
-                    .resolve("MaiLauncher-Backend", tauri::path::BaseDirectory::Resource)
-                    .expect("无法找到后端二进制文件")
-            };
-            
-            println!("🔍 尝试启动后端: {:?}", backend_exe);
-            
-            // 获取用户数据目录用于日志
-            let logs_dir = app.path().app_data_dir()
-                .expect("无法获取应用数据目录")
-                .join("logs");
-            
-            // 确保日志目录存在
-            std::fs::create_dir_all(&logs_dir).ok();
-            
-            // 启动Python进程（固定端口23456）并设置日志目录
-            let backend_process = Command::new(&backend_exe)
-                .env("LOGS_DIR", logs_dir.to_string_lossy().to_string())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-                .expect("启动后端失败");
-            
-            // 保存进程引用
-            app.manage(BackendProcess(Mutex::new(Some(backend_process))));
-            
-            // 打印启动信息
-            println!("✅ 后端进程已启动，端口:23456");
-            
-            Ok(())
-        }).on_window_event(|app_handle, event| {
-            if let tauri::WindowEvent::Destroyed = event {
-                // 应用关闭时结束后端进程
-                let backend_state = app_handle.state::<BackendProcess>();
-                let mut process_guard = backend_state.0.lock().unwrap();
-                if let Some(mut process) = process_guard.take() {
-                    let _ = process.kill();
-                    println!("🛑 后端进程已终止");
-                }
-            }
-        })        .invoke_handler(tauri::generate_handler![
-            greet,
-            start_webui_server,
-            stop_webui_server,
-            get_webui_status
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
 }

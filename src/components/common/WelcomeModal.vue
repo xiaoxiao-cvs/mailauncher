@@ -1,157 +1,128 @@
 <template>
     <div v-if="visible" class="fixed inset-0 z-50 bg-base-100 overflow-y-auto">
-        <div class="min-h-screen w-full max-w-4xl mx-auto p-6">
-            <!-- 头部 -->
-            <div class="flex items-center justify-between gap-3 mb-6">
-                <div class="flex items-center gap-3">
-                    <img src="/assets/icon.ico" alt="MaiLauncher" class="w-12 h-12" />
-                    <div>
-                        <h3 class="font-bold text-xl">MaiLauncher 启动器</h3>
-                        <p class="text-sm text-base-content/70">功能介绍</p>
+        <div class="min-h-screen w-full max-w-3xl mx-auto p-6 flex items-center justify-center">
+            <div class="w-full">
+                <!-- 头部 -->
+                <div class="text-center mb-8">
+                    <div class="w-20 h-20 mx-auto mb-6 bg-primary/10 rounded-full flex items-center justify-center">
+                        <img src="/assets/icon.ico" alt="MaiLauncher" class="w-12 h-12" />
                     </div>
+                    <h1 class="font-bold text-3xl mb-2">欢迎使用 MaiLauncher</h1>
+                    <p class="text-lg text-base-content/70">强大的 MaiBot 实例管理和部署工具</p>
                 </div>
 
-                <!-- 倒计时提示 -->
-                <div v-if="countdown > 0" class="flex items-center gap-2 text-sm text-base-content/70">
-                    <Icon icon="mdi:clock-outline" class="w-4 h-4" />
-                    <span>{{ countdown }} 秒后可关闭</span>
-                </div>
-            </div>
-
-            <!-- 内容区域 -->
-            <div class="space-y-4">
-                <div class="alert alert-info">
-                    <Icon icon="mdi:information" class="shrink-0 w-6 h-6" />
-                    <div>
-                        <h4 class="font-bold">欢迎使用 MaiLauncher!</h4>
-                        <p class="text-sm">以下是当前已实现并能正常运行的功能</p>
-                    </div>
-                </div>
-
-                <!-- 功能列表 -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- 核心功能 -->
-                    <div class="card bg-base-100 border border-base-300">
-                        <div class="card-body p-4">
-                            <div class="flex items-center gap-2 mb-3">
-                                <Icon icon="mdi:server" class="text-primary w-5 h-5" />
-                                <h5 class="font-semibold">实例管理</h5>
+                <!-- 主要选择 -->
+                <div class="space-y-6 mb-8">
+                    <!-- 首次使用 -->
+                    <div
+                        class="card bg-gradient-to-r from-primary/5 to-secondary/5 border-2 border-primary/20 transition-all duration-300 hover:shadow-lg hover:border-primary/40">
+                        <div class="card-body p-6">
+                            <div class="flex items-center gap-4">
+                                <div class="w-16 h-16 bg-primary/10 rounded-xl flex items-center justify-center">
+                                    <Icon icon="mdi:rocket-launch" class="w-8 h-8 text-primary" />
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="text-xl font-bold mb-2">首次使用配置向导</h3>
+                                    <p class="text-base-content/70 mb-4">
+                                        这是您第一次使用 MaiLauncher。让我们通过简单的步骤来配置系统，包括路径设置、后端连接和主题选择。
+                                    </p>
+                                    <button @click="startSetupWizard" class="btn btn-primary">
+                                        <Icon icon="mdi:play" class="w-4 h-4" />
+                                        开始配置
+                                    </button>
+                                </div>
                             </div>
-                            <ul class="text-sm space-y-1 text-base-content/80">
-                                <li>✅ 创建和部署 MaiBot 实例</li>
-                                <li>✅ 启动、停止、重启实例</li>
-                                <li>✅ 实例状态监控</li>
-                                <li>✅ 实例配置管理</li>
-                            </ul>
                         </div>
                     </div>
 
-                    <!-- 终端功能 -->
-                    <div class="card bg-base-100 border border-base-300">
-                        <div class="card-body p-4">
-                            <div class="flex items-center gap-2 mb-3">
-                                <Icon icon="mdi:console" class="text-primary w-5 h-5" />
-                                <h5 class="font-semibold">终端控制</h5>
+                    <!-- 快速开始 -->
+                    <div class="card bg-base-200 border border-base-300 transition-all duration-300 hover:shadow-md">
+                        <div class="card-body p-6">
+                            <div class="flex items-center gap-4">
+                                <div class="w-16 h-16 bg-success/10 rounded-xl flex items-center justify-center">
+                                    <Icon icon="mdi:lightning-bolt" class="w-8 h-8 text-success" />
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="text-xl font-bold mb-2">直接开始使用</h3>
+                                    <p class="text-base-content/70 mb-4">
+                                        使用默认设置立即开始体验 MaiLauncher。您随时可以在设置页面中调整配置。
+                                    </p>
+                                    <button @click="skipSetup" class="btn btn-outline">
+                                        <Icon icon="mdi:skip-next" class="w-4 h-4" />
+                                        跳过配置
+                                    </button>
+                                </div>
                             </div>
-                            <ul class="text-sm space-y-1 text-base-content/80">
-                                <li>✅ 实时终端输出</li>
-                                <li>✅ 命令交互执行</li>
-                                <li>✅ MaiBot / napcat-ada 双终端</li>
-                                <li>✅ WebSocket 实时通信</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <!-- 部署功能 -->
-                    <div class="card bg-base-100 border border-base-300">
-                        <div class="card-body p-4">
-                            <div class="flex items-center gap-2 mb-3">
-                                <Icon icon="mdi:download" class="text-primary w-5 h-5" />
-                                <h5 class="font-semibold">自动化部署</h5>
-                            </div>
-                            <ul class="text-sm space-y-1 text-base-content/80">
-                                <li>✅ GitHub 版本自动获取</li>
-                                <li>✅ 一键安装配置</li>
-                                <li>✅ 服务依赖管理</li>
-                                <li>✅ 安装进度监控</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <!-- 系统监控 -->
-                    <div class="card bg-base-100 border border-base-300">
-                        <div class="card-body p-4">
-                            <div class="flex items-center gap-2 mb-3">
-                                <Icon icon="mdi:chart-line" class="text-primary w-5 h-5" />
-                                <h5 class="font-semibold">系统监控</h5>
-                            </div>
-                            <ul class="text-sm space-y-1 text-base-content/80">
-                                <li>✅ 系统资源监控</li>
-                                <li>✅ 实例运行状态</li>
-                                <li>✅ 性能图表展示</li>
-                                <li>✅ 实时数据刷新</li>
-                            </ul>
                         </div>
                     </div>
                 </div>
 
-                <!-- 后端通信状态 -->
-                <div class="alert" :class="connectionStatus.alertClass">
+                <!-- 后端连接状态 -->
+                <div class="alert mb-6" :class="connectionStatus.alertClass">
                     <Icon :icon="connectionStatus.icon" class="shrink-0 w-6 h-6" />
                     <div>
                         <h4 class="font-bold">{{ connectionStatus.title }}</h4>
                         <p class="text-sm">{{ connectionStatus.description }}</p>
                     </div>
-                </div> <!-- 技术栈 -->
-                <div class="bg-base-200 rounded-lg p-4">
-                    <h5 class="font-semibold mb-2 flex items-center gap-2">
-                        <Icon icon="mdi:cog" class="w-4 h-4" />
-                        技术架构
-                    </h5>
-                    <div class="flex flex-wrap gap-2">
-                        <span class="badge badge-outline">Vue 3</span>
-                        <span class="badge badge-outline">DaisyUI</span>
-                        <span class="badge badge-outline">FastAPI</span>
-                        <span class="badge badge-outline">WebSocket</span>
-                        <span class="badge badge-outline">xterm.js</span>
-                        <span class="badge badge-outline">Pinia</span>
+                </div>
+
+                <!-- 快速功能预览 -->
+                <div class="bg-base-200 rounded-lg p-6 mb-8">
+                    <h4 class="font-semibold mb-4 flex items-center gap-2">
+                        <Icon icon="mdi:feature-search" class="w-5 h-5" />
+                        主要功能
+                    </h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="text-center">
+                            <div
+                                class="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                <Icon icon="mdi:server" class="w-6 h-6 text-blue-500" />
+                            </div>
+                            <p class="text-sm font-medium">实例管理</p>
+                        </div>
+                        <div class="text-center">
+                            <div
+                                class="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                <Icon icon="mdi:console" class="w-6 h-6 text-green-500" />
+                            </div>
+                            <p class="text-sm font-medium">终端控制</p>
+                        </div>
+                        <div class="text-center">
+                            <div
+                                class="w-12 h-12 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                <Icon icon="mdi:download" class="w-6 h-6 text-purple-500" />
+                            </div>
+                            <p class="text-sm font-medium">自动部署</p>
+                        </div>
+                        <div class="text-center">
+                            <div
+                                class="w-12 h-12 bg-orange-500/10 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                <Icon icon="mdi:chart-line" class="w-6 h-6 text-orange-500" />
+                            </div>
+                            <p class="text-sm font-medium">系统监控</p>
+                        </div>
                     </div>
                 </div>
 
-                <!-- 快速设置提示 -->
-                <div class="bg-base-200 rounded-lg p-4">
-                    <h5 class="font-semibold mb-3 flex items-center gap-2">
-                        <Icon icon="mdi:cog-outline" class="w-4 h-4" />
-                        快速设置
-                    </h5>
-                    <div class="space-y-2">
-                        <p class="text-sm text-base-content/70">
-                            您可以在设置页面中配置数据存放路径、部署路径等重要选项
-                        </p>
-                        <button @click="openSettings" class="btn btn-outline btn-sm">
+                <!-- 底部操作 -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <label class="label cursor-pointer flex items-center gap-2">
+                            <input type="checkbox" v-model="dontShowAgain"
+                                class="checkbox checkbox-primary checkbox-sm" />
+                            <span class="label-text text-sm">启动时不再显示</span>
+                        </label>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="btn btn-ghost btn-sm" @click="openDocs">
+                            <Icon icon="mdi:book-open" class="w-4 h-4" />
+                            文档
+                        </button>
+                        <button class="btn btn-ghost btn-sm" @click="openSettings">
                             <Icon icon="mdi:settings" class="w-4 h-4" />
-                            打开设置
+                            设置
                         </button>
                     </div>
-                </div>
-            </div>
-
-            <!-- 底部操作 -->
-            <div class="flex items-center justify-between mt-8">
-                <label class="label cursor-pointer flex items-center gap-2">
-                    <input type="checkbox" v-model="dontShowAgain" class="checkbox checkbox-primary checkbox-sm" />
-                    <span class="label-text text-sm">我已知悉，不再显示</span>
-                </label>
-                <div class="flex gap-2">
-                    <button class="btn btn-ghost btn-sm" @click="openDocs">
-                        <Icon icon="mdi:book-open" class="w-4 h-4 mr-1" />
-                        查看文档
-                    </button>
-                    <button class="btn btn-primary btn-sm" @click="close" :disabled="countdown > 0"
-                        :class="{ 'btn-disabled': countdown > 0 }">
-                        <Icon icon="mdi:check" class="w-4 h-4 mr-1" />
-                        {{ countdown > 0 ? `请等待 ${countdown} 秒` : '开始使用' }}
-                    </button>
                 </div>
             </div>
         </div>
@@ -159,7 +130,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import { isMockModeActive } from '@/services/apiService'
 import toastService from '@/services/toastService'
@@ -171,39 +142,9 @@ const props = defineProps({
     }
 })
 
-const emit = defineEmits(['close', 'dont-show-again', 'open-settings'])
+const emit = defineEmits(['close', 'open-settings', 'start-setup-wizard'])
 
 const dontShowAgain = ref(false)
-const countdown = ref(30)
-let countdownTimer = null
-
-// 监听弹窗显示状态，启动倒计时
-watch(() => props.visible, (newVisible) => {
-    if (newVisible) {
-        startCountdown()
-    } else {
-        stopCountdown()
-    }
-})
-
-// 启动倒计时
-const startCountdown = () => {
-    countdown.value = 30
-    countdownTimer = setInterval(() => {
-        countdown.value--
-        if (countdown.value <= 0) {
-            stopCountdown()
-        }
-    }, 1000)
-}
-
-// 停止倒计时
-const stopCountdown = () => {
-    if (countdownTimer) {
-        clearInterval(countdownTimer)
-        countdownTimer = null
-    }
-}
 
 // 连接状态计算属性
 const connectionStatus = computed(() => {
@@ -213,7 +154,7 @@ const connectionStatus = computed(() => {
         return {
             alertClass: 'alert-warning',
             icon: 'mdi:alert-circle',
-            title: '模拟模式运行',
+            title: '演示模式运行',
             description: '当前使用模拟数据，部分功能为演示效果。请启动后端服务以获得完整功能。'
         }
     } else {
@@ -226,23 +167,24 @@ const connectionStatus = computed(() => {
     }
 })
 
-// 关闭弹窗
-const close = () => {
-    if (countdown.value > 0) {
-        return // 倒计时未结束，不能关闭
-    }
+// 开始设置向导
+const startSetupWizard = () => {
+    emit('start-setup-wizard')
+}
 
+// 跳过设置，直接开始使用
+const skipSetup = () => {
+    // 保存跳过标记
+    localStorage.setItem('firstTimeSetupCompleted', 'true')
     if (dontShowAgain.value) {
-        // 保存用户选择，下次启动不再显示
         localStorage.setItem('welcomeModalDontShow', 'true')
-        emit('dont-show-again')
     }
+    toastService.info('您可以随时在设置页面中配置系统选项')
     emit('close')
 }
 
 // 打开文档
 const openDocs = () => {
-    // 可以打开在线文档或本地文档
     window.open('https://github.com/MaiM-with-u/MaiBot', '_blank')
 }
 
@@ -250,16 +192,6 @@ const openDocs = () => {
 const openSettings = () => {
     emit('open-settings')
 }
-
-// 组件挂载时初始化
-onMounted(() => {
-    // 初始化已移至设置页面
-})
-
-// 组件卸载时清理倒计时
-onUnmounted(() => {
-    stopCountdown()
-})
 </script>
 
 <style scoped>
