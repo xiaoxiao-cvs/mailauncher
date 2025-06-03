@@ -9,7 +9,6 @@ on:
       - main
   workflow_dispatch: # 允许手动触发
 
-# 限制并发执行
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -19,30 +18,46 @@ jobs:
     runs-on: [self-hosted, windows, x64]
     timeout-minutes: 600 # 设置超时时间，防止任务卡死
     
+    env:
+      PYTHON_VERSION: '3.12'
+      NODE_VERSION: '22'
+      BACKEND_REPO: 'https://github.com/MaiM-with-u/mailauncher-backend.git'
+      TAURI_BINARIES_DIR: 'src-tauri/binaries'
+    
     steps:
     # 预清理工作空间
     - name: Pre-build cleanup
+      shell: pwsh
       run: |
         Write-Host "=== 预清理工作空间 ==="
         try {
           # 强制结束可能的残留进程
-          Get-Process | Where-Object {$_.ProcessName -like "*node*" -or $_.ProcessName -like "*rust*" -or $_.ProcessName -like "*python*"} | Stop-Process -Force -ErrorAction SilentlyContinue
+          Get-Process | Where-Object {
+            $_.ProcessName -like "*node*" -or 
+            $_.ProcessName -like "*rust*" -or 
+            $_.ProcessName -like "*python*"
+          } | Stop-Process -Force -ErrorAction SilentlyContinue
           
           # 清理工作目录
-          Get-ChildItem -Path "." -Recurse -Force | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+          Get-ChildItem -Path "." -Recurse -Force | 
+            Where-Object { $_.FullName -notlike "*\.git*" } |
+            Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
           
-          Write-Host "预清理完成"
+          Write-Host "✓ 预清理完成"
         } catch {
-          Write-Host "预清理过程中出现错误: $($_.Exception.Message)"
+          Write-Host "##[error] 预清理过程中出现错误: $($_.Exception.Message)"
+          exit 1
         }
-        
+
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         clean: true
+        fetch-depth: 0 # 获取完整git历史
 
     # 环境检查
     - name: Environment check
+      shell: pwsh
       run: |
         Write-Host "=== 自托管服务器环境检查 ==="
         Write-Host "计算机名: $env:COMPUTERNAME"
@@ -52,32 +67,23 @@ jobs:
         Write-Host "PowerShell版本: $($PSVersionTable.PSVersion)"
         Write-Host "当前路径: $(Get-Location)"
         
-        # 检查 Python
-        try {
-          $pythonVersion = python --version 2>&1
-          Write-Host "✓ Python: $pythonVersion"
-          $pipVersion = pip --version 2>&1
-          Write-Host "✓ Pip: $pipVersion"
-        } catch {
-          Write-Host "✗ Python/Pip: 未正确安装"
-          throw "Python 环境未正确配置"
-        }
+        # 检查关键工具
+        $requiredTools = @(
+          @{ Name = "Python"; Command = "python --version" },
+          @{ Name = "Pip"; Command = "pip --version" },
+          @{ Name = "Git"; Command = "git --version" },
+          @{ Name = "Rust"; Command = "rustc --version" },
+          @{ Name = "Cargo"; Command = "cargo --version" }
+        )
         
-        # 检查 Git
-        try {
-          $gitVersion = git --version 2>&1
-          Write-Host "✓ Git: $gitVersion"
-        } catch {
-          Write-Host "✗ Git: 未安装"
-          throw "Git 未正确安装"
-        }
-        
-        # 检查 Node.js (如果已安装)
-        try {
-          $nodeVersion = node --version 2>&1
-          Write-Host "✓ Node.js: $nodeVersion"
-        } catch {
-          Write-Host "⚠ Node.js: 将通过 setup-node 安装"
+        foreach ($tool in $requiredTools) {
+          try {
+            $version = (Invoke-Expression $tool.Command 2>&1 | Out-String).Trim()
+            Write-Host "✓ $($tool.Name): $version"
+          } catch {
+            Write-Host "##[error] ✗ $($tool.Name): 未正确安装"
+            exit 1
+          }
         }
         
         # 检查磁盘空间
@@ -85,117 +91,180 @@ jobs:
         $freeSpace = [math]::Round($disk.FreeSpace / 1GB, 2)
         Write-Host "✓ C盘可用空间: ${freeSpace} GB"
         
-        if ($freeSpace -lt 10) {
-          Write-Host "⚠ 警告: 磁盘空间不足 10GB，可能影响构建"
+        if ($freeSpace -lt 15) {
+          Write-Host "##[warning] 警告: 磁盘空间不足 15GB，可能影响构建"
         }
 
     # 克隆后端仓库
     - name: Clone backend repository
+      shell: pwsh
       run: |
         Write-Host "=== 克隆后端仓库 ==="
         if (Test-Path "backend") { 
           Write-Host "清理现有 backend 目录"
           Remove-Item -Recurse -Force "backend" 
         }
-        git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
-        Write-Host "后端仓库克隆完成"
         
+        try {
+          git clone $env:BACKEND_REPO backend
+          Write-Host "✓ 后端仓库克隆完成"
+        } catch {
+          Write-Host "##[error] 克隆后端仓库失败: $($_.Exception.Message)"
+          exit 1
+        }
+
     # 设置 Python 环境
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.12'
+        python-version: ${{ env.PYTHON_VERSION }}
+        architecture: 'x64'
         
     # 缓存 Python 依赖
     - name: Cache Python dependencies
       uses: actions/cache@v3
       with:
-        path: ~\AppData\Local\pip\Cache
-        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        path: |
+          ~\AppData\Local\pip\Cache
+          backend\__pycache__
+        key: ${{ runner.os }}-py-${{ hashFiles('backend/requirements.txt') }}
         restore-keys: |
-          ${{ runner.os }}-pip-
-          
+          ${{ runner.os }}-py-
+
     # 安装后端依赖
     - name: Install backend dependencies
+      shell: pwsh
       run: |
         Write-Host "=== 安装后端依赖 ==="
-        cd backend
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
-        Write-Host "后端依赖安装完成"
-        
+        try {
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          Write-Host "✓ 后端依赖安装完成"
+        } catch {
+          Write-Host "##[error] 后端依赖安装失败: $($_.Exception.Message)"
+          exit 1
+        }
+
     # 创建数据目录
     - name: Create backend data directory
+      shell: pwsh
       run: |
-        cd backend
-        if (!(Test-Path "data")) { New-Item -ItemType Directory -Path "data" }
-        Write-Host "数据目录创建完成"
-        
+        try {
+          cd backend
+          if (!(Test-Path "data")) { 
+            New-Item -ItemType Directory -Path "data" | Out-Null 
+          }
+          Write-Host "✓ 数据目录创建完成"
+        } catch {
+          Write-Host "##[error] 创建数据目录失败: $($_.Exception.Message)"
+          exit 1
+        }
+
     # 构建 Windows 后端
     - name: Build Windows backend
+      shell: pwsh
       run: |
         Write-Host "=== 构建 Windows 后端 ==="
-        cd backend
-        pyinstaller main.spec
-        if (Test-Path "dist/MaiLauncher-Backend.exe") {
-          Write-Host "✓ 后端构建成功"
-        } else {
-          Write-Host "✗ 后端构建失败"
-          throw "后端构建失败"
+        try {
+          cd backend
+          pyinstaller main.spec
+          
+          if (Test-Path "dist/MaiLauncher-Backend.exe") {
+            Write-Host "✓ 后端构建成功"
+          } else {
+            throw "构建产物不存在"
+          }
+        } catch {
+          Write-Host "##[error] 后端构建失败: $($_.Exception.Message)"
+          exit 1
         }
-        
+
     # 准备 Tauri 后端文件
     - name: Prepare Tauri backend executable
+      shell: pwsh
       run: |
         Write-Host "=== 准备 Tauri 后端文件 ==="
-        if (!(Test-Path "src-tauri\binaries")) { 
-          New-Item -ItemType Directory -Path "src-tauri\binaries" -Force 
+        try {
+          if (!(Test-Path $env:TAURI_BINARIES_DIR)) { 
+            New-Item -ItemType Directory -Path $env:TAURI_BINARIES_DIR -Force | Out-Null
+          }
+          
+          $source = "backend\dist\MaiLauncher-Backend.exe"
+          $dest = "$env:TAURI_BINARIES_DIR\MaiLauncher-Backend-x86_64-pc-windows-msvc.exe"
+          
+          if (Test-Path $source) {
+            Copy-Item $source $dest -Force
+            Write-Host "✓ 后端可执行文件准备完成"
+          } else {
+            throw "源文件不存在: $source"
+          }
+        } catch {
+          Write-Host "##[error] 准备后端文件失败: $($_.Exception.Message)"
+          exit 1
         }
-        Copy-Item "backend\dist\MaiLauncher-Backend.exe" "src-tauri\binaries\MaiLauncher-Backend-x86_64-pc-windows-msvc.exe"
-        Write-Host "✓ 后端可执行文件准备完成"
 
-    # 设置 Node.js
+    # 设置 Node.js 环境
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 22
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'pnpm'
+        cache-dependency-path: 'pnpm-lock.yaml'
 
     # 设置 pnpm
     - name: Setup pnpm
       uses: pnpm/action-setup@v3
       with:
         version: latest
-        run_install: false # 先不自动安装，手动控制
+        run_install: false
 
     # 安装前端依赖
     - name: Install frontend dependencies
+      shell: pwsh
       run: |
         Write-Host "=== 安装前端依赖 ==="
-        pnpm install --frozen-lockfile
-        Write-Host "✓ 前端依赖安装完成"
+        try {
+          pnpm install --frozen-lockfile --prefer-offline
+          Write-Host "✓ 前端依赖安装完成"
+        } catch {
+          Write-Host "##[error] 前端依赖安装失败: $($_.Exception.Message)"
+          exit 1
+        }
 
     # 构建 Tauri 应用
     - name: Build Tauri application
+      shell: pwsh
       run: |
         Write-Host "=== 构建 Tauri 应用 ==="
-        pnpm tauri build
-        Write-Host "✓ Tauri 应用构建完成"
+        try {
+          pnpm tauri build --verbose
+          Write-Host "✓ Tauri 应用构建完成"
+        } catch {
+          Write-Host "##[error] Tauri 构建失败: $($_.Exception.Message)"
+          exit 1
+        }
 
     # 检查构建产物
     - name: Check build artifacts
+      shell: pwsh
       run: |
         Write-Host "=== 检查构建产物 ==="
-        $bundlePath = "src-tauri/target/release/bundle"
-        if (Test-Path $bundlePath) {
-          Write-Host "✓ 构建产物目录存在"
-          Get-ChildItem -Path $bundlePath -Recurse | ForEach-Object {
-            $size = if ($_.Length) { [math]::Round($_.Length / 1MB, 2) } else { "目录" }
-            Write-Host "  $($_.FullName) - $size MB"
+        try {
+          $bundlePath = "src-tauri/target/release/bundle"
+          if (Test-Path $bundlePath) {
+            Write-Host "✓ 构建产物目录存在"
+            Get-ChildItem -Path $bundlePath -Recurse | ForEach-Object {
+              $size = if ($_.Length) { [math]::Round($_.Length / 1MB, 2) } else { "目录" }
+              Write-Host "  $($_.FullName) - $size MB"
+            }
+          } else {
+            throw "构建产物目录不存在"
           }
-        } else {
-          Write-Host "✗ 构建产物目录不存在"
-          throw "构建失败"
+        } catch {
+          Write-Host "##[error] 检查构建产物失败: $($_.Exception.Message)"
+          exit 1
         }
 
     # 上传构建产物
@@ -203,25 +272,32 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: tauri-build-windows-self-hosted-${{ github.sha }}
-        path: src-tauri/target/release/bundle/
-        retention-days: 30 # 保留 30 天
+        path: |
+          src-tauri/target/release/bundle/
+          src-tauri/binaries/
+        retention-days: 30
 
     # 构建后清理
     - name: Post-build cleanup
       if: always()
+      shell: pwsh
       run: |
         Write-Host "=== 构建后清理 ==="
         try {
           # 停止可能的残留进程
-          Get-Process | Where-Object {$_.ProcessName -like "*node*" -or $_.ProcessName -like "*rust*" -or $_.ProcessName -like "*python*"} | Stop-Process -Force -ErrorAction SilentlyContinue
+          Get-Process | Where-Object {
+            $_.ProcessName -like "*node*" -or 
+            $_.ProcessName -like "*rust*" -or 
+            $_.ProcessName -like "*python*"
+          } | Stop-Process -Force -ErrorAction SilentlyContinue
           
           # 清理大型目录
           $cleanupPaths = @(
             "backend",
             "node_modules", 
             "src-tauri/target",
-            "~/.cargo/registry/cache",
-            "~/.pnpm-store"
+            "$env:USERPROFILE\.cargo\registry\cache",
+            "$env:USERPROFILE\.pnpm-store"
           )
           
           foreach ($path in $cleanupPaths) {
@@ -231,26 +307,15 @@ jobs:
             }
           }
           
-          # 清理临时文件
-          $tempPaths = @(
-            $env:TEMP,
-            "C:\Windows\Temp"
-          )
-          
-          foreach ($tempPath in $tempPaths) {
-            Get-ChildItem -Path $tempPath -Recurse -Force | Where-Object {
-              $_.LastWriteTime -lt (Get-Date).AddDays(-1)
-            } | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-          }
-          
           Write-Host "✓ 清理完成"
         } catch {
-          Write-Host "清理过程中出现错误: $($_.Exception.Message)"
+          Write-Host "##[warning] 清理过程中出现错误: $($_.Exception.Message)"
         }
 
     # 报告构建状态
     - name: Build status report
       if: always()
+      shell: pwsh
       run: |
         Write-Host "=== 构建状态报告 ==="
         Write-Host "工作流: ${{ github.workflow }}"
@@ -258,10 +323,10 @@ jobs:
         Write-Host "提交: ${{ github.sha }}"
         Write-Host "执行者: ${{ github.actor }}"
         Write-Host "运行器: ${{ runner.name }}"
-        Write-Host "完成时间: $(Get-Date)"
+        Write-Host "完成时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
         
         if ($env:GITHUB_JOB_STATUS -eq "success") {
           Write-Host "✓ 构建成功完成"
         } else {
-          Write-Host "✗ 构建过程中出现问题"
+          Write-Host "##[error] ✗ 构建过程中出现问题"
         }
