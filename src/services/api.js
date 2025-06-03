@@ -86,10 +86,13 @@ export const instancesApi = {
   // 重启实例
   restartInstance: (id) =>
     apiService.get(createUrl(`/api/v1/instance/${id}/restart`)),
-
   // 删除实例
   deleteInstance: (id) =>
     apiService.delete(createUrl(`/api/v1/instance/${id}/delete`)),
+
+  // 添加已有实例
+  addInstance: (instanceConfig) =>
+    apiService.post(createUrl("/instances/add"), instanceConfig),
 };
 
 /**

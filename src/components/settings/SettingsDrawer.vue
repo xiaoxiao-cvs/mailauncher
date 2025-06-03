@@ -253,10 +253,9 @@
                                         <p class="setting-desc">配置后端API服务的连接地址</p>
                                     </div>
                                     <div class="setting-control">
-                                        <div class="backend-url-control">
-                                            <input type="text" v-model="backendUrl" @change="changeBackendUrl"
-                                                class="input input-bordered input-sm flex-1"
-                                                placeholder="http://localhost:8000" />
+                                        <div class="backend-url-control"> <input type="text" v-model="backendUrl"
+                                                @change="changeBackendUrl" class="input input-bordered input-sm flex-1"
+                                                placeholder="http://localhost:23456" />
                                             <button class="btn btn-ghost btn-sm" @click="resetBackendUrl">
                                                 <IconifyIcon icon="mdi:refresh" />
                                                 默认
@@ -624,12 +623,12 @@
                                                 <div class="flex justify-between">
                                                     <span class="text-base-content/70">数据存储:</span>
                                                     <span class="text-primary font-mono">{{ dataStoragePath || '未设置'
-                                                        }}</span>
+                                                    }}</span>
                                                 </div>
                                                 <div class="flex justify-between">
                                                     <span class="text-base-content/70">实例部署:</span>
                                                     <span class="text-primary font-mono">{{ deploymentPath || '未设置'
-                                                        }}</span>
+                                                    }}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -876,7 +875,7 @@ const webuiEnabled = ref(localStorage.getItem('webuiEnabled') !== 'false')
 const webuiPort = ref(parseInt(localStorage.getItem('webuiPort')) || 11111)
 
 // 后端服务设置
-const backendUrl = ref(localStorage.getItem('backendUrl') || 'http://localhost:8000')
+const backendUrl = ref(localStorage.getItem('backendUrl') || 'http://localhost:23456')
 const isTestingBackendConnection = ref(false)
 
 // 外观设置状态
@@ -1216,28 +1215,29 @@ const initializeWebuiStatus = async () => {
 }
 
 // 后端服务配置方法
-const changeBackendUrl = () => {
+const changeBackendUrl = async () => {
     // 验证 URL 格式
     try {
-        new URL(backendUrl.value)
-    } catch (error) {
-        import('../../services/toastService').then(({ default: toastService }) => {
-            toastService.error('请输入有效的 URL 格式')
-        })
-        return
-    }
+        const url = new URL(backendUrl.value)
 
-    localStorage.setItem('backendUrl', backendUrl.value)
-    console.log('后端服务地址已更新:', backendUrl.value)
+        localStorage.setItem('backendUrl', backendUrl.value)
+        console.log('后端服务地址已更新:', backendUrl.value)
 
-    // 通知其他组件后端地址已更改
-    window.dispatchEvent(new CustomEvent('backend-url-changed', {
-        detail: { url: backendUrl.value }
-    }))
+        // 更新全局后端配置
+        const backendConfig = (await import('../../config/backendConfig')).default
+        backendConfig.setBackendServer(url.hostname, parseInt(url.port) || 23456)
 
-    import('../../services/toastService').then(({ default: toastService }) => {
+        // 通知其他组件后端地址已更改
+        window.dispatchEvent(new CustomEvent('backend-url-changed', {
+            detail: { url: backendUrl.value }
+        }))
+
+        const { default: toastService } = await import('../../services/toastService')
         toastService.success('后端服务地址已更新')
-    })
+    } catch (error) {
+        const { default: toastService } = await import('../../services/toastService')
+        toastService.error('请输入有效的 URL 格式')
+    }
 }
 
 const resetBackendUrl = () => {
@@ -1250,25 +1250,51 @@ const testBackendConnection = async () => {
 
     try {
         // 动态导入需要的服务
-        const [{ default: apiService }, { default: toastService }] = await Promise.all([
-            import('../../services/apiService'),
-            import('../../services/toastService')
-        ])
+        const { default: toastService } = await import('../../services/toastService')
 
         console.log('测试后端连接:', backendUrl.value)
 
-        // 这里需要使用当前设置的后端地址进行测试
-        const connected = await apiService.testConnection(backendUrl.value)
+        // 直接使用fetch测试连接，支持自定义后端地址
+        const testUrl = `${backendUrl.value}/api/v1/system/health`
 
-        if (connected) {
-            toastService.success('后端连接测试成功')
+        const response = await fetch(testUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            timeout: 5000
+        })
+
+        if (response.ok) {
+            const data = await response.json()
+            if (data && data.status === 'success') {
+                toastService.success('后端连接测试成功')
+
+                // 更新后端配置到全局
+                const backendConfig = (await import('../../config/backendConfig')).default
+                const url = new URL(backendUrl.value)
+                backendConfig.setBackendServer(url.hostname, parseInt(url.port) || 23456)
+
+                // 通知其他组件后端连接状态已改变
+                window.dispatchEvent(new CustomEvent('backend-connection-changed', {
+                    detail: { connected: true, useMockData: false }
+                }))
+            } else {
+                toastService.error('后端服务响应格式不正确')
+            }
         } else {
-            toastService.error('后端连接测试失败')
+            toastService.error(`连接失败：HTTP ${response.status}`)
         }
     } catch (error) {
         console.error('测试后端连接时出错:', error)
         const { default: toastService } = await import('../../services/toastService')
-        toastService.error('连接测试失败: ' + error.message)
+
+        if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+            toastService.error('连接被拒绝，请检查：\n1. 后端服务是否已启动\n2. IP地址和端口是否正确\n3. 防火墙设置')
+        } else {
+            toastService.error('连接测试失败: ' + error.message)
+        }
     } finally {
         isTestingBackendConnection.value = false
     }

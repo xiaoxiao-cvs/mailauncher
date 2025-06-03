@@ -13,7 +13,142 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-jobs:
+jobs:  # 专门在自托管服务器上构建的任务
+  build-windows-self-hosted:
+    runs-on: [self-hosted, windows, x64] # 使用自托管的 Windows x64 runner
+    
+    steps:    # 清理工作空间（自托管服务器需要手动清理）
+    - name: Clean workspace
+      run: |
+        Get-ChildItem -Path "." -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+        
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 检查自托管服务器环境
+    - name: Check self-hosted environment
+      run: |
+        Write-Host "=== 环境检查 ==="
+        Write-Host "操作系统: $env:OS"
+        Write-Host "架构: $env:PROCESSOR_ARCHITECTURE"
+        Write-Host "PowerShell版本: $($PSVersionTable.PSVersion)"
+        
+        # 检查 Python
+        try {
+          $pythonVersion = python --version 2>&1
+          Write-Host "Python: $pythonVersion"
+        } catch {
+          Write-Host "Python: 未安装"
+        }
+        
+        # 检查 Git
+        try {
+          $gitVersion = git --version 2>&1
+          Write-Host "Git: $gitVersion"
+        } catch {
+          Write-Host "Git: 未安装"
+        }
+        
+        # 检查可用磁盘空间
+        $disk = Get-WmiObject -Class Win32_LogicalDisk -Filter "DeviceID='C:'"
+        $freeSpace = [math]::Round($disk.FreeSpace / 1GB, 2)
+        Write-Host "C盘可用空间: ${freeSpace} GB"
+
+    # 克隆后端仓库
+    - name: Clone backend repository
+      run: |
+        if (Test-Path "backend") { Remove-Item -Recurse -Force "backend" }
+        git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
+        
+    # 设置 Python 环境用于构建后端（自托管服务器可能需要预安装）
+    - name: Set up Python for backend
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        
+    # 缓存 pip 依赖（自托管服务器的缓存路径）
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~\AppData\Local\pip\Cache
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    # 安装后端构建依赖
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    # 创建数据目录
+    - name: Create backend data directory
+      run: |
+        cd backend
+        if (!(Test-Path "data")) { New-Item -ItemType Directory -Path "data" }
+        
+    # 构建 Windows 后端
+    - name: Build Windows backend
+      run: |
+        cd backend
+        pyinstaller main.spec
+        
+    # 创建 Tauri binaries 目录并复制后端可执行文件
+    - name: Copy backend executable to Tauri binaries
+      run: |
+        if (!(Test-Path "src-tauri\binaries")) { New-Item -ItemType Directory -Path "src-tauri\binaries" -Force }
+        Copy-Item "backend\dist\MaiLauncher-Backend.exe" "src-tauri\binaries\MaiLauncher-Backend-x86_64-pc-windows-msvc.exe"
+
+    # 检查并安装 Node.js（自托管服务器可能需要预安装）
+    - name: Setup Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    # 设置 pnpm
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: latest
+        run_install: true
+
+    # 构建 Tauri 应用
+    - name: Build Tauri (Windows - Self-hosted)
+      run: pnpm tauri build    # 上传构建产物
+    - name: Upload Artifacts (Windows Self-hosted)
+      uses: actions/upload-artifact@v4
+      with:
+        name: tauri-build-windows-self-hosted # Artifact 名称
+        path: src-tauri/target/release/bundle/ # 构建产物所在的目录
+
+    # 构建后清理（自托管服务器需要手动清理）
+    - name: Post-build cleanup
+      if: always() # 无论构建成功与否都执行清理
+      run: |
+        Write-Host "=== 开始清理 ==="
+        
+        # 清理 backend 目录
+        if (Test-Path "backend") { 
+          Remove-Item -Recurse -Force "backend" -ErrorAction SilentlyContinue
+          Write-Host "已清理 backend 目录"
+        }
+        
+        # 清理 node_modules（如果存在）
+        if (Test-Path "node_modules") { 
+          Remove-Item -Recurse -Force "node_modules" -ErrorAction SilentlyContinue
+          Write-Host "已清理 node_modules 目录"
+        }
+        
+        # 清理构建缓存
+        if (Test-Path "src-tauri/target") { 
+          Remove-Item -Recurse -Force "src-tauri/target" -ErrorAction SilentlyContinue
+          Write-Host "已清理 Rust 构建缓存"
+        }
+        
+        Write-Host "=== 清理完成 ==="
+
   build-linux:
     runs-on: ubuntu-latest # 使用最新的 Ubuntu runner
 
@@ -105,9 +240,8 @@ jobs:
       with:
         name: tauri-build-linux # Artifact 名称
         path: src-tauri/target/release/bundle/ # 构建产物所在的目录（包含 .AppImage 等）
-
   build-windows:
-    runs-on: windows-latest # 使用最新的 Windows runner
+    runs-on: [self-hosted, windows, x64] # 使用自托管的 Windows x64 runner
 
     steps:
     - name: Checkout code
