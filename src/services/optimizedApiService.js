@@ -1,4 +1,3 @@
-import { useRequestCacheStore } from "@/stores/requestCacheStore";
 import apiService from "@/services/apiService";
 import {
   startInstance as apiStartInstance,
@@ -10,12 +9,10 @@ import {
 import deployApi from "@/services/deployApi";
 
 /**
- * 优化的API服务 - 集成缓存、防重复请求和批量处理
+ * 优化的API服务 - 防重复请求和批量处理（已移除缓存功能）
  */
 export class OptimizedApiService {
   constructor() {
-    this.cacheStore = useRequestCacheStore();
-
     // 请求批处理队列
     this.batchQueue = new Map();
     this.batchTimer = null;
@@ -24,18 +21,11 @@ export class OptimizedApiService {
     // 实例操作队列
     this.instanceOperations = new Map();
   }
-
   /**
-   * 带缓存的实例列表获取
+   * 直接获取实例列表，不使用缓存
    */
   async getInstances(forceRefresh = false) {
-    const cacheKey = this.cacheStore.generateCacheKey("/instances", "GET");
-
-    return this.cacheStore.cachedRequest(
-      () => apiFetchInstances(),
-      cacheKey,
-      forceRefresh
-    );
+    return apiFetchInstances();
   }
   /**
    * 带缓存的系统状态获取
@@ -278,17 +268,12 @@ export class OptimizedApiService {
       requests.forEach((req) => req.reject(error));
     }
   }
-
   /**
-   * 使实例相关缓存失效
+   * 实例缓存失效（已移除缓存功能，保留方法以兼容现有代码）
    */
   _invalidateInstanceCache(instanceId = null) {
-    if (instanceId) {
-      // 清除特定实例的缓存
-      this.cacheStore.clearCacheByPattern(`instance/${instanceId}`);
-    } // 清除实例列表缓存
-    this.cacheStore.clearCacheByPattern("/instances");
-    this.cacheStore.clearCacheByPattern("/system/metrics");
+    // 缓存功能已移除，此方法现在为空实现
+    console.log("实例缓存功能已移除，无需清理缓存");
   }
 
   /**

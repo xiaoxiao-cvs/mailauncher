@@ -232,8 +232,8 @@ const instances = computed(() => {
 const notifications = ref([
   {
     title: '系统更新',
-    desc: '系统已更新到最新版本v1.1.4',
-    time: '10分钟前',
+    desc: '系统已更新到最新版本v0.1.0-Preview.3',
+    time: '114514分钟前',
     icon: 'fas fa-sync',
     iconBg: 'bg-info'
   },
@@ -504,13 +504,20 @@ const getStatusActionIcon = (status) => {
   }
 };
 
-// 导航到实例管理页面
+// 导航到实例管理页面 - 使用事件总线触发页面过渡动画
 const navigateToInstances = () => {
-  const router = inject('router', null);
-  if (router) {
-    router.push('/instances');
+  if (emitter) {
+    // 使用事件总线进行导航，触发 App.vue 中的页面过渡动画
+    emitter.emit('navigate-to-tab', 'instances');
+    console.log('已发送导航事件到实例管理页面');
   } else {
-    window.location.href = '#/instances';
+    // 降级处理：直接使用路由器导航
+    const router = inject('router', null);
+    if (router) {
+      router.push('/instances');
+    } else {
+      window.location.href = '#/instances';
+    }
   }
 };
 

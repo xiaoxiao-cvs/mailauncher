@@ -15,8 +15,6 @@ export const useInstanceStore = defineStore("instances", () => {
   const instances = ref([]);
   const loading = ref(false);
   const error = ref(null);
-  const lastFetchTime = ref(0);
-  const cacheTimeout = ref(5 * 60 * 1000); // 5分钟缓存
 
   // 请求队列管理 - 防止重复请求
   let fetchPromise = null;
@@ -50,31 +48,19 @@ export const useInstanceStore = defineStore("instances", () => {
   const runningInstances = computed(() =>
     instances.value.filter((i) => i.status === "running")
   );
-
   const stoppedInstances = computed(() =>
     instances.value.filter((i) => i.status === "stopped")
   );
 
-  // 缓存检查
-  const isCacheValid = () => {
-    return Date.now() - lastFetchTime.value < cacheTimeout.value;
-  };
-
-  // 防重复请求的fetchInstances
+  // 移除缓存功能，每次都获取真实数据
   const fetchInstances = async (forceRefresh = false) => {
-    // 如果缓存有效且不是强制刷新，直接返回缓存数据
-    if (!forceRefresh && isCacheValid() && instances.value.length > 0) {
-      console.log("使用缓存的实例数据");
-      return instances.value;
-    }
-
     // 如果已有请求在进行中，返回该请求的Promise
     if (fetchPromise) {
       console.log("等待正在进行的实例请求");
       return fetchPromise;
     }
 
-    // 创建新的请求Promise
+    // 创建新的请求Promise，每次都获取最新数据
     fetchPromise = _performFetch();
 
     try {
@@ -103,8 +89,6 @@ export const useInstanceStore = defineStore("instances", () => {
         isLoading: false,
         id: instance.id || instance.name,
       }));
-
-      lastFetchTime.value = Date.now();
 
       console.log(`成功获取${instances.value.length}个实例`);
       return instances.value;
@@ -139,7 +123,6 @@ export const useInstanceStore = defineStore("instances", () => {
       instance.isLoading = isLoading;
     }
   };
-
   // 添加新实例
   const addInstance = (instance) => {
     const newInstance = {
@@ -148,7 +131,6 @@ export const useInstanceStore = defineStore("instances", () => {
       id: instance.id || instance.name,
     };
     instances.value.push(newInstance);
-    lastFetchTime.value = Date.now(); // 更新缓存时间
   };
   // 删除实例
   const removeInstance = (instanceId) => {
@@ -158,7 +140,6 @@ export const useInstanceStore = defineStore("instances", () => {
 
     if (index !== -1) {
       instances.value.splice(index, 1);
-      lastFetchTime.value = Date.now(); // 更新缓存时间
     }
   };
 
@@ -273,13 +254,6 @@ export const useInstanceStore = defineStore("instances", () => {
         Object.assign(existing, updated);
       }
     });
-
-    lastFetchTime.value = Date.now();
-  };
-
-  // 清除缓存，强制下次获取时重新请求
-  const clearCache = () => {
-    lastFetchTime.value = 0;
   };
 
   // 根据ID或名称查找实例
@@ -314,13 +288,11 @@ export const useInstanceStore = defineStore("instances", () => {
 
     return result;
   };
-
   // 重置状态
   const reset = () => {
     instances.value = [];
     loading.value = false;
     error.value = null;
-    lastFetchTime.value = 0;
     fetchPromise = null;
     requestQueue.clear();
   };
@@ -329,14 +301,11 @@ export const useInstanceStore = defineStore("instances", () => {
     instances,
     loading,
     error,
-    lastFetchTime,
 
     // 计算属性
     instanceStats,
     runningInstances,
-    stoppedInstances,
-
-    // 方法
+    stoppedInstances, // 方法
     fetchInstances,
     updateInstanceStatus,
     setInstanceLoading,
@@ -347,10 +316,8 @@ export const useInstanceStore = defineStore("instances", () => {
     restartInstance,
     deleteInstance,
     batchUpdateInstances,
-    clearCache,
     findInstance,
     getFilteredInstances,
-    isCacheValid,
     reset,
   };
 });
