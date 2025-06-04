@@ -1,30 +1,28 @@
 <template>
   <div class="instances-tab" :data-theme="currentTheme" :class="themeClasses">
-    <!-- 实例详情视图 - 当showInstanceDetail为true时显示 -->
-    <transition name="instance-detail-transition" mode="out-in">
-      <InstanceDetailView v-if="showInstanceDetail" :instance="currentInstance" @back="closeInstanceDetail" />
+    <!-- 加载状态指示器，减少空白屏幕时间 -->
+    <div v-if="isLoading" class="loading-container">
+      <div class="loading loading-spinner loading-lg text-primary"></div>
+      <p class="mt-4 text-base-content/70">正在加载实例管理页面...</p>
+    </div>
+
+    <!-- 过渡容器 - 当showInstanceDetail为true时显示实例详情，为false时显示实例列表 -->
+    <transition v-else :name="transitionName" mode="out-in" appear>
+      <InstanceDetailView v-if="showInstanceDetail" :instance="currentInstance" @back="closeInstanceDetail" key="detail"
+        class="transition-view" />
 
       <!-- 实例列表组件 - 当showInstanceDetail为false时显示 -->
       <InstancesList v-else :instances="instancesData" @refresh-instances="loadInstances"
-        @toggle-instance="handleToggleInstance" @view-instance="openInstanceDetail" />
+        @toggle-instance="handleToggleInstance" @view-instance="openInstanceDetail" key="list"
+        class="transition-view" />
     </transition>
-
-    <!-- 实例配置抽屉组件 -->
-    <InstanceSettingsDrawer :is-open="isSettingsOpen" :instance-name="currentInstance.name"
-      :instance-path="currentInstance.path" @close="closeInstanceSettings" @save="handleInstanceSettingsSave" />
-
-    <!-- 模型设置抽屉 -->
-    <ModelSettingsDrawer :is-open="isModelSettingsOpen" :instance-name="currentInstance?.name || ''"
-      @close="closeModelSettings" @save="handleModelSettingsSave" />
   </div>
 </template>
 
 <script setup>
 import { ref, inject, onMounted, onBeforeUnmount, computed, provide } from 'vue';
 import InstancesList from './instances/InstancesList.vue';
-import InstanceSettingsDrawer from './settings/InstanceSettingsDrawer.vue';
 import InstanceDetailView from './instances/InstanceDetailView.vue';
-import ModelSettingsDrawer from './settings/ModelSettingsDrawer.vue';
 import toastService from '@/services/toastService';
 
 // 引入API服务
@@ -35,9 +33,9 @@ const emitter = inject('emitter', null);
 
 // 实例状态
 const instancesData = ref([]);
-const isSettingsOpen = ref(false);
 const showInstanceDetail = ref(false);
-const isModelSettingsOpen = ref(false);
+const isLoading = ref(true); // 添加加载状态
+const transitionName = ref('slide-to-detail'); // 动态过渡名称
 const currentInstance = ref({
   name: '',
   path: '',
@@ -70,6 +68,8 @@ const themeClasses = computed(() => {
 // 加载实例列表方法 - 使用适配器处理实例数据
 const loadInstances = async () => {
   try {
+    isLoading.value = true; // 开始加载
+
     // 引入实例API适配器
     const { adaptInstancesList } = await import('@/utils/apiAdapters');
 
@@ -77,6 +77,8 @@ const loadInstances = async () => {
     const useMockData = localStorage.getItem('useMockData') === 'true';
 
     if (useMockData) {
+      // 模拟加载延迟，提供更好的用户体验
+      await new Promise(resolve => setTimeout(resolve, 300));
       // 使用模拟数据
       instancesData.value = getMockInstances();
     } else {
@@ -101,6 +103,11 @@ const loadInstances = async () => {
     }
 
     toastService.error('获取实例列表失败');
+  } finally {
+    // 确保最小加载时间，避免闪烁
+    setTimeout(() => {
+      isLoading.value = false;
+    }, 200);
   }
 };
 
@@ -136,64 +143,22 @@ const getMockInstances = () => {
 
 // 打开实例详情
 const openInstanceDetail = (instance) => {
-  // 添加一个小延迟，让动画效果更明显
-  setTimeout(() => {
-    currentInstance.value = instance;
-    showInstanceDetail.value = true;
-  }, 50);
+  // 设置进入详情页的动画方向（从右向左滑入）
+  transitionName.value = 'slide-to-detail';
+
+  // 直接切换，使用过渡动画提供平滑效果
+  currentInstance.value = instance;
+  showInstanceDetail.value = true;
 };
 
 // 关闭实例详情
 const closeInstanceDetail = () => {
+  // 设置退出详情页的动画方向（从左向右滑出）
+  transitionName.value = 'slide-to-list';
+
   showInstanceDetail.value = false;
   // 保持WebSocket连接活跃，不清理连接
   console.log('关闭实例详情页面，保持WebSocket连接');
-};
-
-// 打开实例设置
-const openInstanceSettings = (instance, options = {}) => {
-  console.log('打开实例设置:', instance, options);
-  currentInstance.value = instance;
-
-  // 如果指定了特定的tab，且是从实例详情页面打开的
-  if (options.tab === 'bot' && options.fromDetailView) {
-    // 直接打开Bot配置
-    openModelSettings(instance);
-  } else {
-    // 其他情况只打开实例设置抽屉
-    isSettingsOpen.value = true;
-  }
-};
-
-// 打开模型设置
-const openModelSettings = (instance) => {
-  currentInstance.value = instance;
-  isModelSettingsOpen.value = true;
-};
-
-// 关闭模型设置
-const closeModelSettings = () => {
-  isModelSettingsOpen.value = false;
-};
-
-// 处理模型设置保存
-const handleModelSettingsSave = (modelConfig) => {
-  console.log('模型配置已保存:', modelConfig);
-  toastService.success('模型配置已保存');
-};
-
-// 关闭实例设置
-const closeInstanceSettings = () => {
-  isSettingsOpen.value = false;
-};
-
-// 处理实例设置保存
-const handleInstanceSettingsSave = (settings) => {
-  console.log('保存实例设置:', settings);
-  toastService.success(`已保存 ${currentInstance.value.name} 的设置`);
-  closeInstanceSettings();
-  // 刷新实例列表
-  loadInstances();
 };
 
 // 处理实例启停
@@ -215,45 +180,6 @@ const handleToggleInstance = (instance) => {
 onMounted(() => {
   // 初次加载实例列表
   loadInstances();
-
-  // 监听打开实例设置事件
-  if (emitter) {
-    emitter.on('open-instance-settings', (data) => {
-      // 查找对应的实例
-      let targetInstance = null;
-
-      // 通过路径或名称查找实例
-      if (data.path) {
-        targetInstance = instancesData.value.find(inst => inst.path === data.path);
-      }
-
-      if (!targetInstance && data.name) {
-        targetInstance = instancesData.value.find(inst => inst.name === data.name);
-      }
-
-      // 如果找不到实例，创建一个临时实例对象
-      if (!targetInstance) {
-        targetInstance = {
-          name: data.name || '未知实例',
-          path: data.path || '',
-          status: 'unknown'
-        };
-      }
-
-      // 打开设置并传递标签页信息和来源信息
-      openInstanceSettings(targetInstance, {
-        tab: data.tab,
-        fromDetailView: data.fromDetailView
-      });
-    });
-
-    // 添加监听Bot配置事件
-    emitter.on('instance-panel-open-bot-config', (instance) => {
-      console.log('实例面板收到打开Bot配置事件:', instance);
-      // 直接打开模型设置
-      openModelSettings(instance);
-    });
-  }
 
   // 当前主题
   const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
@@ -306,11 +232,7 @@ onMounted(() => {
 
 // 组件卸载时清理事件监听
 onBeforeUnmount(() => {
-  // 移除事件监听
-  if (emitter) {
-    emitter.off('open-instance-settings');
-    emitter.off('instance-panel-open-bot-config');
-  }
+  // 移除事件监听 - 由于已删除相关功能，这里也需要清理
 });
 </script>
 
@@ -318,39 +240,121 @@ onBeforeUnmount(() => {
 .instances-tab {
   display: flex;
   flex-direction: column;
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 过渡视图基础样式 */
+.transition-view {
+  width: 100%;
   height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
-/* 添加实例详情视图过渡效果 */
-.instance-detail-transition-enter-active {
-  animation: slideInFromRight 0.2s ease-out;
+/* 进入详情页的动画（从右向左滑入） */
+.slide-to-detail-enter-active {
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.instance-detail-transition-leave-active {
-  animation: slideOutToRight 0.15s ease-in;
+.slide-to-detail-leave-active {
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-@keyframes slideInFromRight {
-  from {
-    opacity: 0;
-    transform: translateX(40px);
+.slide-to-detail-enter-from {
+  opacity: 0;
+  transform: translateX(100px) scale(0.96);
+  filter: blur(1px);
+}
+
+.slide-to-detail-enter-to {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  filter: blur(0);
+}
+
+.slide-to-detail-leave-from {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  filter: blur(0);
+}
+
+.slide-to-detail-leave-to {
+  opacity: 0;
+  transform: translateX(-50px) scale(0.98);
+  filter: blur(1px);
+}
+
+/* 退出详情页的动画（从左向右滑出） */
+.slide-to-list-enter-active {
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.slide-to-list-leave-active {
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.slide-to-list-enter-from {
+  opacity: 0;
+  transform: translateX(-100px) scale(0.96);
+  filter: blur(1px);
+}
+
+.slide-to-list-enter-to {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  filter: blur(0);
+}
+
+.slide-to-list-leave-from {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  filter: blur(0);
+}
+
+.slide-to-list-leave-to {
+  opacity: 0;
+  transform: translateX(100px) scale(0.98);
+  filter: blur(1px);
+}
+
+/* 加载状态样式 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 50vh;
+}
+
+/* 为过渡添加硬件加速，提升性能 */
+.slide-to-detail-enter-active,
+.slide-to-detail-leave-active,
+.slide-to-list-enter-active,
+.slide-to-list-leave-active {
+  will-change: transform, opacity, filter;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+/* 确保过渡动画在移动设备上的性能 */
+@media (max-width: 768px) {
+
+  .slide-to-detail-enter-from,
+  .slide-to-list-enter-from {
+    transform: translateX(50px) scale(0.98);
   }
 
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideOutToRight {
-  from {
-    opacity: 1;
-    transform: translateX(0);
+  .slide-to-detail-leave-to {
+    transform: translateX(-30px) scale(0.99);
   }
 
-  to {
-    opacity: 0;
-    transform: translateX(40px);
+  .slide-to-list-leave-to {
+    transform: translateX(50px) scale(0.99);
   }
 }
 </style>

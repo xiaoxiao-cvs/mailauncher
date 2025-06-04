@@ -1,7 +1,7 @@
 <template>
-    <div class="instances-container">
+    <div class="instances-container animated-page">
         <!-- 顶部导航栏 -->
-        <div class="navbar bg-base-200 rounded-box shadow-sm mb-6">
+        <div class="navbar bg-base-200 rounded-box shadow-sm mb-6 animated-header">
             <div class="navbar-start">
                 <div class="flex items-center gap-3">
                     <i class="icon icon-list text-primary text-lg"></i>
@@ -77,12 +77,13 @@
                     <p class="text-sm opacity-60 mb-4">尝试调整过滤条件或创建新的实例</p>
                     <button class="btn btn-primary" @click="goToDownloads">新建应用</button>
                 </div>
-            </div>
-
-            <!-- 实例卡片网格 -->
-            <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-2">
-                <div v-for="instance in filteredInstances" :key="instance.id || instance.name"
-                    class="instance-card shadow-md hover:shadow-lg transition-all" @click="viewInstance(instance)">
+            </div> <!-- 实例卡片网格 -->
+            <div v-else class="animated-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-2">
+                <div v-for="(instance, index) in filteredInstances" :key="instance.id || instance.name"
+                    class="instance-card shadow-md hover:shadow-lg transition-all animated-card clickable-card"
+                    :style="{ animationDelay: `${index * 0.1}s` }" @click="viewInstance(instance)"
+                    @mousedown="handleCardMouseDown($event)" @mouseup="handleCardMouseUp($event)"
+                    @mouseleave="handleCardMouseLeave($event)">
                     <div class="card-body p-5 flex flex-col h-full">
                         <!-- 实例标题与描述 -->
                         <div class="mb-3">
@@ -585,6 +586,28 @@ const viewInstance = (instance) => {
     emit('view-instance', instance);
 };
 
+// 实例卡片点击反馈动画处理
+const handleCardMouseDown = (event) => {
+    const card = event.currentTarget;
+    card.classList.add('card-pressed');
+};
+
+const handleCardMouseUp = (event) => {
+    const card = event.currentTarget;
+    card.classList.remove('card-pressed');
+    card.classList.add('card-released');
+
+    // 清理动画类名
+    setTimeout(() => {
+        card.classList.remove('card-released');
+    }, 200);
+};
+
+const handleCardMouseLeave = (event) => {
+    const card = event.currentTarget;
+    card.classList.remove('card-pressed', 'card-released');
+};
+
 // 确认删除实例
 const confirmDeleteInstance = (instance) => {
     instanceToDelete.value = instance;
@@ -868,6 +891,19 @@ const viewInstanceLogs = (instance) => {
 .instance-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* 点击反馈动画 */
+.clickable-card.card-pressed {
+    transform: translateY(-1px) scale(0.98);
+    box-shadow: 0 6px 12px -2px rgba(0, 0, 0, 0.15), 0 3px 5px -1px rgba(0, 0, 0, 0.08);
+    transition: all 0.1s ease;
+}
+
+.clickable-card.card-released {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 12px 20px -4px rgba(0, 0, 0, 0.15), 0 5px 8px -2px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* 卡片内容布局优化 */

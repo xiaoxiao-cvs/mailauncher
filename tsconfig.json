@@ -28,7 +28,8 @@
     "src/components/LogsPanel.vue",
     "src/components/InstallConfig.vue",
     "src/components/settings/SettingsPanel.vue",
-    "src/components/instances/ModuleSettingsModal.vue"
+    "src/components/instances/ModuleSettingsModal.vue",
+    "src/components/settings/ModelSettingsDrawer.vue"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

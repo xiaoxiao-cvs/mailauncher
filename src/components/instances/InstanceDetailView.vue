@@ -1,9 +1,9 @@
 <template>
-    <div class="instance-detail-container animate-slide-in"> <!-- 顶部应用标题栏 -->
-        <div class="app-header shadow-sm">
-            <div class="flex items-center">
-                <!-- 返回按钮 -->
-                <button class="btn btn-xs btn-ghost mr-3" @click="goBack" title="返回">
+    <div class="instance-detail-container animated-page"> <!-- 顶部应用标题栏 -->
+        <div class="app-header shadow-sm animated-header">
+            <div class="flex items-center"> <!-- 返回按钮 -->
+                <button class="btn btn-xs btn-ghost mr-3 back-button" @click="goBack" @mousedown="handleBackButtonPress"
+                    @mouseup="handleBackButtonRelease" @mouseleave="handleBackButtonLeave" title="返回">
                     <Icon icon="mdi:arrow-left" class="mr-1" width="16" height="16" />
                     返回
                 </button>
@@ -209,14 +209,18 @@ const terminalStates = ref({
         isConnecting: false,
         websocket: null,
         term: null,
-        fitAddon: null
+        fitAddon: null,
+        webLinksAddon: null,
+        unicode11Addon: null
     },
     'napcat-ada': {
         isConnected: false,
         isConnecting: false,
         websocket: null,
         term: null,
-        fitAddon: null
+        fitAddon: null,
+        webLinksAddon: null,
+        unicode11Addon: null
     }
 });
 
@@ -227,14 +231,42 @@ const isTerminalConnecting = computed(() => currentTerminalState.value.isConnect
 
 // 初始化xterm.js终端
 const initXterm = (terminalType = 'maibot') => {
-    const state = terminalStates.value[terminalType];
-
-    // 如果该终端已存在，先清理
+    const state = terminalStates.value[terminalType];    // 如果该终端已存在，先清理
     if (state.term) {
         try {
-            state.term.dispose();
+            // 检查终端是否已经被销毁
+            if (state.term._core && !state.term._core.isDisposed) {
+                // 先清理插件
+                const addonsToClean = ['fitAddon', 'webLinksAddon', 'unicode11Addon'];
+                addonsToClean.forEach(addonName => {
+                    if (state[addonName]) {
+                        try {
+                            // 检查插件是否已被加载到终端
+                            const hasLoadedAddons = state.term.loadedAddons && typeof state.term.loadedAddons.has === 'function';
+                            const isAddonLoaded = hasLoadedAddons && state.term.loadedAddons.has(state[addonName]);
+
+                            if (isAddonLoaded) {
+                                state[addonName].dispose();
+                                console.log(`${terminalType} ${addonName} 已清理`);
+                            }
+                        } catch (addonError) {
+                            console.warn(`清理 ${terminalType} ${addonName} 时出错:`, addonError.message);
+                        }
+                        state[addonName] = null;
+                    }
+                });
+
+                // 最后销毁终端
+                state.term.dispose();
+            }
         } catch (e) {
-            console.error("Error disposing previous terminal:", e);
+            console.warn(`清理 ${terminalType} 旧终端时出错:`, e.message);
+        } finally {
+            // 无论如何都要清理引用
+            state.term = null;
+            state.fitAddon = null;
+            state.webLinksAddon = null;
+            state.unicode11Addon = null;
         }
     }
 
@@ -251,13 +283,38 @@ const initXterm = (terminalType = 'maibot') => {
             selectionBackground: '#555555',
         },
         allowProposedApi: true
+    });    // 加载插件
+    state.fitAddon = new FitAddon();
+    state.webLinksAddon = new WebLinksAddon();
+    state.unicode11Addon = new Unicode11Addon();
+
+    // 逐个加载插件，每个都有独立的错误处理
+    const addonsToLoad = [
+        { name: 'fitAddon', addon: state.fitAddon },
+        { name: 'webLinksAddon', addon: state.webLinksAddon },
+        { name: 'unicode11Addon', addon: state.unicode11Addon }
+    ];
+
+    const loadedAddons = [];
+    addonsToLoad.forEach(({ name, addon }) => {
+        try {
+            state.term.loadAddon(addon);
+            loadedAddons.push(name);
+        } catch (addonError) {
+            console.warn(`${terminalType} ${name} 加载失败:`, addonError.message);
+            // 如果加载失败，清空对应的引用
+            if (name === 'fitAddon') state.fitAddon = null;
+            else if (name === 'webLinksAddon') state.webLinksAddon = null;
+            else if (name === 'unicode11Addon') state.unicode11Addon = null;
+        }
     });
 
-    // 加载插件
-    state.fitAddon = new FitAddon();
-    state.term.loadAddon(state.fitAddon);
-    state.term.loadAddon(new WebLinksAddon());
-    state.term.loadAddon(new Unicode11Addon());    // 如果当前正在创建的是激活的终端，立即显示在DOM中
+    if (loadedAddons.length > 0) {
+        console.log(`${terminalType} 终端插件加载成功:`, loadedAddons.join(', '));
+    }
+    if (loadedAddons.length < addonsToLoad.length) {
+        console.warn(`${terminalType} 部分插件加载失败`);
+    }// 如果当前正在创建的是激活的终端，立即显示在DOM中
     if (terminalType === activeTerminal.value && terminalContent.value) {
         state.term.open(terminalContent.value);
 
@@ -330,11 +387,17 @@ const initTerminalWebSocket = (terminalType = 'maibot') => {
         : `${props.instance.id}_main`;
 
     console.log(`初始化 ${terminalType} 终端WebSocket连接，会话ID: ${sessionId}`);
-    state.isConnecting = true;
-
-    try {
+    state.isConnecting = true; try {
         // 使用新的终端WebSocket服务
-        state.websocket = getTerminalWebSocketService(sessionId);        // 连接打开事件
+        state.websocket = getTerminalWebSocketService(sessionId);
+
+        // 清理之前可能存在的事件监听器，避免重复监听
+        state.websocket.off('open');
+        state.websocket.off('message');
+        state.websocket.off('close');
+        state.websocket.off('error');
+
+        // 连接打开事件
         state.websocket.on('open', () => {
             console.log(`${terminalType} 终端WebSocket连接已建立`);
             state.isConnected = true;
@@ -453,29 +516,71 @@ const initTerminalWebSocket = (terminalType = 'maibot') => {
 const closeTerminalConnection = (terminalType = null) => {
     if (terminalType) {
         // 关闭指定类型的终端
-        const state = terminalStates.value[terminalType]; if (props.instance?.id && state.websocket) {
+        const state = terminalStates.value[terminalType];
+
+        if (props.instance?.id && state.websocket) {
             const sessionId = terminalType === 'napcat-ada'
                 ? `${props.instance.id}_napcat-ada`
                 : `${props.instance.id}_main`;
-            closeTerminalWebSocket(sessionId);
-        }
-
-        // 销毁xterm实例
+            try {
+                closeTerminalWebSocket(sessionId);
+            } catch (wsError) {
+                console.warn(`关闭 ${terminalType} WebSocket 连接时出错:`, wsError.message || wsError);
+            }
+        }        // 销毁xterm实例
         if (state.term) {
             try {
-                state.term.dispose();
+                // 先检查终端是否已经被销毁
+                if (state.term._core && !state.term._core.isDisposed) {
+                    // 清理所有插件
+                    const addonsToClean = [
+                        { name: 'fitAddon', addon: state.fitAddon },
+                        { name: 'webLinksAddon', addon: state.webLinksAddon },
+                        { name: 'unicode11Addon', addon: state.unicode11Addon }
+                    ];
+
+                    addonsToClean.forEach(({ name, addon }) => {
+                        if (addon) {
+                            try {
+                                // 检查插件是否已被加载到终端
+                                const hasLoadedAddons = state.term.loadedAddons && typeof state.term.loadedAddons.has === 'function';
+                                const isAddonLoaded = hasLoadedAddons && state.term.loadedAddons.has(addon);
+
+                                if (isAddonLoaded) {
+                                    addon.dispose();
+                                    console.log(`${terminalType} ${name} 已成功清理`);
+                                } else {
+                                    console.log(`${terminalType} ${name} 未加载，跳过清理`);
+                                }
+                            } catch (addonError) {
+                                console.warn(`清理 ${terminalType} ${name} 时出错:`, addonError.message);
+                            }
+                        }
+                    });
+
+                    // 最后销毁终端
+                    state.term.dispose();
+                    console.log(`${terminalType} 终端已成功销毁`);
+                }
             } catch (e) {
-                console.error("Error disposing terminal:", e);
+                console.error(`销毁 ${terminalType} 终端时出错:`, e.message || e);
+            } finally {
+                // 无论如何都要清理引用
+                state.term = null;
+                state.fitAddon = null;
+                state.webLinksAddon = null;
+                state.unicode11Addon = null;
             }
-            state.term = null;
-            state.fitAddon = null;
         }
 
         state.websocket = null;
         state.isConnected = false;
         state.isConnecting = false;
+
+        console.log(`${terminalType} 终端连接已完全清理`);
     } else {
         // 关闭所有终端
+        console.log('开始清理所有终端连接');
         Object.keys(terminalStates.value).forEach(type => {
             closeTerminalConnection(type);
         });
@@ -579,6 +684,28 @@ const goBack = () => {
     emit('back');
 };
 
+// 返回按钮点击反馈动画处理
+const handleBackButtonPress = (event) => {
+    const button = event.currentTarget;
+    button.classList.add('button-pressed');
+};
+
+const handleBackButtonRelease = (event) => {
+    const button = event.currentTarget;
+    button.classList.remove('button-pressed');
+    button.classList.add('button-released');
+
+    // 清理动画类名
+    setTimeout(() => {
+        button.classList.remove('button-released');
+    }, 150);
+};
+
+const handleBackButtonLeave = (event) => {
+    const button = event.currentTarget;
+    button.classList.remove('button-pressed', 'button-released');
+};
+
 // 重启终端
 const restartTerminal = () => {
     const currentState = terminalStates.value[activeTerminal.value];
@@ -610,94 +737,32 @@ const switchTerminal = (terminalType) => {
     console.log('当前实例服务:', props.instance?.services);
     console.log('hasNapcatAdaService:', hasNapcatAdaService.value);
 
-    // 保存上一个终端状态（不清空DOM，避免丢失终端内容）
-    const previousTerminal = activeTerminal.value;
-    const previousState = terminalStates.value[previousTerminal];
+    // 保存当前终端类型，以便正确关闭当前终端
+    const currentTerminalType = activeTerminal.value;
 
-    // 如果上一个终端存在且已经渲染到DOM，先将其从DOM中分离（但不销毁）
-    if (previousState.term && terminalContent.value && terminalContent.value.querySelector('.xterm')) {
-        try {
-            // 将终端从DOM中分离但保持实例
-            previousState.term.element?.remove?.();
-        } catch (e) {
-            console.warn('分离上一个终端时出错:', e);
-        }
-    }
+    // 执行刷新操作，确保终端正确渲染
+    console.log(`执行终端刷新以确保 ${terminalType} 正确渲染`);
+
+    // 关闭当前终端连接（关闭的是切换前的终端）
+    closeTerminalConnection(currentTerminalType);
 
     // 切换到新终端
     activeTerminal.value = terminalType;
-    const newState = terminalStates.value[terminalType];
 
-    console.log(`${terminalType} 终端状态:`, {
-        hasTerm: !!newState.term,
-        isConnected: newState.isConnected,
-        isConnecting: newState.isConnecting,
-        hasElement: !!newState.term?.element
-    });    // 确保新终端在下一个tick中渲染
-    nextTick(async () => {
-        if (!terminalContent.value) {
-            console.error('终端容器不存在');
-            return;
-        }
-
+    // 重新初始化终端
+    nextTick(() => {
         // 清空容器准备渲染新终端
-        terminalContent.value.innerHTML = '';
-
-        // 如果新终端还没初始化，先初始化
-        if (!newState.term) {
-            console.log(`初始化新终端: ${terminalType}`);
-            initXterm(terminalType);
-            // 延迟初始化WebSocket连接
-            setTimeout(() => {
-                initTerminalWebSocket(terminalType);
-            }, 200);
-        } else {
-            // 重新将已存在的终端渲染到DOM
-            console.log(`重新渲染已存在的终端: ${terminalType}`);
-
-            try {
-                // 确保终端已分离
-                if (newState.term.element && newState.term.element.parentNode) {
-                    try {
-                        newState.term.element.remove();
-                    } catch (e) {
-                        console.warn(`分离 ${terminalType} 终端时出错:`, e);
-                    }
-                }
-
-                // 使用异步方式确保DOM已准备好
-                await nextTick();
-
-                // 确保终端重新渲染到DOM
-                newState.term.open(terminalContent.value);
-
-                // 自适应大小
-                if (newState.fitAddon) {
-                    setTimeout(() => {
-                        try {
-                            newState.fitAddon.fit();
-
-                            // 重新写入一个空行，确保显示更新
-                            newState.term.write('\r\n');
-                        } catch (e) {
-                            console.warn('终端自适应大小失败:', e);
-                        }
-                    }, 100);
-                }
-
-                // 延迟检查确保连接状态
-                setTimeout(() => {
-                    checkAndRestoreTerminalConnection(terminalType);
-                }, 50);
-            } catch (e) {
-                console.error(`重新渲染 ${terminalType} 终端失败:`, e);
-                // 如果重新渲染失败，尝试重新初始化
-                initXterm(terminalType);
-                setTimeout(() => {
-                    initTerminalWebSocket(terminalType);
-                }, 200);
-            }
+        if (terminalContent.value) {
+            terminalContent.value.innerHTML = '';
         }
+
+        // 先初始化xterm.js
+        initXterm(terminalType);
+
+        // 然后初始化WebSocket连接
+        setTimeout(() => {
+            initTerminalWebSocket(terminalType);
+        }, 500);
     });
 };
 
@@ -871,15 +936,22 @@ onMounted(() => {
                             foreground: '#d4d4d4',
                             cursor: '#ffffff',
                             selectionBackground: '#555555',
-                        },
-                        allowProposedApi: true
+                        }, allowProposedApi: true
                     });
 
                     // 加载插件
                     napcatState.fitAddon = new FitAddon();
-                    napcatState.term.loadAddon(napcatState.fitAddon);
-                    napcatState.term.loadAddon(new WebLinksAddon());
-                    napcatState.term.loadAddon(new Unicode11Addon());
+                    napcatState.webLinksAddon = new WebLinksAddon();
+                    napcatState.unicode11Addon = new Unicode11Addon();
+
+                    try {
+                        napcatState.term.loadAddon(napcatState.fitAddon);
+                        napcatState.term.loadAddon(napcatState.webLinksAddon);
+                        napcatState.term.loadAddon(napcatState.unicode11Addon);
+                        console.log('napcat-ada 终端插件预加载成功');
+                    } catch (addonError) {
+                        console.error('napcat-ada 终端插件预加载失败:', addonError.message || addonError);
+                    }
 
                     // 设置事件处理
                     napcatState.term.onData(data => {
@@ -921,15 +993,22 @@ onMounted(() => {
                 foreground: '#d4d4d4',
                 cursor: '#ffffff',
                 selectionBackground: '#555555',
-            },
-            allowProposedApi: true
+            }, allowProposedApi: true
         });
 
         // 加载插件
         napcatState.fitAddon = new FitAddon();
-        napcatState.term.loadAddon(napcatState.fitAddon);
-        napcatState.term.loadAddon(new WebLinksAddon());
-        napcatState.term.loadAddon(new Unicode11Addon());
+        napcatState.webLinksAddon = new WebLinksAddon();
+        napcatState.unicode11Addon = new Unicode11Addon();
+
+        try {
+            napcatState.term.loadAddon(napcatState.fitAddon);
+            napcatState.term.loadAddon(napcatState.webLinksAddon);
+            napcatState.term.loadAddon(napcatState.unicode11Addon);
+            console.log('napcat-ada 终端插件加载成功');
+        } catch (addonError) {
+            console.error('napcat-ada 终端插件加载失败:', addonError.message || addonError);
+        }
 
         // 设置终端输入处理
         napcatState.term.onData(data => {
@@ -977,15 +1056,18 @@ onUnmounted(() => {
         Object.values(checkAndRestoreTerminalConnection.timers).forEach(timer => {
             clearTimeout(timer);
         });
-    }
-
-    // 不立即清理WebSocket连接，而是延迟清理，给页面切换留出时间
+    }    // 不立即清理WebSocket连接，而是延迟清理，给页面切换留出时间
     setTimeout(() => {
         // 只有在真正离开实例管理页面时才清理连接
         const currentPath = window.location.hash || window.location.pathname;
         if (!currentPath.includes('instances') && !showInstanceDetail.value) {
             console.log('离开实例管理页面，清理WebSocket连接');
-            closeTerminalConnection();
+            // 逐个清理终端状态，避免并发disposal导致的错误
+            Object.keys(terminalStates.value).forEach((type, index) => {
+                setTimeout(() => {
+                    closeTerminalConnection(type);
+                }, index * 100); // 错开清理时间，避免并发问题
+            });
         } else {
             console.log('仍在实例管理页面，保持WebSocket连接');
         }
@@ -1029,22 +1111,10 @@ watch(() => props.instance, (newInstance, oldInstance) => {
 </script>
 
 <style scoped lang="postcss">
-/* 整体容器样式 */
+/* 整体容器样式 - 移除独立动画，使用父组件过渡 */
 .instance-detail-container {
     @apply bg-base-200 min-h-screen flex flex-col;
-    animation: slideInFromRight 0.4s ease-out forwards;
-}
-
-@keyframes slideInFromRight {
-    from {
-        opacity: 0;
-        transform: translateX(40px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
+    /* 移除独立动画，避免与父组件过渡冲突 */
 }
 
 /* 顶部应用标题栏 */
@@ -1276,5 +1346,28 @@ watch(() => props.instance, (newInstance, oldInstance) => {
     .terminal-container {
         height: 500px;
     }
+}
+
+/* 返回按钮点击反馈动画 */
+.back-button {
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.back-button:hover {
+    background-color: rgba(var(--b2), 0.8);
+    transform: translateX(-2px);
+}
+
+.back-button.button-pressed {
+    transform: translateX(-1px) scale(0.95);
+    background-color: rgba(var(--b3), 0.9);
+    transition: all 0.1s ease;
+}
+
+.back-button.button-released {
+    transform: translateX(-3px) scale(1.02);
+    background-color: rgba(var(--b2), 0.9);
+    transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 </style>

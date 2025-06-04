@@ -623,12 +623,12 @@
                                                 <div class="flex justify-between">
                                                     <span class="text-base-content/70">数据存储:</span>
                                                     <span class="text-primary font-mono">{{ dataStoragePath || '未设置'
-                                                    }}</span>
+                                                        }}</span>
                                                 </div>
                                                 <div class="flex justify-between">
                                                     <span class="text-base-content/70">实例部署:</span>
                                                     <span class="text-primary font-mono">{{ deploymentPath || '未设置'
-                                                    }}</span>
+                                                        }}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1361,6 +1361,122 @@ const openDeploymentFolder = async () => {
     }
 }
 
+// 主题切换函数
+const changeThemeMode = () => {
+    console.log('切换主题模式:', themeMode.value)
+
+    // 保存主题模式设置
+    localStorage.setItem('themeMode', themeMode.value)
+
+    // 根据选择的模式应用相应的主题
+    let targetTheme = 'light'
+
+    if (themeMode.value === 'system') {
+        // 跟随系统设置
+        targetTheme = systemDarkMode.value ? 'dark' : 'light'
+    } else {
+        // 手动选择的模式
+        targetTheme = themeMode.value
+    }
+
+    // 使用主题服务设置主题
+    setTheme(targetTheme)
+
+    // 通知其他组件主题模式已更改
+    window.dispatchEvent(new CustomEvent('theme-mode-changed', {
+        detail: {
+            mode: themeMode.value,
+            theme: targetTheme,
+            isDark: targetTheme === 'dark'
+        }
+    }))
+
+    // 如果有 emitter，也通过它发送事件
+    if (emitter) {
+        emitter.emit('theme-mode-changed', {
+            mode: themeMode.value,
+            theme: targetTheme,
+            isDark: targetTheme === 'dark'
+        })
+    }
+}
+
+// 外观设置函数
+const toggleAnimations = () => {
+    localStorage.setItem('enableAnimations', enableAnimations.value.toString())
+    console.log('动画效果设置已更新:', enableAnimations.value)
+}
+
+const changeFontSize = () => {
+    localStorage.setItem('fontSize', fontSize.value.toString())
+    document.documentElement.style.setProperty('--font-size', fontSize.value + 'px')
+    console.log('字体大小已更新:', fontSize.value)
+}
+
+const setLayoutDensity = (density) => {
+    layoutDensity.value = density
+    localStorage.setItem('layoutDensity', density)
+    document.documentElement.classList.toggle('layout-compact', density === 'compact')
+    console.log('布局密度已更新:', density)
+}
+
+// 重置所有设置
+const resetSettings = async () => {
+    try {
+        const { default: toastService } = await import('../../services/toastService')
+
+        // 重置主题设置
+        themeMode.value = 'system'
+        localStorage.setItem('themeMode', 'system')
+        changeThemeMode()
+
+        // 重置外观设置
+        enableAnimations.value = true
+        fontSize.value = 14
+        layoutDensity.value = 'comfortable'
+        localStorage.setItem('enableAnimations', 'true')
+        localStorage.setItem('fontSize', '14')
+        localStorage.setItem('layoutDensity', 'comfortable')
+
+        // 重置路径设置
+        resetDataPath()
+        resetDeploymentPath()
+
+        // 重置 WebUI 设置
+        webuiPort.value = 11111
+        localStorage.setItem('webuiPort', '11111')
+
+        // 重置后端设置
+        resetBackendUrl()
+
+        // 重置通知设置
+        deploymentNotifications.value = true
+        instanceNotifications.value = true
+        localStorage.setItem('deploymentNotifications', 'true')
+        localStorage.setItem('instanceNotifications', 'true')
+
+        // 重置启动设置
+        showWelcomeOnStartup.value = true
+        localStorage.setItem('showWelcomeOnStartup', 'true')
+
+        toastService.success('所有设置已重置为默认值')
+    } catch (error) {
+        console.error('重置设置失败:', error)
+    }
+}
+
+// 监听系统颜色偏好变化
+const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+const handleSystemThemeChange = (e) => {
+    systemDarkMode.value = e.matches
+    console.log('系统主题偏好变化:', e.matches ? 'dark' : 'light')
+
+    // 如果当前是跟随系统模式，则更新主题
+    if (themeMode.value === 'system') {
+        changeThemeMode()
+    }
+}
+
 // 组件挂载时初始化
 onMounted(async () => {
     // 初始化路径设置
@@ -1373,5 +1489,23 @@ onMounted(async () => {
 
     // 初始化 WebUI 状态
     await initializeWebuiStatus()
+
+    // 初始化主题设置
+    const savedThemeMode = localStorage.getItem('themeMode')
+    if (savedThemeMode) {
+        themeMode.value = savedThemeMode
+    }
+
+    // 初始化系统颜色偏好监听
+    mediaQuery.addEventListener('change', handleSystemThemeChange)
+
+    // 应用初始主题设置
+    changeThemeMode()
+})
+
+// 组件卸载时清理
+onBeforeUnmount(() => {
+    // 移除系统颜色偏好监听
+    mediaQuery.removeEventListener('change', handleSystemThemeChange)
 })
 </script>

@@ -17,6 +17,11 @@
 
 .animated-card {
   animation: cardSlideUp 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    box-shadow 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    opacity 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transform-origin: center center;
 }
 
 .animated-status {
@@ -167,9 +172,8 @@
 
 /* 悬停动画增强 */
 .animated-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
 .animated-status:hover {
@@ -366,4 +370,18 @@
   .animated-card:hover {
     transform: none;
   }
+}
+
+/* 确保卡片点击时不会出现布局跳动 */
+.animated-card * {
+  pointer-events: none;
+}
+
+.animated-card {
+  pointer-events: auto;
+}
+
+.animated-card:active {
+  transform: translateY(-2px) scale(0.98);
+  transition-duration: 0.1s;
 }

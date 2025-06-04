@@ -1,23 +1,12 @@
 .instances-tab {
   @apply w-full min-h-full pb-6;
-  animation: slideInFromRight 0.5s ease;
+  /* 移除独立动画，使用组件级过渡动画 */
   /* 添加与主页一致的渐变背景 */
   background-image: linear-gradient(
     135deg,
     hsl(var(--p) / 0.2) 0%,
     hsl(var(--p) / 0.5) 100%
   );
-}
-
-@keyframes slideInFromRight {
-  from {
-    opacity: 0;
-    transform: translateX(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 
 .header-section {
@@ -69,6 +58,38 @@
 .instance-detail-container {
   animation: slideInFromRight 0.2s ease-out forwards;
   animation-fill-mode: both;
+}
+
+/* 实例详情过渡动画 */
+.instance-detail-transition-enter-active,
+.instance-detail-transition-leave-active {
+  transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.instance-detail-transition-enter-from {
+  opacity: 0;
+  transform: translateX(30px) scale(0.98);
+}
+
+.instance-detail-transition-leave-to {
+  opacity: 0;
+  transform: translateX(-30px) scale(0.98);
+}
+
+/* 实例详情页滑入动画 */
+.animate-slide-in {
+  animation: instanceDetailSlideIn 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@keyframes instanceDetailSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(30px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
 }
 
 /* 适配深色模式 */
