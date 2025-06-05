@@ -205,7 +205,7 @@ const menuItems = {
   home: { title: '仪表盘', icon: 'mdi:home' },
   instances: { title: '实例管理', icon: 'mdi:server' },
   downloads: { title: '下载中心', icon: 'mdi:download' },
-  chat: { title: '聊天室', icon: 'mdi:chat' }, // 添加聊天室菜单项
+  chat: { title: '聊天室 (开发中)', icon: 'mdi:chat' }, // 聊天室功能正在开发中
   settings: { title: '系统设置', icon: 'mdi:cog' },
   plugins: { title: '插件广场', icon: 'mdi:puzzle' }
 }

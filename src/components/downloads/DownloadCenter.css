@@ -370,3 +370,114 @@
 .card:hover .card-title::after {
   width: 100%;
 }
+
+/* 暗色模式下的选择框修复 */
+[data-theme="dark"] .select,
+[data-theme="night"] .select,
+[data-theme="black"] .select {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+  border-color: hsl(var(--b3));
+}
+
+[data-theme="dark"] .select option,
+[data-theme="night"] .select option,
+[data-theme="black"] .select option {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+}
+
+/* 确保下拉框在暗色模式下可见 */
+[data-theme="dark"] .select:focus,
+[data-theme="night"] .select:focus,
+[data-theme="black"] .select:focus {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+  border-color: hsl(var(--p));
+}
+
+/* 输入框在暗色模式下的修复 */
+[data-theme="dark"] .input,
+[data-theme="night"] .input,
+[data-theme="black"] .input {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+  border-color: hsl(var(--b3));
+}
+
+[data-theme="dark"] .input:focus,
+[data-theme="night"] .input:focus,
+[data-theme="black"] .input:focus {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+  border-color: hsl(var(--p));
+}
+
+/* 强制修复下拉框文本颜色和背景 */
+.select.bg-base-100.text-base-content {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+}
+
+/* 下拉框选项在所有暗色主题下的强制修复 */
+[data-theme="dark"] .select option,
+[data-theme="night"] .select option,
+[data-theme="black"] .select option,
+[data-theme="dracula"] .select option,
+[data-theme="halloween"] .select option {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+}
+
+/* 禁用状态下的样式 */
+[data-theme="dark"] .select:disabled,
+[data-theme="night"] .select:disabled,
+[data-theme="black"] .select:disabled {
+  background-color: hsl(var(--b2)) !important;
+  color: hsl(var(--bc) / 0.5) !important;
+  border-color: hsl(var(--b3) / 0.5);
+}
+
+/* 额外的强制修复 - 针对WebKit浏览器 */
+@media (prefers-color-scheme: dark) {
+  .select,
+  .input {
+    -webkit-appearance: none;
+    background-color: hsl(var(--b1)) !important;
+    color: hsl(var(--bc)) !important;
+  }
+
+  .select option {
+    background-color: hsl(var(--b1)) !important;
+    color: hsl(var(--bc)) !important;
+  }
+}
+
+/* 确保placeholder文本在暗色模式下可见 */
+[data-theme="dark"] .input::placeholder,
+[data-theme="night"] .input::placeholder,
+[data-theme="black"] .input::placeholder {
+  color: hsl(var(--bc) / 0.5) !important;
+}
+
+/* 表单控件组合样式修复 */
+[data-theme="dark"] .input-group .input,
+[data-theme="night"] .input-group .input,
+[data-theme="black"] .input-group .input {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+}
+
+/* 复选框和其他表单控件 */
+[data-theme="dark"] .checkbox,
+[data-theme="night"] .checkbox,
+[data-theme="black"] .checkbox {
+  border-color: hsl(var(--b3));
+}
+
+[data-theme="dark"] .checkbox:checked,
+[data-theme="night"] .checkbox:checked,
+[data-theme="black"] .checkbox:checked {
+  background-color: hsl(var(--p));
+  border-color: hsl(var(--p));
+}
