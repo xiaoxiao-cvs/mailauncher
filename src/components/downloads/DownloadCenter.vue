@@ -193,101 +193,200 @@
                                 </svg>
                             </button>
                             <div class="card-title">下载新实例</div>
-                        </div> <!-- 版本选择下拉框 -->
+                        </div> <!-- 版本选择三阶段动画组件 -->
                         <div class="mb-4">
                             <label class="label">
                                 <span class="label-text">选择版本</span>
-                            </label>
-                            <div class="dropdown w-full" :class="{ 'dropdown-open': versionDropdownOpen }">
-                                <div @click="toggleVersionDropdown" tabindex="0"
-                                    class="btn btn-outline w-full justify-between hover:bg-base-200 transition-all duration-200"
-                                    :class="{
-                                        'btn-disabled': loading || installing,
-                                        'border-primary': selectedVersion,
-                                        'text-base-content/50': !selectedVersion
-                                    }" :disabled="loading || installing">
-                                    <div class="flex items-center gap-2">
-                                        <svg v-if="selectedVersion" xmlns="http://www.w3.org/2000/svg"
-                                            class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24"
-                                            stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M5 13l4 4L19 7" />
-                                        </svg>
-                                        <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
-                                            viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                                        </svg>
-                                        <span class="font-medium">
-                                            {{ selectedVersion || '请选择一个版本' }}
-                                        </span>
+                                <!-- 调试信息和重置按钮 -->
+                                <div class="flex items-center gap-2">
+                                    <span v-if="installing" class="label-text-alt text-warning">
+                                        安装中...
+                                    </span>
+                                    <!-- 调试状态显示 -->
+                                    <div class="badge badge-sm" :class="{
+                                        'badge-info': versionLoadingStage === 'loading',
+                                        'badge-success': versionLoadingStage === 'success',
+                                        'badge-primary': versionLoadingStage === 'dropdown'
+                                    }">
+                                        {{ versionLoadingStage }}
                                     </div>
-                                    <svg xmlns="http://www.w3.org/2000/svg"
-                                        class="h-4 w-4 transition-transform duration-200"
-                                        :class="{ 'rotate-180': versionDropdownOpen }" fill="none" viewBox="0 0 24 24"
-                                        stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                                    </svg>
+                                    <button v-if="versionLoadingStage === 'loading'" @click="forceResetLoading"
+                                        class="btn btn-xs btn-ghost text-error" title="强制重置加载状态">
+                                        重置
+                                    </button>
+                                    <!-- 重新触发动画按钮 -->
+                                    <button v-if="versionLoadingStage === 'dropdown'" @click="restartAnimation"
+                                        class="btn btn-xs btn-ghost text-info" title="重新播放加载动画">
+                                        重播
+                                    </button>
                                 </div>
-                                <div v-if="versionDropdownOpen"
-                                    class="dropdown-content z-[1] menu p-0 shadow-lg bg-base-100 rounded-box w-full mt-1 border border-base-200 max-h-64 overflow-y-auto">
-                                    <div class="p-2">
-                                        <div v-if="loading" class="flex items-center justify-center py-4">
-                                            <span class="loading loading-spinner loading-sm mr-2"></span>
-                                            <span class="text-sm">加载版本中...</span>
-                                        </div>
-                                        <div v-else-if="availableVersions.length === 0"
-                                            class="py-4 text-center text-base-content/60">
-                                            <div class="flex flex-col items-center gap-2">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none"
-                                                    viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2 2v-5m16 0h-2M4 13h2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v4.01" />
-                                                </svg>
-                                                <span class="text-sm">暂无可用版本</span>
+                            </label>
+
+                            <!-- 三阶段动画容器 -->
+                            <div class="version-selector-container relative">
+                                <!-- 阶段1: 加载动画 -->
+                                <transition name="stage-fade" mode="out-in">
+                                    <div v-if="versionLoadingStage === 'loading'" key="loading-stage"
+                                        class="version-stage loading-stage">
+                                        <div
+                                            class="flex items-center justify-center py-8 px-4 bg-base-100 rounded-lg border border-base-200">
+                                            <div class="flex flex-col items-center gap-3">
+                                                <div class="relative">
+                                                    <div class="loading-spinner-custom animate-spin">
+                                                        <svg class="w-8 h-8 text-primary" fill="none"
+                                                            viewBox="0 0 24 24">
+                                                            <circle class="opacity-25" cx="12" cy="12" r="10"
+                                                                stroke="currentColor" stroke-width="3"></circle>
+                                                            <path class="opacity-75" fill="currentColor"
+                                                                d="M4 12a8 8 0 018-8v8H4z"></path>
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                                <div class="text-center">
+                                                    <div class="font-medium text-base-content">正在获取版本信息</div>
+                                                    <div class="text-sm text-base-content/60 mt-1">请稍候...</div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div v-else class="space-y-1">
-                                            <button v-for="version in availableVersions" :key="version"
-                                                @click="selectVersion(version)"
-                                                class="version-option w-full text-left p-3 rounded-lg hover:bg-base-200 transition-all duration-200 flex items-center justify-between group"
+                                    </div>
+
+                                    <!-- 阶段2: 成功勾选动画 -->
+                                    <div v-else-if="versionLoadingStage === 'success'" key="success-stage"
+                                        class="version-stage success-stage">
+                                        <div
+                                            class="flex items-center justify-center py-8 px-4 bg-base-100 rounded-lg border border-success">
+                                            <div class="flex flex-col items-center gap-3">
+                                                <div class="success-checkmark animate-checkmark">
+                                                    <svg class="w-12 h-12 text-success" fill="none" viewBox="0 0 24 24"
+                                                        stroke="currentColor">
+                                                        <path class="checkmark-path" stroke-linecap="round"
+                                                            stroke-linejoin="round" stroke-width="3"
+                                                            d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                </div>
+                                                <div class="text-center">
+                                                    <div class="font-medium text-success">版本信息获取成功</div>
+                                                    <div class="text-sm text-base-content/60 mt-1">找到 {{
+                                                        availableVersions.length }} 个可用版本</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 阶段3: 版本选择下拉框 -->
+                                    <div v-else-if="versionLoadingStage === 'dropdown'" key="dropdown-stage"
+                                        class="version-stage dropdown-stage">
+                                        <div class="dropdown w-full" :class="{ 'dropdown-open': versionDropdownOpen }">
+                                            <div @click="toggleVersionDropdown" tabindex="0"
+                                                class="btn btn-outline w-full justify-between hover:bg-base-200 transition-all duration-300 animate-slide-in"
                                                 :class="{
-                                                    'bg-primary/10 text-primary border border-primary/20': selectedVersion === version,
-                                                    'hover:bg-primary/5': selectedVersion !== version
-                                                }">
-                                                <div class="flex items-center gap-3">
-                                                    <div class="flex-shrink-0">
-                                                        <svg v-if="selectedVersion === version"
-                                                            xmlns="http://www.w3.org/2000/svg"
-                                                            class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24"
-                                                            stroke="currentColor">
+                                                    'btn-disabled': installing || loading,
+                                                    'border-primary bg-primary/5': selectedVersion,
+                                                    'text-base-content/50': !selectedVersion
+                                                }" :disabled="installing || loading">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="transition-transform duration-300"
+                                                        :class="{ 'scale-110': selectedVersion }">
+                                                        <svg v-if="selectedVersion" xmlns="http://www.w3.org/2000/svg"
+                                                            class="h-5 w-5 text-success animate-pulse" fill="none"
+                                                            viewBox="0 0 24 24" stroke="currentColor">
                                                             <path stroke-linecap="round" stroke-linejoin="round"
                                                                 stroke-width="2" d="M5 13l4 4L19 7" />
                                                         </svg>
+                                                        <svg v-else xmlns="http://www.w3.org/2000/svg"
+                                                            class="h-5 w-5 text-base-content/40" fill="none"
+                                                            viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                                        </svg>
+                                                    </div>
+                                                    <span class="font-medium transition-colors duration-300"
+                                                        :class="{ 'text-primary': selectedVersion }">
+                                                        {{ selectedVersion || '请选择一个版本' }}
+                                                    </span>
+                                                </div>
+                                                <svg xmlns="http://www.w3.org/2000/svg"
+                                                    class="h-4 w-4 transition-transform duration-300"
+                                                    :class="{ 'rotate-180': versionDropdownOpen }" fill="none"
+                                                    viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                                </svg>
+                                            </div>
+
+                                            <!-- 下拉菜单内容 -->
+                                            <transition name="dropdown-fade">
+                                                <div v-if="versionDropdownOpen"
+                                                    class="dropdown-content z-[1] menu p-0 shadow-xl bg-base-100 rounded-lg w-full mt-2 border border-base-200 max-h-80 overflow-hidden animate-dropdown-open">
+                                                    <div class="p-3">
+                                                        <div v-if="availableVersions.length === 0"
+                                                            class="py-6 text-center text-base-content/60">
+                                                            <div class="flex flex-col items-center gap-3">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8"
+                                                                    fill="none" viewBox="0 0 24 24"
+                                                                    stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                                        stroke-width="2"
+                                                                        d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2 2v-5m16 0h-2M4 13h2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v4.01" />
+                                                                </svg>
+                                                                <span class="text-sm">暂无可用版本</span>
+                                                                <button @click="initializeData"
+                                                                    class="btn btn-xs btn-primary mt-2">
+                                                                    重新加载
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                         <div v-else
-                                                            class="w-4 h-4 rounded-full border-2 border-base-300 group-hover:border-primary transition-colors">
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <div class="font-medium text-sm"
-                                                            :class="{ 'text-primary': selectedVersion === version }">
-                                                            {{ version }}
-                                                        </div>
-                                                        <div class="text-xs text-base-content/60">
-                                                            {{ getVersionDescription(version) }}
+                                                            class="space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
+                                                            <button v-for="(version, index) in availableVersions"
+                                                                :key="version" @click="selectVersion(version)"
+                                                                class="version-option w-full text-left p-3 rounded-lg hover:bg-base-200 transition-all duration-200 flex items-center justify-between group animate-item-fade-in"
+                                                                :style="{ 'animation-delay': `${index * 50}ms` }"
+                                                                :class="{
+                                                                    'bg-primary/10 text-primary border border-primary/20 shadow-sm': selectedVersion === version,
+                                                                    'hover:bg-primary/5': selectedVersion !== version
+                                                                }">
+                                                                <div class="flex items-center gap-3">
+                                                                    <div class="flex-shrink-0">
+                                                                        <div class="transition-all duration-200"
+                                                                            :class="{ 'scale-110': selectedVersion === version }">
+                                                                            <svg v-if="selectedVersion === version"
+                                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                                class="h-5 w-5 text-primary animate-pulse"
+                                                                                fill="none" viewBox="0 0 24 24"
+                                                                                stroke="currentColor">
+                                                                                <path stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
+                                                                                    stroke-width="2"
+                                                                                    d="M5 13l4 4L19 7" />
+                                                                            </svg>
+                                                                            <div v-else
+                                                                                class="w-5 h-5 rounded-full border-2 border-base-300 group-hover:border-primary transition-all duration-200">
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <div class="font-medium text-sm transition-colors duration-200"
+                                                                            :class="{ 'text-primary': selectedVersion === version }">
+                                                                            {{ version }}
+                                                                        </div>
+                                                                        <div class="text-xs text-base-content/60">
+                                                                            {{ getVersionDescription(version) }}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div v-if="isLatestVersion(version)"
+                                                                    class="badge badge-primary badge-sm animate-pulse">
+                                                                    最新
+                                                                </div>
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div v-if="isLatestVersion(version)"
-                                                    class="badge badge-primary badge-sm">
-                                                    最新
-                                                </div>
-                                            </button>
+                                            </transition>
                                         </div>
                                     </div>
-                                </div>
+                                </transition>
                             </div>
                         </div>
 
@@ -491,6 +590,9 @@ const eulaAgreed = ref(false); // EULA 同意状态
 // 版本下拉框状态
 const versionDropdownOpen = ref(false);
 
+// 三阶段加载状态: 'loading' -> 'success' -> 'dropdown'
+const versionLoadingStage = ref('loading');
+
 // 添加已有实例相关状态
 const maibotPath = ref('');
 const adapterPath = ref('');
@@ -527,7 +629,15 @@ const instanceDetection = computed(() => ({
 const emit = defineEmits(['refresh']);
 
 // 计算属性 - 基于 store 状态
-const availableVersions = computed(() => deployStore.availableVersions);
+const availableVersions = computed(() => {
+    const versions = deployStore.availableVersions;
+    // 如果 store 中没有版本数据，返回默认版本
+    if (!versions || versions.length === 0) {
+        console.warn('Store 中没有版本数据，使用默认版本列表');
+        return ['latest', 'main', 'v0.6.3', 'v0.6.2', 'v0.6.1'];
+    }
+    return versions;
+});
 const availableServices = computed(() => deployStore.availableServices);
 const installing = computed(() => deployStore.currentDeployment?.installing || false);
 const installComplete = computed(() => deployStore.currentDeployment?.installComplete || false);
@@ -593,12 +703,41 @@ const installStatusText = computed(() => {
 
 // 初始化版本和服务数据
 const initializeData = async () => {
+    console.log('🚀 开始三阶段初始化流程');
+
+    // 阶段1: 开始加载
+    console.log('📥 阶段1: 设置加载状态');
+    versionLoadingStage.value = 'loading';
     loading.value = true;
+
     try {
-        await Promise.all([
-            deployStore.fetchVersions(),
-            deployStore.fetchServices()
+        // 设置超时处理，防止API调用卡死
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('初始化超时')), 10000); // 10秒超时
+        });
+
+        const initPromise = Promise.all([
+            deployStore.fetchVersions().catch(error => {
+                console.warn('获取版本列表失败，使用默认版本:', error);
+                return ['latest', 'main', 'v0.6.3', 'v0.6.2', 'v0.6.1'];
+            }),
+            deployStore.fetchServices().catch(error => {
+                console.warn('获取服务列表失败，使用默认服务:', error);
+                return [{ name: "napcat-ada", description: "Napcat-ada 服务" }];
+            })
         ]);
+
+        console.log('⏳ 等待API调用完成...');
+        await Promise.race([initPromise, timeoutPromise]);
+
+        // 阶段2: 显示成功勾选 (持续1.5秒)
+        console.log('✅ 阶段2: 显示成功状态');
+        versionLoadingStage.value = 'success';
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // 阶段3: 显示下拉框
+        console.log('📋 阶段3: 显示下拉框');
+        versionLoadingStage.value = 'dropdown';
 
         // 初始化服务选择状态和端口
         selectedServices['napcat-ada'] = true; // 默认选中
@@ -607,10 +746,18 @@ const initializeData = async () => {
         // 初始化部署路径
         initializeDeploymentPath();
 
-        console.log('数据初始化完成');
+        console.log('🎉 数据初始化完成，当前阶段:', versionLoadingStage.value);
     } catch (error) {
-        console.error('数据初始化失败:', error);
-        toastService.error('数据初始化失败');
+        console.error('❌ 数据初始化失败:', error);
+        toastService.warning('数据初始化失败，使用默认配置');
+
+        // 失败时直接跳到下拉框阶段
+        versionLoadingStage.value = 'dropdown';
+
+        // 确保即使初始化失败，也要设置基本的默认值
+        selectedServices['napcat-ada'] = true;
+        servicePorts['napcat-ada'] = '8095';
+        initializeDeploymentPath();
     } finally {
         loading.value = false;
     }
@@ -618,7 +765,7 @@ const initializeData = async () => {
 
 // 初始化部署路径
 const initializeDeploymentPath = () => {
-    // 从本地存储获取部署路径，如果没有则使用默认值
+    // 从本地获取部署路径，如果没有则使用默认值
     const savedDeploymentPath = localStorage.getItem('deploymentPath');
 
     if (savedDeploymentPath) {
@@ -710,13 +857,37 @@ const selectInstallMode = (mode) => {
         currentStep.value = 'existing-instance';
     } else if (mode === 'new') {
         currentStep.value = 'new-instance';
+        // 当选择下载新实例时，重新开始三阶段动画
+        console.log('选择下载新实例，重新开始三阶段动画');
+        versionLoadingStage.value = 'loading';
+        initializeData();
     }
 };
 
 // 版本下拉框相关方法
 const toggleVersionDropdown = () => {
-    if (loading.value || installing.value) return;
+    console.log('toggleVersionDropdown called, loading:', loading.value, 'installing:', installing.value);
+    if (loading.value || installing.value) {
+        console.log('下拉框被禁用，原因:', { loading: loading.value, installing: installing.value });
+        return;
+    }
     versionDropdownOpen.value = !versionDropdownOpen.value;
+    console.log('版本下拉框状态切换为:', versionDropdownOpen.value);
+};
+
+// 强制重置加载状态
+const forceResetLoading = () => {
+    console.log('强制重置加载状态');
+    loading.value = false;
+    versionLoadingStage.value = 'dropdown'; // 重置到下拉框阶段
+    toastService.warning('已强制重置加载状态，如果问题持续请刷新页面');
+};
+
+// 重新播放三阶段动画
+const restartAnimation = async () => {
+    console.log('重新播放三阶段动画');
+    versionDropdownOpen.value = false; // 关闭下拉框
+    await initializeData(); // 重新执行初始化
 };
 
 const selectVersion = (version) => {
@@ -973,14 +1144,25 @@ const addExistingInstance = async () => {
 };
 
 // 当组件挂载时初始化数据
-onMounted(() => {
-    initializeData();
+onMounted(async () => {
+    console.log('DownloadCenter 组件挂载，开始初始化...');
+
+    // 先设置基本的默认值，确保界面可用
+    selectedServices['napcat-ada'] = true;
+    servicePorts['napcat-ada'] = '8095';
+    initializeDeploymentPath();
+
+    // 设置初始状态为dropdown，避免在选择模式页面就开始动画
+    versionLoadingStage.value = 'dropdown';
+    loading.value = false;
 
     // 监听部署路径变更事件
     window.addEventListener('deployment-path-changed', handleDeploymentPathChange);
 
     // 监听点击外部关闭下拉框
     document.addEventListener('click', handleClickOutside);
+
+    console.log('DownloadCenter 初始化完成，当前阶段:', versionLoadingStage.value);
 });
 
 // 组件卸载时清理资源
@@ -1048,7 +1230,6 @@ watch(existingInstancePath, (newValue) => {
 
 <style scoped>
 /* 页面切换动画 */
-/* 渐入动画 */
 .fade-enter-active,
 .fade-leave-active {
     transition: opacity 0.3s ease;
@@ -1057,6 +1238,216 @@ watch(existingInstancePath, (newValue) => {
 .fade-enter-from,
 .fade-leave-to {
     opacity: 0;
+}
+
+/* 三阶段动画样式 */
+.stage-fade-enter-active,
+.stage-fade-leave-active {
+    transition: all 0.4s ease-in-out;
+}
+
+.stage-fade-enter-from {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+}
+
+.stage-fade-leave-to {
+    opacity: 0;
+    transform: scale(1.1) translateY(-10px);
+}
+
+/* 加载动画样式 */
+.loading-stage {
+    animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+@keyframes pulse-subtle {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.02);
+        opacity: 0.9;
+    }
+}
+
+/* 成功勾选动画 */
+.success-stage {
+    animation: success-bounce 0.6s ease-out;
+}
+
+@keyframes success-bounce {
+    0% {
+        transform: scale(0.3) rotate(-12deg);
+        opacity: 0;
+    }
+
+    50% {
+        transform: scale(1.1) rotate(3deg);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 1;
+    }
+}
+
+.animate-checkmark {
+    animation: checkmark-draw 0.8s ease-out 0.2s both;
+}
+
+@keyframes checkmark-draw {
+    0% {
+        stroke-dasharray: 0 100;
+        stroke-dashoffset: 0;
+        transform: scale(0.8);
+    }
+
+    50% {
+        stroke-dasharray: 50 100;
+        stroke-dashoffset: -25;
+        transform: scale(1.1);
+    }
+
+    100% {
+        stroke-dasharray: 100 100;
+        stroke-dashoffset: -100;
+        transform: scale(1);
+    }
+}
+
+.checkmark-path {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: checkmark-draw 0.8s ease-out 0.2s both;
+}
+
+/* 下拉框阶段动画 */
+.dropdown-stage {
+    animation: slide-in-from-top 0.5s ease-out;
+}
+
+.animate-slide-in {
+    animation: slide-in-elastic 0.6s ease-out;
+}
+
+@keyframes slide-in-from-top {
+    0% {
+        opacity: 0;
+        transform: translateY(-30px) scale(0.9);
+    }
+
+    60% {
+        opacity: 1;
+        transform: translateY(5px) scale(1.02);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes slide-in-elastic {
+    0% {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+
+    70% {
+        opacity: 1;
+        transform: translateY(2px) scale(1.01);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* 下拉菜单动画 */
+.dropdown-fade-enter-active {
+    transition: all 0.3s ease-out;
+}
+
+.dropdown-fade-leave-active {
+    transition: all 0.2s ease-in;
+}
+
+.dropdown-fade-enter-from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+}
+
+.dropdown-fade-leave-to {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.98);
+}
+
+.animate-dropdown-open {
+    animation: dropdown-open 0.3s ease-out;
+}
+
+@keyframes dropdown-open {
+    0% {
+        opacity: 0;
+        transform: translateY(-15px) scale(0.9);
+        max-height: 0;
+    }
+
+    50% {
+        opacity: 0.8;
+        transform: translateY(-5px) scale(0.98);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        max-height: 20rem;
+    }
+}
+
+/* 版本选项逐项动画 */
+.animate-item-fade-in {
+    opacity: 0;
+    animation: item-fade-in 0.4s ease-out forwards;
+}
+
+@keyframes item-fade-in {
+    0% {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 自定义滚动条 */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--b3));
+    border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--bc) / 0.3);
+    border-radius: 3px;
+    transition: background 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--bc) / 0.5);
 }
 
 /* 版本下拉框样式优化 */
@@ -1105,25 +1496,6 @@ watch(existingInstancePath, (newValue) => {
 
 .version-option:active {
     transform: translateY(0);
-}
-
-/* 自定义滚动条 */
-.dropdown-content::-webkit-scrollbar {
-    width: 4px;
-}
-
-.dropdown-content::-webkit-scrollbar-track {
-    background: hsl(var(--b3));
-    border-radius: 2px;
-}
-
-.dropdown-content::-webkit-scrollbar-thumb {
-    background: hsl(var(--bc) / 0.3);
-    border-radius: 2px;
-}
-
-.dropdown-content::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--bc) / 0.5);
 }
 
 /* 日志容器样式 */
