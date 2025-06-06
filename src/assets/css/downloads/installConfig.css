@@ -46,7 +46,7 @@
 /* 添加到Tailwind配置的动画 */
 @layer utilities {
   .animate-fadeSlideDown {
-    animation: fadeSlideDown 0.25s ease-in-out;
+    /* 删除页面动画 */
   }
 }
 

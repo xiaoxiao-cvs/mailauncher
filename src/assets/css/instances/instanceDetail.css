@@ -1,37 +1,19 @@
 /* 实例详情页样式 */
 .instance-detail-view {
   @apply min-h-screen bg-base-200 text-base-content;
-  animation: fadeInUp 0.2s ease-out;
   transform-origin: center;
   will-change: opacity, transform;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* 详情内部元素动画 - 级联动画效果 */
 .detail-header {
   @apply bg-base-100/80 rounded-lg shadow-sm p-4 backdrop-blur-sm;
-  animation: itemFadeIn 0.25s ease-out 0.05s forwards;
-  opacity: 0;
 }
 
 .app-header {
-  animation: itemFadeIn 0.25s ease-out 0.025s forwards;
-  opacity: 0;
 }
 
 .main-content > * {
-  animation: itemFadeIn 0.25s ease-out 0.1s forwards;
-  opacity: 0;
 }
 
 @keyframes itemFadeIn {

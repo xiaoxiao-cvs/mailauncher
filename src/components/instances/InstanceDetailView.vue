@@ -1,5 +1,5 @@
 <template>
-    <div class="instance-detail-container animated-page"> <!-- 顶部应用标题栏 -->
+    <div class="instance-detail-container"> <!-- 顶部应用标题栏 -->
         <div class="app-header shadow-sm animated-header">
             <div class="flex items-center"> <!-- 返回按钮 -->
                 <button class="btn btn-xs btn-ghost mr-3 back-button" @click="goBack" @mousedown="handleBackButtonPress"

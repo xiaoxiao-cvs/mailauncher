@@ -26,7 +26,7 @@
     <!-- 主内容区域 -->
     <div class="content-area" :class="{ 'sidebar-expanded': sidebarExpanded }" :data-theme="currentTheme">
       <!-- 页面切换动画 -->
-      <transition name="page-transition" mode="out-in">
+      <transition :name="transitionName" mode="out-in">
         <component :is="currentComponent" :key="componentKey" />
       </transition>
     </div><!-- 设置抽屉 -->
@@ -260,6 +260,34 @@ provide('handleInstall', (installConfig) => {
   // 处理安装逻辑
   console.log('开始安装实例:', installConfig);
   return true;
+});
+
+// 页面导航方向检测
+const pageOrder = ['home', 'instances', 'downloads', 'chat', 'plugins'];
+const navigationDirection = ref('forward');
+const previousTab = ref(activeTab.value);
+
+// 计算导航方向
+const getNavigationDirection = (fromTab, toTab) => {
+  const fromIndex = pageOrder.indexOf(fromTab);
+  const toIndex = pageOrder.indexOf(toTab);
+
+  if (fromIndex === -1 || toIndex === -1) return 'forward';
+
+  return toIndex > fromIndex ? 'forward' : 'backward';
+};
+
+// 监听标签页变化以更新导航方向
+watch(activeTab, (newTab, oldTab) => {
+  if (oldTab && newTab !== oldTab) {
+    navigationDirection.value = getNavigationDirection(oldTab, newTab);
+    previousTab.value = oldTab;
+  }
+});
+
+// 计算过渡动画名称
+const transitionName = computed(() => {
+  return navigationDirection.value === 'forward' ? 'slide-down' : 'slide-up';
 });
 
 // 监听深色模式变化
@@ -629,9 +657,8 @@ const applyThemeToAllComponents = () => {
 
   // 应用到所有主要容器元素
   const selectors = [
-    '.app-container',
-    '.content-area',
-    '.animated-page',
+    '.app-container', '.content-area',
+    '.page',
     '.instances-tab',
     '.downloads-tab',
     '.settings-drawer-container',
@@ -969,5 +996,38 @@ const changeTheme = (themeName) => {
 .plugins-view.dark-mode {
   color: hsl(var(--bc)) !important;
   background-color: hsl(var(--b1)) !important;
+}
+
+/* 页面滑动动画 - Vue 3 语法 */
+.slide-down-enter-active,
+.slide-up-enter-active {
+  transition: transform 0.5s ease, opacity 0.5s ease;
+}
+
+.slide-down-leave-active,
+.slide-up-leave-active {
+  transition: transform 0.5s ease, opacity 0.5s ease;
+}
+
+/* 向前导航（向下滑动）*/
+.slide-down-enter-from {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+.slide-down-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
+}
+
+/* 向后导航（向上滑动）*/
+.slide-up-enter-from {
+  transform: translateY(100%);
+  opacity: 0;
+}
+
+.slide-up-leave-to {
+  transform: translateY(-100%);
+  opacity: 0;
 }
 </style>

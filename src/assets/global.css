@@ -200,55 +200,6 @@ html.no-animations *::after {
   min-height: 200px;
 }
 
-/* 全局过渡动画样式 - 统一动画 */
-.page-enter-active,
-.page-leave-active,
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-
-.page-enter-from,
-.page-leave-to,
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateX(20px);
-}
-
-/* 确保所有的tab内容都有适当的动画效果 */
-.tab-content {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  padding: 20px;
-  animation: fadeIn 0.15s ease; /* 统一动画时间 */
-}
-
-/* 更新动画效果保持一致 */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* 统一组件过渡效果 - 替换Element Plus过渡为通用过渡 */
-.collapse-transition-enter-active,
-.collapse-transition-leave-active {
-  transition: all 0.15s ease;
-}
-
-.collapse-transition-enter-from,
-.collapse-transition-leave-to {
-  opacity: 0;
-  transform: translateX(20px);
-}
-
 /* Iconify图标尺寸变体 */
 .icon-xs {
   font-size: 0.75rem;

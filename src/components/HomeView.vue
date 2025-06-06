@@ -1,33 +1,31 @@
 <template>
-  <div class="animated-page bg-gradient-to-br from-primary/10 to-secondary/10 min-h-screen p-4 lg:p-6"
-    :data-theme="currentTheme" :class="themeClasses">
+  <div class="bg-gradient-to-br from-primary/10 to-secondary/10 min-h-screen p-4 lg:p-6" :data-theme="currentTheme"
+    :class="themeClasses">
     <div class="max-w-7xl mx-auto">
       <!-- 页面标题 -->
-      <div class="animated-header mb-6 flex justify-between items-center">
+      <div class="mb-6 flex justify-between items-center">
         <h1 class="text-2xl md:text-3xl font-bold text-base-content">控制台</h1>
       </div>
       <!-- 卡片布局 -->
-      <div class="animated-grid grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4"> <!-- 消息数图表卡片 -->
-        <div class="animated-card card bg-base-100 shadow-xl md:col-span-3 lg:col-span-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4"> <!-- 消息数图表卡片 -->
+        <div class="card bg-base-100 shadow-xl md:col-span-3 lg:col-span-4">
           <div class="card-body">
             <h2 class="card-title">消息数量统计</h2>
             <p class="text-sm text-base-content/70">本周发送消息总量达 {{ messageStats.total }} 条</p>
             <div class="message-chart-container h-[250px]" ref="messageChartRef"></div>
             <div class="flex justify-between text-sm mt-2">
               <div class="flex gap-2">
-                <button class="animated-button btn btn-xs" :class="activeChart === 'day' ? 'btn-primary' : 'btn-ghost'"
+                <button class="btn btn-xs" :class="activeChart === 'day' ? 'btn-primary' : 'btn-ghost'"
                   @click="switchChartPeriod('day')">日</button>
-                <button class="animated-button btn btn-xs" :class="activeChart === 'week' ? 'btn-primary' : 'btn-ghost'"
+                <button class="btn btn-xs" :class="activeChart === 'week' ? 'btn-primary' : 'btn-ghost'"
                   @click="switchChartPeriod('week')">周</button>
-                <button class="animated-button btn btn-xs"
-                  :class="activeChart === 'month' ? 'btn-primary' : 'btn-ghost'"
+                <button class="btn btn-xs" :class="activeChart === 'month' ? 'btn-primary' : 'btn-ghost'"
                   @click="switchChartPeriod('month')">月</button>
               </div>
             </div>
           </div>
-        </div>
-        <!-- 状态卡片 -->
-        <div class="animated-card card bg-base-100 shadow-xl md:col-span-1 lg:col-span-2">
+        </div> <!-- 状态卡片 -->
+        <div class="card bg-base-100 shadow-xl md:col-span-1 lg:col-span-2">
           <div class="card-body">
             <div class="flex justify-between items-center">
               <div class="indicator flex items-center">
@@ -56,8 +54,7 @@
                 <span>CPU使用率</span>
                 <span class="font-medium">{{ systemStats.cpu }}%</span>
               </div>
-              <progress class="animated-progress progress progress-success mt-1" :value="systemStats.cpu"
-                max="100"></progress>
+              <progress class="progress progress-success mt-1" :value="systemStats.cpu" max="100"></progress>
             </div>
 
             <!-- 内存使用率 -->
@@ -66,8 +63,7 @@
                 <span>内存使用率</span>
                 <span class="font-medium">{{ systemStats.memory }}%</span>
               </div>
-              <progress class="animated-progress progress progress-info mt-1" :value="systemStats.memory"
-                max="100"></progress>
+              <progress class="progress progress-info mt-1" :value="systemStats.memory" max="100"></progress>
               <div class="flex justify-between text-xs text-base-content/70 mt-1">
                 <span>已用: {{ formatMemory(systemStats.memoryUsed) }}</span>
                 <span>总计: {{ formatMemory(systemStats.memoryTotal) }}</span>
@@ -86,14 +82,13 @@
               </div>
             </div>
           </div>
-        </div>
-        <!-- 通知卡片 -->
-        <div class="animated-card card bg-base-100 shadow-xl md:col-span-2 lg:col-span-3">
+        </div> <!-- 通知卡片 -->
+        <div class="card bg-base-100 shadow-xl md:col-span-2 lg:col-span-3">
           <div class="card-body p-5">
             <h3 class="font-bold mb-4">最新通知</h3>
             <div class="space-y-3">
               <div v-for="(notice, i) in notifications" :key="i"
-                class="animated-list-item flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 transition-colors">
+                class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 transition-colors">
                 <div :class="`w-8 h-8 rounded-full flex items-center justify-center ${notice.iconBg}`">
                   <i :class="`${notice.icon} text-white`"></i>
                 </div>
@@ -104,11 +99,10 @@
                 <span class="text-xs text-base-content/50">{{ notice.time }}</span>
               </div>
             </div>
-            <button class="animated-button btn btn-ghost btn-xs w-full mt-3">查看全部</button>
+            <button class="btn btn-ghost btn-xs w-full mt-3">查看全部</button>
           </div>
-        </div>
-        <!-- 实例状态卡片 -->
-        <div class="animated-card card bg-base-100 shadow-xl md:col-span-2 lg:col-span-3">
+        </div> <!-- 实例状态卡片 -->
+        <div class="card bg-base-100 shadow-xl md:col-span-2 lg:col-span-3">
           <div class="card-body p-5">
             <div class="flex justify-between items-center mb-3">
               <h3 class="font-bold">实例状态</h3>
@@ -125,7 +119,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(instance, i) in instances" :key="i" class="animated-table-row hover">
+                  <tr v-for="(instance, i) in instances" :key="i" class="hover">
                     <td class="font-medium">{{ instance.name }}</td>
                     <td class="text-center">
                       <div class="badge" :class="getStatusBadgeClass(instance.status)">
@@ -134,7 +128,7 @@
                     </td>
                     <td class="text-center">{{ instance.uptime || '-' }}</td>
                     <td class="text-center">
-                      <button class="animated-button btn btn-xs btn-ghost rounded-md">
+                      <button class="btn btn-xs btn-ghost rounded-md">
                         <i :class="`fas fa-${getStatusActionIcon(instance.status)}`"></i>
                       </button>
                     </td>
@@ -569,10 +563,8 @@ onMounted(() => {
   // 添加主题变更事件监听
   const handleThemeChanged = (event) => {
     const newTheme = event.detail?.theme || localStorage.getItem('theme') || 'light';
-    const isDark = newTheme === 'dark';
-
-    // 获取当前组件根元素
-    const homeViewElement = document.querySelector('.animated-page');
+    const isDark = newTheme === 'dark';    // 获取当前组件根元素
+    const homeViewElement = document.querySelector('.page');
     if (homeViewElement) {
       // 设置数据主题
       homeViewElement.setAttribute('data-theme', newTheme);
@@ -672,162 +664,9 @@ onBeforeUnmount(() => {
   vertical-align: middle;
 }
 
-/* 页面动画 */
-.animated-page {
-  animation: fadeIn 0.8s ease-out;
-}
-
-.animated-header {
-  animation: slideInDown 0.6s ease-out 0.1s both;
-}
-
-.animated-grid {
-  animation: fadeInUp 0.7s ease-out 0.2s both;
-}
-
-.animated-card {
-  animation: fadeInUp 0.6s ease-out both;
-}
-
-.animated-card:nth-child(1) {
-  animation-delay: 0.1s;
-}
-
-.animated-card:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.animated-card:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-.animated-card:nth-child(4) {
-  animation-delay: 0.4s;
-}
-
-.animated-button {
-  transition: all 0.15s ease;
-}
-
-.animated-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.animated-progress {
-  transition: all 0.25s ease;
-  animation: progressGlow 1s ease-in-out infinite alternate;
-}
-
-.animated-list-item {
-  animation: slideInLeft 0.2s ease-out both;
-}
-
-.animated-list-item:nth-child(1) {
-  animation-delay: 0.05s;
-}
-
-.animated-list-item:nth-child(2) {
-  animation-delay: 0.1s;
-}
-
-.animated-list-item:nth-child(3) {
-  animation-delay: 0.15s;
-}
-
-.animated-table-row {
-  animation: fadeInUp 0.2s ease-out both;
-}
-
-.animated-table-row:nth-child(1) {
-  animation-delay: 0.05s;
-}
-
-.animated-table-row:nth-child(2) {
-  animation-delay: 0.1s;
-}
-
-.animated-table-row:nth-child(3) {
-  animation-delay: 0.15s;
-}
-
-/* 动画关键帧 */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideInDown {
-  from {
-    transform: translateY(-30px);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes fadeInUp {
-  from {
-    transform: translateY(30px);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes slideInLeft {
-  from {
-    transform: translateX(-20px);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes progressGlow {
-  0% {
-    filter: brightness(1);
-  }
-
-  100% {
-    filter: brightness(1.1) saturate(1.1);
-  }
-}
-
 /* 增强的表格行悬停效果 */
 .table tbody tr:hover {
   transform: scale(1.01);
   transition: transform 0.1s ease;
-}
-
-/* 响应式动画优化 */
-@media (prefers-reduced-motion: reduce) {
-
-  .animated-page,
-  .animated-header,
-  .animated-grid,
-  .animated-card,
-  .animated-list-item,
-  .animated-table-row {
-    animation: none;
-  }
-
-  .animated-progress {
-    animation: none;
-  }
 }
 </style>

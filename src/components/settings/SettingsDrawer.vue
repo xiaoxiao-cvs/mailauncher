@@ -623,12 +623,12 @@
                                                 <div class="flex justify-between">
                                                     <span class="text-base-content/70">数据存储:</span>
                                                     <span class="text-primary font-mono">{{ dataStoragePath || '未设置'
-                                                        }}</span>
+                                                    }}</span>
                                                 </div>
                                                 <div class="flex justify-between">
                                                     <span class="text-base-content/70">实例部署:</span>
                                                     <span class="text-primary font-mono">{{ deploymentPath || '未设置'
-                                                        }}</span>
+                                                    }}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1404,6 +1404,14 @@ const changeThemeMode = () => {
 // 外观设置函数
 const toggleAnimations = () => {
     localStorage.setItem('enableAnimations', enableAnimations.value.toString())
+
+    // 立即应用动画设置到DOM
+    if (enableAnimations.value) {
+        document.documentElement.classList.remove('no-animations')
+    } else {
+        document.documentElement.classList.add('no-animations')
+    }
+
     console.log('动画效果设置已更新:', enableAnimations.value)
 }
 

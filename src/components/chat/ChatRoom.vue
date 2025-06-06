@@ -1,5 +1,5 @@
 <template>
-    <div class="chat-room-layout animated-page flex h-full">
+    <div class="chat-room-layout flex h-full">
         <!-- 侧边栏 - 开发中暂时隐藏 -->
         <div v-if="false">
             <ChatSidebar class="animated-sidebar h-full" @session-selected="handleSessionSelected"
@@ -282,7 +282,6 @@ function updateSessionMessages() {
 
 /* 空状态动画 */
 .animated-empty-state {
-    animation: fadeInUp 0.25s ease-out;
     transition: all 0.15s ease;
 }
 
@@ -292,20 +291,7 @@ function updateSessionMessages() {
 
 /* 消息项动画 */
 .animated-message {
-    animation: messageSlideIn 0.2s ease-out;
     transition: all 0.15s ease;
-}
-
-@keyframes messageSlideIn {
-    from {
-        opacity: 0;
-        transform: translateY(20px) scale(0.95);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
 }
 
 /* 输入区域动画 */
@@ -386,41 +372,6 @@ function updateSessionMessages() {
 }
 
 /* 动画关键帧 */
-@keyframes slideInLeft {
-    from {
-        opacity: 0;
-        transform: translateX(-30px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-@keyframes fadeInRight {
-    from {
-        opacity: 0;
-        transform: translateX(30px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
 
 /* 响应式动画优化 */
 @media (prefers-reduced-motion: reduce) {

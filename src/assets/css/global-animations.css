@@ -1,104 +1,10 @@
-/* 全局动画类 */
-.animated-page {
-  animation: pageSlideIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.animated-header {
-  animation: headerSlideDown 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.animated-navbar {
-  animation: navbarSlideIn 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.animated-grid {
-  animation: gridFadeIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.animated-card {
-  animation: cardSlideUp 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-  cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    box-shadow 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    opacity 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  transform-origin: center center;
-}
+/* 全局页面切换动画已删除 - 仅保留App.vue中的主应用页面切换动画 */
 
 .animated-status {
   animation: statusPulse 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.animated-backdrop {
-  animation: backdropFadeIn 0.2s ease;
-}
-
-.animated-drawer {
-  animation: drawerSlideIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.animated-sidebar {
-  animation: sidebarSlideRight 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.animated-menu-item {
-  animation: menuItemSlideIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-}
-
-/* 页面进入动画 */
-@keyframes pageSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(30px) scale(0.98);
-    filter: blur(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0px);
-  }
-}
-
-/* 头部滑入动画 */
-@keyframes headerSlideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 导航栏滑入动画 */
-@keyframes navbarSlideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-30px);
-    box-shadow: none;
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
-}
-
-/* 网格淡入动画 */
-@keyframes gridFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* 卡片上滑动画 */
-@keyframes cardSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(40px) scale(0.95);
+/* 页面切换动画关键帧已删除 */
     box-shadow: none;
   }
   to {
@@ -132,43 +38,7 @@
   }
 }
 
-/* 抽屉滑入动画 */
-@keyframes drawerSlideIn {
-  from {
-    opacity: 0;
-    transform: translateX(100%) scale(0.95);
-    box-shadow: none;
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.2);
-  }
-}
-
-/* 侧边栏右滑动画 */
-@keyframes sidebarSlideRight {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* 菜单项滑入动画 */
-@keyframes menuItemSlideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-15px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
-}
+/* 抽屉和侧边栏动画已删除 */
 
 /* 悬停动画增强 */
 .animated-card:hover {
@@ -349,11 +219,6 @@
   .animated-card {
     animation-duration: 0.2s;
   }
-
-  .animated-page {
-    animation-duration: 0.25s;
-  }
-}
 
 /* 减少动画效果（无障碍） */
 @media (prefers-reduced-motion: reduce) {

@@ -1,5 +1,5 @@
 <template>
-    <div class="instances-container animated-page">
+    <div class="instances-container">
         <!-- 顶部导航栏 -->
         <div class="navbar bg-base-200 rounded-box shadow-sm mb-6 animated-header">
             <div class="navbar-start">

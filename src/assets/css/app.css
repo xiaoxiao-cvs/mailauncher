@@ -16,18 +16,40 @@
   margin-left: var(--sidebar-width, 220px);
 }
 
-/* 页面切换动画 - 保持原有的过渡效果 */
+/* 页面切换动画容器 - 垂直滑动支持 */
 .page-transition-enter-active,
 .page-transition-leave-active {
   @apply transition-all duration-500 ease-in-out;
 }
 
-.page-transition-enter-from {
-  @apply opacity-0 translate-x-8;
+/* 垂直滑动页面切换动画 */
+.slide-down-enter-active,
+.slide-down-leave-active,
+.slide-up-enter-active,
+.slide-up-leave-active {
+  @apply transition-all duration-500 ease-in-out;
 }
 
-.page-transition-leave-to {
-  @apply opacity-0 -translate-x-8;
+/* 向前导航 - 页面向下滑动 */
+.slide-down-enter-from {
+  @apply opacity-0;
+  transform: translateY(-100%);
+}
+
+.slide-down-leave-to {
+  @apply opacity-0;
+  transform: translateY(100%);
+}
+
+/* 向后导航 - 页面向上滑动 */
+.slide-up-enter-from {
+  @apply opacity-0;
+  transform: translateY(100%);
+}
+
+.slide-up-leave-to {
+  @apply opacity-0;
+  transform: translateY(-100%);
 }
 
 /* 响应式设计 - 移动设备上固定侧边栏宽度 */

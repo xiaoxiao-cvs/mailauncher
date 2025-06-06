@@ -1,31 +1,31 @@
 <template>
-    <div class="animated-page tab-content">
-        <div class="animated-header">
+    <div class="tab-content">
+        <div class="header">
             <h3>插件广场</h3>
-            <p class="animated-text">功能正在开发中...</p>
+            <p class="text">功能正在开发中...</p>
         </div>
 
         <!-- 添加一些占位内容来展示动画效果 -->
-        <div class="animated-grid coming-soon-content">
-            <div class="animated-card feature-card">
+        <div class="grid coming-soon-content">
+            <div class="card feature-card">
                 <div class="card-icon">
-                    <i class="fas fa-puzzle-piece"></i>
+                    <Icon icon="mdi:puzzle" />
                 </div>
                 <h4>插件系统</h4>
                 <p>即将支持第三方插件扩展</p>
             </div>
 
-            <div class="animated-card feature-card">
+            <div class="card feature-card">
                 <div class="card-icon">
-                    <i class="fas fa-download"></i>
+                    <Icon icon="mdi:download" />
                 </div>
                 <h4>插件商店</h4>
                 <p>一键安装各种实用插件</p>
             </div>
 
-            <div class="animated-card feature-card">
+            <div class="card feature-card">
                 <div class="card-icon">
-                    <i class="fas fa-cogs"></i>
+                    <Icon icon="mdi:cog" />
                 </div>
                 <h4>自定义配置</h4>
                 <p>灵活的插件配置管理</p>
@@ -35,7 +35,7 @@
 </template>
 
 <script setup>
-// 无需额外逻辑
+import { Icon } from '@iconify/vue';
 </script>
 
 <style scoped>
@@ -44,7 +44,7 @@
     margin: 20px;
     background-color: hsl(var(--b1));
     border-radius: 8px;
-    box-shadow: var(--el-box-shadow-light);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 /* 特色卡片样式 */
@@ -114,7 +114,7 @@
     margin: 0 0 10px 0;
     font-size: 1.2rem;
     font-weight: 600;
-    color: var(--el-text-color-primary);
+    color: hsl(var(--bc));
     position: relative;
     z-index: 2;
     transition: all 0.3s ease;
@@ -127,7 +127,7 @@
 
 .feature-card p {
     margin: 0;
-    color: var(--el-text-color-secondary);
+    color: hsl(var(--bc) / 0.7);
     line-height: 1.6;
     position: relative;
     z-index: 2;
@@ -135,7 +135,7 @@
 }
 
 .feature-card:hover p {
-    color: var(--el-text-color-primary);
+    color: hsl(var(--bc));
 }
 
 /* 响应式动画优化 */
@@ -181,11 +181,11 @@ h3 {
     margin-bottom: 20px;
     font-size: 1.5rem;
     font-weight: 500;
-    color: var(--el-text-color-primary);
+    color: hsl(var(--bc));
 }
 
-.animated-text {
-    color: var(--el-text-color-secondary);
+.text {
+    color: hsl(var(--bc) / 0.7);
     margin-bottom: 0;
 }
 </style>

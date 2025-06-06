@@ -7,68 +7,9 @@
   margin: 0 auto;
 }
 
-/* 页面切换动画 */
-.page-fade-enter-active,
-.page-fade-leave-active {
-  transition: all 0.2s ease;
-}
+/* 页面切换动画已删除 */
 
-.page-fade-enter-from {
-  opacity: 0;
-  transform: translateX(30px);
-}
-
-.page-fade-leave-to {
-  opacity: 0;
-  transform: translateX(-30px);
-}
-
-.slide-fade-enter-active,
-.slide-fade-leave-active {
-  transition: all 0.2s ease;
-  max-height: 2000px;
-  opacity: 1;
-  overflow: hidden;
-}
-
-.slide-fade-enter-from,
-.slide-fade-leave-to {
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  margin-top: 0;
-  margin-bottom: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.25s;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-/* 安装模式选择动画 */
-.install-mode-selection {
-  animation: fadeInUp 0.25s ease-out;
-}
-
-.install-option {
-  animation: scaleIn 0.2s ease-out;
-  animation-fill-mode: both;
-}
-
-.install-option:nth-child(1) {
-  animation-delay: 0.05s;
-}
-
-.install-option:nth-child(2) {
-  animation-delay: 0.1s;
-}
+/* 安装模式选择动画已删除 */
 
 /* 按钮悬停动画 */
 .install-option button:hover {
@@ -77,11 +18,7 @@
   transition: all 0.15s ease;
 }
 
-/* 页面切换动画 */
-.existing-instance-setup,
-.new-instance-setup {
-  animation: slideInFromRight 0.25s ease-out;
-}
+/* 页面切换动画已删除 */
 
 /* 实例检测状态动画 */
 .loading {
@@ -170,59 +107,7 @@
   animation: spin 0.5s linear infinite;
 }
 
-/* 键帧动画定义 */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes slideInFromRight {
-  from {
-    opacity: 0;
-    transform: translateX(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes fadeInLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
+/* 页面切换动画关键帧已删除 */
 
 @keyframes pulse {
   0%,
@@ -314,35 +199,7 @@
   --progress-color: hsl(var(--in));
 }
 
-/* 网格布局动画 */
-.grid > * {
-  animation: staggerFadeIn 0.25s ease-out;
-  animation-fill-mode: both;
-}
-
-.grid > *:nth-child(1) {
-  animation-delay: 0.05s;
-}
-.grid > *:nth-child(2) {
-  animation-delay: 0.1s;
-}
-.grid > *:nth-child(3) {
-  animation-delay: 0.15s;
-}
-.grid > *:nth-child(4) {
-  animation-delay: 0.2s;
-}
-
-@keyframes staggerFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* 网格布局动画已删除 */
 
 /* 表单元素聚焦增强 */
 .form-control:focus-within {

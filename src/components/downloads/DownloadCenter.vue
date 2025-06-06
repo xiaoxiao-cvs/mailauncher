@@ -1048,36 +1048,6 @@ watch(existingInstancePath, (newValue) => {
 
 <style scoped>
 /* 页面切换动画 */
-.page-fade-enter-active,
-.page-fade-leave-active {
-    transition: all 0.3s ease;
-}
-
-.page-fade-enter-from,
-.page-fade-leave-to {
-    opacity: 0;
-    transform: translateX(20px);
-}
-
-/* 滑动渐入动画 */
-.slide-fade-enter-active {
-    transition: all 0.4s ease;
-}
-
-.slide-fade-leave-active {
-    transition: all 0.3s ease;
-}
-
-.slide-fade-enter-from {
-    opacity: 0;
-    transform: translateY(-20px);
-}
-
-.slide-fade-leave-to {
-    opacity: 0;
-    transform: translateY(-10px);
-}
-
 /* 渐入动画 */
 .fade-enter-active,
 .fade-leave-active {

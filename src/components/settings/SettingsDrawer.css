@@ -12,7 +12,7 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: backdrop-fade-in 0.2s ease;
+  /* 抽屉动画已删除 */
 }
 
 /* 确保深色模式下背景遮罩效果也不会过暗 */
@@ -44,15 +44,7 @@ body.settings-open:not(.settings-drawer-container) {
   color: inherit !important;
 }
 
-@keyframes backdrop-fade-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
+/* 背景淡入动画已删除 */
 
 /* 主容器 - 根据主题动态调整背景色 */
 .settings-drawer-container {
@@ -68,7 +60,7 @@ body.settings-open:not(.settings-drawer-container) {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid hsl(var(--b3) / 0.3);
-  animation: container-scale-in 0.2s ease;
+  /* 容器动画已删除 */
   /* 确保在任何主题模式下都不透明 */
   opacity: 1 !important;
   /* 移除所有可能的透明度和模糊效果 */
@@ -182,17 +174,7 @@ body.dark-mode .settings-drawer-container .btn {
   }
 }
 
-@keyframes container-scale-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
+/* 容器缩放动画已删除 */
 
 /* 头部 - 根据主题动态调整背景色 */
 .settings-header {
@@ -347,19 +329,6 @@ body.dark-mode .settings-drawer-container .btn {
 .settings-panel {
   padding: 2rem;
   max-width: 600px;
-  animation: panel-slide-in 0.2s ease;
-}
-
-@keyframes panel-slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 
 /* 面板头部 */
@@ -599,19 +568,6 @@ body.dark-mode .settings-drawer-container .btn {
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  animation: checkmark-appear 0.3s ease-out;
-}
-
-@keyframes checkmark-appear {
-  from {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
 }
 
 .theme-option:active {

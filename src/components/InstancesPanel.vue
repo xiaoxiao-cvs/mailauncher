@@ -4,18 +4,14 @@
     <div v-if="isLoading" class="loading-container">
       <div class="loading loading-spinner loading-lg text-primary"></div>
       <p class="mt-4 text-base-content/70">正在加载实例管理页面...</p>
-    </div>
-
-    <!-- 过渡容器 - 当showInstanceDetail为true时显示实例详情，为false时显示实例列表 -->
-    <transition v-else :name="transitionName" mode="out-in" appear>
-      <InstanceDetailView v-if="showInstanceDetail" :instance="currentInstance" @back="closeInstanceDetail" key="detail"
-        class="transition-view" />
+    </div> <!-- 内容容器 - 当showInstanceDetail为true时显示实例详情，为false时显示实例列表 -->
+    <div v-else>
+      <InstanceDetailView v-if="showInstanceDetail" :instance="currentInstance" @back="closeInstanceDetail" />
 
       <!-- 实例列表组件 - 当showInstanceDetail为false时显示 -->
       <InstancesList v-else :instances="instancesData" @refresh-instances="loadInstances"
-        @toggle-instance="handleToggleInstance" @view-instance="openInstanceDetail" key="list"
-        class="transition-view" />
-    </transition>
+        @toggle-instance="handleToggleInstance" @view-instance="openInstanceDetail" />
+    </div>
   </div>
 </template>
 
@@ -35,7 +31,6 @@ const emitter = inject('emitter', null);
 const instancesData = ref([]);
 const showInstanceDetail = ref(false);
 const isLoading = ref(true); // 添加加载状态
-const transitionName = ref('slide-to-detail'); // 动态过渡名称
 const currentInstance = ref({
   name: '',
   path: '',
@@ -143,19 +138,13 @@ const getMockInstances = () => {
 
 // 打开实例详情
 const openInstanceDetail = (instance) => {
-  // 设置进入详情页的动画方向（从右向左滑入）
-  transitionName.value = 'slide-to-detail';
-
-  // 直接切换，使用过渡动画提供平滑效果
+  // 直接切换
   currentInstance.value = instance;
   showInstanceDetail.value = true;
 };
 
 // 关闭实例详情
 const closeInstanceDetail = () => {
-  // 设置退出详情页的动画方向（从左向右滑出）
-  transitionName.value = 'slide-to-list';
-
   showInstanceDetail.value = false;
   // 保持WebSocket连接活跃，不清理连接
   console.log('关闭实例详情页面，保持WebSocket连接');
@@ -246,81 +235,6 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
-/* 过渡视图基础样式 */
-.transition-view {
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
-/* 进入详情页的动画（从右向左滑入） */
-.slide-to-detail-enter-active {
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.slide-to-detail-leave-active {
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.slide-to-detail-enter-from {
-  opacity: 0;
-  transform: translateX(100px) scale(0.96);
-  filter: blur(1px);
-}
-
-.slide-to-detail-enter-to {
-  opacity: 1;
-  transform: translateX(0) scale(1);
-  filter: blur(0);
-}
-
-.slide-to-detail-leave-from {
-  opacity: 1;
-  transform: translateX(0) scale(1);
-  filter: blur(0);
-}
-
-.slide-to-detail-leave-to {
-  opacity: 0;
-  transform: translateX(-50px) scale(0.98);
-  filter: blur(1px);
-}
-
-/* 退出详情页的动画（从左向右滑出） */
-.slide-to-list-enter-active {
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.slide-to-list-leave-active {
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.slide-to-list-enter-from {
-  opacity: 0;
-  transform: translateX(-100px) scale(0.96);
-  filter: blur(1px);
-}
-
-.slide-to-list-enter-to {
-  opacity: 1;
-  transform: translateX(0) scale(1);
-  filter: blur(0);
-}
-
-.slide-to-list-leave-from {
-  opacity: 1;
-  transform: translateX(0) scale(1);
-  filter: blur(0);
-}
-
-.slide-to-list-leave-to {
-  opacity: 0;
-  transform: translateX(100px) scale(0.98);
-  filter: blur(1px);
-}
-
 /* 加载状态样式 */
 .loading-container {
   display: flex;
@@ -329,32 +243,5 @@ onBeforeUnmount(() => {
   justify-content: center;
   height: 100%;
   min-height: 50vh;
-}
-
-/* 为过渡添加硬件加速，提升性能 */
-.slide-to-detail-enter-active,
-.slide-to-detail-leave-active,
-.slide-to-list-enter-active,
-.slide-to-list-leave-active {
-  will-change: transform, opacity, filter;
-  backface-visibility: hidden;
-  transform-style: preserve-3d;
-}
-
-/* 确保过渡动画在移动设备上的性能 */
-@media (max-width: 768px) {
-
-  .slide-to-detail-enter-from,
-  .slide-to-list-enter-from {
-    transform: translateX(50px) scale(0.98);
-  }
-
-  .slide-to-detail-leave-to {
-    transform: translateX(-30px) scale(0.99);
-  }
-
-  .slide-to-list-leave-to {
-    transform: translateX(50px) scale(0.99);
-  }
 }
 </style>
