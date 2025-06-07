@@ -407,6 +407,12 @@ const getStatusText = (status) => {
 const handleFilterChange = (command) => {
     filterType.value = command;
     console.log('过滤器已更改为:', command);
+
+    // 手动关闭下拉菜单 - 移除焦点
+    const dropdownButton = document.querySelector('.instances-container .dropdown [tabindex="0"][role="button"]');
+    if (dropdownButton) {
+        dropdownButton.blur();
+    }
 };
 
 // 批量操作
@@ -421,6 +427,12 @@ const configureInstance = (instance) => {
             name: instance.name,
             path: instance.path || ''
         });
+    }
+
+    // 手动关闭下拉菜单 - 移除焦点
+    const dropdownButton = document.querySelector('.dropdown-end [tabindex="0"]');
+    if (dropdownButton) {
+        dropdownButton.blur();
     }
 };
 
@@ -541,6 +553,12 @@ const openInstancePath = (instance) => {
         }
     } else {
         toastService.error('无法获取实例路径');
+    }
+
+    // 手动关闭下拉菜单 - 移除焦点
+    const dropdownButton = document.querySelector('.dropdown-end [tabindex="0"]');
+    if (dropdownButton) {
+        dropdownButton.blur();
     }
 };
 
@@ -696,6 +714,12 @@ const viewInstanceLogs = (instance) => {
     } catch (error) {
         console.error('打开日志失败:', error);
         toastService.error('无法打开日志: ' + (error.message || '未知错误'));
+    }
+
+    // 手动关闭下拉菜单 - 移除焦点
+    const dropdownButton = document.querySelector('.dropdown-end [tabindex="0"]');
+    if (dropdownButton) {
+        dropdownButton.blur();
     }
 };
 </script>

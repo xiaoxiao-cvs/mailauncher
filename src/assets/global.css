@@ -5,6 +5,11 @@ body {
   padding: 0;
   height: 100%;
   overflow: hidden; /* 防止html和body元素出现滚动条 */
+
+  /* 字体渲染优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 #app {

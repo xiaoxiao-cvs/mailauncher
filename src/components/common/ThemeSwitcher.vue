@@ -52,6 +52,12 @@ const currentThemeIcon = computed(() => {
 const selectTheme = (themeName) => {
   setTheme(themeName);
 
+  // 手动关闭下拉菜单 - 移除焦点
+  const dropdownButton = document.querySelector('.theme-switcher .dropdown [tabindex="0"][role="button"]');
+  if (dropdownButton) {
+    dropdownButton.blur();
+  }
+
   // 发送自定义事件用于应用全局
   window.dispatchEvent(new CustomEvent('theme-changed', {
     detail: { name: themeName }

@@ -121,6 +121,12 @@ function renameSession(session) {
         saveSessionsToStorage();
         toastService?.success('会话已重命名');
     }
+
+    // 手动关闭下拉菜单 - 移除焦点
+    const dropdownButton = document.querySelector('.dropdown-end [tabindex="0"]');
+    if (dropdownButton) {
+        dropdownButton.blur();
+    }
 }
 
 // 删除会话
@@ -143,6 +149,12 @@ function deleteSession(session) {
             toastService?.success('会话已删除');
         }
     }
+
+    // 手动关闭下拉菜单 - 移除焦点
+    const dropdownButton = document.querySelector('.dropdown-end [tabindex="0"]');
+    if (dropdownButton) {
+        dropdownButton.blur();
+    }
 }
 
 // 导出会话
@@ -157,6 +169,12 @@ function exportSession(session) {
     a.click();
     URL.revokeObjectURL(url);
     toastService?.success('会话已导出');
+
+    // 手动关闭下拉菜单 - 移除焦点
+    const dropdownButton = document.querySelector('.dropdown-end [tabindex="0"]');
+    if (dropdownButton) {
+        dropdownButton.blur();
+    }
 }
 
 // 格式化会话时间

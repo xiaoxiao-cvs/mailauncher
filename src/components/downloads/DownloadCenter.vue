@@ -132,13 +132,42 @@
                         </div>
 
                         <!-- 实例配置 -->
-                        <div v-if="instanceDetection.valid" class="space-y-4">
-                            <!-- 实例名称 -->
+                        <div v-if="instanceDetection.valid" class="space-y-4"> <!-- 实例名称 -->
                             <div class="mb-4">
                                 <label class="label">
                                     <span class="label-text">实例名称</span>
-                                </label> <input v-model="existingInstanceName" type="text" placeholder="请输入实例名称"
-                                    class="input input-bordered w-full bg-base-100 text-base-content" />
+                                    <span v-if="existingInstanceNameValidation.isChecking"
+                                        class="label-text-alt text-info">
+                                        <span class="loading loading-spinner loading-xs"></span> 检查中...
+                                    </span>
+                                    <span v-else-if="existingInstanceName && existingInstanceNameValidation.isValid"
+                                        class="label-text-alt text-success">
+                                        ✓ 可用
+                                    </span>
+                                    <span v-else-if="existingInstanceName && existingInstanceNameValidation.isDuplicate"
+                                        class="label-text-alt text-error">
+                                        ✗ 已存在
+                                    </span>
+                                </label>
+                                <input v-model="existingInstanceName" type="text" placeholder="请输入实例名称" :class="[
+                                    'input input-bordered w-full bg-base-100 text-base-content',
+                                    {
+                                        'input-success': existingInstanceName && existingInstanceNameValidation.isValid && !existingInstanceNameValidation.isDuplicate,
+                                        'input-error': existingInstanceName && (!existingInstanceNameValidation.isValid || existingInstanceNameValidation.isDuplicate)
+                                    }
+                                ]" />
+                                <label v-if="existingInstanceNameValidation.message" class="label">
+                                    <span :class="[
+                                        'label-text-alt',
+                                        {
+                                            'text-success': existingInstanceNameValidation.isValid && !existingInstanceNameValidation.isDuplicate,
+                                            'text-error': !existingInstanceNameValidation.isValid || existingInstanceNameValidation.isDuplicate,
+                                            'text-warning': existingInstanceNameValidation.message.includes('无法验证')
+                                        }
+                                    ]">
+                                        {{ existingInstanceNameValidation.message }}
+                                    </span>
+                                </label>
                             </div>
 
                             <!-- MaiBot端口 -->
@@ -197,29 +226,6 @@
                         <div class="mb-4">
                             <label class="label">
                                 <span class="label-text">选择版本</span>
-                                <!-- 调试信息和重置按钮 -->
-                                <div class="flex items-center gap-2">
-                                    <span v-if="installing" class="label-text-alt text-warning">
-                                        安装中...
-                                    </span>
-                                    <!-- 调试状态显示 -->
-                                    <div class="badge badge-sm" :class="{
-                                        'badge-info': versionLoadingStage === 'loading',
-                                        'badge-success': versionLoadingStage === 'success',
-                                        'badge-primary': versionLoadingStage === 'dropdown'
-                                    }">
-                                        {{ versionLoadingStage }}
-                                    </div>
-                                    <button v-if="versionLoadingStage === 'loading'" @click="forceResetLoading"
-                                        class="btn btn-xs btn-ghost text-error" title="强制重置加载状态">
-                                        重置
-                                    </button>
-                                    <!-- 重新触发动画按钮 -->
-                                    <button v-if="versionLoadingStage === 'dropdown'" @click="restartAnimation"
-                                        class="btn btn-xs btn-ghost text-info" title="重新播放加载动画">
-                                        重播
-                                    </button>
-                                </div>
                             </label>
 
                             <!-- 三阶段动画容器 -->
@@ -271,77 +277,63 @@
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <!-- 阶段3: 版本选择下拉框 -->
+                                    </div> <!-- 阶段3: 版本选择下拉框 (使用 daisyUI CSS focus 方法) -->
                                     <div v-else-if="versionLoadingStage === 'dropdown'" key="dropdown-stage"
                                         class="version-stage dropdown-stage">
-                                        <div class="dropdown w-full" :class="{ 'dropdown-open': versionDropdownOpen }">
-                                            <div @click="toggleVersionDropdown" tabindex="0"
+                                        <div class="dropdown w-full">
+                                            <!-- 下拉框按钮 - 使用 CSS focus 方法 -->
+                                            <div tabindex="0" role="button"
                                                 class="btn btn-outline w-full justify-between hover:bg-base-200 transition-all duration-300 animate-slide-in"
                                                 :class="{
                                                     'btn-disabled': installing || loading,
                                                     'border-primary bg-primary/5': selectedVersion,
                                                     'text-base-content/50': !selectedVersion
-                                                }" :disabled="installing || loading">
+                                                }">
                                                 <div class="flex items-center gap-2">
-                                                    <div class="transition-transform duration-300"
-                                                        :class="{ 'scale-110': selectedVersion }">
-                                                        <svg v-if="selectedVersion" xmlns="http://www.w3.org/2000/svg"
-                                                            class="h-5 w-5 text-success animate-pulse" fill="none"
-                                                            viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2" d="M5 13l4 4L19 7" />
-                                                        </svg>
-                                                        <svg v-else xmlns="http://www.w3.org/2000/svg"
-                                                            class="h-5 w-5 text-base-content/40" fill="none"
-                                                            viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                                                        </svg>
-                                                    </div>
                                                     <span class="font-medium transition-colors duration-300"
                                                         :class="{ 'text-primary': selectedVersion }">
                                                         {{ selectedVersion || '请选择一个版本' }}
                                                     </span>
                                                 </div>
-                                                <svg xmlns="http://www.w3.org/2000/svg"
-                                                    class="h-4 w-4 transition-transform duration-300"
-                                                    :class="{ 'rotate-180': versionDropdownOpen }" fill="none"
-                                                    viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                                                </svg>
-                                            </div>
-
-                                            <!-- 下拉菜单内容 -->
-                                            <transition name="dropdown-fade">
-                                                <div v-if="versionDropdownOpen"
-                                                    class="dropdown-content z-[1] menu p-0 shadow-xl bg-base-100 rounded-lg w-full mt-2 border border-base-200 max-h-80 overflow-hidden animate-dropdown-open">
-                                                    <div class="p-3">
-                                                        <div v-if="availableVersions.length === 0"
-                                                            class="py-6 text-center text-base-content/60">
-                                                            <div class="flex flex-col items-center gap-3">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8"
-                                                                    fill="none" viewBox="0 0 24 24"
-                                                                    stroke="currentColor">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                                        stroke-width="2"
-                                                                        d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2 2v-5m16 0h-2M4 13h2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v4.01" />
-                                                                </svg>
-                                                                <span class="text-sm">暂无可用版本</span>
-                                                                <button @click="initializeData"
-                                                                    class="btn btn-xs btn-primary mt-2">
-                                                                    重新加载
-                                                                </button>
-                                                            </div>
+                                                <!-- 右侧箭头：未选择时显示 >，已选择时显示 ✓ -->
+                                                <div class="transition-transform duration-300"
+                                                    :class="{ 'scale-110': selectedVersion }">
+                                                    <svg v-if="selectedVersion" xmlns="http://www.w3.org/2000/svg"
+                                                        class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24"
+                                                        stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    <svg v-else xmlns="http://www.w3.org/2000/svg"
+                                                        class="h-4 w-4 text-base-content/60" fill="none"
+                                                        viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2" d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </div>
+                                            </div> <!-- 下拉菜单内容 - 使用 CSS focus 方法 -->
+                                            <ul tabindex="0"
+                                                class="dropdown-content z-[99999] menu p-0 shadow-xl bg-base-100 rounded-lg w-full mt-2 border border-base-200 max-h-80 overflow-hidden">
+                                                <div class="p-3">
+                                                    <div v-if="availableVersions.length === 0"
+                                                        class="py-6 text-center text-base-content/60">
+                                                        <div class="flex flex-col items-center gap-3">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8"
+                                                                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                                    stroke-width="2"
+                                                                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2 2v-5m16 0h-2M4 13h2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v4.01" />
+                                                            </svg>
+                                                            <span class="text-sm">暂无可用版本</span>
                                                         </div>
-                                                        <div v-else
-                                                            class="space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
-                                                            <button v-for="(version, index) in availableVersions"
-                                                                :key="version" @click="selectVersion(version)"
-                                                                class="version-option w-full text-left p-3 rounded-lg hover:bg-base-200 transition-all duration-200 flex items-center justify-between group animate-item-fade-in"
-                                                                :style="{ 'animation-delay': `${index * 50}ms` }"
+                                                    </div>
+                                                    <div v-else
+                                                        class="space-y-1 max-h-64 overflow-y-auto version-list-container">
+                                                        <li v-for="(version, index) in availableVersions"
+                                                            :key="version"> <a
+                                                                @click="handleVersionSelect(version, $event)"
+                                                                class="version-option w-full text-left p-3 rounded-lg hover:bg-base-200 transition-all duration-150 flex items-center justify-between group animate-item-fade-in"
+                                                                :style="{ 'animation-delay': `${index * 30}ms` }"
                                                                 :class="{
                                                                     'bg-primary/10 text-primary border border-primary/20 shadow-sm': selectedVersion === version,
                                                                     'hover:bg-primary/5': selectedVersion !== version
@@ -379,11 +371,11 @@
                                                                     class="badge badge-primary badge-sm animate-pulse">
                                                                     最新
                                                                 </div>
-                                                            </button>
-                                                        </div>
+                                                            </a>
+                                                        </li>
                                                     </div>
                                                 </div>
-                                            </transition>
+                                            </ul>
                                         </div>
                                     </div>
                                 </transition>
@@ -392,14 +384,41 @@
 
                         <!-- 选择版本后展开的配置选项 -->
                         <transition name="slide-fade">
-                            <div v-if="selectedVersion && !installing" class="config-options">
-                                <!-- 实例名称 -->
+                            <div v-if="selectedVersion && !installing" class="config-options"> <!-- 实例名称 -->
                                 <div class="mb-4">
                                     <label class="label">
                                         <span class="label-text">实例名称</span>
-                                    </label> <input v-model="instanceName" type="text" placeholder="请输入实例名称"
-                                        class="input input-bordered w-full bg-base-100 text-base-content"
-                                        :disabled="installing" />
+                                        <span v-if="instanceNameValidation.isChecking" class="label-text-alt text-info">
+                                            <span class="loading loading-spinner loading-xs"></span> 检查中...
+                                        </span>
+                                        <span v-else-if="instanceName && instanceNameValidation.isValid"
+                                            class="label-text-alt text-success">
+                                            ✓ 可用
+                                        </span>
+                                        <span v-else-if="instanceName && instanceNameValidation.isDuplicate"
+                                            class="label-text-alt text-error">
+                                            ✗ 已存在
+                                        </span>
+                                    </label>
+                                    <input v-model="instanceName" type="text" placeholder="请输入实例名称" :class="[
+                                        'input input-bordered w-full bg-base-100 text-base-content',
+                                        {
+                                            'input-success': instanceName && instanceNameValidation.isValid && !instanceNameValidation.isDuplicate,
+                                            'input-error': instanceName && (!instanceNameValidation.isValid || instanceNameValidation.isDuplicate)
+                                        }
+                                    ]" :disabled="installing" />
+                                    <label v-if="instanceNameValidation.message" class="label">
+                                        <span :class="[
+                                            'label-text-alt',
+                                            {
+                                                'text-success': instanceNameValidation.isValid && !instanceNameValidation.isDuplicate,
+                                                'text-error': !instanceNameValidation.isValid || instanceNameValidation.isDuplicate,
+                                                'text-warning': instanceNameValidation.message.includes('无法验证')
+                                            }
+                                        ]">
+                                            {{ instanceNameValidation.message }}
+                                        </span>
+                                    </label>
                                 </div>
 
                                 <!-- 安装路径 -->
@@ -564,11 +583,12 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, computed, reactive, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { useDeployStore } from '@/stores/deployStore';
 import { useInstanceStore } from '@/stores/instanceStore';
 import toastService from '@/services/toastService';
 import { addExistingInstance as addExistingInstanceAPI } from '@/api/instances';
+import { generateUniqueInstanceNameAsync, fetchExistingInstances, isInstanceNameExists } from '@/utils/instanceNameGenerator';
 
 // 使用 stores
 const deployStore = useDeployStore();
@@ -587,8 +607,21 @@ const selectedServices = reactive({});
 const servicePorts = reactive({});
 const eulaAgreed = ref(false); // EULA 同意状态
 
-// 版本下拉框状态
-const versionDropdownOpen = ref(false);
+// 实例名称验证状态
+const instanceNameValidation = reactive({
+    isChecking: false,
+    isValid: true,
+    isDuplicate: false,
+    message: ''
+});
+
+// 已有实例名称验证状态
+const existingInstanceNameValidation = reactive({
+    isChecking: false,
+    isValid: true,
+    isDuplicate: false,
+    message: ''
+});
 
 // 三阶段加载状态: 'loading' -> 'success' -> 'dropdown'
 const versionLoadingStage = ref('loading');
@@ -864,16 +897,10 @@ const selectInstallMode = (mode) => {
     }
 };
 
-// 版本下拉框相关方法
-const toggleVersionDropdown = () => {
-    console.log('toggleVersionDropdown called, loading:', loading.value, 'installing:', installing.value);
-    if (loading.value || installing.value) {
-        console.log('下拉框被禁用，原因:', { loading: loading.value, installing: installing.value });
-        return;
-    }
-    versionDropdownOpen.value = !versionDropdownOpen.value;
-    console.log('版本下拉框状态切换为:', versionDropdownOpen.value);
-};
+// 下拉菜单状态控制
+const dropdownOpen = ref(false);
+
+// 版本下拉框相关方法已改为CSS focus方法，无需JavaScript状态管理
 
 // 强制重置加载状态
 const forceResetLoading = () => {
@@ -886,17 +913,52 @@ const forceResetLoading = () => {
 // 重新播放三阶段动画
 const restartAnimation = async () => {
     console.log('重新播放三阶段动画');
-    versionDropdownOpen.value = false; // 关闭下拉框
+    // CSS focus方法自动处理下拉框关闭，无需手动控制
     await initializeData(); // 重新执行初始化
 };
 
-const selectVersion = (version) => {
+const selectVersion = async (version) => {
     selectedVersion.value = version;
-    versionDropdownOpen.value = false;
 
-    // 自动生成实例名称（如果还没有输入的话）
-    if (!instanceName.value) {
-        instanceName.value = `MaiBot-${version}-${Date.now().toString().slice(-4)}`;
+    // 立即关闭下拉菜单 - 使用多种方法确保关闭
+    // 方法1: 移除所有下拉菜单相关元素的焦点
+    const dropdownButton = document.querySelector('.version-stage .dropdown [tabindex="0"][role="button"]');
+    const dropdownContent = document.querySelector('.version-stage .dropdown-content');
+
+    if (dropdownButton) {
+        dropdownButton.blur();
+    }
+    if (dropdownContent) {
+        dropdownContent.blur();
+    }
+
+    // 方法2: 移除当前活跃元素的焦点
+    if (document.activeElement && document.activeElement.blur) {
+        document.activeElement.blur();
+    }
+
+    // 方法3: 使用 setTimeout 确保在下一个事件循环中执行
+    setTimeout(() => {
+        const allFocusableElements = document.querySelectorAll('.dropdown [tabindex="0"]');
+        allFocusableElements.forEach(element => {
+            if (element.blur) {
+                element.blur();
+            }
+        });
+    }, 10);
+
+    // 使用新的实例名称生成逻辑
+    try {
+        const uniqueName = await generateUniqueInstanceNameAsync(version);
+        instanceName.value = uniqueName;
+        toastService.success(`已为您生成实例名称: ${uniqueName}`);
+    } catch (error) {
+        console.error('生成实例名称失败:', error);
+        // 降级处理：使用原有逻辑
+        if (!instanceName.value) {
+            instanceName.value = `MaiBot-${version}-${Date.now().toString().slice(-4)}`;
+        }
+        toastService.warning('自动生成实例名称失败，请手动检查名称是否重复');
     }
 };
 
@@ -915,6 +977,84 @@ const getVersionDescription = (version) => {
     return descriptions[version] || '发布版本';
 };
 
+// 实例名称验证函数
+const validateInstanceName = async (name) => {
+    if (!name || name.trim() === '') {
+        instanceNameValidation.isValid = false;
+        instanceNameValidation.isDuplicate = false;
+        instanceNameValidation.message = '请输入实例名称';
+        return;
+    }
+
+    // 检查名称格式
+    const nameRegex = /^[a-zA-Z0-9\-_\u4e00-\u9fa5]+$/;
+    if (!nameRegex.test(name)) {
+        instanceNameValidation.isValid = false;
+        instanceNameValidation.isDuplicate = false;
+        instanceNameValidation.message = '实例名称只能包含字母、数字、中文、横线和下划线';
+        return;
+    }
+
+    // 检查是否重复
+    instanceNameValidation.isChecking = true;
+    try {
+        const existingInstances = await fetchExistingInstances();
+        const isDuplicate = isInstanceNameExists(name, existingInstances);
+
+        instanceNameValidation.isDuplicate = isDuplicate;
+        instanceNameValidation.isValid = !isDuplicate;
+        instanceNameValidation.message = isDuplicate
+            ? '实例名称已存在，请选择其他名称'
+            : '实例名称可用';
+    } catch (error) {
+        console.error('验证实例名称失败:', error);
+        instanceNameValidation.isValid = true; // 验证失败时假设可用
+        instanceNameValidation.isDuplicate = false;
+        instanceNameValidation.message = '无法验证名称是否重复，请手动确认';
+    } finally {
+        instanceNameValidation.isChecking = false;
+    }
+};
+
+// 已有实例名称验证函数
+const validateExistingInstanceName = async (name) => {
+    if (!name || name.trim() === '') {
+        existingInstanceNameValidation.isValid = false;
+        existingInstanceNameValidation.isDuplicate = false;
+        existingInstanceNameValidation.message = '请输入实例名称';
+        return;
+    }
+
+    // 检查名称格式
+    const nameRegex = /^[a-zA-Z0-9\-_\u4e00-\u9fa5]+$/;
+    if (!nameRegex.test(name)) {
+        existingInstanceNameValidation.isValid = false;
+        existingInstanceNameValidation.isDuplicate = false;
+        existingInstanceNameValidation.message = '实例名称只能包含字母、数字、中文、横线和下划线';
+        return;
+    }
+
+    // 检查是否重复
+    existingInstanceNameValidation.isChecking = true;
+    try {
+        const existingInstances = await fetchExistingInstances();
+        const isDuplicate = isInstanceNameExists(name, existingInstances);
+
+        existingInstanceNameValidation.isDuplicate = isDuplicate;
+        existingInstanceNameValidation.isValid = !isDuplicate;
+        existingInstanceNameValidation.message = isDuplicate
+            ? '实例名称已存在，请选择其他名称'
+            : '实例名称可用';
+    } catch (error) {
+        console.error('验证已有实例名称失败:', error);
+        existingInstanceNameValidation.isValid = true; // 验证失败时假设可用
+        existingInstanceNameValidation.isDuplicate = false;
+        existingInstanceNameValidation.message = '无法验证名称是否重复，请手动确认';
+    } finally {
+        existingInstanceNameValidation.isChecking = false;
+    }
+};
+
 const isLatestVersion = (version) => {
     const versions = availableVersions.value;
     if (versions.length === 0) return false;
@@ -926,13 +1066,7 @@ const isLatestVersion = (version) => {
     return versions.indexOf(version) === 0 || version === 'latest';
 };
 
-// 点击外部关闭下拉框
-const handleClickOutside = (event) => {
-    const dropdown = event.target.closest('.dropdown');
-    if (!dropdown && versionDropdownOpen.value) {
-        versionDropdownOpen.value = false;
-    }
-};
+// 点击外部关闭下拉框的逻辑已由CSS focus方法替代，无需JavaScript监听
 
 // 返回上一步
 const goBack = () => {
@@ -1154,13 +1288,10 @@ onMounted(async () => {
 
     // 设置初始状态为dropdown，避免在选择模式页面就开始动画
     versionLoadingStage.value = 'dropdown';
-    loading.value = false;
-
-    // 监听部署路径变更事件
+    loading.value = false;    // 监听部署路径变更事件
     window.addEventListener('deployment-path-changed', handleDeploymentPathChange);
 
-    // 监听点击外部关闭下拉框
-    document.addEventListener('click', handleClickOutside);
+    // CSS focus方法已替代JavaScript控制的下拉框，无需额外的点击监听
 
     console.log('DownloadCenter 初始化完成，当前阶段:', versionLoadingStage.value);
 });
@@ -1170,11 +1301,10 @@ onBeforeUnmount(() => {
     // deployStore 会自动处理清理工作
     if (deployStore.currentDeployment) {
         deployStore.cleanup();
-    }
-
-    // 移除事件监听器
+    }    // 移除事件监听器
     window.removeEventListener('deployment-path-changed', handleDeploymentPathChange);
-    document.removeEventListener('click', handleClickOutside);
+
+    // CSS focus方法已替代JavaScript监听，无需移除点击监听
 });
 
 // 处理部署路径变更
@@ -1226,6 +1356,99 @@ watch(existingInstancePath, (newValue) => {
         resetInstanceDetection();
     }
 });
+
+// 监听实例名称变化，实时验证
+let validateTimeout = null;
+watch(instanceName, (newValue) => {
+    // 清除之前的定时器
+    if (validateTimeout) {
+        clearTimeout(validateTimeout);
+    }
+
+    // 重置验证状态
+    instanceNameValidation.isChecking = false;
+    instanceNameValidation.isValid = true;
+    instanceNameValidation.isDuplicate = false;
+    instanceNameValidation.message = '';
+
+    // 如果名称为空，直接返回
+    if (!newValue || newValue.trim() === '') {
+        return;
+    }
+
+    // 防抖处理，500ms 后执行验证
+    validateTimeout = setTimeout(() => {
+        validateInstanceName(newValue.trim());
+    }, 500);
+});
+
+// 监听已有实例名称变化，实时验证
+let validateExistingTimeout = null;
+watch(existingInstanceName, (newValue) => {
+    // 清除之前的定时器
+    if (validateExistingTimeout) {
+        clearTimeout(validateExistingTimeout);
+    }
+
+    // 重置验证状态
+    existingInstanceNameValidation.isChecking = false;
+    existingInstanceNameValidation.isValid = true;
+    existingInstanceNameValidation.isDuplicate = false;
+    existingInstanceNameValidation.message = '';
+
+    // 如果名称为空，直接返回
+    if (!newValue || newValue.trim() === '') {
+        return;
+    }
+
+    // 防抖处理，500ms 后执行验证
+    validateExistingTimeout = setTimeout(() => {
+        validateExistingInstanceName(newValue.trim());
+    }, 500);
+});
+
+// 处理版本选择并强制关闭下拉菜单
+const handleVersionSelect = async (version, event) => {
+    // 先选择版本（现在是异步的）
+    await selectVersion(version);
+
+    // 立即关闭下拉菜单的多重方法
+    // 方法1: 移除事件目标的焦点
+    if (event.target && event.target.blur) {
+        event.target.blur();
+    }
+
+    // 方法2: 移除当前活跃元素的焦点
+    if (document.activeElement && document.activeElement.blur) {
+        document.activeElement.blur();
+    }
+
+    // 方法3: 查找下拉菜单按钮并移除焦点
+    const dropdown = event.target.closest('.dropdown');
+    if (dropdown) {
+        const button = dropdown.querySelector('[tabindex="0"][role="button"]');
+        if (button) {
+            button.blur();
+            button.removeAttribute('tabindex');
+            setTimeout(() => {
+                button.setAttribute('tabindex', '0');
+            }, 100);
+        }
+    }
+
+    // 方法4: 使用原生的失焦方法
+    setTimeout(() => {
+        const focusedElement = document.querySelector(':focus');
+        if (focusedElement && focusedElement.blur) {
+            focusedElement.blur();
+        }
+    }, 10);
+
+    // 阻止事件冒泡和默认行为
+    event.stopPropagation();
+    event.preventDefault();
+    return false;
+};
 </script>
 
 <style scoped>
@@ -1372,11 +1595,11 @@ watch(existingInstancePath, (newValue) => {
 
 /* 下拉菜单动画 */
 .dropdown-fade-enter-active {
-    transition: all 0.3s ease-out;
+    transition: all 0.2s ease-out;
 }
 
 .dropdown-fade-leave-active {
-    transition: all 0.2s ease-in;
+    transition: all 0.15s ease-in;
 }
 
 .dropdown-fade-enter-from {
@@ -1390,19 +1613,19 @@ watch(existingInstancePath, (newValue) => {
 }
 
 .animate-dropdown-open {
-    animation: dropdown-open 0.3s ease-out;
+    animation: dropdown-open 0.2s ease-out;
 }
 
 @keyframes dropdown-open {
     0% {
         opacity: 0;
-        transform: translateY(-15px) scale(0.9);
+        transform: translateY(-10px) scale(0.95);
         max-height: 0;
     }
 
     50% {
-        opacity: 0.8;
-        transform: translateY(-5px) scale(0.98);
+        opacity: 0.9;
+        transform: translateY(-2px) scale(0.99);
     }
 
     100% {
@@ -1415,13 +1638,13 @@ watch(existingInstancePath, (newValue) => {
 /* 版本选项逐项动画 */
 .animate-item-fade-in {
     opacity: 0;
-    animation: item-fade-in 0.4s ease-out forwards;
+    animation: item-fade-in 0.3s ease-out forwards;
 }
 
 @keyframes item-fade-in {
     0% {
         opacity: 0;
-        transform: translateX(-20px);
+        transform: translateX(-15px);
     }
 
     100% {
@@ -1430,24 +1653,58 @@ watch(existingInstancePath, (newValue) => {
     }
 }
 
-/* 自定义滚动条 */
-.custom-scrollbar::-webkit-scrollbar {
+/* 自定义滚动条 - 移除双滚动条 */
+.version-list-container::-webkit-scrollbar {
     width: 6px;
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
+.version-list-container::-webkit-scrollbar-track {
     background: hsl(var(--b3));
     border-radius: 3px;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
+.version-list-container::-webkit-scrollbar-thumb {
     background: hsl(var(--bc) / 0.3);
     border-radius: 3px;
     transition: background 0.2s ease;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+.version-list-container::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--bc) / 0.5);
+}
+
+/* 确保版本选择下拉框的定位稳定 */
+.version-stage.dropdown-stage .dropdown {
+    position: relative !important;
+}
+
+.version-stage.dropdown-stage .dropdown-content {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    width: 100% !important;
+    margin-top: 0.5rem !important;
+    transform: none !important;
+}
+
+/* 移除外层容器的滚动条 */
+.dropdown {
+    position: relative !important;
+}
+
+.dropdown-content {
+    overflow: visible !important;
+}
+
+/* 确保下拉框内所有文本支持主题切换 */
+.dropdown-content,
+.dropdown-content * {
+    color: hsl(var(--bc)) !important;
+}
+
+/* 下拉框内的无内容提示文字 */
+.dropdown-content .text-base-content\/60 {
+    color: hsl(var(--bc) / 0.6) !important;
 }
 
 /* 版本下拉框样式优化 */
@@ -1459,14 +1716,14 @@ watch(existingInstancePath, (newValue) => {
     position: absolute;
     top: 100%;
     left: 0;
-    right: 0;
-    background: hsl(var(--b1));
+    width: 100%;
+    background: hsl(var(--b1)) !important;
     border: 1px solid hsl(var(--b3));
     border-radius: 0.5rem;
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    z-index: 50;
+    z-index: 99999 !important;
     max-height: 16rem;
-    overflow-y: auto;
+    overflow: visible;
     animation: dropdownFadeIn 0.2s ease-out;
 }
 
@@ -1486,16 +1743,24 @@ watch(existingInstancePath, (newValue) => {
 .version-option {
     transition: all 0.15s ease;
     border: 1px solid transparent;
+    color: hsl(var(--bc)) !important;
 }
 
 .version-option:hover {
-    background: hsl(var(--b2));
+    background: hsl(var(--b2)) !important;
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px hsl(var(--bc) / 0.1);
 }
 
 .version-option:active {
     transform: translateY(0);
+}
+
+/* 选中状态的版本选项 */
+.version-option.bg-primary\/10 {
+    background: hsl(var(--p) / 0.1) !important;
+    color: hsl(var(--p)) !important;
+    border-color: hsl(var(--p) / 0.2) !important;
 }
 
 /* 日志容器样式 */
@@ -1521,6 +1786,30 @@ watch(existingInstancePath, (newValue) => {
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
+/* 强制关闭下拉菜单的样式 */
+.dropdown-close .dropdown-content {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+/* 确保下拉菜单在失去焦点时关闭 */
+.dropdown:not(:focus-within) .dropdown-content {
+    display: none;
+}
+
+/* 优化下拉菜单的关闭行为 */
+.dropdown .dropdown-content {
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.dropdown:not(.dropdown-open):not(:focus-within) .dropdown-content {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+    pointer-events: none;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     .dropdown-content {
@@ -1530,5 +1819,20 @@ watch(existingInstancePath, (newValue) => {
     .version-option {
         padding: 0.75rem;
     }
+}
+
+/* 暗色模式增强样式 */
+[data-theme="dark"] .dropdown-content,
+[data-theme="night"] .dropdown-content,
+[data-theme="black"] .dropdown-content,
+[data-theme="dracula"] .dropdown-content {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .version-option:hover,
+[data-theme="night"] .version-option:hover,
+[data-theme="black"] .version-option:hover,
+[data-theme="dracula"] .version-option:hover {
+    box-shadow: 0 2px 8px hsl(var(--bc) / 0.2);
 }
 </style>

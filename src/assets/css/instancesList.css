@@ -123,10 +123,17 @@
 /* 使用DaisyUI卡片样式 */
 .instance-card {
   @apply card bg-base-100;
+
+  /* 防止悬停动画时字体模糊 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .instance-card:hover {
-  @apply -translate-y-[3px] shadow-lg;
+  @apply shadow-lg;
+  transform: translateY(-3px) translateZ(0);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
     0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
 }

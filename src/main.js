@@ -29,6 +29,9 @@ import "./assets/tailwind.css";
 import "./assets/global.css";
 import "./assets/css/dark-theme-fix.css"; // 导入深色主题修复样式
 import "./assets/css/dark-text-override.css"; // 导入暗色模式文本颜色覆盖
+import "./assets/css/font-optimization.css"; // 导入字体优化样式
+import "./assets/css/simple-loading.css"; // 导入简化加载动画样式
+import "./assets/css/performance-patch.css"; // 导入性能优化补丁
 import toastService from "./services/toastService";
 import eventBus from "./services/eventBus"; // 导入改进的事件总线
 

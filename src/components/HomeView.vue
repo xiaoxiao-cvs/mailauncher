@@ -630,10 +630,18 @@ onBeforeUnmount(() => {
 /* 表格对齐修复 */
 .table th {
   @apply text-base-content/70 font-medium;
+  /* 表格标题字体优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .table td {
   @apply py-2;
+  /* 表格内容字体优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* 确保圆形按钮居中 */

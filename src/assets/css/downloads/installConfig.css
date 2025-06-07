@@ -125,12 +125,24 @@
   @apply max-h-[600px] overflow-y-auto border border-base-300 rounded-md p-5 bg-base-200 font-mono text-base shadow-inner;
   overflow-x: hidden; /* 移除横向滚动条 */
   word-wrap: break-word; /* 长文本自动换行 */
+
+  /* 日志内容字体优化 */
+  font-family: "Fira Code", "SF Mono", Monaco, "Cascadia Code", "Roboto Mono",
+    Consolas, "Courier New", monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .log-line {
   @apply mb-2 leading-relaxed;
   word-break: break-all; /* 强制换行避免横向滚动 */
   white-space: pre-wrap; /* 保持格式并换行 */
+
+  /* 日志行字体优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .log-time {

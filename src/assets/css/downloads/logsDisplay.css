@@ -54,10 +54,21 @@
   @apply flex-1 p-2.5 font-mono text-sm overflow-y-auto;
   /* 使用DaisyUI颜色变量 */
   color: hsl(var(--nc));
+
+  /* 等宽字体优化 */
+  font-family: "Fira Code", "SF Mono", Monaco, "Cascadia Code", "Roboto Mono",
+    Consolas, "Courier New", monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .terminal-line {
   @apply mb-1 whitespace-pre-wrap break-all leading-relaxed flex flex-wrap items-start;
+  /* 日志行字体优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .command-prompt {
