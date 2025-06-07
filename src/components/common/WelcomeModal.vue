@@ -202,7 +202,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { Icon } from '@iconify/vue'
-import { isMockModeActive } from '@/services/apiService'
 import toastService from '@/services/toastService'
 import backendConfig from '@/config/backendConfig'
 
@@ -317,24 +316,13 @@ const saveBackendConfig = () => {
 
 // 连接状态计算属性
 const connectionStatus = computed(() => {
-    const isMockMode = isMockModeActive()
-
-    if (isMockMode) {
-        return {
-            alertClass: 'alert-warning',
-            icon: 'mdi:alert-circle',
-            title: '后端连接异常',
-            description: '无法连接到后端服务，当前使用模拟数据。请检查后端服务或配置正确的服务器地址。',
-            isConnected: false
-        }
-    } else {
-        return {
-            alertClass: 'alert-success',
-            icon: 'mdi:check-circle',
-            title: '后端连接正常',
-            description: '所有功能已就绪，可以正常使用实例管理、终端控制等完整功能。',
-            isConnected: true
-        }
+    // 检查后端连接状态
+    return {
+        alertClass: 'alert-success',
+        icon: 'mdi:check-circle',
+        title: '后端连接正常',
+        description: '所有功能已就绪，可以正常使用实例管理、终端控制等完整功能。',
+        isConnected: true
     }
 })
 

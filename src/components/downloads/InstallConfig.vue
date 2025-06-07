@@ -140,6 +140,7 @@ import { deployApi } from '@/services/api';
 import { useDeployStore } from '@/stores/deployStore';
 import axios from 'axios';
 import toastService from '@/services/toastService';
+import { validatePath, normalizePath } from '@/utils/pathSync';
 
 // 初始化 deployStore
 const deployStore = useDeployStore();
@@ -287,6 +288,19 @@ const installVersion = async () => {
     return;
   }
 
+  // 检查安装路径是否有效
+  const installPath = localStorage.getItem('deploymentPath') || '';
+  if (!installPath.trim()) {
+    toastService.error('请先设置部署路径');
+    return;
+  }
+
+  // 验证安装路径格式
+  if (!validatePath(installPath)) {
+    toastService.error('安装路径格式无效，请检查路径设置');
+    return;
+  }
+
   // 检查Bot配置 (QQ号)
   if ((installNapcat.value || installAdapter.value) && (!qqNumber.value || !/^\d+$/.test(qqNumber.value))) {
     toastService.warning('请输入有效的QQ号');
@@ -423,81 +437,16 @@ const installVersion = async () => {
 let statusPollingInterval = null;
 
 // 添加安装状态轮询 - 使用 GET 请求
-const startInstallStatusPolling = () => {
-  // 清除已有的轮询
+const startInstallStatusPolling = () => {  // 清除已有的轮询
   if (statusPollingInterval) {
     clearInterval(statusPollingInterval);
   }
 
-  // 检查是否在模拟数据模式
-  const useMockData = window._useMockData || localStorage.getItem("useMockData") === "true";
-
-  // 轮询间隔：模拟模式3秒，正常模式10秒
-  const pollingInterval = useMockData ? 3000 : 10000;
-
-  // 开始新的轮询
+  // 开始新的轮询 - 每10秒检查一次
   let checkCount = 0;
   statusPollingInterval = setInterval(async () => {
     try {
-      // 如果是模拟数据模式，模拟进度
-      if (useMockData) {
-        checkCount++;
-
-        // 模拟安装进度
-        if (checkCount < 3) {
-          addLog({
-            time: formatTime(new Date()),
-            source: 'system',
-            level: 'INFO',
-            message: `正在安装依赖... (${checkCount}/3)`
-          });
-          installationProgress.value = checkCount * 25;
-          progressText.value = `正在安装依赖... ${checkCount}/3`;
-        } else if (checkCount === 3) {
-          addLog({
-            time: formatTime(new Date()),
-            source: 'system',
-            level: 'SUCCESS',
-            message: `依赖安装成功！`
-          });
-          installationProgress.value = 75;
-          progressText.value = '依赖安装完成';
-        } else if (checkCount === 4) {
-          addLog({
-            time: formatTime(new Date()),
-            source: 'system',
-            level: 'INFO',
-            message: `正在配置 Bot...`
-          });
-          installationProgress.value = 90;
-          progressText.value = '正在配置 Bot...';
-        } else {
-          // 完成安装
-          clearInterval(statusPollingInterval);
-          statusPollingInterval = null;
-
-          // 恢复按钮状态
-          installLoading.value = false;
-          installationProgress.value = 100;
-          progressText.value = '安装完成';
-
-          addLog({
-            time: formatTime(new Date()),
-            source: 'command',
-            level: 'SUCCESS',
-            message: '模拟安装完成！'
-          });
-
-          // 刷新实例列表
-          refreshInstances();
-
-          toastService.success('模拟安装完成！');
-          return;
-        }
-        return;
-      }
-
-      // 正常API检查代码 - 使用 GET 请求轮询
+      // 使用 GET 请求轮询安装状态
       const response = await deployApi.checkInstallStatus();
       const isStillInstalling = response.napcat_installing || response.nonebot_installing;
 
@@ -551,9 +500,6 @@ const startInstallStatusPolling = () => {
     } catch (error) {
       console.error('检查安装状态失败:', error);
 
-      // 如果是模拟数据模式，不停止轮询，继续模拟进度
-      if (useMockData) return;
-
       // 真实模式下出错时停止轮询
       clearInterval(statusPollingInterval);
       statusPollingInterval = null;
@@ -565,7 +511,7 @@ const startInstallStatusPolling = () => {
         message: `检查安装状态时出错: ${error.message}`
       });
     }
-  }, pollingInterval);
+  }, 10000); // 固定10秒间隔
 };
 
 // 刷新实例列表辅助方法

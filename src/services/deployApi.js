@@ -291,31 +291,6 @@ const deleteInstance = async (instanceId) => {
 };
 
 /**
- * 生成模拟实例数据
- * @returns {Array} 模拟实例列表
- */
-const generateMockInstances = () => {
-  return [
-    {
-      id: "mock-instance-1",
-      name: "模拟实例-1",
-      status: "running",
-      installedAt: "2023-05-13 19:56:18",
-      path: "D:\\MaiBot\\模拟实例-1",
-      version: "v0.6.3",
-    },
-    {
-      id: "mock-instance-2",
-      name: "模拟实例-2",
-      status: "stopped",
-      installedAt: "2023-05-12 10:30:00",
-      path: "D:\\MaiBot\\模拟实例-2",
-      version: "latest",
-    },
-  ];
-};
-
-/**
  * 配置Bot设置
  * @param {Object} params - 配置参数
  * @returns {Promise<Object>} - 配置结果
@@ -333,12 +308,11 @@ const configureBotSettings = async (params) => {
 };
 
 // 确保导出所有需要的方法
-export { checkInstallStatus, getInstances, generateMockInstances };
+export { checkInstallStatus, getInstances };
 
 export default {
   fetchVersions, // 主要方法
-  getVersions, // 别名方法
-  getServices, // 获取服务列表
+  getVersions, // 别名方法  getServices, // 获取服务列表
   deploy, // 部署方法
   deployVersion, // 部署指定版本
   configureBot, // 配置Bot
@@ -347,6 +321,5 @@ export default {
   startInstance, // 启动实例
   stopInstance, // 停止实例
   deleteInstance, // 删除实例
-  generateMockInstances, // 生成模拟数据
   configureBotSettings, // 配置Bot设置
 };

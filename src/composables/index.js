@@ -260,36 +260,15 @@ export const usePerformanceMonitoring = () => {
     },
   });
   const isRefreshing = ref(false);
-
   const refreshStats = async () => {
     isRefreshing.value = true;
     try {
-      // 模拟延迟
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      // 生成模拟数据
-      stats.value.cpu.usage = Math.floor(20 + Math.random() * 40);
-      stats.value.cpu.temperature = 40 + Math.floor(stats.value.cpu.usage / 5);
-
-      stats.value.gpu.usage = Math.floor(15 + Math.random() * 60);
-      stats.value.gpu.temperature = 50 + Math.floor(stats.value.gpu.usage / 4);
-      stats.value.gpu.memory.used =
-        (2 + Math.random() * 6) * 1024 * 1024 * 1024;
-
-      const memUsed = (5 + Math.random() * 8) * 1024 * 1024 * 1024;
-      stats.value.memory.used = memUsed;
-      stats.value.memory.available = stats.value.memory.total - memUsed;
-      stats.value.memory.percentage = Math.round(
-        (memUsed / stats.value.memory.total) * 100
-      );
-
-      const uploadSpeed = Math.random() * 2 * 1024 * 1024; // 0-2 MB/s
-      const downloadSpeed = Math.random() * 10 * 1024 * 1024; // 0-10 MB/s
-      stats.value.network.uploadSpeed = uploadSpeed;
-      stats.value.network.downloadSpeed = downloadSpeed;
-
-      stats.value.network.uploaded += uploadSpeed;
-      stats.value.network.downloaded += downloadSpeed;
+      // 这里应该调用真实的系统统计API
+      // TODO: 实现真实的系统性能数据获取
+      throw new Error("系统性能统计功能需要后端API支持");
+    } catch (error) {
+      console.error("获取系统性能统计失败:", error);
+      throw error;
     } finally {
       isRefreshing.value = false;
     }

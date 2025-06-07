@@ -33,10 +33,26 @@ class ToastService {
       const toast = document.createElement("div");
       toast.id = `toast-${id}`;
       toast.className = `toast-item toast-${type}`;
-      toast.style.backgroundColor = "white";
-      toast.style.color = "#333";
+
+      // 检测暗色模式并应用相应的背景和文字颜色
+      const isDarkMode =
+        document.documentElement.getAttribute("data-theme") === "dark" ||
+        document.documentElement.classList.contains("dark-mode");
+
+      if (isDarkMode) {
+        toast.style.backgroundColor = "#2a2e37"; // 暗色背景
+        toast.style.color = "#ffffff"; // 白色文字
+      } else {
+        toast.style.backgroundColor = "white"; // 浅色背景
+        toast.style.color = "#333"; // 深色文字
+      }
       toast.style.borderRadius = "8px";
-      toast.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
+
+      // 根据暗色模式调整阴影效果
+      toast.style.boxShadow = isDarkMode
+        ? "0 4px 12px rgba(0, 0, 0, 0.3)"
+        : "0 4px 12px rgba(0, 0, 0, 0.15)";
+
       toast.style.padding = "12px 36px 12px 16px";
       toast.style.marginBottom = "10px";
       toast.style.position = "relative";
@@ -46,9 +62,7 @@ class ToastService {
       toast.style.animation = "toastInBottom 0.3s ease forwards";
       toast.style.display = "flex";
       toast.style.alignItems = "center";
-      toast.style.cursor = "default"; // 默认鼠标样式
-
-      // 创建关闭按钮 - 在左侧且垂直居中
+      toast.style.cursor = "default"; // 默认鼠标样式      // 创建关闭按钮 - 在左侧且垂直居中
       const closeBtn = document.createElement("button");
       closeBtn.innerHTML = "×"; // 使用innerHTML以便可以放入更复杂的图标
       closeBtn.className = "toast-close-btn";
@@ -61,7 +75,10 @@ class ToastService {
       closeBtn.style.fontSize = "20px";
       closeBtn.style.fontWeight = "bold";
       closeBtn.style.cursor = "pointer";
-      closeBtn.style.color = "#666";
+
+      // 根据暗色模式设置关闭按钮颜色
+      closeBtn.style.color = isDarkMode ? "#ffffff" : "#666";
+
       closeBtn.style.padding = "0";
       closeBtn.style.margin = "0";
       closeBtn.style.width = "24px";
@@ -75,7 +92,9 @@ class ToastService {
 
       // 悬停效果
       closeBtn.onmouseenter = () => {
-        closeBtn.style.backgroundColor = "rgba(0,0,0,0.1)";
+        closeBtn.style.backgroundColor = isDarkMode
+          ? "rgba(255,255,255,0.1)"
+          : "rgba(0,0,0,0.1)";
         closeBtn.style.opacity = "1";
         closeBtn.style.transform = "translateY(-50%) scale(1.1)";
       };
@@ -110,16 +129,19 @@ class ToastService {
       messageEl.style.lineHeight = "1.4"; // 增加行高提高可读性
       messageEl.style.maxHeight = "120px"; // 限制最大高度
       messageEl.style.overflowY = "auto"; // 超出时显示滚动条
-      toast.appendChild(messageEl);
-
-      // 添加进度条容器
+      toast.appendChild(messageEl); // 添加进度条容器
       const progressContainer = document.createElement("div");
       progressContainer.style.position = "absolute";
       progressContainer.style.bottom = "0";
       progressContainer.style.left = "0";
       progressContainer.style.width = "100%";
       progressContainer.style.height = "3px";
-      progressContainer.style.backgroundColor = "rgba(0, 0, 0, 0.05)";
+
+      // 根据暗色模式调整进度条容器背景色
+      progressContainer.style.backgroundColor = isDarkMode
+        ? "rgba(255, 255, 255, 0.1)"
+        : "rgba(0, 0, 0, 0.05)";
+
       toast.appendChild(progressContainer);
 
       // 创建进度条元素

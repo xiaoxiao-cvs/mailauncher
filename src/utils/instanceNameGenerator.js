@@ -42,7 +42,13 @@ export const formatVersionForInstanceName = (version) => {
 export const fetchExistingInstances = async () => {
   try {
     const response = await instancesApi.getInstances();
-    return response.instances || [];
+    console.log("获取实例列表响应:", response);
+
+    // 正确处理axios响应结构
+    const instances = response?.data?.instances || response?.instances || [];
+    console.log("解析到的实例列表:", instances);
+
+    return instances;
   } catch (error) {
     console.warn("获取实例列表失败，使用空列表:", error);
     return [];

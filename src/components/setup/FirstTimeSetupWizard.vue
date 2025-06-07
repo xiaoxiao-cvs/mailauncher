@@ -142,8 +142,8 @@
                             <div class="bg-base-200 rounded-lg p-6">
                                 <div class="flex items-center justify-between mb-4">
                                     <h3 class="font-semibold">连接状态</h3>
-                                    <button v-if="config.mockMode" class="btn btn-primary btn-sm"
-                                        @click="attemptReconnect" :disabled="isReconnecting">
+                                    <button class="btn btn-primary btn-sm" @click="attemptReconnect"
+                                        :disabled="isReconnecting">
                                         <span v-if="isReconnecting" class="loading loading-spinner loading-xs"></span>
                                         <Icon v-else icon="mdi:refresh" class="w-4 h-4" />
                                         {{ isReconnecting ? '重连中...' : '重连' }}
@@ -406,7 +406,7 @@
                                     </div>
                                     <div class="flex items-center gap-3">
                                         <span class="text-sm font-medium">{{ config.webui.enabled ? '已启用' : '已禁用'
-                                            }}</span>
+                                        }}</span>
                                         <label class="toggle-switch">
                                             <input type="checkbox" v-model="config.webui.enabled"
                                                 class="toggle-input" />
@@ -637,7 +637,6 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { getDefaultDataPath, getDefaultDeploymentPath, setDataStoragePath, setDeploymentPath } from '@/utils/pathSync'
-import { isMockModeActive } from '@/services/apiService'
 import toastService from '@/services/toastService'
 
 const props = defineProps({
@@ -669,7 +668,6 @@ const config = ref({
     dataStoragePath: getDefaultDataPath(),
     deploymentPath: getDefaultDeploymentPath(),
     backendUrl: 'http://localhost:23456',
-    mockMode: false,
     themeMode: 'system',
     enableAnimations: true,
     showWelcomeOnStartup: false,
@@ -745,22 +743,11 @@ const canProceed = computed(() => {
 
 // 后端连接状态（用于步骤3）
 const backendConnectionStatus = computed(() => {
-    const isMockMode = config.value.mockMode || isMockModeActive()
-
-    if (isMockMode) {
-        return {
-            alertClass: 'alert-warning',
-            icon: 'mdi:alert-circle',
-            title: '演示模式',
-            description: '当前将使用模拟数据运行，部分功能为演示效果。'
-        }
-    } else {
-        return {
-            alertClass: 'alert-success',
-            icon: 'mdi:check-circle',
-            title: '连接正常',
-            description: '后端服务连接成功，所有功能可正常使用。'
-        }
+    return {
+        alertClass: 'alert-success',
+        icon: 'mdi:check-circle',
+        title: '连接正常',
+        description: '后端服务连接成功，所有功能可正常使用。'
     }
 })
 
@@ -811,14 +798,13 @@ const attemptReconnect = async () => {
         })
 
         if (response.ok) {
-            config.value.mockMode = false
-            toastService.success('重连成功！已切换到完整模式')
+            toastService.success('重连成功！')
         } else {
-            toastService.error('重连失败，继续使用演示模式')
+            toastService.error('重连失败')
         }
     } catch (error) {
         console.error('重连失败:', error)
-        toastService.error('重连失败，继续使用演示模式')
+        toastService.error('重连失败')
     } finally {
         isReconnecting.value = false
     }
@@ -859,11 +845,10 @@ const getThemeDisplayName = (value) => {
 // 完成设置
 const completeSetup = () => {
     // 保存所有配置
-    setDataStoragePath(config.value.dataStoragePath)
-    setDeploymentPath(config.value.deploymentPath)
+    setDataStoragePath(config.value.dataStoragePath);
+    setDeploymentPath(config.value.deploymentPath);
 
     localStorage.setItem('backendUrl', config.value.backendUrl)
-    localStorage.setItem('useMockData', config.value.mockMode.toString())
     localStorage.setItem('themeMode', config.value.themeMode)
     localStorage.setItem('enableAnimations', config.value.enableAnimations.toString())
     localStorage.setItem('firstTimeSetupCompleted', 'true')
@@ -957,42 +942,26 @@ const checkForUpdates = async () => {
     updateInfo.value.checked = false
 
     try {
-        // 如果是模拟模式，使用模拟数据
-        if (config.value.mockMode || isMockModeActive()) {
-            await new Promise(resolve => setTimeout(resolve, 1500)) // 模拟网络延迟
-
-            // 模拟有更新的情况
-            const hasUpdate = Math.random() > 0.5 // 50% 概率有更新
-
-            updateInfo.value = {
-                currentVersion: '1.0.0',
-                latestVersion: hasUpdate ? '1.1.0' : '1.0.0',
-                hasUpdate,
-                checked: true,
-                updateDescription: hasUpdate ? '修复了一些问题并增加了新功能' : ''
+        // 使用实际的后端API检查更新
+        const response = await fetch(`${config.value.backendUrl}/api/v1/version/check`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
             }
-        } else {
-            // 实际的更新检查
-            const response = await fetch(`${config.value.backendUrl}/api/v1/version/check`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
+        })
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`)
-            }
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`)
+        }
 
-            const data = await response.json()
+        const data = await response.json()
 
-            updateInfo.value = {
-                currentVersion: data.current_version || '1.0.0',
-                latestVersion: data.latest_version,
-                hasUpdate: data.has_update || false,
-                checked: true,
-                updateDescription: data.update_description || ''
-            }
+        updateInfo.value = {
+            currentVersion: data.current_version || '1.0.0',
+            latestVersion: data.latest_version,
+            hasUpdate: data.has_update || false,
+            checked: true,
+            updateDescription: data.update_description || ''
         }
 
         if (updateInfo.value.hasUpdate) {
@@ -1024,7 +993,6 @@ onMounted(() => {
     const savedDataPath = localStorage.getItem('dataStoragePath')
     const savedDeploymentPath = localStorage.getItem('deploymentPath')
     const savedBackendUrl = localStorage.getItem('backendUrl')
-    const savedMockMode = localStorage.getItem('useMockData')
     const savedThemeMode = localStorage.getItem('themeMode')
     const savedAnimations = localStorage.getItem('enableAnimations')
     const savedWebuiEnabled = localStorage.getItem('webui.enabled')
@@ -1033,7 +1001,6 @@ onMounted(() => {
     if (savedDataPath) config.value.dataStoragePath = savedDataPath
     if (savedDeploymentPath) config.value.deploymentPath = savedDeploymentPath
     if (savedBackendUrl) config.value.backendUrl = savedBackendUrl
-    if (savedMockMode) config.value.mockMode = savedMockMode === 'true'
     if (savedThemeMode) config.value.themeMode = savedThemeMode
     if (savedAnimations) config.value.enableAnimations = savedAnimations === 'true'
     if (savedWebuiEnabled !== null) config.value.webui.enabled = savedWebuiEnabled === 'true'

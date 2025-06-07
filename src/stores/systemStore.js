@@ -97,27 +97,20 @@ export const useSystemStore = defineStore("system", () => {
     try {
       loading.value = true;
       error.value = null;
-
       console.log("发起新的系统性能请求");
 
-      // 检查是否使用模拟数据
-      const useMockData = localStorage.getItem("useMockData") === "true";
-
-      if (useMockData) {
-        // 生成模拟性能数据
-        _generateMockStats();
-      } else {
-        // 尝试从API获取真实数据
-        try {
-          const response = await apiService.get("/api/v1/system/metrics");
-          if (response.data && response.data.data) {
-            // 适配后端返回的数据结构
-            _adaptBackendData(response.data.data);
-          }
-        } catch (apiError) {
-          console.warn("API获取系统性能失败，使用模拟数据:", apiError);
-          _generateMockStats();
+      // 尝试从API获取真实数据
+      try {
+        const response = await apiService.get("/api/v1/system/metrics");
+        if (response.data && response.data.data) {
+          // 适配后端返回的数据结构
+          _adaptBackendData(response.data.data);
+        } else {
+          throw new Error("API响应数据格式错误");
         }
+      } catch (apiError) {
+        console.error("API获取系统性能失败:", apiError);
+        throw new Error(`无法获取系统性能数据: ${apiError.message}`);
       }
 
       lastFetchTime.value = Date.now();
@@ -169,62 +162,24 @@ export const useSystemStore = defineStore("system", () => {
         systemStats.value.disk.available =
           diskData.free_gb * 1024 * 1024 * 1024;
         systemStats.value.disk.usage = Math.round(diskData.percent);
+      } // 网络数据（如果后端没有提供，使用默认值）
+      if (!backendData.network_up && !backendData.network_down) {
+        systemStats.value.network.up = 0;
+        systemStats.value.network.down = 0;
+        systemStats.value.network.rate = 0;
+      } else {
+        systemStats.value.network.up = backendData.network_up || 0;
+        systemStats.value.network.down = backendData.network_down || 0;
+        systemStats.value.network.rate =
+          (backendData.network_up || 0) + (backendData.network_down || 0);
       }
-
-      // 模拟网络数据（后端暂时没有提供）
-      systemStats.value.network.up = Math.random() * 1024 * 1024; // 随机网络速度
-      systemStats.value.network.down = Math.random() * 10 * 1024 * 1024;
-      systemStats.value.network.rate =
-        systemStats.value.network.up + systemStats.value.network.down;
 
       console.log("数据适配完成:", systemStats.value);
     } catch (error) {
       console.error("数据适配失败:", error);
-      // 适配失败时使用模拟数据
-      _generateMockStats();
+      throw error;
     }
   };
-
-  // 生成模拟性能数据
-  const _generateMockStats = () => {
-    // CPU使用率变化
-    const cpuVariation = (Math.random() - 0.5) * 10;
-    systemStats.value.cpu.usage = Math.max(
-      0,
-      Math.min(100, systemStats.value.cpu.usage + cpuVariation)
-    );
-
-    // 内存使用变化
-    const memoryBase = systemStats.value.memory.total * 0.4; // 基础40%使用
-    const memoryVariation =
-      systemStats.value.memory.total * 0.1 * (Math.random() - 0.5);
-    systemStats.value.memory.used = Math.max(0, memoryBase + memoryVariation);
-    systemStats.value.memory.available =
-      systemStats.value.memory.total - systemStats.value.memory.used;
-    systemStats.value.memory.usage =
-      (systemStats.value.memory.used / systemStats.value.memory.total) * 100;
-
-    // 磁盘使用（变化较小）
-    if (systemStats.value.disk.used === 0) {
-      systemStats.value.disk.used = systemStats.value.disk.total * 0.6; // 初始60%使用
-    }
-    systemStats.value.disk.available =
-      systemStats.value.disk.total - systemStats.value.disk.used;
-    systemStats.value.disk.usage =
-      (systemStats.value.disk.used / systemStats.value.disk.total) * 100;
-
-    // 网络速率变化
-    systemStats.value.network.rate = Math.floor(
-      systemStats.value.network.rate * (0.8 + Math.random() * 0.4)
-    );
-    systemStats.value.network.up += Math.floor(
-      systemStats.value.network.rate * 0.3
-    );
-    systemStats.value.network.down += Math.floor(
-      systemStats.value.network.rate * 0.7
-    );
-  };
-
   // 启动性能监控轮询
   const startPolling = (interval = pollingInterval.value) => {
     if (isPolling.value) {

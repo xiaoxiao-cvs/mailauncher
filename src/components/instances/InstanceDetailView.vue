@@ -160,7 +160,6 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick, inject } from '
 import { Icon } from '@iconify/vue';
 import toastService from '@/services/toastService';
 import { getTerminalWebSocketService, closeTerminalWebSocket } from '@/services/websocket';
-import { isMockModeActive } from '@/services/apiService';
 import { instancesApi } from '@/services/api'; // 导入instancesApi以使用实例控制API
 
 // 导入xterm和相关插件
@@ -359,29 +358,7 @@ const initTerminalWebSocket = (terminalType = 'maibot') => {
         return;
     }
 
-    const state = terminalStates.value[terminalType];
-
-    // 检查是否为模拟模式
-    const useMockMode = isMockModeActive();
-    if (useMockMode) {
-        console.log(`使用模拟模式，生成 ${terminalType} 终端数据`);
-        if (state.term) {
-            state.term.writeln('\r\n\x1b[33m=== 模拟终端模式 ===\x1b[0m');
-            if (terminalType === 'maibot') {
-                state.term.writeln(`Starting MaiBot ${props.instance.version || 'v0.6.3'}...`);
-                state.term.writeln('Loading configuration...');
-                state.term.writeln('\x1b[32mNapCat adapter initialized\x1b[0m');
-                state.term.writeln('\x1b[32mReady to receive commands\x1b[0m');
-            } else if (terminalType === 'napcat-ada') {
-                state.term.writeln('Starting napcat-ada service...');
-                state.term.writeln('Loading napcat-ada configuration...');
-                state.term.writeln('\x1b[32mnapcat-ada adapter ready\x1b[0m');
-                state.term.writeln('\x1b[32mWebSocket server listening\x1b[0m');
-            }
-        }
-        state.isConnected = true;
-        return;
-    }    // 构建session_id格式，napcat-ada使用不同的会话ID
+    const state = terminalStates.value[terminalType];// 构建session_id格式，napcat-ada使用不同的会话ID
     const sessionId = terminalType === 'napcat-ada'
         ? `${props.instance.id}_napcat-ada`
         : `${props.instance.id}_main`;
@@ -423,19 +400,9 @@ const initTerminalWebSocket = (terminalType = 'maibot') => {
                     }
                 }
             }
-        });
-
-        // 接收消息事件
+        });        // 接收消息事件
         state.websocket.on('message', (data) => {
             console.log(`收到 ${terminalType} 终端消息:`, data);
-
-            if (data.isMock) {
-                // 处理模拟数据
-                if (state.term) {
-                    state.term.writeln(data.message || '模拟终端输出');
-                }
-                return;
-            }
 
             // 处理真实WebSocket消息
             if (data.type === 'output' && state.term) {
@@ -448,15 +415,13 @@ const initTerminalWebSocket = (terminalType = 'maibot') => {
                 // 错误消息
                 state.term.writeln(`\r\n\x1b[31m${data.message || '终端错误'}\x1b[0m`);
             }
-        });
-
-        // 连接关闭事件
+        });        // 连接关闭事件
         state.websocket.on('close', (event) => {
             console.log(`${terminalType} 终端WebSocket连接已关闭:`, event);
             state.isConnected = false;
             state.isConnecting = false;
 
-            if (!event.isMock && state.term) {
+            if (state.term) {
                 state.term.writeln('\r\n\x1b[33m终端连接已断开\x1b[0m');
             }
         });
@@ -468,22 +433,8 @@ const initTerminalWebSocket = (terminalType = 'maibot') => {
             state.isConnecting = false;
 
             if (state.term) {
-                state.term.writeln('\r\n\x1b[31m终端连接出错，回退到模拟模式\x1b[0m');
+                state.term.writeln('\r\n\x1b[31m终端连接出错\x1b[0m');
             }
-
-            // 回退到模拟模式
-            setTimeout(() => {
-                if (state.term) {
-                    state.term.writeln('\r\n\x1b[33m=== 回退到模拟模式 ===\x1b[0m');
-                    if (terminalType === 'maibot') {
-                        state.term.writeln(`Starting MaiBot ${props.instance.version || 'v0.6.3'}...`);
-                    } else {
-                        state.term.writeln('Starting napcat-ada service...');
-                    }
-                    state.term.writeln('\x1b[32mReady to receive commands\x1b[0m');
-                }
-                state.isConnected = true;
-            }, 1000);
         });
 
         // 建立连接
@@ -493,22 +444,8 @@ const initTerminalWebSocket = (terminalType = 'maibot') => {
         state.isConnecting = false;
 
         if (state.term) {
-            state.term.writeln('\r\n\x1b[31m终端连接失败，使用模拟模式\x1b[0m');
+            state.term.writeln('\r\n\x1b[31m终端连接失败\x1b[0m');
         }
-
-        // 回退到模拟模式
-        setTimeout(() => {
-            if (state.term) {
-                state.term.writeln('\r\n\x1b[33m=== 回退到模拟模式 ===\x1b[0m');
-                if (terminalType === 'maibot') {
-                    state.term.writeln(`Starting MaiBot ${props.instance.version || 'v0.6.3'}...`);
-                } else {
-                    state.term.writeln('Starting napcat-ada service...');
-                }
-                state.term.writeln('\x1b[32mReady to receive commands\x1b[0m');
-            }
-            state.isConnected = true;
-        }, 1000);
     }
 };
 
@@ -599,68 +536,8 @@ const sendCommand = () => {
         currentState.term.writeln(`\r\n$ ${command}`);
     }
 
-    // 检查是否为模拟模式
-    const useMockMode = isMockModeActive();
-
-    if (useMockMode || !currentState.websocket) {
-        // 模拟模式处理
-        setTimeout(() => {
-            if (!currentState.term) return;
-
-            if (activeTerminal.value === 'maibot') {
-                // MaiBot终端命令
-                switch (command.toLowerCase()) {
-                    case 'help':
-                        currentState.term.writeln('可用命令:');
-                        currentState.term.writeln('help - 显示帮助');
-                        currentState.term.writeln('status - 显示状态');
-                        currentState.term.writeln('version - 显示版本');
-                        currentState.term.writeln('clear - 清除屏幕');
-                        break;
-                    case 'status':
-                        currentState.term.writeln(`MaiBot 运行状态: ${isRunning.value ? '正常' : '已停止'}`);
-                        currentState.term.writeln('CPU: 32% | 内存: 128MB');
-                        break;
-                    case 'version':
-                        currentState.term.writeln(`MaiBot ${props.instance.version || 'v0.6.3'}`);
-                        currentState.term.writeln('NapCat v1.2.0');
-                        currentState.term.writeln('NoneBot v2.0.0');
-                        break;
-                    case 'clear':
-                        currentState.term.clear();
-                        break;
-                    default:
-                        currentState.term.writeln(`[模拟] 执行命令: ${command}`);
-                }
-            } else if (activeTerminal.value === 'napcat-ada') {
-                // napcat-ada终端命令
-                switch (command.toLowerCase()) {
-                    case 'help':
-                        currentState.term.writeln('napcat-ada 可用命令:');
-                        currentState.term.writeln('help - 显示帮助');
-                        currentState.term.writeln('status - 显示适配器状态');
-                        currentState.term.writeln('restart - 重启适配器');
-                        currentState.term.writeln('clear - 清除屏幕');
-                        break;
-                    case 'status':
-                        currentState.term.writeln('napcat-ada 适配器状态: 正常运行');
-                        currentState.term.writeln('WebSocket连接数: 2');
-                        currentState.term.writeln('消息转发: 活跃');
-                        break;
-                    case 'restart':
-                        currentState.term.writeln('正在重启 napcat-ada 适配器...');
-                        currentState.term.writeln('\x1b[32m适配器重启完成\x1b[0m');
-                        break;
-                    case 'clear':
-                        currentState.term.clear();
-                        break;
-                    default:
-                        currentState.term.writeln(`[napcat-ada] 执行命令: ${command}`);
-                }
-            }
-        }, 300);
-    } else {
-        // 真实WebSocket模式，发送命令到后端
+    // 真实WebSocket模式，发送命令到后端
+    if (currentState.websocket) {
         try {
             const success = currentState.websocket.send({
                 type: 'input',
@@ -676,7 +553,14 @@ const sendCommand = () => {
                 currentState.term.writeln(`\r\n\x1b[31m命令发送失败: ${error.message}\x1b[0m`);
             }
         }
-    } commandInput.value = '';
+    } else {
+        // 没有WebSocket连接时的错误提示
+        if (currentState.term) {
+            currentState.term.writeln('\r\n\x1b[31m终端未连接，无法执行命令\x1b[0m');
+        }
+    }
+
+    commandInput.value = '';
 };
 
 // 返回函数

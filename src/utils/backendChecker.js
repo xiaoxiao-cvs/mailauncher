@@ -1,9 +1,7 @@
 /**
  * 后端连接检查工具
- * 注意：后端已移出项目，此模块现用于管理模拟数据模式 1111111
  */
-import axios from "axios";
-import apiService from "../services/apiService";
+import backendConfig from "../config/backendConfig";
 
 let retryInterval = null;
 let retryCount = 0;
@@ -12,18 +10,25 @@ const RETRY_DELAY = 5000; // 5秒
 
 /**
  * 检查后端连接是否可用
- * 注意：由于后端已移出项目，此函数总是返回false
  * @returns {Promise<boolean>} 后端是否可用
  */
 export const checkBackendConnection = async () => {
   try {
-    // 由于后端已从项目移出，始终返回false
-    console.log("后端连接检查：使用模拟数据模式");
-    return false;
+    const backendUrl = backendConfig.getBackendUrl();
+    const response = await fetch(`${backendUrl}/api/v1/system/health`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      timeout: 5000,
+    });
 
-    /* 
-    注释odl
-    */
+    if (response.ok) {
+      const data = await response.json();
+      return data && data.status === "success";
+    }
+    return false;
   } catch (error) {
     console.warn("后端连接检查失败:", error.message);
     return false;
@@ -33,15 +38,45 @@ export const checkBackendConnection = async () => {
 /**
  * 开始连接重试
  * @param {Function} onSuccess 连接成功回调
+ * @param {Function} onFailed 连接失败回调
  */
-export const startConnectionRetry = (onSuccess) => {
-  // 由于始终使用模拟数据，直接调用成功回调
-  if (onSuccess && typeof onSuccess === "function") {
-    setTimeout(() => {
-      console.log("模拟数据模式已激活");
-      onSuccess();
-    }, 500);
+export const startConnectionRetry = (onSuccess, onFailed) => {
+  if (retryInterval) {
+    clearInterval(retryInterval);
   }
+
+  retryCount = 0;
+
+  const attemptConnection = async () => {
+    console.log(`尝试连接后端 (${retryCount + 1}/${MAX_RETRY})`);
+
+    const isConnected = await checkBackendConnection();
+
+    if (isConnected) {
+      console.log("后端连接成功");
+      stopConnectionRetry();
+      if (onSuccess && typeof onSuccess === "function") {
+        onSuccess();
+      }
+      return;
+    }
+
+    retryCount++;
+    if (retryCount >= MAX_RETRY) {
+      console.error("后端连接失败，已达到最大重试次数");
+      stopConnectionRetry();
+      if (onFailed && typeof onFailed === "function") {
+        onFailed();
+      }
+      return;
+    }
+
+    // 继续重试
+    retryInterval = setTimeout(attemptConnection, RETRY_DELAY);
+  };
+
+  // 立即开始第一次尝试
+  attemptConnection();
 };
 
 /**
@@ -52,6 +87,7 @@ export const stopConnectionRetry = () => {
     clearInterval(retryInterval);
     retryInterval = null;
   }
+  retryCount = 0;
 };
 
 export default {

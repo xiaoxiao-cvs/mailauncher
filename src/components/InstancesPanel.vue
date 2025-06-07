@@ -60,7 +60,7 @@ const themeClasses = computed(() => {
   };
 });
 
-// 加载实例列表方法 - 使用适配器处理实例数据
+// 加载实例列表方法
 const loadInstances = async () => {
   try {
     isLoading.value = true; // 开始加载
@@ -68,72 +68,21 @@ const loadInstances = async () => {
     // 引入实例API适配器
     const { adaptInstancesList } = await import('@/utils/apiAdapters');
 
-    // 检查是否使用模拟数据
-    const useMockData = localStorage.getItem('useMockData') === 'true';
-
-    if (useMockData) {
-      // 模拟加载延迟，提供更好的用户体验
-      await new Promise(resolve => setTimeout(resolve, 300));
-      // 使用模拟数据
-      instancesData.value = getMockInstances();
-    } else {
-      // 使用API获取实例列表，通过适配器处理数据
-      const response = await instancesApi.getInstances();
-      instancesData.value = adaptInstancesList(response);
-      console.log('获取到' + instancesData.value.length + '个实例');
-    }
+    // 使用API获取实例列表，通过适配器处理数据
+    const response = await instancesApi.getInstances();
+    instancesData.value = adaptInstancesList(response);
+    console.log('获取到' + instancesData.value.length + '个实例');
   } catch (error) {
     console.error('获取实例列表失败:', error);
-
-    // 先尝试使用实例API的模拟数据功能
-    try {
-      const { adaptInstancesList } = await import('@/utils/apiAdapters');
-      const mockResponse = await instancesApi.getMockInstances();
-      instancesData.value = adaptInstancesList(mockResponse);
-      console.log('使用API模拟数据');
-    } catch (mockError) {
-      // 如果模拟API也失败，才使用本地模拟数据
-      instancesData.value = getMockInstances();
-      console.log('使用本地模拟数据');
-    }
-
-    toastService.error('获取实例列表失败');
+    // 清空实例列表，显示空状态
+    instancesData.value = [];
+    toastService.error('获取实例列表失败: ' + (error.message || '未知错误'));
   } finally {
     // 确保最小加载时间，避免闪烁
     setTimeout(() => {
       isLoading.value = false;
     }, 200);
   }
-};
-
-// 获取模拟实例数据
-const getMockInstances = () => {
-  return [
-    {
-      id: 'inst1',
-      name: '测试实例1',
-      status: 'running',
-      createdAt: '2023-05-18 10:30:00',
-      totalRunningTime: '48小时30分钟',
-      path: 'D:\\MaiBot\\测试实例1'
-    },
-    {
-      id: 'inst2',
-      name: '测试实例2',
-      status: 'stopped',
-      createdAt: '2023-05-17 14:15:00',
-      totalRunningTime: '12小时45分钟',
-      path: 'D:\\MaiBot\\测试实例2'
-    },
-    {
-      id: 'inst3',
-      name: '开发测试3',
-      status: 'maintenance',
-      createdAt: '2023-05-15 09:20:00',
-      totalRunningTime: '24小时10分钟',
-      path: 'D:\\MaiBot\\开发测试3'
-    }
-  ];
 };
 
 // 打开实例详情
@@ -151,17 +100,29 @@ const closeInstanceDetail = () => {
 };
 
 // 处理实例启停
-const handleToggleInstance = (instance) => {
+const handleToggleInstance = async (instance) => {
   const index = instancesData.value.findIndex(item => item.id === instance.id || item.name === instance.name);
-  if (index !== -1) {
-    const newStatus = instance.status === 'running' ? 'stopped' : 'running';
-    instancesData.value[index].status = newStatus === 'running' ? 'starting' : 'stopping';
+  if (index === -1) return;
 
-    // 模拟API操作延迟
-    setTimeout(() => {
-      instancesData.value[index].status = newStatus;
-      toastService.success(`实例 ${instance.name} 已${newStatus === 'running' ? '启动' : '停止'}`);
-    }, 1500);
+  const newStatus = instance.status === 'running' ? 'stopped' : 'running';
+  instancesData.value[index].status = newStatus === 'running' ? 'starting' : 'stopping';
+
+  try {
+    // 调用真实的API来启停实例
+    if (newStatus === 'running') {
+      await instancesApi.startInstance(instance.id || instance.name);
+    } else {
+      await instancesApi.stopInstance(instance.id || instance.name);
+    }
+
+    // 更新状态为最终状态
+    instancesData.value[index].status = newStatus;
+    toastService.success(`实例 ${instance.name} 已${newStatus === 'running' ? '启动' : '停止'}`);
+  } catch (error) {
+    console.error('实例启停操作失败:', error);
+    // 恢复原来的状态
+    instancesData.value[index].status = instance.status;
+    toastService.error(`实例${newStatus === 'running' ? '启动' : '停止'}失败: ${error.message || '未知错误'}`);
   }
 };
 

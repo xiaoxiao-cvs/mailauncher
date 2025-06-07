@@ -62,9 +62,10 @@
                                 <span class="label-text">MaiBot主程序文件夹</span>
                                 <span class="label-text-alt text-info">包含main.py的文件夹</span>
                             </label>
-                            <div class="input-group">
-                                <input v-model="maibotPath" type="text" placeholder="例如：D:\MaiBot\existing-instance"
-                                    class="input input-bordered flex-1 bg-base-100 text-base-content" />
+                            <div class="input-group"> <input v-model="maibotPath" type="text"
+                                    placeholder="例如：D:\MaiBot\existing-instance"
+                                    class="input input-bordered flex-1 bg-base-100 text-base-content"
+                                    @blur="maibotPath = normalizePath(maibotPath)" />
                                 <button @click="selectMaibotFolder" class="btn btn-outline">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
                                         viewBox="0 0 24 24" stroke="currentColor">
@@ -82,9 +83,10 @@
                                 <span class="label-text">适配器文件夹</span>
                                 <span class="label-text-alt text-info">NapCat或其他适配器所在文件夹</span>
                             </label>
-                            <div class="input-group">
-                                <input v-model="adapterPath" type="text" placeholder="例如：D:\Adapters\napcat"
-                                    class="input input-bordered flex-1 bg-base-100 text-base-content" />
+                            <div class="input-group"> <input v-model="adapterPath" type="text"
+                                    placeholder="例如：D:\Adapters\napcat"
+                                    class="input input-bordered flex-1 bg-base-100 text-base-content"
+                                    @blur="adapterPath = normalizePath(adapterPath)" />
                                 <button @click="selectAdapterFolder" class="btn btn-outline">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
                                         viewBox="0 0 24 24" stroke="currentColor">
@@ -424,11 +426,10 @@
                                 <!-- 安装路径 -->
                                 <div class="mb-4">
                                     <label class="label">
-                                        <span class="label-text">安装路径</span>
-                                    </label> <input v-model="installPath" type="text"
-                                        placeholder="例如：D:\MaiBot\MaiBot-1"
+                                        <span class="label-text">安装路径</span> </label> <input v-model="installPath"
+                                        type="text" placeholder="例如：D:\MaiBot\MaiBot-1"
                                         class="input input-bordered w-full bg-base-100 text-base-content"
-                                        :disabled="installing" />
+                                        :disabled="installing" @blur="installPath = normalizePath(installPath)" />
                                 </div>
 
                                 <!-- Napcat-ada 服务配置 -->
@@ -515,7 +516,7 @@
                             <div class="text-sm grid grid-cols-2 gap-x-4 gap-y-2">
                                 <div>版本: <span class="font-medium">{{ selectedVersion }}</span></div>
                                 <div>实例名: <span class="font-medium">{{ instanceName }}</span></div>
-                                <div>路径: <span class="font-medium">{{ installPath }}</span></div>
+                                <div>路径: <span class="font-medium">{{ normalizePath(installPath) }}</span></div>
                                 <div>MaiBot端口: <span class="font-medium">{{ maibotPort }}</span></div>
                                 <template v-for="service in availableServices" :key="`summary-${service.name}`">
                                     <div v-if="selectedServices[service.name]">
@@ -589,6 +590,7 @@ import { useInstanceStore } from '@/stores/instanceStore';
 import toastService from '@/services/toastService';
 import { addExistingInstance as addExistingInstanceAPI } from '@/api/instances';
 import { generateUniqueInstanceNameAsync, fetchExistingInstances, isInstanceNameExists } from '@/utils/instanceNameGenerator';
+import { validatePath, normalizePath, generateInstancePath } from '@/utils/pathSync';
 
 // 使用 stores
 const deployStore = useDeployStore();
@@ -802,15 +804,17 @@ const initializeDeploymentPath = () => {
     const savedDeploymentPath = localStorage.getItem('deploymentPath');
 
     if (savedDeploymentPath) {
-        // 使用保存的部署路径作为基础路径
+        // 使用保存的部署路径作为基础路径并规范化路径分隔符
         if (!installPath.value) {
-            installPath.value = `${savedDeploymentPath}\\MaiBot-1`;
+            const rawPath = `${savedDeploymentPath}\\MaiBot-1`;
+            installPath.value = normalizePath(rawPath);
         }
     } else {
-        // 使用默认路径
+        // 使用默认路径并规范化路径分隔符
         const defaultPath = getDefaultDeploymentPath();
         if (!installPath.value) {
-            installPath.value = `${defaultPath}\\MaiBot-1`;
+            const rawPath = `${defaultPath}\\MaiBot-1`;
+            installPath.value = normalizePath(rawPath);
         }
     }
 };
@@ -852,13 +856,27 @@ const startInstall = async () => {
         return;
     }
 
-    try {
+    // 验证安装路径
+    if (!installPath.value.trim()) {
+        toastService.error('请输入安装路径');
+        return;
+    }
+
+    // 验证路径格式
+    if (!validatePath(installPath.value)) {
+        toastService.error('安装路径格式无效，请检查路径设置');
+        return;
+    }
+
+    // 规范化安装路径
+    const normalizedInstallPath = normalizePath(installPath.value);
+    installPath.value = normalizedInstallPath; try {
         // 准备部署配置
         const installServices = [];
         if (selectedServices['napcat-ada']) {
             installServices.push({
                 name: 'napcat-ada',
-                path: `${installPath.value}\\napcat-ada`,
+                path: normalizePath(`${installPath.value}\\napcat-ada`),
                 port: parseInt(servicePorts['napcat-ada']),
                 run_cmd: 'python main.py'
             });
@@ -1235,6 +1253,34 @@ const addExistingInstance = async () => {
         return;
     }
 
+    // 验证MaiBot路径
+    if (!maibotPath.value.trim()) {
+        toastService.error('请输入MaiBot主程序路径');
+        return;
+    }
+
+    if (!validatePath(maibotPath.value)) {
+        toastService.error('MaiBot路径格式无效，请检查路径设置');
+        return;
+    }
+
+    // 验证适配器路径
+    if (!adapterPath.value.trim()) {
+        toastService.error('请输入适配器路径');
+        return;
+    }
+
+    if (!validatePath(adapterPath.value)) {
+        toastService.error('适配器路径格式无效，请检查路径设置');
+        return;
+    }
+
+    // 规范化路径
+    const normalizedMaibotPath = normalizePath(maibotPath.value);
+    const normalizedAdapterPath = normalizePath(adapterPath.value);
+    maibotPath.value = normalizedMaibotPath;
+    adapterPath.value = normalizedAdapterPath;
+
     addingInstance.value = true;
 
     try {
@@ -1311,8 +1357,9 @@ onBeforeUnmount(() => {
 const handleDeploymentPathChange = (event) => {
     const newPath = event.detail.path;
     if (newPath && selectedVersion.value) {
-        // 更新安装路径
-        installPath.value = `${newPath}\\MaiBot-${selectedVersion.value}-1`;
+        // 更新安装路径并规范化路径分隔符
+        const rawPath = `${newPath}\\MaiBot-${selectedVersion.value}-1`;
+        installPath.value = normalizePath(rawPath);
     }
 };
 
@@ -1324,9 +1371,10 @@ watch(selectedVersion, (newValue) => {
             instanceName.value = `maibot-${newValue}-1`;
         }
 
-        // 根据设置的部署路径预填充安装路径
+        // 根据设置的部署路径预填充安装路径并规范化路径分隔符
         const savedDeploymentPath = localStorage.getItem('deploymentPath') || getDefaultDeploymentPath();
-        installPath.value = `${savedDeploymentPath}\\MaiBot-${newValue}-1`;
+        const rawPath = `${savedDeploymentPath}\\MaiBot-${newValue}-1`;
+        installPath.value = normalizePath(rawPath);
     }
 });
 

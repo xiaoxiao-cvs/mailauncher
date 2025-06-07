@@ -297,60 +297,8 @@ const fetchInstances = async () => {
         console.log(`获取到${instances.value.length}个实例`);
     } catch (error) {
         console.error("获取实例失败:", error);
-        toastService.error('获取实例列表失败');
+        toastService.error('获取实例列表失败: ' + (error.message || '未知错误'));
     }
-};
-
-// 获取模拟实例数据
-const getMockInstances = () => {
-    // 使用硬编码的数据而不是动态生成，为每个实例添加ID和UI状态
-    return [
-        {
-            id: 'local_instance_1',
-            name: '本地实例_1',
-            status: 'stopped',
-            createdAt: '2023-05-13 19:56:18',
-            totalRunningTime: '48小时36分钟',
-            path: 'D:\\MaiBot\\本地实例_1',
-            isLoading: false
-        },
-        {
-            id: 'local_instance_2',
-            name: '本地实例_2',
-            status: 'running',
-            createdAt: '2023-05-12 10:30:00',
-            totalRunningTime: '147小时12分钟',
-            path: 'D:\\MaiBot\\本地实例_2',
-            isLoading: false
-        },
-        {
-            id: 'test_instance_3',
-            name: '测试实例_3',
-            status: 'starting',
-            createdAt: '2023-05-11 08:15:00',
-            totalRunningTime: '5小时23分钟',
-            path: 'D:\\MaiBot\\测试实例_3',
-            isLoading: false
-        },
-        {
-            id: 'remote_instance_4',
-            name: '远程实例_4',
-            status: 'stopping',
-            createdAt: '2023-05-10 14:20:00',
-            totalRunningTime: '72小时45分钟',
-            path: 'D:\\MaiBot\\远程实例_4',
-            isLoading: false
-        },
-        {
-            id: 'maintenance_instance_5',
-            name: '维护实例_5',
-            status: 'maintenance',
-            createdAt: '2023-05-09 09:45:00',
-            totalRunningTime: '12小时08分钟',
-            path: 'D:\\MaiBot\\维护实例_5',
-            isLoading: false
-        }
-    ];
 };
 
 // 刷新实例列表

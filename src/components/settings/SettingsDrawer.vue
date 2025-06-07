@@ -284,32 +284,6 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- 运行模式 -->
-                            <div class="setting-group">
-                                <h4 class="group-title">运行模式</h4>
-
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div class="mode-option" :class="{ 'mode-selected': !isMockDataActive }">
-                                        <div class="mode-content">
-                                            <div class="mode-icon bg-green-500/10">
-                                                <IconifyIcon icon="mdi:server-network" class="w-6 h-6 text-green-500" />
-                                            </div>
-                                            <h4 class="font-medium">完整模式</h4>
-                                            <p class="text-sm text-base-content/70">连接后端服务，启用所有功能</p>
-                                        </div>
-                                    </div>
-                                    <div class="mode-option" :class="{ 'mode-selected': isMockDataActive }">
-                                        <div class="mode-content">
-                                            <div class="mode-icon bg-amber-500/10">
-                                                <IconifyIcon icon="mdi:eye-outline" class="w-6 h-6 text-amber-500" />
-                                            </div>
-                                            <h4 class="font-medium">演示模式</h4>
-                                            <p class="text-sm text-base-content/70">使用模拟数据，仅用于预览</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div> <!-- 关于标签页 -->
                     <div v-else-if="activeTab === 'about'" class="settings-panel">
@@ -427,42 +401,7 @@
                             <h3 class="panel-title">高级设置</h3>
                             <p class="panel-description">配置高级功能和调试选项</p>
                         </div>
-
                         <div class="settings-section">
-                            <!-- 模拟数据控制 -->
-                            <div class="setting-group">
-                                <h4 class="group-title">数据源设置</h4>
-
-                                <div class="setting-item">
-                                    <div class="setting-info">
-                                        <label class="setting-label">强制禁用模拟数据</label>
-                                        <p class="setting-desc">启用后，即使后端连接失败也不会使用模拟数据。适合生产环境使用。</p>
-                                    </div>
-                                    <div class="setting-control">
-                                        <label class="toggle-switch">
-                                            <input type="checkbox" v-model="forceMockDisabled"
-                                                @change="toggleForceMockDisabled" class="toggle-input" />
-                                            <span class="toggle-slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <div class="setting-item">
-                                    <div class="setting-info">
-                                        <label class="setting-label">当前模拟数据状态</label>
-                                        <p class="setting-desc">显示当前应用是否正在使用模拟数据</p>
-                                    </div>
-                                    <div class="setting-control">
-                                        <div class="status-indicator">
-                                            <span
-                                                :class="['status-badge', isMockDataActive ? 'status-active' : 'status-inactive']">
-                                                {{ isMockDataActive ? '使用模拟数据' : '使用真实数据' }}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
                             <!-- 调试设置 -->
                             <div class="setting-group">
                                 <h4 class="group-title">调试设置</h4>
@@ -486,9 +425,9 @@
                                                     <IconifyIcon v-if="!isCheckingConnection" icon="mdi:refresh" />
                                                     {{ isCheckingConnection ? '检查中...' : '重新检查' }}
                                                 </button>
-                                                <button v-if="!isConnected && !forceMockDisabled"
-                                                    class="btn btn-primary btn-sm" @click="attemptReconnection"
-                                                    :class="{ 'loading': isReconnecting }" :disabled="isReconnecting">
+                                                <button v-if="!isConnected" class="btn btn-primary btn-sm"
+                                                    @click="attemptReconnection" :class="{ 'loading': isReconnecting }"
+                                                    :disabled="isReconnecting">
                                                     <IconifyIcon v-if="!isReconnecting" icon="mdi:connection" />
                                                     {{ isReconnecting ? '重连中...' : '尝试重连' }}
                                                 </button>
@@ -891,7 +830,6 @@ const fontSize = ref(parseInt(localStorage.getItem('fontSize') || '14'))
 const layoutDensity = ref(localStorage.getItem('layoutDensity') || 'comfortable')
 
 // 高级设置状态
-const forceMockDisabled = ref(localStorage.getItem('forceMockDisabled') === 'true')
 const isCheckingConnection = ref(false)
 const isReconnecting = ref(false)
 const isConnected = ref(false)
@@ -901,28 +839,20 @@ const lastConnectionCheck = ref(null)
 const backendConnectionStatus = computed(() => {
     if (isCheckingConnection.value || isReconnecting.value) return 'status-checking'
     if (isConnected.value) return 'status-connected'
-    if (forceMockDisabled.value) return 'status-error'
-    return 'status-mock'
+    return 'status-error'
 })
 
 const connectionStatusIcon = computed(() => {
     if (isCheckingConnection.value || isReconnecting.value) return 'mdi:loading'
     if (isConnected.value) return 'mdi:check-circle'
-    if (forceMockDisabled.value) return 'mdi:alert-circle'
-    return 'mdi:database'
+    return 'mdi:alert-circle'
 })
 
 const connectionStatusText = computed(() => {
     if (isCheckingConnection.value) return '检查中...'
     if (isReconnecting.value) return '重连中...'
     if (isConnected.value) return '已连接后端'
-    if (forceMockDisabled.value) return '连接失败'
-    return '使用模拟数据'
-})
-
-// 计算属性：检查当前是否使用模拟数据
-const isMockDataActive = computed(() => {
-    return localStorage.getItem('useMockData') === 'true'
+    return '连接失败'
 })
 
 // 关于页面数据
@@ -1274,11 +1204,9 @@ const testBackendConnection = async () => {
                 // 更新后端配置到全局
                 const backendConfig = (await import('../../config/backendConfig')).default
                 const url = new URL(backendUrl.value)
-                backendConfig.setBackendServer(url.hostname, parseInt(url.port) || 23456)
-
-                // 通知其他组件后端连接状态已改变
+                backendConfig.setBackendServer(url.hostname, parseInt(url.port) || 23456)                // 通知其他组件后端连接状态已改变
                 window.dispatchEvent(new CustomEvent('backend-connection-changed', {
-                    detail: { connected: true, useMockData: false }
+                    detail: { connected: true }
                 }))
             } else {
                 toastService.error('后端服务响应格式不正确')
@@ -1300,220 +1228,93 @@ const testBackendConnection = async () => {
     }
 }
 
-// 路径配置方法
-const resetDataPath = () => {
-    const defaultPath = getDefaultDataPath()
-    dataStoragePath.value = defaultPath
-    localStorage.setItem('dataStoragePath', defaultPath)
-
-    import('../../services/toastService').then(({ default: toastService }) => {
-        toastService.success(`数据存放路径已重置为默认: ${defaultPath}`)
-    })
-}
-
-const resetDeploymentPath = () => {
-    const defaultPath = getDefaultDeploymentPath()
-    deploymentPath.value = defaultPath
-    localStorage.setItem('deploymentPath', defaultPath)
-
-    import('../../services/toastService').then(({ default: toastService }) => {
-        toastService.success(`实例部署路径已重置为默认: ${defaultPath}`)
-    })
-}
-
-const openDataFolder = async () => {
-    if (!dataStoragePath.value) {
-        import('../../services/toastService').then(({ default: toastService }) => {
-            toastService.error('数据存放路径未设置')
-        })
-        return
-    }
-
+// 检查后端连接状态
+const checkBackendConnection = async () => {
+    isCheckingConnection.value = true
     try {
-        // 这里可以使用 Tauri 的 API 打开文件夹
-        const { shell } = await import('@tauri-apps/api')
-        await shell.open(dataStoragePath.value)
-    } catch (error) {
-        console.error('打开数据文件夹失败:', error)
-        import('../../services/toastService').then(({ default: toastService }) => {
-            toastService.error('打开文件夹失败')
+        const testUrl = `${backendUrl.value}/api/v1/system/health`
+        const response = await fetch(testUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            timeout: 5000
         })
-    }
-}
 
-const openDeploymentFolder = async () => {
-    if (!deploymentPath.value) {
-        import('../../services/toastService').then(({ default: toastService }) => {
-            toastService.error('实例部署路径未设置')
-        })
-        return
-    }
-
-    try {
-        // 这里可以使用 Tauri 的 API 打开文件夹
-        const { shell } = await import('@tauri-apps/api')
-        await shell.open(deploymentPath.value)
-    } catch (error) {
-        console.error('打开部署文件夹失败:', error)
-        import('../../services/toastService').then(({ default: toastService }) => {
-            toastService.error('打开文件夹失败')
-        })
-    }
-}
-
-// 主题切换函数
-const changeThemeMode = () => {
-    console.log('切换主题模式:', themeMode.value)
-
-    // 保存主题模式设置
-    localStorage.setItem('themeMode', themeMode.value)
-
-    // 根据选择的模式应用相应的主题
-    let targetTheme = 'light'
-
-    if (themeMode.value === 'system') {
-        // 跟随系统设置
-        targetTheme = systemDarkMode.value ? 'dark' : 'light'
-    } else {
-        // 手动选择的模式
-        targetTheme = themeMode.value
-    }
-
-    // 使用主题服务设置主题
-    setTheme(targetTheme)
-
-    // 通知其他组件主题模式已更改
-    window.dispatchEvent(new CustomEvent('theme-mode-changed', {
-        detail: {
-            mode: themeMode.value,
-            theme: targetTheme,
-            isDark: targetTheme === 'dark'
+        if (response.ok) {
+            const data = await response.json()
+            isConnected.value = data && data.status === 'success'
+        } else {
+            isConnected.value = false
         }
-    }))
-
-    // 如果有 emitter，也通过它发送事件
-    if (emitter) {
-        emitter.emit('theme-mode-changed', {
-            mode: themeMode.value,
-            theme: targetTheme,
-            isDark: targetTheme === 'dark'
-        })
+        lastConnectionCheck.value = new Date()
+    } catch (error) {
+        console.error('检查后端连接失败:', error)
+        isConnected.value = false
+        lastConnectionCheck.value = new Date()
+    } finally {
+        isCheckingConnection.value = false
     }
 }
 
-// 外观设置函数
-const toggleAnimations = () => {
-    localStorage.setItem('enableAnimations', enableAnimations.value.toString())
-
-    // 立即应用动画设置到DOM
-    if (enableAnimations.value) {
-        document.documentElement.classList.remove('no-animations')
-    } else {
-        document.documentElement.classList.add('no-animations')
-    }
-
-    console.log('动画效果设置已更新:', enableAnimations.value)
-}
-
-const changeFontSize = () => {
-    localStorage.setItem('fontSize', fontSize.value.toString())
-    document.documentElement.style.setProperty('--font-size', fontSize.value + 'px')
-    console.log('字体大小已更新:', fontSize.value)
-}
-
-const setLayoutDensity = (density) => {
-    layoutDensity.value = density
-    localStorage.setItem('layoutDensity', density)
-    document.documentElement.classList.toggle('layout-compact', density === 'compact')
-    console.log('布局密度已更新:', density)
-}
-
-// 重置所有设置
-const resetSettings = async () => {
+// 尝试重新连接后端
+const attemptReconnection = async () => {
+    isReconnecting.value = true
     try {
         const { default: toastService } = await import('../../services/toastService')
 
-        // 重置主题设置
-        themeMode.value = 'system'
-        localStorage.setItem('themeMode', 'system')
-        changeThemeMode()
+        // 尝试重新连接
+        await checkBackendConnection()
 
-        // 重置外观设置
-        enableAnimations.value = true
-        fontSize.value = 14
-        layoutDensity.value = 'comfortable'
-        localStorage.setItem('enableAnimations', 'true')
-        localStorage.setItem('fontSize', '14')
-        localStorage.setItem('layoutDensity', 'comfortable')
-
-        // 重置路径设置
-        resetDataPath()
-        resetDeploymentPath()
-
-        // 重置 WebUI 设置
-        webuiPort.value = 11111
-        localStorage.setItem('webuiPort', '11111')
-
-        // 重置后端设置
-        resetBackendUrl()
-
-        // 重置通知设置
-        deploymentNotifications.value = true
-        instanceNotifications.value = true
-        localStorage.setItem('deploymentNotifications', 'true')
-        localStorage.setItem('instanceNotifications', 'true')
-
-        // 重置启动设置
-        showWelcomeOnStartup.value = true
-        localStorage.setItem('showWelcomeOnStartup', 'true')
-
-        toastService.success('所有设置已重置为默认值')
+        if (isConnected.value) {
+            toastService.success('重新连接成功')
+            // 通知其他组件后端连接状态已改变
+            window.dispatchEvent(new CustomEvent('backend-connection-changed', {
+                detail: { connected: true }
+            }))
+        } else {
+            toastService.error('重新连接失败，请检查后端服务状态')
+        }
     } catch (error) {
-        console.error('重置设置失败:', error)
+        console.error('重新连接失败:', error)
+        const { default: toastService } = await import('../../services/toastService')
+        toastService.error('重新连接失败: ' + error.message)
+    } finally {
+        isReconnecting.value = false
     }
 }
 
-// 监听系统颜色偏好变化
-const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-const handleSystemThemeChange = (e) => {
-    systemDarkMode.value = e.matches
-    console.log('系统主题偏好变化:', e.matches ? 'dark' : 'light')
+// 清除本地数据
+const clearLocalData = async () => {
+    try {
+        const { default: toastService } = await import('../../services/toastService')
 
-    // 如果当前是跟随系统模式，则更新主题
-    if (themeMode.value === 'system') {
-        changeThemeMode()
+        // 清除特定的本地存储数据，保留设置相关数据
+        const keysToRemove = [
+            'instancesCache',
+            'deploymentsCache',
+            'logsCache',
+            'lastSyncTime'
+        ]
+
+        keysToRemove.forEach(key => {
+            localStorage.removeItem(key)
+        })
+
+        // 清除会话存储
+        sessionStorage.clear()
+
+        toastService.success('本地缓存数据已清除')
+
+        // 通知其他组件数据已清除
+        window.dispatchEvent(new CustomEvent('local-data-cleared'))
+    } catch (error) {
+        console.error('清除本地数据失败:', error)
+        const { default: toastService } = await import('../../services/toastService')
+        toastService.error('清除本地数据失败: ' + error.message)
     }
 }
 
-// 组件挂载时初始化
-onMounted(async () => {
-    // 初始化路径设置
-    if (!dataStoragePath.value) {
-        dataStoragePath.value = localStorage.getItem('dataStoragePath') || getDefaultDataPath()
-    }
-    if (!deploymentPath.value) {
-        deploymentPath.value = localStorage.getItem('deploymentPath') || getDefaultDeploymentPath()
-    }
-
-    // 初始化 WebUI 状态
-    await initializeWebuiStatus()
-
-    // 初始化主题设置
-    const savedThemeMode = localStorage.getItem('themeMode')
-    if (savedThemeMode) {
-        themeMode.value = savedThemeMode
-    }
-
-    // 初始化系统颜色偏好监听
-    mediaQuery.addEventListener('change', handleSystemThemeChange)
-
-    // 应用初始主题设置
-    changeThemeMode()
-})
-
-// 组件卸载时清理
-onBeforeUnmount(() => {
-    // 移除系统颜色偏好监听
-    mediaQuery.removeEventListener('change', handleSystemThemeChange)
-})
+// ...existing code...
 </script>
