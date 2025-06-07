@@ -498,58 +498,80 @@ onMounted(() => {
     console.log('App收到打开Bot配置事件:', instance);
     // 通知实例面板直接打开Bot配置 - 添加fromDetailView标记
     emitter.emit('instance-panel-open-bot-config', instance);
-  });
-  // 主题变更监听处理
+  });  // 主题变更监听处理
   const handleThemeChange = (event) => {
     console.log('App.vue 接收到主题变更事件:', event.type, new Date().toISOString());
 
     // 获取新主题
     const newTheme = event.detail?.theme || (event.detail?.isDark ? 'dark' : 'light');
-
-    // 仅当主题发生实际变化时才执行操作
     const currentAppTheme = document.documentElement.getAttribute('data-theme');
-    if (currentAppTheme === newTheme) {
-      console.log('主题未变化, 跳过操作:', newTheme);
-      return;
-    }
 
     console.log('应用新主题:', newTheme, '当前主题:', currentAppTheme);
 
-    // 设置主题到所有关键元素
+    // 强制设置主题到所有关键元素（移除提前返回的检查）
     document.documentElement.setAttribute('data-theme', newTheme);
     document.body.setAttribute('data-theme', newTheme);
 
-    // 应用到所有主要容器元素
-    document.querySelectorAll('.app-container, .content-area, .home-view, .instances-panel').forEach(el => {
-      if (el) {
-        el.setAttribute('data-theme', newTheme);
-        // 添加适当的主题类
-        if (newTheme === 'dark') {
-          el.classList.add('dark-mode', 'theme-dark');
-          el.classList.remove('theme-light');
-        } else {
-          el.classList.remove('dark-mode', 'theme-dark');
-          el.classList.add('theme-light');
-        }
-      }
-    });
+    // 应用到所有主要容器元素，包括主页面内容
+    const selectors = [
+      '.app-container',
+      '.content-area',
+      '.home-view',
+      '.instances-panel',
+      '.main-content',
+      '.sidebar',
+      '.app-main',
+      '.view-container'
+    ];
 
-    // 强制重新渲染应用
+    selectors.forEach(selector => {
+      document.querySelectorAll(selector).forEach(el => {
+        if (el) {
+          el.setAttribute('data-theme', newTheme);
+          // 添加适当的主题类
+          if (newTheme === 'dark') {
+            el.classList.add('dark-mode', 'theme-dark');
+            el.classList.remove('theme-light');
+          } else {
+            el.classList.remove('dark-mode', 'theme-dark');
+            el.classList.add('theme-light');
+          }
+        }
+      });
+    });    // 强制重新渲染应用
     nextTick(() => {
       // 确保设置面板保持不透明
       const settingsContainer = document.querySelector('.settings-drawer-container');
       if (settingsContainer) {
-        settingsContainer.style.backgroundColor = 'var(--b1)';
+        settingsContainer.style.backgroundColor = 'hsl(var(--b1))';
         settingsContainer.style.opacity = '1';
       }
 
-      // 确保其他容器也应用正确的颜色
-      document.querySelectorAll('.app-container, .content-area').forEach(el => {
-        el.style.transition = 'background-color 0.3s ease';
+      // 强制更新所有可能的主题相关元素
+      const allElements = document.querySelectorAll('*');
+      allElements.forEach(el => {
+        // 检查元素是否有主题相关的类
+        if (el.classList.contains('app-container') ||
+          el.classList.contains('content-area') ||
+          el.classList.contains('home-view') ||
+          el.classList.contains('main-content') ||
+          el.tagName === 'MAIN' ||
+          el.classList.contains('view-container')) {
+          el.setAttribute('data-theme', newTheme);
+        }
       });
+
+      // 确保CSS变量正确更新
+      document.documentElement.style.colorScheme = newTheme === 'dark' ? 'dark' : 'light';
 
       // 强制重新计算样式
       void document.documentElement.offsetHeight;
+
+      // 触发重绘
+      document.body.style.transform = 'translateZ(0)';
+      setTimeout(() => {
+        document.body.style.transform = '';
+      }, 0);
     });
   };
 

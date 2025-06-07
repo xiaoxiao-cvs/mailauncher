@@ -746,7 +746,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, inject, nextTick } from 'vue'
-import { useDarkMode, useTheme } from '../../services/theme'
+import { useDarkMode, useTheme } from '../../services/theme-simplified'
 import settingsService from '../../services/settingsService'
 import IconifyIcon from '../common/IconifyIcon.vue'
 import './SettingsDrawer.css'
@@ -1316,5 +1316,274 @@ const clearLocalData = async () => {
     }
 }
 
-// ...existing code...
+// 主题模式切换方法
+const changeThemeMode = () => {
+    console.log('主题模式已更新:', themeMode.value)
+
+    // 根据选择的模式应用主题
+    let targetTheme
+    if (themeMode.value === 'system') {
+        // 跟随系统
+        targetTheme = systemDarkMode.value ? 'dark' : 'light'
+        console.log('系统主题检测:', systemDarkMode.value ? '暗色' : '亮色', '应用主题:', targetTheme)
+    } else {
+        // 直接应用选择的主题
+        targetTheme = themeMode.value
+        console.log('手动选择主题:', targetTheme)
+    }
+
+    // 设置主题
+    setTheme(targetTheme)
+
+    // 通知其他组件主题模式已更改
+    window.dispatchEvent(new CustomEvent('theme-mode-changed', {
+        detail: {
+            mode: themeMode.value,
+            theme: targetTheme,
+            isSystem: themeMode.value === 'system'
+        }
+    }))
+}
+
+// 切换动画效果
+const toggleAnimations = () => {
+    localStorage.setItem('enableAnimations', enableAnimations.value.toString())
+    console.log('动画效果设置已更新:', enableAnimations.value)
+
+    // 应用动画设置到文档
+    if (enableAnimations.value) {
+        document.documentElement.classList.add('animations-enabled')
+        document.documentElement.classList.remove('animations-disabled')
+    } else {
+        document.documentElement.classList.add('animations-disabled')
+        document.documentElement.classList.remove('animations-enabled')
+    }
+
+    // 通知其他组件动画设置已更改
+    window.dispatchEvent(new CustomEvent('animations-setting-changed', {
+        detail: { enabled: enableAnimations.value }
+    }))
+}
+
+// 改变字体大小
+const changeFontSize = () => {
+    localStorage.setItem('fontSize', fontSize.value.toString())
+    console.log('字体大小已更新:', fontSize.value)
+
+    // 应用字体大小到文档
+    document.documentElement.style.setProperty('--custom-font-size', `${fontSize.value}px`)
+
+    // 通知其他组件字体大小已更改
+    window.dispatchEvent(new CustomEvent('font-size-changed', {
+        detail: { size: fontSize.value }
+    }))
+}
+
+// 设置布局密度
+const setLayoutDensity = (density) => {
+    layoutDensity.value = density
+    localStorage.setItem('layoutDensity', density)
+    console.log('布局密度已更新:', density)
+
+    // 应用布局密度到文档
+    document.documentElement.className = document.documentElement.className
+        .replace(/layout-\w+/g, '')
+    document.documentElement.classList.add(`layout-${density}`)
+
+    // 通知其他组件布局密度已更改
+    window.dispatchEvent(new CustomEvent('layout-density-changed', {
+        detail: { density }
+    }))
+}
+
+// 重置设置
+const resetSettings = async () => {
+    try {
+        // 重置主题设置
+        themeMode.value = 'system'
+        enableAnimations.value = true
+        fontSize.value = 14
+        layoutDensity.value = 'comfortable'
+
+        // 重置其他设置
+        webuiEnabled.value = true
+        webuiPort.value = 11111
+        backendUrl.value = 'http://localhost:23456'
+        deploymentNotifications.value = true
+        instanceNotifications.value = true
+        showWelcomeOnStartup.value = true
+
+        // 重置路径设置
+        dataStoragePath.value = getDefaultDataPath()
+        deploymentPath.value = getDefaultDeploymentPath()
+
+        // 清除本地存储
+        localStorage.clear()
+
+        // 重新保存默认设置
+        localStorage.setItem('themeMode', 'system')
+        localStorage.setItem('enableAnimations', 'true')
+        localStorage.setItem('fontSize', '14')
+        localStorage.setItem('layoutDensity', 'comfortable')
+        localStorage.setItem('webuiEnabled', 'true')
+        localStorage.setItem('webuiPort', '11111')
+        localStorage.setItem('backendUrl', 'http://localhost:23456')
+        localStorage.setItem('deploymentNotifications', 'true')
+        localStorage.setItem('instanceNotifications', 'true')
+        localStorage.setItem('showWelcomeOnStartup', 'true')
+        localStorage.setItem('dataStoragePath', dataStoragePath.value)
+        localStorage.setItem('deploymentPath', deploymentPath.value)
+
+        // 应用重置后的设置
+        changeThemeMode()
+        toggleAnimations()
+        changeFontSize()
+        setLayoutDensity('comfortable')
+
+        const { default: toastService } = await import('../../services/toastService')
+        toastService.success('设置已重置为默认值')
+
+        // 通知其他组件设置已重置
+        window.dispatchEvent(new CustomEvent('settings-reset'))
+    } catch (error) {
+        console.error('重置设置失败:', error)
+        const { default: toastService } = await import('../../services/toastService')
+        toastService.error('重置设置失败: ' + error.message)
+    }
+}
+
+// 打开数据文件夹
+const openDataFolder = async () => {
+    try {
+        if (window.__TAURI_INTERNALS__) {
+            const { invoke } = await import('@tauri-apps/api/core')
+            await invoke('open_folder', { path: dataStoragePath.value })
+        } else {
+            // 开发环境下的处理
+            console.log('在开发环境中，无法打开文件夹:', dataStoragePath.value)
+            const { default: toastService } = await import('../../services/toastService')
+            toastService.info('开发环境下无法打开文件夹')
+        }
+    } catch (error) {
+        console.error('打开数据文件夹失败:', error)
+        const { default: toastService } = await import('../../services/toastService')
+        toastService.error('打开文件夹失败: ' + error.message)
+    }
+}
+
+// 打开部署文件夹
+const openDeploymentFolder = async () => {
+    try {
+        if (window.__TAURI_INTERNALS__) {
+            const { invoke } = await import('@tauri-apps/api/core')
+            await invoke('open_folder', { path: deploymentPath.value })
+        } else {
+            // 开发环境下的处理
+            console.log('在开发环境中，无法打开文件夹:', deploymentPath.value)
+            const { default: toastService } = await import('../../services/toastService')
+            toastService.info('开发环境下无法打开文件夹')
+        }
+    } catch (error) {
+        console.error('打开部署文件夹失败:', error)
+        const { default: toastService } = await import('../../services/toastService')
+        toastService.error('打开文件夹失败: ' + error.message)
+    }
+}
+
+// 系统主题检测和监听
+const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+
+const handleSystemThemeChange = (e) => {
+    const wasSystemDark = systemDarkMode.value
+    systemDarkMode.value = e.matches
+
+    console.log('系统主题变化:', wasSystemDark ? '暗色' : '亮色', '->', e.matches ? '暗色' : '亮色')
+
+    // 只有在 system 模式下才响应系统主题变化
+    if (themeMode.value === 'system') {
+        console.log('当前为系统模式，响应系统主题变化')
+        changeThemeMode()
+    }
+}
+
+// 初始化设置
+const initializeSettings = () => {
+    // 首先初始化系统暗色模式检测
+    systemDarkMode.value = mediaQuery.matches
+    console.log('初始系统主题状态:', systemDarkMode.value ? '暗色' : '亮色')
+
+    // 初始化所有设置从 localStorage
+    themeMode.value = localStorage.getItem('themeMode') || 'system'
+    enableAnimations.value = localStorage.getItem('enableAnimations') !== 'false'
+    fontSize.value = parseInt(localStorage.getItem('fontSize') || '14')
+    layoutDensity.value = localStorage.getItem('layoutDensity') || 'comfortable'
+
+    webuiEnabled.value = localStorage.getItem('webuiEnabled') !== 'false'
+    webuiPort.value = parseInt(localStorage.getItem('webuiPort')) || 11111
+    backendUrl.value = localStorage.getItem('backendUrl') || 'http://localhost:23456'
+
+    deploymentNotifications.value = localStorage.getItem('deploymentNotifications') !== 'false'
+    instanceNotifications.value = localStorage.getItem('instanceNotifications') !== 'false'
+    showWelcomeOnStartup.value = localStorage.getItem('showWelcomeOnStartup') !== 'false'
+
+    dataStoragePath.value = localStorage.getItem('dataStoragePath') || getDefaultDataPath()
+    deploymentPath.value = localStorage.getItem('deploymentPath') || getDefaultDeploymentPath()
+
+    console.log('初始化主题模式:', themeMode.value)
+
+    // 应用初始化设置
+    changeThemeMode()
+    changeFontSize()
+    setLayoutDensity(layoutDensity.value)
+
+    if (enableAnimations.value) {
+        document.documentElement.classList.add('animations-enabled')
+    } else {
+        document.documentElement.classList.remove('animations-enabled')
+    }
+
+    console.log('设置已初始化')
+}
+
+// 组件挂载时的初始化
+onMounted(() => {
+    console.log('SettingsDrawer 组件开始挂载')
+
+    // 监听系统主题变化
+    mediaQuery.addEventListener('change', handleSystemThemeChange)
+
+    // 初始化设置（包括系统主题检测）
+    initializeSettings()
+
+    // 初始化 WebUI 状态
+    initializeWebuiStatus()
+
+    console.log('SettingsDrawer 组件已挂载')
+})
+
+// 组件卸载时清理
+onBeforeUnmount(() => {
+    // 移除系统主题监听器
+    mediaQuery.removeEventListener('change', handleSystemThemeChange)
+
+    console.log('SettingsDrawer 组件已卸载')
+})
+
+// 监听主题模式变化，保存到 localStorage
+watch(themeMode, (newMode, oldMode) => {
+    if (oldMode !== undefined) { // 避免初始化时触发
+        console.log('主题模式变化 (watch):', oldMode, '->', newMode)
+        localStorage.setItem('themeMode', newMode)
+
+        // 注意：这里不调用 changeThemeMode，因为模板中的 @change 事件已经会调用
+        // changeThemeMode() 会在用户点击时通过 @change 事件触发
+    }
+}, { immediate: false })
+
+// 监听系统暗色模式变化，但不直接触发主题切换（由 handleSystemThemeChange 处理）
+watch(systemDarkMode, (newValue, oldValue) => {
+    if (oldValue !== undefined) { // 避免初始化时触发
+        console.log('系统暗色模式变化:', oldValue, '->', newValue)
+    }
+}, { immediate: false })
 </script>

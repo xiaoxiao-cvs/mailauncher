@@ -1,5 +1,8 @@
 import { ref, watch } from "vue";
 
+// 全局主题状态 - 确保所有组件使用同一个响应式状态
+const globalThemeState = ref(localStorage.getItem("theme") || "light");
+
 // 使用DaisyUI兼容的深色模式
 export const useDarkMode = (emitter = null) => {
   const darkMode = ref(
@@ -37,6 +40,9 @@ export function setTheme(themeName) {
 
   console.log("设置主题:", themeName);
 
+  // 更新全局状态
+  globalThemeState.value = themeName;
+
   // 设置DaisyUI主题属性
   document.documentElement.setAttribute("data-theme", themeName);
   document.body.setAttribute("data-theme", themeName);
@@ -71,6 +77,9 @@ export function initTheme() {
         ? "dark"
         : "light");
 
+    // 更新全局状态
+    globalThemeState.value = currentTheme;
+
     // 应用主题
     setTheme(currentTheme);
 
@@ -78,13 +87,15 @@ export function initTheme() {
   } catch (err) {
     console.error("初始化主题时出错:", err);
     // 使用默认主题
+    globalThemeState.value = "light";
     setTheme("light");
   }
 }
 
 // 使用主题配置
 export const useTheme = () => {
-  const currentTheme = ref(localStorage.getItem("theme") || "light");
+  // 返回全局主题状态，确保所有组件使用同一个响应式状态
+  const currentTheme = globalThemeState;
 
   // DaisyUI的主题列表 - 只保留明暗色主题
   const availableThemes = ref([
@@ -99,13 +110,13 @@ export const useTheme = () => {
     // 检查当前主题，如果没有变化则不重复操作
     const currentDomTheme = document.documentElement.getAttribute("data-theme");
     if (currentDomTheme === themeName) {
+      console.log("主题未变化，跳过设置:", themeName);
       return;
     }
 
     console.log("主题变更:", currentTheme.value, "->", themeName);
-    currentTheme.value = themeName;
 
-    // 应用主题
+    // 直接调用全局setTheme函数
     setTheme(themeName);
   };
 
