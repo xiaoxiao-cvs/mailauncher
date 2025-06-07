@@ -36,7 +36,7 @@ import PluginsView from './views/PluginsView.vue'
 import ChatRoom from './components/chat/ChatRoom.vue' // 导入聊天室组件
 import IconifyIcon from './components/common/IconifyIcon.vue' // 导入图标组件
 import settingsService from './services/settingsService'
-import { initTheme, applyThemeColor, useDarkMode } from './services/theme'
+import { initTheme, setTheme, useDarkMode, useTheme } from './services/theme-simplified'
 import toastService from './services/toastService';
 import { exposeToastForDebugging } from './utils/debugUtils';
 import apiService from './services/apiService';
@@ -112,11 +112,8 @@ const checkWelcomeModal = () => {
   }
 };
 
-// 当前主题
-const currentTheme = computed(() => {
-  // 从localStorage获取保存的主题，如果没有则返回'light'
-  return document.documentElement.getAttribute('data-theme') || localStorage.getItem('theme') || 'light';
-});
+// 当前主题 - 使用简化的主题服务
+const { currentTheme } = useTheme();
 
 // 创建更完整的事件总线
 const emitter = {
@@ -273,7 +270,7 @@ const updateDarkMode = (isDark) => {
     // 更新与主题相关的状态
     if (['light', 'cupcake', 'bumblebee', 'corporate', 'emerald'].includes(currentTheme.value)) {
       // 如果当前主题是明亮系主题，自动切换到dark主题
-      changeTheme('dark');
+      setTheme('dark');
     }
   } else {
     document.documentElement.classList.remove('dark-mode');
@@ -281,7 +278,7 @@ const updateDarkMode = (isDark) => {
     // 更新与主题相关的状态
     if (currentTheme.value === 'dark') {
       // 如果当前主题是暗色系主题，自动切换到light主题
-      changeTheme('light');
+      setTheme('light');
     }
   }
 };
@@ -567,78 +564,15 @@ onMounted(() => {
   });
 });
 
-// 确保整个应用统一应用主题
+// 简化的主题应用函数 - 现在由theme-simplified服务处理
 const applyThemeToAllComponents = () => {
-  // 获取当前主题
-  const themeName = document.documentElement.getAttribute('data-theme') || localStorage.getItem('theme') || 'light';
-  const isDark = themeName === 'dark';
-
-  console.log(`统一应用主题: ${themeName}，深色模式: ${isDark}`);
-
-  // 应用到文档根元素
-  document.documentElement.setAttribute('data-theme', themeName);
-  document.body.setAttribute('data-theme', themeName);
-
-  // 添加适当的主题类
-  if (isDark) {
-    document.documentElement.classList.add('dark-mode', 'theme-dark');
-    document.documentElement.classList.remove('theme-light');
-    document.body.classList.add('dark-mode', 'theme-dark');
-    document.body.classList.remove('theme-light');
-  } else {
-    document.documentElement.classList.remove('dark-mode', 'theme-dark');
-    document.documentElement.classList.add('theme-light');
-    document.body.classList.remove('dark-mode', 'theme-dark');
-    document.body.classList.add('theme-light');
-  }
-
-  // 应用到所有主要容器元素
-  const selectors = [
-    '.app-container', '.content-area',
-    '.page',
-    '.instances-tab',
-    '.downloads-tab',
-    '.settings-drawer-container',
-    '.home-view',
-    '.plugins-view'
-  ];
-
-  selectors.forEach(selector => {
-    document.querySelectorAll(selector).forEach(el => {
-      if (el) {
-        el.setAttribute('data-theme', themeName);
-
-        // 添加适当的主题类
-        if (isDark) {
-          el.classList.add('dark-mode', 'theme-dark');
-          el.classList.remove('theme-light');
-        } else {
-          el.classList.remove('dark-mode', 'theme-dark');
-          el.classList.add('theme-light');
-        }
-      }
-    });
-  });
-
-  // 强制重新计算样式
-  void document.documentElement.offsetHeight;
-
-  // 触发主题变更事件，确保所有组件都能接收
+  // 新的主题服务会自动处理主题应用
+  // 这里只需要触发主题变更事件确保所有组件同步
+  const themeName = document.documentElement.getAttribute('data-theme') || 'light';
   window.dispatchEvent(
     new CustomEvent("theme-changed", { detail: { theme: themeName } })
   );
 };
-
-// 在应用初始化和主题变更时应用
-onMounted(() => {
-  // ...existing code...
-
-  // 初始化应用后立即应用统一主题
-  setTimeout(() => {
-    applyThemeToAllComponents();
-  }, 100);
-});
-
 
 // 颜色亮度调整工具函数
 const adjustColorBrightness = (hex, percent) => {
@@ -775,12 +709,8 @@ const quickReconnect = async () => {
     console.log('开始快速重连...');
     toastService.info('正在尝试重新连接后端服务...');
 
-    const connected = await apiService.testBackendConnection();
-
-    if (connected) {
+    const connected = await apiService.testBackendConnection(); if (connected) {
       console.log("快速重连成功!");
-      localStorage.setItem("useMockData", "false");
-      useMockData.value = false;
       toastService.success("重连成功！已连接到后端服务");
     } else {
       toastService.error('重连失败，请检查后端服务是否正常运行');
@@ -793,40 +723,9 @@ const quickReconnect = async () => {
   }
 };
 
-// 添加安全的主题应用函数 - 移除事件发送以防止循环
-const safeApplyTheme = (themeName) => {
-  try {
-    localStorage.setItem('theme', themeName);
-    document.documentElement.setAttribute('data-theme', themeName);
-
-    // 移除事件发送，避免无限循环
-    // emitter.emit('theme-changed', themeName);
-
-    // 确保颜色变量正确更新
-    const savedColor = localStorage.getItem('themeColor') || '#3b82f6';
-    if (savedColor.includes('%') || savedColor.split(' ').length === 3) {
-      // 如果是无效的HSL格式,使用默认颜色
-      console.log('检测到无效HSL格式,使用默认颜色');
-      localStorage.setItem('themeColor', '#3b82f6');
-      document.documentElement.style.setProperty('--primary-color', '#3b82f6');
-    } else {
-      document.documentElement.style.setProperty('--primary-color', savedColor);
-    }
-  } catch (err) {
-    console.error('应用主题失败:', err);
-    // 使用安全默认值
-    document.documentElement.setAttribute('data-theme', 'light');
-  }
-};
-
-// 替换原来的changeTheme函数
+// 简化的主题切换函数
 const changeTheme = (themeName) => {
-  safeApplyTheme(themeName);
-
-  // 使用统一主题应用函数
-  setTimeout(() => {
-    applyThemeToAllComponents();
-  }, 50);
+  setTheme(themeName);
 };
 </script>
 

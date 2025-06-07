@@ -1,205 +1,65 @@
-/* 背景遮罩 - 使用毛玻璃效果，确保不会让页面变黑 */
+/* 设置抽屉样式 - 简化版本 */
+
+/* 背景遮罩 */
 .settings-drawer-backdrop {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.25); /* 更低的透明度，避免过暗 */
+  background: rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  /* 抽屉动画已删除 */
 }
 
-/* 确保深色模式下背景遮罩效果也不会过暗 */
+/* 主题相关的背景遮罩调整 */
 :root[data-theme="dark"] .settings-drawer-backdrop {
-  background: rgba(0, 0, 0, 0.35); /* 稍微深一点但仍然适中 */
+  background: rgba(0, 0, 0, 0.35);
 }
 
-/* 亮色主题下的背景遮罩 - 使用非常轻的覆盖 */
 :root[data-theme="light"] .settings-drawer-backdrop,
 :root[data-theme="cupcake"] .settings-drawer-backdrop,
 :root[data-theme="bumblebee"] .settings-drawer-backdrop {
-  background: rgba(255, 255, 255, 0.1); /* 几乎透明的白色遮罩 */
+  background: rgba(255, 255, 255, 0.1);
 }
 
-/* 防止设置面板打开时页面变暗 */
-body.settings-open {
-  /* 确保页面背景和主题不被改变 */
-  /* 只是标记设置面板已打开的状态 */
-}
-
-/* 强制确保设置面板打开时页面主体不变色 */
-body.settings-open * {
-  /* 不要覆盖现有的颜色属性 */
-}
-
-/* 防止任何可能导致页面变暗的样式 */
-body.settings-open:not(.settings-drawer-container) {
-  background-color: inherit !important;
-  color: inherit !important;
-}
-
-/* 背景淡入动画已删除 */
-
-/* 主容器 - 根据主题动态调整背景色 */
+/* 主容器 */
 .settings-drawer-container {
   width: 90%;
   max-width: 1000px;
   height: 85%;
   max-height: 700px;
-  background-color: hsl(var(--b1)) !important;
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 8px 32px rgba(0, 0, 0, 0.2),
-    0 0 0 1px rgba(0, 0, 0, 0.1);
+  background-color: hsl(var(--b1));
+  border-radius: 12px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid hsl(var(--b3) / 0.3);
-  /* 容器动画已删除 */
-  /* 确保在任何主题模式下都不透明 */
-  opacity: 1 !important;
-  /* 移除所有可能的透明度和模糊效果 */
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  position: relative;
 }
 
-/* 亮色主题下的设置容器 */
-:root[data-theme="light"] .settings-drawer-container,
-:root[data-theme="cupcake"] .settings-drawer-container,
-:root[data-theme="bumblebee"] .settings-drawer-container {
-  background-color: hsl(var(--b1)) !important;
-  border-color: hsl(var(--b3) / 0.3);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 32px rgba(0, 0, 0, 0.1),
-    0 0 0 1px rgba(0, 0, 0, 0.05);
-}
-
-/* 深色模式下的样式调整 - 确保文字颜色正确 */
-:root[data-theme="dark"] .settings-drawer-container,
-.dark-mode .settings-drawer-container {
-  background-color: hsl(var(--b1)) !important;
-  border-color: hsl(var(--b3) / 0.5);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 8px 32px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
-  color: hsl(var(--bc)) !important;
-}
-
-/* 强制确保图标可见性 */
-.btn .iconify {
-  opacity: 1 !important;
-  visibility: visible !important;
-}
-
-/* 深色模式下的文字颜色强化修复 - 增加优先级 */
-:root[data-theme="dark"] .settings-drawer-container,
-:root[data-theme="dark"] .settings-drawer-container *,
-.dark-mode .settings-drawer-container,
-.dark-mode .settings-drawer-container * {
-  color: hsl(var(--bc)) !important;
-}
-
-/* 确保所有文字元素在深色模式下都可见 - 增加选择器优先级 */
-html[data-theme="dark"] .settings-drawer-container .setting-label,
-html[data-theme="dark"] .settings-drawer-container .setting-desc,
-html[data-theme="dark"] .settings-drawer-container .panel-description,
-html[data-theme="dark"] .settings-drawer-container .version-info,
-html[data-theme="dark"] .settings-drawer-container .nav-label,
-html[data-theme="dark"] .settings-drawer-container .option-label,
-html[data-theme="dark"] .settings-drawer-container .panel-title,
-html[data-theme="dark"] .settings-drawer-container .settings-title,
-html[data-theme="dark"] .settings-drawer-container .group-title,
-.dark-mode .settings-drawer-container .setting-label,
-.dark-mode .settings-drawer-container .setting-desc,
-.dark-mode .settings-drawer-container .panel-description,
-.dark-mode .settings-drawer-container .version-info,
-.dark-mode .settings-drawer-container .nav-label,
-.dark-mode .settings-drawer-container .option-label,
-.dark-mode .settings-drawer-container .panel-title,
-.dark-mode .settings-drawer-container .settings-title,
-.dark-mode .settings-drawer-container .group-title {
-  color: hsl(var(--bc)) !important;
-}
-
-/* 确保按钮和输入框文字正确显示 - 增加选择器优先级 */
-html[data-theme="dark"] .settings-drawer-container input,
-html[data-theme="dark"] .settings-drawer-container select,
-html[data-theme="dark"] .settings-drawer-container textarea,
-html[data-theme="dark"] .settings-drawer-container button,
-html[data-theme="dark"] .settings-drawer-container .btn,
-body.dark-mode .settings-drawer-container input,
-body.dark-mode .settings-drawer-container select,
-body.dark-mode .settings-drawer-container textarea,
-body.dark-mode .settings-drawer-container button,
-body.dark-mode .settings-drawer-container .btn {
-  color: hsl(var(--bc)) !important;
-}
-
-/* 修复主题选择器在深色模式下的显示 */
-:root[data-theme="dark"] .theme-option,
-:root[data-theme="dark"] .theme-name,
-.dark-mode .theme-option,
-.dark-mode .theme-name {
-  color: hsl(var(--bc)) !important;
-}
-
-/* 添加强制暗色模式文本颜色的类 */
-.force-dark-text {
-  color: hsl(var(--bc)) !important;
-}
-
-/* 在暗色模式下为所有设置抽屉文本元素添加更高优先级的样式 */
-@media (prefers-color-scheme: dark) {
-  .settings-drawer-container .settings-title,
-  .settings-drawer-container .panel-title,
-  .settings-drawer-container .setting-label,
-  .settings-drawer-container .setting-desc,
-  .settings-drawer-container .panel-description,
-  .settings-drawer-container .version-info,
-  .settings-drawer-container .nav-label,
-  .settings-drawer-container .option-label,
-  .settings-drawer-container .group-title,
-  .settings-drawer-container input,
-  .settings-drawer-container select,
-  .settings-drawer-container textarea,
-  .settings-drawer-container button,
-  .settings-drawer-container .btn,
-  .settings-drawer-container .theme-option,
-  .settings-drawer-container .theme-name,
-  .settings-drawer-container .footer-info {
-    color: hsl(var(--bc)) !important;
-  }
-}
-
-/* 容器缩放动画已删除 */
-
-/* 头部 - 根据主题动态调整背景色 */
+/* 标题栏 */
 .settings-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.5rem 2rem;
-  background: hsl(var(--b2)) !important;
+  background: hsl(var(--b2));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: 1rem 1.5rem;
   border-bottom: 1px solid hsl(var(--b3) / 0.3);
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
 }
 
-/* 亮色主题下的头部 */
-:root[data-theme="light"] .settings-header,
-:root[data-theme="cupcake"] .settings-header,
-:root[data-theme="bumblebee"] .settings-header {
-  background: hsl(var(--b2)) !important;
-}
-
-/* 暗色主题下的头部 */
-:root[data-theme="dark"] .settings-header,
-:root[data-theme="night"] .settings-header,
-:root[data-theme="black"] .settings-header {
-  background: hsl(var(--b2)) !important;
+.settings-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: hsl(var(--bc));
+  margin: 0;
 }
 
 .settings-header .btn {
@@ -211,13 +71,6 @@ body.dark-mode .settings-drawer-container .btn {
   color: hsl(var(--bc));
 }
 
-.settings-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: hsl(var(--bc));
-  margin: 0;
-}
-
 /* 主体内容 */
 .settings-content {
   display: flex;
@@ -225,200 +78,101 @@ body.dark-mode .settings-drawer-container .btn {
   overflow: hidden;
 }
 
-/* 侧边栏 - 根据主题动态调整背景色 */
+/* 侧边栏 */
 .settings-sidebar {
   width: 240px;
-  background: hsl(var(--b2)) !important;
+  background: hsl(var(--b2));
   border-right: 1px solid hsl(var(--b3) / 0.3);
   padding: 1.5rem 0;
   overflow-y: auto;
   box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.1), 2px 0 8px rgba(0, 0, 0, 0.08);
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
 }
 
-/* 亮色主题下的侧边栏 */
-:root[data-theme="light"] .settings-sidebar,
-:root[data-theme="cupcake"] .settings-sidebar,
-:root[data-theme="bumblebee"] .settings-sidebar {
-  background: hsl(var(--b2)) !important;
-  box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.05), 2px 0 8px rgba(0, 0, 0, 0.05);
-}
-
-/* 暗色主题下的侧边栏 */
-:root[data-theme="dark"] .settings-sidebar,
-:root[data-theme="night"] .settings-sidebar,
-:root[data-theme="black"] .settings-sidebar {
-  background: hsl(var(--b2)) !important;
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.1),
-    2px 0 8px rgba(0, 0, 0, 0.2);
-}
-
-.settings-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0 1rem;
-}
-
+/* 导航项 */
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.875rem 1rem;
-  border-radius: 8px;
-  background: transparent;
-  border: none;
+  padding: 0.75rem 1.5rem;
   color: hsl(var(--bc) / 0.7);
-  font-size: 0.875rem;
-  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
-  text-align: left;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  border: none;
+  background: none;
   width: 100%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  text-align: left;
 }
 
 .nav-item:hover {
-  background: hsl(var(--b3) / 0.5);
+  background: hsl(var(--b3) / 0.3);
   color: hsl(var(--bc));
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
 }
 
 .nav-item.active {
-  background: hsl(var(--p) / 0.1);
+  background: hsl(var(--p) / 0.15);
   color: hsl(var(--p));
-  border-left: 3px solid hsl(var(--p));
-  margin-left: -1rem;
-  padding-left: calc(1rem - 3px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 4px rgba(0, 0, 0, 0.1),
-    inset 3px 0 0 hsl(var(--p));
+  border-right: 3px solid hsl(var(--p));
 }
 
-.nav-icon {
-  font-size: 1.125rem;
-  flex-shrink: 0;
+.nav-item .iconify {
+  margin-right: 0.75rem;
+  font-size: 1.1rem;
 }
 
-.nav-label {
-  flex: 1;
-}
-
-/* 主内容区 - 根据主题动态调整背景色 */
-.settings-main {
-  flex: 1;
-  overflow-y: auto;
-  background: hsl(var(--b1)) !important;
-}
-
-/* 亮色主题下的主内容区 */
-:root[data-theme="light"] .settings-main,
-:root[data-theme="cupcake"] .settings-main,
-:root[data-theme="bumblebee"] .settings-main {
-  background: hsl(var(--b1)) !important;
-}
-
-/* 暗色主题下的主内容区 */
-:root[data-theme="dark"] .settings-main,
-:root[data-theme="night"] .settings-main,
-:root[data-theme="black"] .settings-main {
-  background: hsl(var(--b1)) !important;
-}
-
+/* 面板内容 */
 .settings-panel {
+  flex: 1;
   padding: 2rem;
-  max-width: 600px;
-}
-
-/* 面板头部 */
-.panel-header {
-  margin-bottom: 2rem;
+  overflow-y: auto;
+  background: hsl(var(--b1));
 }
 
 .panel-title {
-  font-size: 1.75rem;
+  font-size: 1.25rem;
   font-weight: 600;
   color: hsl(var(--bc));
-  margin: 0 0 0.5rem 0;
+  margin-bottom: 1rem;
 }
 
 .panel-description {
-  color: hsl(var(--bc) / 0.6);
-  margin: 0;
-  font-size: 0.95rem;
+  color: hsl(var(--bc) / 0.7);
+  margin-bottom: 2rem;
+  line-height: 1.6;
 }
 
-/* 设置区域 */
-.settings-section {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
+/* 设置组 */
 .setting-group {
-  background: hsl(var(--b2) / 0.5);
-  border-radius: 12px;
-  padding: 1.5rem;
-  border: 1px solid hsl(var(--b3) / 0.3);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.05);
-}
-
-/* 设置组 - 根据主题动态调整背景色 */
-.setting-group {
-  background: hsl(var(--b2) / 0.5) !important;
-  border-radius: 12px;
-  padding: 1.5rem;
-  border: 1px solid hsl(var(--b3) / 0.3);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.05);
-}
-
-/* 亮色主题下的设置组背景 */
-:root[data-theme="light"] .setting-group,
-:root[data-theme="cupcake"] .setting-group,
-:root[data-theme="bumblebee"] .setting-group {
-  background: hsl(var(--b2) / 0.5) !important;
-  border-color: hsl(var(--b3) / 0.3);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05), 0 1px 4px rgba(0, 0, 0, 0.03);
-}
-
-/* 暗色主题下的设置组背景 */
-:root[data-theme="dark"] .setting-group,
-:root[data-theme="night"] .setting-group,
-:root[data-theme="black"] .setting-group {
-  background: hsl(var(--b2) / 0.8) !important;
-  border-color: hsl(var(--b3) / 0.5);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 1px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
 }
 
 .group-title {
-  font-size: 1.125rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: hsl(var(--bc));
-  margin: 0 0 1rem 0;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid hsl(var(--b3) / 0.3);
+  padding-bottom: 0.5rem;
 }
 
+/* 设置项 */
 .setting-item {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  gap: 1.5rem;
+  align-items: center;
   padding: 1rem 0;
-  border-bottom: 1px solid hsl(var(--b3) / 0.2);
+  border-bottom: 1px solid hsl(var(--b3) / 0.1);
 }
 
 .setting-item:last-child {
   border-bottom: none;
-  padding-bottom: 0;
 }
 
 .setting-info {
   flex: 1;
+  margin-right: 1rem;
 }
 
 .setting-label {
-  display: block;
-  font-size: 1rem;
   font-weight: 500;
   color: hsl(var(--bc));
   margin-bottom: 0.25rem;
@@ -426,619 +180,70 @@ body.dark-mode .settings-drawer-container .btn {
 
 .setting-desc {
   font-size: 0.875rem;
-  color: hsl(var(--bc) / 0.6);
-  margin: 0;
+  color: hsl(var(--bc) / 0.7);
   line-height: 1.4;
 }
 
-.setting-control {
-  flex-shrink: 0;
-}
-
-/* 主题模式控制 */
-.theme-mode-control {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  min-width: 200px;
-}
-
-.mode-option {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  border: 2px solid hsl(var(--b3) / 0.3);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  background: hsl(var(--b1));
-}
-
-.mode-option:hover {
-  border-color: hsl(var(--p) / 0.5);
-  background: hsl(var(--b2) / 0.5);
-}
-
-.mode-option input[type="radio"] {
-  width: 1rem;
-  height: 1rem;
-  margin: 0;
-  accent-color: hsl(var(--p));
-}
-
-.mode-option input[type="radio"]:checked + .option-label {
-  color: hsl(var(--p));
-  font-weight: 600;
-}
-
-.mode-option:has(input[type="radio"]:checked) {
-  border-color: hsl(var(--p));
-  background: hsl(var(--p) / 0.1);
-  box-shadow: 0 2px 8px hsl(var(--p) / 0.2);
-}
-
-.option-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: hsl(var(--bc) / 0.8);
-  transition: all 0.15s ease;
-}
-
-.option-icon {
-  font-size: 1rem;
-  color: hsl(var(--bc) / 0.6);
-  transition: color 0.15s ease;
-}
-
-.mode-option:has(input[type="radio"]:checked) .option-icon {
-  color: hsl(var(--p));
-}
-
 /* 主题选择器 */
-.theme-selector {
+.theme-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 0.75rem;
-  max-width: 320px;
-  margin-bottom: 1rem;
-}
-
-/* 刷新前端区域 */
-.refresh-frontend-section {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 1rem;
   margin-top: 1rem;
-  padding: 1rem;
-  background: hsl(var(--warning) / 0.1);
-  border: 1px solid hsl(var(--warning) / 0.3);
-  border-radius: 8px;
-}
-
-.refresh-hint {
-  font-size: 0.75rem;
-  color: hsl(var(--bc) / 0.6);
-  margin: 0;
-  line-height: 1.3;
-  font-style: italic;
 }
 
 .theme-option {
-  width: 80px;
-  height: 50px;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.15s ease;
   display: flex;
-  align-items: end;
-  justify-content: center;
-  padding: 0.25rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  border: 2px solid hsl(var(--b3) / 0.3);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: hsl(var(--b2) / 0.5);
 }
 
 .theme-option:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2), 0 3px 8px rgba(0, 0, 0, 0.15);
+  border-color: hsl(var(--p) / 0.5);
+  background: hsl(var(--b2));
 }
 
 .theme-option.active {
   border-color: hsl(var(--p));
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25), 0 3px 10px rgba(0, 0, 0, 0.2),
-    0 0 0 3px hsl(var(--p) / 0.3);
+  background: hsl(var(--p) / 0.1);
 }
 
-.theme-check-icon {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  background: hsl(var(--p));
-  color: white;
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
+.theme-preview {
+  width: 60px;
+  height: 40px;
+  border-radius: 0.25rem;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-}
-
-.theme-option:active {
-  transform: scale(0.95);
-  transition: transform 0.1s ease;
 }
 
 .theme-name {
-  font-size: 0.75rem;
-  color: white;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 0.125rem 0.375rem;
-  border-radius: 4px;
-  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: hsl(var(--bc));
 }
 
-/* 普通切换开关 */
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 44px;
-  height: 24px;
-  cursor: pointer;
+/* 表单元素 */
+.settings-drawer-container input,
+.settings-drawer-container select,
+.settings-drawer-container textarea {
+  background: hsl(var(--b1));
+  border: 1px solid hsl(var(--b3));
+  color: hsl(var(--bc));
 }
 
-.toggle-input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.toggle-slider {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: hsl(var(--b3));
-  border-radius: 12px;
-  transition: 0.2s ease;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.toggle-slider:before {
-  content: "";
-  position: absolute;
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  top: 3px;
-  background: white;
-  border-radius: 50%;
-  transition: 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.15);
-}
-
-.toggle-input:checked + .toggle-slider {
-  background: hsl(var(--p));
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.toggle-input:checked + .toggle-slider:before {
-  transform: translateX(20px);
-}
-
-/* 字体大小控制 */
-.font-size-control {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.font-size-slider {
-  width: 120px;
-  height: 4px;
-  background: hsl(var(--b3));
-  border-radius: 2px;
+.settings-drawer-container input:focus,
+.settings-drawer-container select:focus,
+.settings-drawer-container textarea:focus {
+  border-color: hsl(var(--p));
   outline: none;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.font-size-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  background: hsl(var(--p));
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.font-size-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  background: hsl(var(--p));
-  border-radius: 50%;
-  cursor: pointer;
-  border: none;
-}
-
-.font-size-value {
-  font-size: 0.875rem;
-  color: hsl(var(--bc) / 0.7);
-  min-width: 40px;
-}
-
-/* 密度选项 */
-.density-options {
-  display: flex;
-  background: hsl(var(--b3) / 0.3);
-  border-radius: 6px;
-  padding: 2px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.density-btn {
-  padding: 0.5rem 1rem;
-  border: none;
-  background: transparent;
-  color: hsl(var(--bc) / 0.7);
-  font-size: 0.875rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: none;
-}
-
-.density-btn:hover {
-  background: hsl(var(--b3) / 0.5);
-  color: hsl(var(--bc));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.density-btn.active {
-  background: hsl(var(--p));
-  color: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-/* 开发中提示 */
-.coming-soon {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  text-align: center;
-  color: hsl(var(--bc) / 0.6);
-}
-
-.coming-soon-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  color: hsl(var(--bc) / 0.4);
-}
-
-/* 底部 - 根据主题动态调整背景色 */
-.settings-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 2rem;
-  background: hsl(var(--b2)) !important;
-  border-top: 1px solid hsl(var(--b3) / 0.3);
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-/* 亮色主题下的底部 */
-:root[data-theme="light"] .settings-footer,
-:root[data-theme="cupcake"] .settings-footer,
-:root[data-theme="bumblebee"] .settings-footer {
-  background: hsl(var(--b2)) !important;
-}
-
-/* 暗色主题下的底部 */
-:root[data-theme="dark"] .settings-footer,
-:root[data-theme="night"] .settings-footer,
-:root[data-theme="black"] .settings-footer {
-  background: hsl(var(--b2)) !important;
-}
-
-.footer-info {
-  display: flex;
-  align-items: center;
-}
-
-.version-info {
-  font-size: 0.875rem;
-  color: hsl(var(--bc) / 0.6);
-}
-
-.footer-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-/* 按钮样式 */
-.btn {
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  border: none;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.btn:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  transform: translateY(-1px);
-}
-
-.btn-ghost {
-  background: transparent;
-  color: hsl(var(--bc) / 0.7);
-  border: 1px solid hsl(var(--b3) / 0.5);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.btn-ghost:hover {
-  background: hsl(var(--b3) / 0.3);
-  color: hsl(var(--bc));
-  border-color: hsl(var(--b3));
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
-}
-
-.btn-primary {
-  background: hsl(var(--p));
-  color: hsl(var(--pc)) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.btn-primary:hover {
-  background: hsl(var(--p) / 0.9);
-  color: hsl(var(--pc)) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.btn-warning {
-  background: hsl(var(--warning));
-  color: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.btn-warning:hover {
-  background: hsl(var(--warning) / 0.9);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.btn-sm {
-  padding: 0.375rem 0.75rem;
-  font-size: 0.8125rem;
-}
-
-.btn-circle {
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* 关于部分样式 */
-.about-app-info {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.app-icon {
-  flex-shrink: 0;
-  width: 64px;
-  height: 64px;
-  background: hsl(var(--p) / 0.1);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid hsl(var(--p) / 0.2);
-}
-
-.app-icon-img {
-  font-size: 2rem;
-  color: hsl(var(--p));
-}
-
-.app-details {
-  flex: 1;
-}
-
-.app-name {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: hsl(var(--bc));
-  margin: 0 0 0.5rem 0;
-}
-
-.app-description {
-  font-size: 0.95rem;
-  color: hsl(var(--bc) / 0.7);
-  margin: 0 0 1rem 0;
-}
-
-.version-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.version-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid hsl(var(--b3) / 0.2);
-}
-
-.version-item:last-child {
-  border-bottom: none;
-}
-
-.version-label {
-  font-size: 0.875rem;
-  color: hsl(var(--bc) / 0.7);
-  font-weight: 500;
-}
-
-.version-value {
-  font-size: 0.875rem;
-  color: hsl(var(--bc));
-  font-weight: 600;
-  font-family: monospace;
-}
-
-/* 系统信息网格 */
-.system-info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-.system-info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem;
-  background: hsl(var(--b2) / 0.5);
-  border-radius: 8px;
-  border: 1px solid hsl(var(--b3) / 0.3);
-}
-
-.info-label {
-  font-size: 0.75rem;
-  color: hsl(var(--bc) / 0.6);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.info-value {
-  font-size: 0.875rem;
-  color: hsl(var(--bc));
-  font-weight: 600;
-  word-break: break-all;
-}
-
-/* 开源信息 */
-.open-source-info {
-  padding: 1rem 0;
-}
-
-.license-info p {
-  margin: 0.5rem 0;
-  font-size: 0.9rem;
-  color: hsl(var(--bc) / 0.8);
-}
-
-.license-info strong {
-  color: hsl(var(--bc));
-}
-
-/* 依赖信息 */
-.dependencies-info {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.75rem;
-}
-
-.dependency-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  background: hsl(var(--b2) / 0.5);
-  border-radius: 8px;
-  border: 1px solid hsl(var(--b3) / 0.3);
-  transition: all 0.2s ease;
-}
-
-.dependency-item:hover {
-  background: hsl(var(--b2) / 0.8);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.dep-name {
-  font-size: 0.875rem;
-  color: hsl(var(--bc));
-  font-weight: 500;
-}
-
-.dep-version {
-  font-size: 0.8rem;
-  color: hsl(var(--bc) / 0.7);
-  font-weight: 600;
-  font-family: monospace;
-  background: hsl(var(--b3) / 0.3);
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-}
-
-/* 状态指示器样式 */
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.375rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.status-badge.status-active {
-  background: hsl(var(--warning) / 0.15);
-  color: hsl(var(--warning));
-  border: 1px solid hsl(var(--warning) / 0.3);
-}
-
-.status-badge.status-inactive {
-  background: hsl(var(--success) / 0.15);
-  color: hsl(var(--success));
-  border: 1px solid hsl(var(--success) / 0.3);
-}
-
-/* 高级设置特定样式 */
-.setting-group .setting-item .btn-warning {
-  background: hsl(var(--warning) / 0.1);
-  color: hsl(var(--warning));
-  border: 1px solid hsl(var(--warning) / 0.3);
-}
-
-.setting-group .setting-item .btn-warning:hover {
-  background: hsl(var(--warning) / 0.2);
-  border-color: hsl(var(--warning) / 0.5);
+  box-shadow: 0 0 0 2px hsl(var(--p) / 0.2);
 }
 
 /* 响应式设计 */
@@ -1047,94 +252,45 @@ body.dark-mode .settings-drawer-container .btn {
     width: 95%;
     height: 90%;
   }
-
+  
   .settings-content {
     flex-direction: column;
   }
-
+  
   .settings-sidebar {
     width: 100%;
+    height: auto;
     border-right: none;
     border-bottom: 1px solid hsl(var(--b3) / 0.3);
-    padding: 1rem 0;
   }
-
-  .settings-nav {
-    flex-direction: row;
-    overflow-x: auto;
-    padding: 0 1rem;
-    gap: 0.5rem;
-  }
-
+  
   .nav-item {
-    flex-shrink: 0;
-    white-space: nowrap;
+    padding: 0.5rem 1rem;
   }
-
+  
   .settings-panel {
-    padding: 1.5rem;
-  }
-
-  .setting-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .theme-selector {
-    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-  }
-
-  .about-app-info {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .system-info-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .dependencies-info {
-    grid-template-columns: 1fr;
+    padding: 1rem;
   }
 }
 
 /* 滚动条样式 */
 .settings-sidebar::-webkit-scrollbar,
-.settings-main::-webkit-scrollbar {
+.settings-panel::-webkit-scrollbar {
   width: 6px;
 }
 
 .settings-sidebar::-webkit-scrollbar-track,
-.settings-main::-webkit-scrollbar-track {
-  background: transparent;
+.settings-panel::-webkit-scrollbar-track {
+  background: hsl(var(--b2));
 }
 
 .settings-sidebar::-webkit-scrollbar-thumb,
-.settings-main::-webkit-scrollbar-thumb {
-  background: hsl(var(--bc) / 0.2);
+.settings-panel::-webkit-scrollbar-thumb {
+  background: hsl(var(--b3));
   border-radius: 3px;
 }
 
 .settings-sidebar::-webkit-scrollbar-thumb:hover,
-.settings-main::-webkit-scrollbar-thumb:hover {
+.settings-panel::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--bc) / 0.3);
-}
-
-/* 针对暗色主题的额外样式 */
-[data-theme="dark"] .settings-drawer-container {
-  background: hsl(var(--b1));
-  border-color: hsl(var(--b3) / 0.3);
-}
-
-[data-theme="dark"] .btn-primary .iconify {
-  color: hsl(var(--pc)) !important;
-}
-
-[data-theme="dark"] .btn-ghost .iconify {
-  color: inherit;
-}
-
-[data-theme="dark"] .settings-header .btn .iconify {
-  color: hsl(var(--bc));
 }

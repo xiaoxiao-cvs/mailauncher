@@ -192,8 +192,21 @@ onBeforeUnmount(() => {
   flex-direction: column;
   height: 100vh;
   min-height: 100vh;
+  width: 100%;
   overflow: hidden;
   position: relative;
+  /* 移除!important，使用更具体的选择器来确保优先级 */
+  margin: 0;
+  padding: 0 0 1.5rem 0;
+  box-sizing: border-box;
+  /* 与外部CSS保持一致的背景设置 */
+  background-image: linear-gradient(135deg,
+      hsl(var(--p) / 0.2) 0%,
+      hsl(var(--p) / 0.5) 100%);
+  background-attachment: local;
+  background-size: cover;
+  /* 确保容器从左边缘开始，不留间隙 */
+  left: 0;
 }
 
 /* 加载状态样式 */

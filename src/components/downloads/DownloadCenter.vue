@@ -1455,6 +1455,35 @@ watch(existingInstanceName, (newValue) => {
     }, 500);
 });
 
+// 监听安装路径变化，自动同步实例名称
+watch(installPath, (newPath) => {
+    if (!newPath || !newPath.trim()) {
+        return;
+    }
+
+    // 从安装路径提取最后一个文件夹名称
+    const extractFolderNameFromPath = (path) => {
+        if (!path) return '';
+
+        // 使用 normalizePath 确保路径分隔符正确
+        const normalizedPath = normalizePath(path.trim());
+
+        // 根据平台使用正确的分隔符进行分割
+        const separator = window.__TAURI_INTERNALS__?.platform === "windows" ? "\\" : "/";
+        const pathParts = normalizedPath.split(separator).filter(part => part.length > 0);
+
+        // 返回最后一个非空部分作为文件夹名称
+        return pathParts[pathParts.length - 1] || '';
+    };
+
+    const folderName = extractFolderNameFromPath(newPath);
+
+    // 只有当提取到有效的文件夹名称时才更新实例名称
+    if (folderName && folderName !== instanceName.value) {
+        instanceName.value = folderName;
+    }
+});
+
 // 处理版本选择并强制关闭下拉菜单
 const handleVersionSelect = async (version, event) => {
     // 先选择版本（现在是异步的）

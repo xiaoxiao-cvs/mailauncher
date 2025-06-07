@@ -1,5 +1,3 @@
-@import "../global.css";
-
 .downloads-tab {
   @apply w-full min-h-full pb-6;
   animation: scaleIn 0.5s ease-out;

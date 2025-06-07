@@ -1,0 +1,165 @@
+/* 
+ * 清理版本的主题样式 - 移除与DaisyUI冲突的覆盖
+ * 让DaisyUI原生主题系统正常工作
+ */
+
+/* 基础主题过渡效果 */
+[data-theme] {
+  transition: background-color 0.3s ease, color 0.3s ease,
+    border-color 0.3s ease;
+}
+
+/* 确保主题切换时的色彩管理 */
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* 只保留必要的组件样式，移除强制颜色覆盖 */
+.card-stats {
+  @apply bg-base-100 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 p-5;
+}
+
+.chart-container {
+  @apply bg-base-100 rounded-lg shadow-md p-4 mb-5 border border-base-200;
+}
+
+.system-info-box {
+  @apply flex flex-wrap gap-2 bg-base-200/50 border border-base-300 rounded-md p-2 w-full;
+}
+
+.info-item {
+  @apply text-sm text-base-content/70 p-1 overflow-hidden min-w-[150px] flex-1;
+}
+
+/* 按钮样式 - 使用DaisyUI变量 */
+.btn {
+  @apply transition-all duration-200;
+}
+
+/* 确保图标与主题色彩保持一致 */
+.iconify {
+  color: hsl(var(--bc));
+  transition: color 0.3s ease;
+}
+
+.iconify-primary {
+  color: hsl(var(--p));
+}
+
+.iconify-secondary {
+  color: hsl(var(--s));
+}
+
+.iconify-accent {
+  color: hsl(var(--a));
+}
+
+/* 侧边栏适配 */
+.sidebar {
+  background: hsl(var(--b1) / 0.95);
+  border-right: 1px solid hsl(var(--b3) / 0.3);
+  backdrop-filter: blur(10px);
+}
+
+/* 内容区域适配 */
+.content-area {
+  background: hsl(var(--b2));
+  color: hsl(var(--bc));
+}
+
+/* 卡片样式 */
+.instance-card {
+  @apply bg-base-100 hover:bg-base-200/50 transition-all duration-200;
+}
+
+/* 设置面板适配 */
+.settings-drawer-container {
+  background: hsl(var(--b1));
+  color: hsl(var(--bc));
+  border: 1px solid hsl(var(--b3) / 0.3);
+}
+
+/* 移除所有强制颜色覆盖，让DaisyUI自然处理 */
+/* 主题变量定义 */
+:root {
+  --sidebar-bg-opacity: 0.95;
+  --sidebar-backdrop-filter: blur(10px);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .sidebar {
+    backdrop-filter: blur(15px);
+  }
+}
+
+/* 暗色模式表单控件统一修复 */
+[data-theme="dark"] .select,
+[data-theme="night"] .select,
+[data-theme="black"] .select,
+[data-theme="dracula"] .select {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+  border-color: hsl(var(--b3));
+}
+
+[data-theme="dark"] .select option,
+[data-theme="night"] .select option,
+[data-theme="black"] .select option,
+[data-theme="dracula"] .select option {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+}
+
+[data-theme="dark"] .select:focus,
+[data-theme="night"] .select:focus,
+[data-theme="black"] .select:focus,
+[data-theme="dracula"] .select:focus {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+  border-color: hsl(var(--p));
+}
+
+[data-theme="dark"] .input,
+[data-theme="night"] .input,
+[data-theme="black"] .input,
+[data-theme="dracula"] .input {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+  border-color: hsl(var(--b3));
+}
+
+[data-theme="dark"] .input:focus,
+[data-theme="night"] .input:focus,
+[data-theme="black"] .input:focus,
+[data-theme="dracula"] .input:focus {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+  border-color: hsl(var(--p));
+}
+
+[data-theme="dark"] .input::placeholder,
+[data-theme="night"] .input::placeholder,
+[data-theme="black"] .input::placeholder,
+[data-theme="dracula"] .input::placeholder {
+  color: hsl(var(--bc) / 0.5) !important;
+}
+
+[data-theme="dark"] .checkbox,
+[data-theme="night"] .checkbox,
+[data-theme="black"] .checkbox,
+[data-theme="dracula"] .checkbox {
+  border-color: hsl(var(--b3));
+}
+
+[data-theme="dark"] .checkbox:checked,
+[data-theme="night"] .checkbox:checked,
+[data-theme="black"] .checkbox:checked,
+[data-theme="dracula"] .checkbox:checked {
+  background-color: hsl(var(--p));
+  border-color: hsl(var(--p));
+}

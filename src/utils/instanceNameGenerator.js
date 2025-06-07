@@ -27,11 +27,28 @@ export const formatVersionForInstanceName = (version) => {
     case "beta":
       return "Beta";
     default:
-      // 对于版本号，保持原样但首字母大写
-      if (version.startsWith("v") || /^\d+\.\d+/.test(version)) {
-        return version.charAt(0).toUpperCase() + version.slice(1);
-      }
-      return version.charAt(0).toUpperCase() + version.slice(1).toLowerCase();
+      // 对于版本号，需要替换特殊字符以符合实例名称规则
+      let formattedVersion = version;
+
+      // 替换点号为横线
+      formattedVersion = formattedVersion.replace(/\./g, "-");
+
+      // 替换其他不允许的字符为横线
+      formattedVersion = formattedVersion.replace(
+        /[^a-zA-Z0-9\-_\u4e00-\u9fa5]/g,
+        "-"
+      );
+
+      // 移除连续的横线
+      formattedVersion = formattedVersion.replace(/-+/g, "-");
+
+      // 移除开头和结尾的横线
+      formattedVersion = formattedVersion.replace(/^-+|-+$/g, "");
+
+      // 首字母大写
+      return (
+        formattedVersion.charAt(0).toUpperCase() + formattedVersion.slice(1)
+      );
   }
 };
 

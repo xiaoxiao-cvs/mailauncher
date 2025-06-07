@@ -1,18 +1,11 @@
-/* 图标修复 - 使用DaisyUI和Iconify */
+/* 图标修复 - DaisyUI按钮专用样式 */
 
-/* 基础图标样式统一化 */
+/* 基础图标样式统一化 - 仅针对非iconify图标 */
 .simple-icon,
 .icon-edit,
 .icon-close,
-.icon-save,
-.iconify {
+.icon-save {
   @apply inline-flex items-center justify-center;
-}
-
-/* Iconify专属样式 */
-.iconify {
-  @apply align-middle leading-none;
-  vertical-align: -0.125em; /* 微调垂直对齐 */
 }
 
 /* 确保按钮中的图标居中 */

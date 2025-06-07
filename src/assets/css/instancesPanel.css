@@ -1,5 +1,5 @@
 .instances-tab {
-  @apply w-full min-h-full pb-6;
+  @apply w-full h-full min-h-full pb-6;
   /* 移除独立动画，使用组件级过渡动画 */
   /* 添加与主页一致的渐变背景 */
   background-image: linear-gradient(
@@ -7,6 +7,15 @@
     hsl(var(--p) / 0.2) 0%,
     hsl(var(--p) / 0.5) 100%
   );
+  /* 确保容器完全填充到边缘，移除任何边距 - 移除!important */
+  margin: 0;
+  padding: 0 0 1.5rem 0;
+  /* 确保背景填充整个容器区域 */
+  background-attachment: local;
+  background-size: cover;
+  /* 确保没有定位偏移 */
+  left: 0;
+  right: 0;
 }
 
 .header-section {
@@ -51,7 +60,7 @@
 }
 
 .action-button:active {
-  transform: scale(0.92) !important;
+  transform: scale(0.92);
 }
 
 /* 强化详情视图进入动画 */

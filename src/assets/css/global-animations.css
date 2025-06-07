@@ -4,7 +4,11 @@
   animation: statusPulse 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-/* 页面切换动画关键帧已删除 */
+/* 卡片淡入动画 */
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
     box-shadow: none;
   }
   to {

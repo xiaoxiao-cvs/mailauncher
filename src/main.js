@@ -25,13 +25,11 @@ if (typeof window !== "undefined") {
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 import App from "./App.vue";
-import "./assets/tailwind.css";
+import "./assets/css/tailwind.css";
 import "./assets/global.css";
-import "./assets/css/dark-theme-fix.css"; // 导入深色主题修复样式
-import "./assets/css/dark-text-override.css"; // 导入暗色模式文本颜色覆盖
+import "./assets/css/clean-theme.css"; // 使用清理版本的主题样式，兼容DaisyUI
+import "./assets/css/dark-theme-unified.css"; // 统一的暗色主题修复
 import "./assets/css/font-optimization.css"; // 导入字体优化样式
-import "./assets/css/simple-loading.css"; // 导入简化加载动画样式
-import "./assets/css/performance-patch.css"; // 导入性能优化补丁
 import toastService from "./services/toastService";
 import eventBus from "./services/eventBus"; // 导入改进的事件总线
 
@@ -39,7 +37,7 @@ import eventBus from "./services/eventBus"; // 导入改进的事件总线
 import { Icon } from "@iconify/vue";
 
 // 导入主题初始化函数
-import { initTheme } from "./services/theme";
+import { initTheme } from "./services/theme-simplified";
 
 // 导入轮询服务
 import { usePollingStore } from "./stores/pollingStore";

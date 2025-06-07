@@ -44,17 +44,24 @@ body {
   box-sizing: border-box;
 }
 
-/* 确保所有标签页内容都有正确的边距 */
-.logs-tab,
-.instances-tab,
-.downloads-tab,
-.settings-tab,
-.plugins-tab,
-.tab-content {
+/* 确保所有标签页内容都有正确的边距 - 提高选择器优先级 */
+.content-area .logs-tab,
+.content-area .instances-tab,
+.content-area .downloads-tab,
+.content-area .settings-tab,
+.content-area .plugins-tab,
+.content-area .tab-content {
   padding: 20px;
   box-sizing: border-box;
   margin-left: 15px; /* 添加左边距，避免内容直接贴着侧边栏 */
   width: calc(100% - 15px); /* 减去左边距的宽度 */
+}
+
+/* 专门为instances-tab提供无间隙布局 */
+.content-area .instances-tab {
+  margin-left: 0;
+  width: 100%;
+  padding: 0 0 1.5rem 0;
 }
 
 /* 全局的响应式断点处理 - 更新为使用CSS变量 */
@@ -67,18 +74,18 @@ body {
 
 @media (max-width: 768px) {
   .content-area {
-    margin-left: 0;
-    width: 100%;
+    margin-left: var(--sidebar-width, 64px);
+    width: var(--content-width, calc(100% - 64px));
   }
 
-  .logs-tab,
-  .instances-tab,
-  .downloads-tab,
-  .settings-tab,
-  .plugins-tab,
-  .tab-content {
-    margin-left: 5px;
-    width: calc(100% - 5px);
+  .content-area .logs-tab,
+  .content-area .instances-tab,
+  .content-area .downloads-tab,
+  .content-area .settings-tab,
+  .content-area .plugins-tab,
+  .content-area .tab-content {
+    margin-left: 0;
+    width: 100%;
   }
 
   /* 小屏幕上强制折叠侧边栏 */
@@ -277,14 +284,6 @@ html.dark-mode {
   --tertiary-text-color: hsl(var(--bc) / 0.6);
 }
 
-/* 强制深色模式下的文字颜色 */
-[data-theme="dark"] {
-  color: hsl(var(--bc)) !important;
-}
-
-[data-theme="dark"] * {
-  color: hsl(var(--bc));
-}
 
 /* 设置页面样式 */
 .settings-page {

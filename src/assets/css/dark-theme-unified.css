@@ -1,0 +1,101 @@
+/* 暗色主题统一修复文件 - 合并版本 */
+
+/* 基础暗色主题设置 */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --text-color: #ffffff;
+  --text-color-secondary: rgba(255, 255, 255, 0.85);
+  --text-color-tertiary: rgba(255, 255, 255, 0.65);
+}
+
+/* 全局文本颜色修复 - 优先使用DaisyUI变量 */
+[data-theme="dark"] *:not(.btn):not(.iconify):not([class*="btn-"]) {
+  color: hsl(var(--bc)) !important;
+}
+
+/* 处理内联样式的黑色文本 */
+[data-theme="dark"] *[style*="color: #000"],
+[data-theme="dark"] *[style*="color: black"],
+[data-theme="dark"] *[style*="color: rgb(0, 0, 0)"],
+[data-theme="dark"] *[style*="color: rgba(0, 0, 0"],
+[data-theme="dark"] *[style*="color:#000"],
+[data-theme="dark"] *[style*="color:black"] {
+  color: hsl(var(--bc)) !important;
+}
+
+/* 表单元素修复 */
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+  border-color: hsl(var(--b3));
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: hsl(var(--bc) / 0.5) !important;
+}
+
+[data-theme="dark"] select option {
+  background-color: hsl(var(--b1)) !important;
+  color: hsl(var(--bc)) !important;
+}
+
+/* 特殊组件修复 */
+[data-theme="dark"] .settings-drawer-container,
+[data-theme="dark"] .settings-drawer-container *:not(.btn) {
+  color: hsl(var(--bc)) !important;
+}
+
+[data-theme="dark"] .modal-content,
+[data-theme="dark"] .dropdown-content,
+[data-theme="dark"] .tooltip-content {
+  color: hsl(var(--bc)) !important;
+}
+
+/* 链接颜色 */
+[data-theme="dark"] a:not(.btn) {
+  color: hsl(var(--p)) !important;
+}
+
+[data-theme="dark"] a:not(.btn):hover {
+  color: hsl(var(--p) / 0.8) !important;
+}
+
+/* 表格内容 */
+[data-theme="dark"] table tbody tr td,
+[data-theme="dark"] table thead tr th {
+  color: hsl(var(--bc)) !important;
+}
+
+/* 卡片和面板 */
+[data-theme="dark"] .card-title,
+[data-theme="dark"] .card-body,
+[data-theme="dark"] .panel-title,
+[data-theme="dark"] .panel-description {
+  color: hsl(var(--bc)) !important;
+}
+
+/* 避免覆盖需要保持颜色的元素 */
+[data-theme="dark"] .btn-primary,
+[data-theme="dark"] .btn-secondary,
+[data-theme="dark"] .btn-accent,
+[data-theme="dark"] .btn-success,
+[data-theme="dark"] .btn-warning,
+[data-theme="dark"] .btn-error,
+[data-theme="dark"] .btn-info {
+  /* 保持原有颜色 */
+  color: initial !important;
+}
+
+/* 响应式媒体查询下的额外修复 */
+@media (prefers-color-scheme: dark) {
+  [data-theme="dark"] input,
+  [data-theme="dark"] textarea,
+  [data-theme="dark"] select {
+    -webkit-appearance: none;
+    background-color: hsl(var(--b1)) !important;
+    color: hsl(var(--bc)) !important;
+  }
+}
