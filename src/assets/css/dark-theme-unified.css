@@ -8,6 +8,28 @@
   --text-color-tertiary: rgba(255, 255, 255, 0.65);
 }
 
+/* 全局文本颜色修复 - 最高优先级 */
+[data-theme="dark"],
+[data-theme="dark"] *,
+html.dark-mode,
+html.dark-mode * {
+  color: rgba(255, 255, 255, 0.87) !important;
+}
+
+/* 特殊元素保持原色 */
+[data-theme="dark"] .btn,
+[data-theme="dark"] .btn *,
+[data-theme="dark"] .iconify,
+[data-theme="dark"] [class*="btn-"],
+[data-theme="dark"] [class*="btn-"] *,
+html.dark-mode .btn,
+html.dark-mode .btn *,
+html.dark-mode .iconify,
+html.dark-mode [class*="btn-"],
+html.dark-mode [class*="btn-"] * {
+  color: initial !important;
+}
+
 /* 全局文本颜色修复 - 优先使用DaisyUI变量 */
 [data-theme="dark"] *:not(.btn):not(.iconify):not([class*="btn-"]) {
   color: hsl(var(--bc)) !important;

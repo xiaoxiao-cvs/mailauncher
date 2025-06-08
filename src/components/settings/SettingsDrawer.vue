@@ -20,12 +20,12 @@
                             <span class="nav-label">{{ tab.title }}</span>
                         </button>
                     </nav>
-                </div>
-
-                <!-- 主内容区 -->
+                </div>                <!-- 主内容区 -->
                 <div class="settings-main">
-                    <!-- 外观设置 -->
-                    <div v-if="activeTab === 'appearance'" class="settings-panel">
+                    <!-- 设置面板切换动画容器 -->
+                    <transition :name="panelTransitionName" mode="out-in">
+                        <!-- 外观设置 -->
+                        <div v-if="activeTab === 'appearance'" key="appearance" class="settings-panel">
                         <div class="panel-header">
                             <h3 class="panel-title">外观设置</h3>
                             <p class="panel-description">自定义界面外观和主题样式</p>
@@ -120,9 +120,8 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div> <!-- WebUI 设置标签页 -->
-                    <div v-else-if="activeTab === 'webui'" class="settings-panel">
+                        </div>                    </div> <!-- WebUI 设置标签页 -->
+                    <div v-else-if="activeTab === 'webui'" key="webui" class="settings-panel">
                         <div class="panel-header">
                             <h3 class="panel-title">WebUI 配置</h3>
                             <p class="panel-description">配置 Web 用户界面的访问设置和功能</p>
@@ -234,9 +233,8 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div> <!-- 后端服务设置标签页 -->
-                    <div v-else-if="activeTab === 'backend'" class="settings-panel">
+                        </div>                    </div> <!-- 后端服务设置标签页 -->
+                    <div v-else-if="activeTab === 'backend'" key="backend" class="settings-panel">
                         <div class="panel-header">
                             <h3 class="panel-title">后端服务配置</h3>
                             <p class="panel-description">配置后端服务连接和运行模式</p>
@@ -284,9 +282,8 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div> <!-- 关于标签页 -->
-                    <div v-else-if="activeTab === 'about'" class="settings-panel">
+                        </div>                    </div> <!-- 关于标签页 -->
+                    <div v-else-if="activeTab === 'about'" key="about" class="settings-panel">
                         <div class="panel-header">
                             <h3 class="panel-title">关于 MaiLauncher</h3>
                             <p class="panel-description">查看应用版本信息和相关资源</p>
@@ -394,9 +391,8 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div> <!-- 高级设置 -->
-                    <div v-else-if="activeTab === 'advanced'" class="settings-panel">
+                        </div>                    </div> <!-- 高级设置 -->
+                    <div v-else-if="activeTab === 'advanced'" key="advanced" class="settings-panel">
                         <div class="panel-header">
                             <h3 class="panel-title">高级设置</h3>
                             <p class="panel-description">配置高级功能和调试选项</p>
@@ -709,9 +705,7 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- 其他标签页的占位内容 -->
+                    </div>                    <!-- 其他标签页的占位内容 -->
                     <div v-else class="settings-panel">
                         <div class="panel-header">
                             <h3 class="panel-title">{{ getCurrentTabTitle() }}</h3>
@@ -722,6 +716,7 @@
                             <p>此功能正在开发中，敬请期待</p>
                         </div>
                     </div>
+                    </transition>
                 </div>
             </div>
 
@@ -780,6 +775,32 @@ const settingTabs = [
     { key: 'about', title: '关于', icon: 'mdi:information' },
     { key: 'advanced', title: '高级', icon: 'mdi:tune' }
 ]
+
+// 前一个标签页（用于动画方向判断）
+const previousTab = ref('appearance')
+
+// 计算动画方向的transition名称
+const panelTransitionName = computed(() => {
+    const currentIndex = settingTabs.findIndex(tab => tab.key === activeTab.value)
+    const previousIndex = settingTabs.findIndex(tab => tab.key === previousTab.value)
+    
+    if (currentIndex === -1 || previousIndex === -1) {
+        return 'settings-panel-fade'
+    }
+    
+    // 向右滑动（下一个）
+    if (currentIndex > previousIndex) {
+        return 'settings-panel-slide-right'
+    }
+    // 向左滑动（上一个）
+    else if (currentIndex < previousIndex) {
+        return 'settings-panel-slide-left'
+    }
+    // 相同索引，使用淡入淡出
+    else {
+        return 'settings-panel-fade'
+    }
+})
 
 // 使用主题和暗色模式
 const { currentTheme, availableThemes, setTheme } = useTheme()

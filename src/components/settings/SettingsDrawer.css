@@ -248,26 +248,31 @@
 
 /* 主题模式控制样式 */
 .theme-mode-control {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
 }
 
 .mode-option {
   display: flex;
   align-items: center;
   cursor: pointer;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid hsl(var(--b3));
-  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  border: 2px solid hsl(var(--b3));
+  border-radius: 12px;
   background: hsl(var(--b1));
   transition: all 0.2s ease;
   position: relative;
+  min-width: 120px;
+  box-shadow: 0 2px 4px hsl(var(--bc) / 0.05);
 }
 
 .mode-option:hover {
   background: hsl(var(--b2));
   border-color: hsl(var(--p) / 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px hsl(var(--bc) / 0.1);
 }
 
 .mode-option input[type="radio"] {
@@ -277,32 +282,114 @@
   height: 0;
 }
 
+/* 选中状态样式 */
 .mode-option input[type="radio"]:checked + .option-label {
   color: hsl(var(--p));
-}
-
-.mode-option input[type="radio"]:checked {
-  background: hsl(var(--p) / 0.1);
-  border-color: hsl(var(--p));
+  font-weight: 600;
 }
 
 .mode-option:has(input[type="radio"]:checked) {
-  background: hsl(var(--p) / 0.1);
+  background: hsl(var(--p) / 0.15);
   border-color: hsl(var(--p));
+  box-shadow: 0 0 0 3px hsl(var(--p) / 0.2);
+}
+
+/* 添加复选框样式的视觉指示器 */
+.mode-option::before {
+  content: "";
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 20px;
+  height: 20px;
+  border: 2px solid hsl(var(--bc) / 0.3);
+  border-radius: 50%;
+  background: hsl(var(--b1));
+  transition: all 0.3s ease;
+  opacity: 0.7;
+  transform: scale(0.8);
+}
+
+.mode-option:hover::before {
+  opacity: 1;
+  transform: scale(0.9);
+  border-color: hsl(var(--p) / 0.5);
+}
+
+.mode-option:has(input[type="radio"]:checked)::before {
+  opacity: 1;
+  background: hsl(var(--p));
+  border-color: hsl(var(--p));
+  transform: scale(1);
+}
+
+/* 添加勾选标记 */
+.mode-option:has(input[type="radio"]:checked)::after {
+  content: "✓";
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  z-index: 1;
+  animation: checkmarkPop 0.3s ease-out;
+}
+
+/* 勾选标记弹出动画 */
+@keyframes checkmarkPop {
+  0% {
+    transform: scale(0) rotate(-45deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2) rotate(0deg);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
 }
 
 .option-label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
+  gap: 0.75rem;
+  font-size: 0.9rem;
   font-weight: 500;
   color: hsl(var(--bc) / 0.8);
   transition: color 0.2s ease;
+  flex: 1;
+  padding-right: 1.5rem; /* 为右侧的指示器留出空间 */
 }
 
 .option-icon {
-  font-size: 1rem;
+  font-size: 1.2rem;
+  transition: transform 0.2s ease;
+}
+
+/* 选中状态下的图标动画 */
+.mode-option:has(input[type="radio"]:checked) .option-icon {
+  transform: scale(1.1);
+  color: hsl(var(--p));
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .theme-mode-control {
+    flex-direction: column;
+  }
+
+  .mode-option {
+    width: 100%;
+    min-width: unset;
+  }
 }
 
 /* 开关切换样式 */
@@ -328,7 +415,9 @@
   bottom: 0;
   background-color: hsl(var(--b3));
   border-radius: 1.5rem;
-  transition: 0.3s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid hsl(var(--bc) / 0.1);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .toggle-slider:before {
@@ -340,15 +429,63 @@
   bottom: 0.1875rem;
   background-color: white;
   border-radius: 50%;
-  transition: 0.3s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border: 1px solid hsl(var(--bc) / 0.1);
 }
 
 .toggle-input:checked + .toggle-slider {
   background-color: hsl(var(--p));
+  border-color: hsl(var(--p));
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 0 1px hsl(var(--p) / 0.3);
 }
 
 .toggle-input:checked + .toggle-slider:before {
   transform: translateX(1.5rem);
+  background-color: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* 亮色模式下的开关增强对比度 */
+:root[data-theme="light"] .toggle-slider,
+:root[data-theme="cupcake"] .toggle-slider,
+:root[data-theme="bumblebee"] .toggle-slider {
+  background-color: #e5e7eb;
+  border-color: #d1d5db;
+}
+
+:root[data-theme="light"] .toggle-slider:before,
+:root[data-theme="cupcake"] .toggle-slider:before,
+:root[data-theme="bumblebee"] .toggle-slider:before {
+  background-color: #ffffff;
+  border-color: #d1d5db;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+:root[data-theme="light"] .toggle-input:checked + .toggle-slider,
+:root[data-theme="cupcake"] .toggle-input:checked + .toggle-slider,
+:root[data-theme="bumblebee"] .toggle-input:checked + .toggle-slider {
+  background-color: hsl(var(--p));
+  border-color: hsl(var(--p));
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15), 0 0 0 2px hsl(var(--p) / 0.2);
+}
+
+:root[data-theme="light"] .toggle-input:checked + .toggle-slider:before,
+:root[data-theme="cupcake"] .toggle-input:checked + .toggle-slider:before,
+:root[data-theme="bumblebee"] .toggle-input:checked + .toggle-slider:before {
+  background-color: #ffffff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+  border-color: transparent;
+}
+
+/* 开关悬停效果 */
+.toggle-switch:hover .toggle-slider {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15),
+    0 0 0 2px hsl(var(--bc) / 0.1);
+}
+
+.toggle-switch:hover .toggle-input:checked + .toggle-slider {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 0 3px hsl(var(--p) / 0.3);
 }
 
 /* 字体大小控制样式 */
