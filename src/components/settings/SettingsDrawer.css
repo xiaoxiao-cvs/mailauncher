@@ -581,78 +581,158 @@
   gap: 0.75rem;
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .settings-drawer-container {
-    width: 95%;
-    height: 90%;
-  }
-
-  .settings-content {
-    flex-direction: column;
-  }
-
-  .settings-sidebar {
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid hsl(var(--b3) / 0.3);
-  }
-
-  .nav-item {
-    padding: 0.5rem 1rem;
-  }
-
-  .settings-panel {
-    padding: 1rem;
-  }
-
-  .theme-mode-control {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .mode-option {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .density-options {
-    flex-direction: column;
-  }
-
-  .density-btn {
-    text-align: center;
-  }
-
-  .font-size-control {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .font-size-value {
-    text-align: left;
-  }
-}
-
-/* 滚动条样式 */
-.settings-sidebar::-webkit-scrollbar,
-.settings-panel::-webkit-scrollbar {
-  width: 6px;
-}
-
-.settings-sidebar::-webkit-scrollbar-track,
-.settings-panel::-webkit-scrollbar-track {
+/* 版本信息显示样式 */
+.version-details {
+  margin-top: 1rem;
+  padding: 1rem;
   background: hsl(var(--b2));
+  border-radius: 8px;
+  border: 1px solid hsl(var(--b3) / 0.3);
 }
 
-.settings-sidebar::-webkit-scrollbar-thumb,
-.settings-panel::-webkit-scrollbar-thumb {
-  background: hsl(var(--b3));
-  border-radius: 3px;
+.version-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid hsl(var(--b3) / 0.2);
 }
 
-.settings-sidebar::-webkit-scrollbar-thumb:hover,
-.settings-panel::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--bc) / 0.3);
+.version-item:last-child {
+  border-bottom: none;
+}
+
+.version-label {
+  font-weight: 500;
+  color: hsl(var(--bc) / 0.8);
+  min-width: 100px;
+}
+
+.version-value {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-weight: 600;
+  color: hsl(var(--p));
+  margin-right: 0.5rem;
+}
+
+.version-internal {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 0.75rem;
+  color: hsl(var(--bc) / 0.5);
+  background: hsl(var(--b3) / 0.5);
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  margin-left: 0.5rem;
+}
+
+/* 版本检查部分样式 */
+.version-check-section {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: hsl(var(--n) / 0.05);
+  border-radius: 8px;
+  border: 1px solid hsl(var(--n) / 0.1);
+}
+
+.version-check-controls {
+  margin-bottom: 1rem;
+}
+
+.version-check-controls .btn {
+  transition: all 0.2s ease;
+}
+
+.version-check-result {
+  margin-top: 1rem;
+}
+
+.version-check-result .alert {
+  padding: 0.75rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.version-check-result .alert-info {
+  background: hsl(var(--in) / 0.1);
+  border: 1px solid hsl(var(--in) / 0.2);
+  color: hsl(var(--inc));
+}
+
+.version-check-result .alert-success {
+  background: hsl(var(--su) / 0.1);
+  border: 1px solid hsl(var(--su) / 0.2);
+  color: hsl(var(--suc));
+}
+
+.version-check-result .alert-error {
+  background: hsl(var(--er) / 0.1);
+  border: 1px solid hsl(var(--er) / 0.2);
+  color: hsl(var(--erc));
+}
+
+.version-check-result .alert .font-medium {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.version-check-result .alert .text-sm {
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.version-check-result .alert .opacity-80 {
+  opacity: 0.8;
+}
+
+/* 版本更新按钮样式 */
+.version-check-result .btn-xs {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  height: auto;
+  min-height: auto;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .version-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .version-label {
+    min-width: auto;
+    font-size: 0.875rem;
+  }
+
+  .version-value {
+    font-size: 0.875rem;
+  }
+
+  .version-internal {
+    font-size: 0.625rem;
+    margin-left: 0;
+  }
+
+  .version-check-section {
+    padding: 0.75rem;
+  }
+}
+
+/* 暗色主题优化 */
+:root[data-theme="dark"] .version-details {
+  background: hsl(var(--b3) / 0.3);
+  border-color: hsl(var(--b3) / 0.5);
+}
+
+:root[data-theme="dark"] .version-internal {
+  background: hsl(var(--b1));
+  color: hsl(var(--bc) / 0.6);
+}
+
+:root[data-theme="dark"] .version-check-section {
+  background: hsl(var(--b3) / 0.2);
+  border-color: hsl(var(--b3) / 0.3);
 }

@@ -406,7 +406,7 @@
                                     </div>
                                     <div class="flex items-center gap-3">
                                         <span class="text-sm font-medium">{{ config.webui.enabled ? '已启用' : '已禁用'
-                                        }}</span>
+                                            }}</span>
                                         <label class="toggle-switch">
                                             <input type="checkbox" v-model="config.webui.enabled"
                                                 class="toggle-input" />
@@ -792,13 +792,18 @@ const attemptReconnect = async () => {
     isReconnecting.value = true
     try {
         // 尝试重新连接后端服务
-        const response = await fetch(`${config.value.backendUrl}/api/v1/status`, {
+        const response = await fetch(`${config.value.backendUrl}/api/v1/system/health`, {
             method: 'GET',
             timeout: 5000
         })
 
         if (response.ok) {
-            toastService.success('重连成功！')
+            const data = await response.json()
+            if (data && data.status === 'success') {
+                toastService.success('重连成功！')
+            } else {
+                toastService.error('重连失败：响应格式不正确')
+            }
         } else {
             toastService.error('重连失败')
         }
@@ -883,20 +888,32 @@ const checkConnection = async (service) => {
                 url = 'https://gitee.com/api/v5/user'
                 break
             case 'backend':
-                url = `${config.value.backendUrl}/api/v1/status`
+                url = `${config.value.backendUrl}/api/v1/system/health`
                 break
             default:
                 throw new Error('Unknown service')
-        }
-
-        const response = await fetch(url, {
+        }        const response = await fetch(url, {
             method: 'GET',
-            mode: 'no-cors',
+            mode: service === 'backend' ? 'cors' : 'no-cors',
             timeout: 10000
         })
 
-        // 对于 no-cors 请求，只要没有抛出异常就认为连接成功
-        connectionStatus.value[service] = 'success'
+        // 对于后端请求，检查响应内容
+        if (service === 'backend') {
+            if (response.ok) {
+                const data = await response.json()
+                if (data && data.status === 'success') {
+                    connectionStatus.value[service] = 'success'
+                } else {
+                    connectionStatus.value[service] = 'error'
+                }
+            } else {
+                connectionStatus.value[service] = 'error'
+            }
+        } else {
+            // 对于其他 no-cors 请求，只要没有抛出异常就认为连接成功
+            connectionStatus.value[service] = 'success'
+        }
 
     } catch (error) {
         console.error(`${service} 连接检查失败:`, error)

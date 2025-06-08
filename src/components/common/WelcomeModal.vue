@@ -267,19 +267,22 @@ const testConnection = async () => {
     if (!backendHost.value || hostError.value) {
         toastService.error('请输入有效的服务器地址')
         return
-    }
-
-    testingConnection.value = true
+    } testingConnection.value = true
 
     try {
-        const testUrl = `http://${backendHost.value}:${backendPort.value}/api/v1/status`
+        const testUrl = `http://${backendHost.value}:${backendPort.value}/api/v1/system/health`
         const response = await fetch(testUrl, {
             method: 'GET',
             timeout: 5000
         })
 
         if (response.ok) {
-            toastService.success('后端连接测试成功！')
+            const data = await response.json()
+            if (data && data.status === 'success') {
+                toastService.success('后端连接测试成功！')
+            } else {
+                toastService.error('后端服务响应格式不正确')
+            }
         } else {
             toastService.error(`连接失败：HTTP ${response.status}`)
         }
