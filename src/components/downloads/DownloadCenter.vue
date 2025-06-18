@@ -880,14 +880,14 @@ const startInstall = async () => {
                 port: parseInt(servicePorts['napcat-ada']),
                 run_cmd: 'python main.py'
             });
-        }
-
-        const deployConfig = {
+        }        const deployConfig = {
             instance_name: instanceName.value,
             install_services: installServices,
             install_path: installPath.value,
             port: parseInt(maibotPort.value),
-            version: selectedVersion.value
+            version: selectedVersion.value,
+            host: "127.0.0.1", // 默认主机地址
+            token: "" // 默认为空token，后续可以配置
         };
 
         // 使用 deployStore 开始部署

@@ -11,7 +11,7 @@ import apiService from "./apiService";
  */
 const fetchVersions = async () => {
   try {
-    const response = await apiService.get("/deploy/versions");
+    const response = await apiService.get("/api/v1/deploy/versions");
     console.log("fetchVersions响应:", response);
     return response.data || response;
   } catch (error) {
@@ -34,7 +34,7 @@ const getVersions = async () => {
  */
 const getServices = async () => {
   try {
-    const response = await apiService.get("/deploy/services");
+    const response = await apiService.get("/api/v1/deploy/services");
     console.log("getServices响应:", response);
     return response.data || response;
   } catch (error) {
@@ -69,9 +69,8 @@ const deploy = async (config) => {
         "X-WebSocket-Session-ID": config.websocket_session_id,
       };
       console.log("添加WebSocket会话ID到请求头:", config.websocket_session_id);
-    }
-    const response = await apiService.post(
-      "/deploy/deploy",
+    }    const response = await apiService.post(
+      "/api/v1/deploy/deploy",
       config,
       requestConfig
     );
@@ -126,16 +125,15 @@ const deploy = async (config) => {
 };
 
 const deployVersion = async (version, instanceName) => {
-  try {
-    const response = await apiService.post(`/deploy/${version}`, {
-      instance_name: instanceName,
-    });
-    console.log("deployVersion响应:", response);
-    return response.data || response;
-  } catch (error) {
-    console.error("部署版本失败:", error);
-    throw error;
-  }
+  console.log("deployVersion 方法已弃用，请使用 deploy 方法");
+  // 重定向到正确的 deploy 方法
+  return await deploy({
+    instance_name: instanceName,
+    install_services: [],
+    install_path: "", // 这需要在调用时提供
+    port: 8000, // 默认端口，应该在调用时提供
+    version: version
+  });
 };
 
 /**
@@ -163,10 +161,9 @@ const configureBot = async (config) => {
  */
 const checkInstallStatus = async (instanceId = null) => {
   try {
-    console.log("检查安装状态", instanceId ? `实例ID: ${instanceId}` : "");
-    const url = instanceId
-      ? `/deploy/install-status/${instanceId}`
-      : "/deploy/install-status";
+    console.log("检查安装状态", instanceId ? `实例ID: ${instanceId}` : "");    const url = instanceId
+      ? `/api/v1/deploy/install-status/${instanceId}`
+      : "/api/v1/deploy/install-status";
     const response = await apiService.get(url);
 
     console.log("checkInstallStatus响应:", response);
@@ -189,7 +186,7 @@ const checkInstallStatus = async (instanceId = null) => {
  */
 const getInstances = async () => {
   try {
-    const response = await apiService.get("/instances");
+    const response = await apiService.get("/api/v1/instances");
     console.log("getInstances响应:", response);
     return response.data || response;
   } catch (error) {

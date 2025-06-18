@@ -327,10 +327,19 @@ const installVersion = async () => {
     const version = selectedVersion.value;
     const instanceNameValue = instanceName.value;
 
-    console.log('调用API部署基础版本:', version, instanceNameValue);
+    console.log('调用API部署基础版本:', version, instanceNameValue);    // 构建完整的部署配置对象
+    const deployConfig = {
+      instance_name: instanceNameValue,
+      install_services: [], // 基础部署时先不安装额外服务
+      install_path: installPath,
+      port: parseInt(maibotPort.value),
+      version: version,
+      host: "127.0.0.1", // 默认主机地址
+      token: "" // 默认为空token，后续可以配置
+    };
 
-    // 使用 deployApi 发送基础部署请求
-    const deployResult = await deployApi.deployVersion(version, instanceNameValue);
+    // 使用正确的 deploy 方法发送部署请求
+    const deployResult = await deployApi.deploy(deployConfig);
 
     if (!deployResult || !deployResult.success) {
       const errorMsg = deployResult?.message || '基础版本部署请求失败';
