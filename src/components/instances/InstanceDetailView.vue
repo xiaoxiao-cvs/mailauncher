@@ -89,14 +89,23 @@
                             <div class="module-action">
                                 <Icon icon="mdi:chevron-right" />
                             </div>
-                        </div>
-
-                        <!-- 适配器配置模块 -->
+                        </div>                        <!-- 适配器配置模块 -->
                         <div class="module-card" @click="openModule('adapter')">
                             <div class="module-icon module-icon-cyan">
                                 <Icon icon="mdi:connection" class="text-cyan-500" />
                             </div>
                             <div class="module-name">适配器配置</div>
+                            <div class="module-action">
+                                <Icon icon="mdi:chevron-right" />
+                            </div>
+                        </div>
+
+                        <!-- MaiBot资源管理模块 -->
+                        <div class="module-card" @click="openModule('resource')">
+                            <div class="module-icon module-icon-green">
+                                <Icon icon="mdi:database" class="text-green-500" />
+                            </div>
+                            <div class="module-name">资源管理</div>
                             <div class="module-action">
                                 <Icon icon="mdi:chevron-right" />
                             </div>
@@ -148,10 +157,17 @@
                     <button @click="sendCommand" class="btn btn-xs btn-primary ml-2"
                         :disabled="!isTerminalConnected || !commandInput.trim()">
                         <Icon icon="mdi:send" />
-                    </button>
-                </div>
+                    </button>                </div>
             </div>
         </div>
+
+        <!-- MaiBot资源管理器模态框 -->
+        <MaibotResourceManager 
+            v-if="showResourceManager"
+            :instanceId="instance.id"
+            :instanceName="instance.name"
+            @close="showResourceManager = false"
+        />
     </div>
 </template>
 
@@ -161,6 +177,7 @@ import { Icon } from '@iconify/vue';
 import toastService from '@/services/toastService';
 import { getTerminalWebSocketService, closeTerminalWebSocket } from '@/services/websocket';
 import { instancesApi } from '@/services/api'; // 导入instancesApi以使用实例控制API
+import MaibotResourceManager from '@/components/maibot/MaibotResourceManager.vue';
 
 // 导入xterm和相关插件
 import { Terminal } from '@xterm/xterm';
@@ -195,6 +212,9 @@ const hasNapcatAdaService = computed(() => {
 
 // 当前激活的终端
 const activeTerminal = ref('maibot');
+
+// 资源管理器显示状态
+const showResourceManager = ref(false);
 
 // 终端相关状态
 const terminalContent = ref(null);
@@ -658,9 +678,11 @@ const openModule = (moduleName) => {
     if (moduleName === 'file') {
         toastService.show('测试文件管理模块Toast', { type: 'info', duration: 5000 });
     } else if (moduleName === 'tasks') {
-        toastService.show('测试自动任务模块Toast', { type: 'success', duration: 4000 });
-    } else if (moduleName === 'adapter') {
+        toastService.show('测试自动任务模块Toast', { type: 'success', duration: 4000 });    } else if (moduleName === 'adapter') {
         toastService.show('测试适配器配置模块Toast', { type: 'warning', duration: 6000 });
+    } else if (moduleName === 'resource') {
+        showResourceManager.value = true;
+        toastService.show('打开MaiBot资源管理', { type: 'info', duration: 3000 });
     }
 
     // 根据不同模块进行处理
