@@ -11,12 +11,19 @@ const getWebSocketUrl = (path = "/api/logs/ws") => {
   if (useProxy) {
     // 使用代理时，使用当前host
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${protocol}//${window.location.host}${path}`;
+    const wsUrl = `${protocol}//${window.location.host}${path}`;
+    console.log(`[WebSocket] 构建URL(代理模式): ${wsUrl}, 代理模式: ${useProxy}`);
+    return wsUrl;
   } else {
     // 不使用代理时，直接连接到后端
+    // 确保从localStorage加载最新配置
+    backendConfig.loadFromStorage();
+    
     // 使用后端配置的端口
     const protocol = "ws:";
-    return `${protocol}//${backendConfig.server.host}:${backendConfig.server.port}${path}`;
+    const wsUrl = `${protocol}//${backendConfig.server.host}:${backendConfig.server.port}${path}`;
+    console.log(`[WebSocket] 构建URL(直连模式): ${wsUrl}, 代理模式: ${useProxy}`);
+    return wsUrl;
   }
 };
 

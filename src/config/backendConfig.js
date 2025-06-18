@@ -63,8 +63,10 @@ const backendConfig = {
     if (!path.startsWith("/")) {
       path = "/" + path;
     }
-    return this.server.api_prefix + path;
-  },
+    return this.server.api_prefix + path;  },
 };
+
+// 立即加载存储的配置
+backendConfig.loadFromStorage();
 
 export default backendConfig;

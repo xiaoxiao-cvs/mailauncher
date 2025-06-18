@@ -159,13 +159,11 @@
                         <Icon icon="mdi:send" />
                     </button>                </div>
             </div>
-        </div>
-
-        <!-- MaiBot资源管理器模态框 -->
+        </div>        <!-- MaiBot资源管理器全屏页面 -->
         <MaibotResourceManager 
-            v-if="showResourceManager"
             :instanceId="instance.id"
             :instanceName="instance.name"
+            :isOpen="showResourceManager"
             @close="showResourceManager = false"
         />
     </div>
@@ -1020,6 +1018,7 @@ watch(() => props.instance, (newInstance, oldInstance) => {
 /* 整体容器样式 - 移除独立动画，使用父组件过渡 */
 .instance-detail-container {
     @apply bg-base-200 min-h-screen flex flex-col;
+    position: relative;
     /* 移除独立动画，避免与父组件过渡冲突 */
 }
 
@@ -1276,4 +1275,6 @@ watch(() => props.instance, (newInstance, oldInstance) => {
     background-color: rgba(var(--b2), 0.9);
     transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+/* 资源管理器全屏覆盖层样式 */
 </style>

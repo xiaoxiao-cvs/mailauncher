@@ -32,14 +32,12 @@ export default defineConfig(() => ({
       : undefined,
     watch: {
       // 3. tell vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
-    },
-    // 保留代理配置但添加注释说明
+      ignored: ["**/src-tauri/**"],    },
+    // 代理配置
     proxy: {
       "/api": {
-        // 注意：实际后端已移出项目，此处为前端模拟模式提供支持
-        // 如果想连接真实后端，请修改下面的target
-        target: "http://127.0.0.1:5000",
+        // 代理到真实后端服务器
+        target: "http://127.0.0.1:23456",
         changeOrigin: true,
         secure: false,
         ws: true,
