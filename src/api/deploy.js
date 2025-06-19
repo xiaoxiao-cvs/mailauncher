@@ -189,11 +189,20 @@ export const deployWithToast = async (version, deploymentConfig) => {
 
   // 显示部署Toast（会自动检查当前页面）
   const toastId = enhancedToastService.showDeploymentToast(deploymentData);
-
   if (toastId === -1) {
     // 用户在下载页，直接执行部署但不显示Toast
     console.log("用户在下载页，执行静默部署");
-    return await deployVersionWithConfig(version, instanceName, deploymentConfig);
+    const result = await deployVersionWithConfig(version, instanceName, deploymentConfig);
+    
+    // 确保返回结果包含正确的成功标识
+    if (result && (result.instance_id || result.message?.includes("已启动") || result.message?.includes("部署任务已启动"))) {
+      return {
+        ...result,
+        success: true // 明确标记为成功
+      };
+    }
+    
+    return result;
   }
 
   try {

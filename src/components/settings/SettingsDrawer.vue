@@ -889,9 +889,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-
-                                <!-- 重置按钮 -->
+                                </div>                                <!-- 重置按钮 -->
                                 <div class="setting-group">
                                     <div class="setting-item">
                                         <div class="setting-info">
@@ -902,6 +900,19 @@
                                             <button @click="resetLogSettings" class="btn btn-outline btn-warning btn-sm">
                                                 <IconifyIcon icon="mdi:restore" class="w-4 h-4" />
                                                 重置设置
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">测试去重功能</label>
+                                            <p class="setting-desc">检查日志去重功能是否正常工作</p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <button @click="testLogDeduplication" class="btn btn-outline btn-info btn-sm">
+                                                <IconifyIcon icon="mdi:bug" class="w-4 h-4" />
+                                                测试去重
                                             </button>
                                         </div>
                                     </div>
@@ -1081,6 +1092,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, inject, nextTick } from 'vue'
 import { useDarkMode, useTheme } from '../../services/theme-simplified'
 import settingsService from '../../services/settingsService'
+import enhancedToastService from '../../services/enhancedToastService'
 import IconifyIcon from '../common/IconifyIcon.vue'
 import './SettingsDrawer.css'
 // 导入版本相关服务
@@ -1556,6 +1568,29 @@ const resetLogSettings = () => {
     }
     
     console.log('日志设置已重置为默认值')
+}
+
+// 测试日志去重功能
+const testLogDeduplication = () => {
+    console.group('🧪 测试日志去重功能');
+    console.log('当前日志设置:', logSettings.value);
+    
+    // 显示测试提示
+    const testToast = enhancedToastService.showInfo({
+        title: '测试去重功能',
+        message: '正在向控制台输出测试日志，请查看开发者工具的控制台',
+        duration: 3000
+    });
+    
+    // 通过事件总线发送测试日志给LogsDisplay组件
+    if (emitter) {
+        console.log('发送测试日志去重指令...');
+        emitter.emit('test-log-deduplication');
+    } else {
+        console.warn('事件总线不可用，无法发送测试指令');
+    }
+    
+    console.groupEnd();
 }
 
 // WebUI 配置方法

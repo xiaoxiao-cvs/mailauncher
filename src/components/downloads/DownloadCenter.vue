@@ -1,11 +1,9 @@
 <template>
     <div class="download-center">
         <div class="version-select-container">
-            <div class="card rounded-xl bg-base-100 p-5 shadow-md">
-
-                <!-- 安装方式选择页面 -->
+            <div class="card rounded-xl bg-base-100 p-5 shadow-md">                <!-- 安装方式选择页面 -->
                 <transition name="page-fade" mode="out-in">
-                    <div v-if="currentStep === 'select-mode'" key="select-mode" class="install-mode-selection">
+                    <div v-if="currentStep === 'select-mode' && !installing" key="select-mode" class="install-mode-selection">
                         <div class="card-title mb-6 text-center">选择安装方式</div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -562,21 +560,21 @@
                                         :disabled="!canInstall || installing">
                                         <span v-if="installing" class="loading loading-spinner loading-xs mr-2"></span>
                                         开始安装
-                                    </button>
-                                </div>
+                                    </button>                                </div>
                             </div>
                         </transition>
                     </div>
                 </transition>
-
+                
                 <!-- 安装进度 -->
                 <transition name="fade">
-                    <div v-if="installing" class="mt-4">                        <div class="install-summary p-3 rounded-lg bg-base-200 mb-4">
+                    <div v-if="installing" class="mt-4">
+                        <div class="install-summary p-3 rounded-lg bg-base-200 mb-4">
                             <div class="font-medium mb-2">安装配置概要</div>
                             <div class="text-sm grid grid-cols-2 gap-x-4 gap-y-2">
                                 <div>版本: <span class="font-medium">{{ installationSnapshot?.version || selectedVersion }}</span></div>
                                 <div>实例名: <span class="font-medium">{{ installationSnapshot?.instanceName || instanceName }}</span></div>
-                                <div>路径: <span class="font-medium">{{ installationSnapshot ? normalizePath(installationSnapshot.installPath) : normalizePath(installPath) }}</span></div>
+                                <div class="col-span-2">路径: <span class="font-medium">{{ installationSnapshot?.installPath || installPath }}</span></div>
                                 <div>MaiBot端口: <span class="font-medium">{{ installationSnapshot?.maibotPort || maibotPort }}</span></div>
                                 <div>Napcat-ada端口: <span class="font-medium">{{ installationSnapshot?.napcatPort || servicePorts['napcat-ada'] }}</span></div>
                                 <div class="col-span-2 flex justify-end items-center">
@@ -615,10 +613,11 @@
                                         :value="service.progress" max="100"></progress>
                                     <div class="text-xs opacity-70 mt-0.5">{{ service.message }}</div>
                                 </div>
-                            </div>
-                        </div>
+                            </div>                        </div>
                     </div>
-                </transition>                <!-- 安装日志 -->
+                </transition>
+                
+                <!-- 安装日志 -->
                 <transition name="fade">
                     <div v-if="installing" class="mt-4">
                         <LogsDisplay :logs="logs" @clear-logs="clearInstallLogs" />
@@ -658,6 +657,36 @@ let isUpdatingInstallPath = false;
 let isUpdatingInstanceName = false;
 let installPathUpdateTimeout = null;
 let instanceNameUpdateTimeout = null;
+// 添加全局锁，防止同时更新
+let isPathUpdateLocked = false;
+
+// 重置所有路径相关的状态和锁
+const resetPathStates = () => {
+    console.log('重置所有路径相关状态');
+    
+    // 重置标志
+    isUpdatingInstallPath = false;
+    isUpdatingInstanceName = false;
+    isPathUpdateLocked = false;
+    
+    // 清理所有定时器
+    if (installPathUpdateTimeout) {
+        clearTimeout(installPathUpdateTimeout);
+        installPathUpdateTimeout = null;
+    }
+    if (instanceNameUpdateTimeout) {
+        clearTimeout(instanceNameUpdateTimeout);
+        instanceNameUpdateTimeout = null;
+    }
+    if (validateTimeout) {
+        clearTimeout(validateTimeout);
+        validateTimeout = null;
+    }
+    if (validateExistingTimeout) {
+        clearTimeout(validateExistingTimeout);
+        validateExistingTimeout = null;
+    }
+};
 
 // 安全获取部署路径，自动修复有问题的路径
 const getSafeDeploymentPath = () => {
@@ -932,58 +961,74 @@ const startDeploymentStatusTracking = async (deploymentId, instanceId) => {
     const maxAttempts = 120; // 最大等待2分钟
     let attempts = 0;
     const checkInterval = 1000; // 1秒检查一次
-    
-    deployStore.addLog(deploymentId, '🔄 开始跟踪部署状态...', 'info');
+      deployStore.addLog(deploymentId, '🔄 开始跟踪部署状态...', 'info');
     deployStore.addLog(deploymentId, `📊 轮询配置: 间隔${checkInterval}ms, 最大尝试${maxAttempts}次`, 'info');
-
+    
     const checkStatus = async () => {
         try {
-            deployStore.addLog(deploymentId, `🔍 检查部署状态 (尝试 ${attempts + 1}/${maxAttempts})`, 'info');
+            // deployStore.addLog(deploymentId, `🔍 检查部署状态 (尝试 ${attempts + 1}/${maxAttempts})`, 'info'); // 注释掉避免日志刷屏
             const response = await apiService.get(`/deploy/install-status/${instanceId}`);
             const status = response?.data || response;
-
+            
             console.log('获取到的部署状态:', status);
-            deployStore.addLog(deploymentId, `📥 收到状态响应: ${JSON.stringify(status)}`, 'info');
+            // deployStore.addLog(deploymentId, `📥 收到状态响应: ${JSON.stringify(status)}`, 'info'); // 注释掉避免日志刷屏
 
             // 如果状态数据无效，继续等待
             if (!status || typeof status !== 'object') {
-                console.log('状态数据无效，继续等待...');
-                deployStore.addLog(deploymentId, '⚠️ 状态数据无效，继续等待...', 'warning');
+                console.log('状态数据无效，继续等待...');                // deployStore.addLog(deploymentId, '⚠️ 状态数据无效，继续等待...', 'warning'); // 注释掉避免日志刷屏
                 attempts++;
                 if (attempts < maxAttempts) {
                     setTimeout(checkStatus, checkInterval);
                 }
                 return;
-            }            // 安全地访问状态属性
+            }
+              // 安全地访问状态属性
             const currentProgress = Number(status?.progress) || 0;
             const currentStatus = status?.status || status?.message || "正在部署...";
             const installStatus = status?.install_status || status?.status;
 
-            // 更新日志 - 更详细的状态信息
-            deployStore.addLog(deploymentId, `📊 部署进度: ${currentProgress}%`, 'info');
-            deployStore.addLog(deploymentId, `📝 状态信息: ${currentStatus}`, 'info');
-            if (installStatus && installStatus !== currentStatus) {
+            // 只在进度或状态发生变化时记录日志，避免重复日志
+            const statusKey = `${deploymentId}_status`;
+            const lastStatus = window[statusKey] || {};
+            
+            if (lastStatus.progress !== currentProgress || lastStatus.status !== currentStatus) {
+                deployStore.addLog(deploymentId, `📊 部署进度: ${currentProgress}% - ${currentStatus}`, 'info');
+                window[statusKey] = { progress: currentProgress, status: currentStatus };
+            }
+
+            // 只在安装状态变化时记录
+            if (installStatus && installStatus !== lastStatus.installStatus) {
                 deployStore.addLog(deploymentId, `� 安装状态: ${installStatus}`, 'info');
+                window[statusKey].installStatus = installStatus;
             }
 
-            // 如果有详细的状态信息，记录到日志
-            if (status?.details && typeof status.details === 'object') {
-                Object.entries(status.details).forEach(([key, value]) => {
-                    deployStore.addLog(deploymentId, `📄 ${key}: ${value}`, 'info');
-                });
-            }
-
-            // 如果有服务状态，也记录到日志
+            // 只在第一次或者服务状态发生变化时记录服务信息
             if (status?.services_install_status && Array.isArray(status.services_install_status)) {
-                deployStore.addLog(deploymentId, `🔧 检查到 ${status.services_install_status.length} 个服务状态`, 'info');
-                status.services_install_status.forEach((service, index) => {
-                    if (service?.message) {
-                        const serviceName = service.name || `服务${index + 1}`;
-                        const serviceStatus = service.status || '未知';
-                        const serviceProgress = service.progress ? ` (${service.progress}%)` : '';
-                        deployStore.addLog(deploymentId, `[${serviceName}] ${serviceStatus}${serviceProgress}: ${service.message}`, 'info');
-                    }
-                });            }// 检查是否完成
+                const servicesKey = `${deploymentId}_services`;
+                const lastServices = window[servicesKey] || [];
+                
+                // 检查服务状态是否有变化
+                const hasServiceChanges = status.services_install_status.some((service, index) => {
+                    const lastService = lastServices[index];
+                    return !lastService || 
+                           lastService.status !== service.status || 
+                           lastService.progress !== service.progress;
+                });
+                
+                if (hasServiceChanges) {
+                    status.services_install_status.forEach((service, index) => {
+                        if (service?.message) {
+                            const serviceName = service.name || `服务${index + 1}`;
+                            const serviceStatus = service.status || '未知';
+                            const serviceProgress = service.progress ? ` (${service.progress}%)` : '';
+                            deployStore.addLog(deploymentId, `[${serviceName}] ${serviceStatus}${serviceProgress}: ${service.message}`, 'info');
+                        }
+                    });
+                    window[servicesKey] = status.services_install_status;
+                }
+            }
+            
+            // 检查是否完成
             if (installStatus === "completed") {
                 deployStore.addLog(deploymentId, '🎉 部署已完成！', 'success');
                 deployStore.addLog(deploymentId, `✅ 实例 ${instanceName.value} 已成功部署`, 'success');
@@ -1002,7 +1047,8 @@ const startDeploymentStatusTracking = async (deploymentId, instanceId) => {
                     console.warn('设置部署完成状态失败:', error);
                 }
                 
-                return; // 停止轮询            } else if (installStatus === "failed") {
+                return; // 停止轮询
+            } else if (installStatus === "failed") {
                 deployStore.addLog(deploymentId, `❌ 部署失败: ${currentStatus}`, 'error');
                 deployStore.addLog(deploymentId, `💥 失败详情: ${JSON.stringify(status, null, 2)}`, 'error');
                 deployStore.addLog(deploymentId, `⏱️ 失败前运行时间: ${attempts} 秒`, 'warning');
@@ -1010,28 +1056,30 @@ const startDeploymentStatusTracking = async (deploymentId, instanceId) => {
                 localInstalling.value = false;
                 installationSnapshot.value = null; // 清除快照
                 try {
-                    deployStore.setDeploymentStatus(deploymentId, false, false);
-                } catch (error) {
+                    deployStore.setDeploymentStatus(deploymentId, false, false);                } catch (error) {
                     console.warn('设置部署失败状态失败:', error);
                 }
                 
                 return; // 停止轮询
-            }            // 继续轮询
+            }
+            
+            // 继续轮询
             attempts++;
             if (attempts < maxAttempts) {
-                setTimeout(checkStatus, checkInterval);            } else {
+                setTimeout(checkStatus, checkInterval);
+            } else {
                 deployStore.addLog(deploymentId, '⏰ 部署状态检查超时', 'warning');
                 deployStore.addLog(deploymentId, `⚠️ 已等待 ${maxAttempts} 秒，停止状态检查`, 'warning');
                 deployStore.addLog(deploymentId, '💡 建议检查后端服务状态或手动查看部署进度', 'info');
-                  // 超时时重置安装状态
-                localInstalling.value = false;
+                  // 超时时重置安装状态                localInstalling.value = false;
                 installationSnapshot.value = null; // 清除快照
                 try {
                     deployStore.setDeploymentStatus(deploymentId, false, false);
                 } catch (error) {
                     console.warn('设置部署超时状态失败:', error);
                 }
-            }        } catch (error) {
+            }
+        } catch (error) {
             console.error('获取部署状态失败:', error);
             
             // 如果是404错误，说明实例还未开始部署，继续等待
@@ -1183,12 +1231,22 @@ const startInstall = async () => {
         
         // 使用新的带Toast的部署API
         console.log('开始使用Toast系统部署实例:', deployConfig);
-        
-        // 这里会自动检查当前页面，如果在下载页就不显示Toast
+          // 这里会自动检查当前页面，如果在下载页就不显示Toast
         const result = await deployWithToast(selectedVersion.value, deployConfig);
-          console.log('部署API响应:', result);
-          // 更健壮的成功检查
-        if (result && result.success) {
+        
+        console.log('部署API响应:', result);
+        
+        // 更健壮的成功检查 - 支持多种成功判断条件
+        const isSuccess = result && (
+            result.success === true || 
+            result.success === "true" ||
+            (result.message && result.message.includes("已启动") && result.instance_id) ||
+            (result.message && result.message.includes("部署任务已启动"))
+        );
+        
+        console.log(`部署成功判断: isSuccess=${isSuccess}, success=${result?.success}, message="${result?.message}", instance_id=${result?.instance_id}`);
+        
+        if (isSuccess) {
             console.log('部署启动成功，Toast系统将显示进度');
             deployStore.addLog(deploymentId, `✅ 部署请求已发送，实例ID: ${result.instance_id}`, 'success');
             
@@ -1246,6 +1304,9 @@ const installationSnapshot = ref(null);
 
 // 选择安装模式
 const selectInstallMode = (mode) => {
+    // 重置所有路径相关状态，防止状态污染
+    resetPathStates();
+    
     if (mode === 'existing') {
         currentStep.value = 'existing-instance';
         // 重置手动设置标记
@@ -1255,7 +1316,6 @@ const selectInstallMode = (mode) => {
         // 重置手动设置标记
         instanceNameManuallySet.value = false;
         installPathManuallySet.value = false;
-        currentStep.value = 'new-instance';
         // 当选择下载新实例时，重新开始三阶段动画
         console.log('选择下载新实例，重新开始三阶段动画');
         versionLoadingStage.value = 'loading';
@@ -1467,6 +1527,9 @@ const isLatestVersion = (version) => {
 
 // 返回上一步
 const goBack = () => {
+    // 重置所有路径相关状态，防止状态污染
+    resetPathStates();
+    
     currentStep.value = 'select-mode';
     // 重置相关状态
     maibotPath.value = '';
@@ -1734,8 +1797,7 @@ onMounted(async () => {
 
     // 设置初始状态为dropdown，避免在选择模式页面就开始动画
     versionLoadingStage.value = 'dropdown';
-    loading.value = false;    // 监听部署路径变更事件
-    window.addEventListener('deployment-path-changed', handleDeploymentPathChange);
+    loading.value = false;    // 监听部署路径变更事件    window.addEventListener('deployment-path-changed', handleDeploymentPathChange);
 
     // CSS focus方法已替代JavaScript控制的下拉框，无需额外的点击监听
 
@@ -1746,32 +1808,53 @@ onMounted(async () => {
 onBeforeUnmount(() => {
     console.log('DownloadCenter 组件即将卸载，清理事件监听');
     
-    // 清理事件监听器
-    if (window.emitter) {
-        window.emitter.off('navigate-to-tab', handlePageSwitch);
+    // 清理事件监听器（只在已绑定时清理）
+    if (eventListenersAttached.value) {
+        if (window.emitter) {
+            window.emitter.off('navigate-to-tab', handlePageSwitch);
+        }
+        
+        window.removeEventListener('force-navigate', handlePageSwitch);
+        window.removeEventListener('deployment-started-in-downloads', handleDeploymentStarted);
+        window.removeEventListener('deployment-path-changed', handleDeploymentPathChange);
+        
+        // 标记事件监听器已清理
+        eventListenersAttached.value = false;
     }
-    
-    window.removeEventListener('force-navigate', handlePageSwitch);
-    window.removeEventListener('deployment-started-in-downloads', handleDeploymentStarted);
     
     // 如果有活跃的Toast，关闭它
     if (currentToastId.value) {
         enhancedToastService.close(currentToastId.value);
         currentToastId.value = null;
     }
-    
-    // 清理定时器
+      // 清理定时器
     if (installPathUpdateTimeout) {
         clearTimeout(installPathUpdateTimeout);
+        installPathUpdateTimeout = null;
     }
     if (instanceNameUpdateTimeout) {
         clearTimeout(instanceNameUpdateTimeout);
+        instanceNameUpdateTimeout = null;
+    }
+    if (validateTimeout) {
+        clearTimeout(validateTimeout);
+        validateTimeout = null;
+    }
+    if (validateExistingTimeout) {
+        clearTimeout(validateExistingTimeout);
+        validateExistingTimeout = null;
     }
 });
 
 // 组件生命周期
 onMounted(() => {
     console.log('DownloadCenter 组件已挂载，设置事件监听');
+    
+    // 防止重复绑定事件监听器
+    if (eventListenersAttached.value) {
+        console.warn('事件监听器已绑定，跳过重复绑定');
+        return;
+    }
     
     // 监听页面切换事件
     if (window.emitter) {
@@ -1788,37 +1871,13 @@ onMounted(() => {
     // 监听部署开始事件（当在下载页面时）
     window.addEventListener('deployment-started-in-downloads', handleDeploymentStarted);
     
+    // 标记事件监听器已绑定    eventListenersAttached.value = true;
+    
     // 标记当前在下载页面
     isInDownloadPage.value = true;
     
     // 初始化组件数据
     initializeData();
-});
-
-onBeforeUnmount(() => {
-    console.log('DownloadCenter 组件即将卸载，清理事件监听');
-    
-    // 清理事件监听器
-    if (window.emitter) {
-        window.emitter.off('navigate-to-tab', handlePageSwitch);
-    }
-    
-    window.removeEventListener('force-navigate', handlePageSwitch);
-    window.removeEventListener('deployment-started-in-downloads', handleDeploymentStarted);
-    
-    // 如果有活跃的Toast，关闭它
-    if (currentToastId.value) {
-        enhancedToastService.close(currentToastId.value);
-        currentToastId.value = null;
-    }
-    
-    // 清理定时器
-    if (installPathUpdateTimeout) {
-        clearTimeout(installPathUpdateTimeout);
-    }
-    if (instanceNameUpdateTimeout) {
-        clearTimeout(instanceNameUpdateTimeout);
-    }
 });
 
 // 处理部署路径变更
@@ -1936,17 +1995,23 @@ const handleInstallPathInput = () => {
 };
 
 // 监听MaiBot路径变化
-watch(maibotPath, (newValue) => {
+watch(maibotPath, (newValue, oldValue) => {
+    // 防止无意义的更新
+    if (newValue === oldValue) return;
+    
     if (newValue && newValue.trim()) {
-        detectMaibot();
-        
-        // 自动从路径提取实例名称（只在用户未手动设置时）
-        if (!existingInstanceNameManuallySet.value) {
-            const extractedName = extractInstanceNameFromPath(newValue);
-            if (extractedName) {
-                existingInstanceName.value = extractedName;
+        // 防抖处理，避免频繁检测
+        setTimeout(() => {
+            detectMaibot();
+            
+            // 自动从路径提取实例名称（只在用户未手动设置时）
+            if (!existingInstanceNameManuallySet.value) {
+                const extractedName = extractInstanceNameFromPath(newValue);
+                if (extractedName && extractedName !== existingInstanceName.value) {
+                    existingInstanceName.value = extractedName;
+                }
             }
-        }
+        }, 200);
     } else {
         resetMaibotDetection();
         // 清空自动提取的实例名称（只在用户未手动设置时）
@@ -1954,16 +2019,22 @@ watch(maibotPath, (newValue) => {
             existingInstanceName.value = '';
         }
     }
-});
+}, { flush: 'post' }); // 使用post flush确保DOM更新后执行
 
 // 监听适配器路径变化
-watch(adapterPath, (newValue) => {
+watch(adapterPath, (newValue, oldValue) => {
+    // 防止无意义的更新
+    if (newValue === oldValue) return;
+    
     if (newValue && newValue.trim()) {
-        detectAdapter();
+        // 防抖处理，避免频繁检测
+        setTimeout(() => {
+            detectAdapter();
+        }, 200);
     } else {
         resetAdapterDetection();
     }
-});
+}, { flush: 'post' }); // 使用post flush确保DOM更新后执行
 
 // 监听已有实例路径变化 (保持向后兼容)
 watch(existingInstancePath, (newValue) => {
@@ -1976,7 +2047,12 @@ watch(existingInstancePath, (newValue) => {
 
 // 监听实例名称变化，实时验证
 let validateTimeout = null;
-watch(instanceName, (newValue) => {
+watch(instanceName, (newValue, oldValue) => {
+    // 防止无意义的更新和循环调用
+    if (newValue === oldValue || isUpdatingInstanceName) {
+        return;
+    }
+
     // 清除之前的定时器
     if (validateTimeout) {
         clearTimeout(validateTimeout);
@@ -1993,15 +2069,23 @@ watch(instanceName, (newValue) => {
         return;
     }
 
-    // 防抖处理，500ms 后执行验证
+    // 防抖处理，增加延时到800ms，避免与路径更新冲突
     validateTimeout = setTimeout(() => {
-        validateInstanceName(newValue.trim());
-    }, 500);
-});
+        // 再次检查是否在更新中，避免冲突
+        if (!isUpdatingInstanceName && !isPathUpdateLocked) {
+            validateInstanceName(newValue.trim());
+        }
+    }, 800);
+}, { flush: 'post' }); // 使用post flush确保DOM更新后执行
 
 // 监听已有实例名称变化，实时验证
 let validateExistingTimeout = null;
 watch(existingInstanceName, (newValue, oldValue) => {
+    // 防止无意义的更新
+    if (newValue === oldValue) {
+        return;
+    }
+    
     // 如果新值与从路径提取的名称不同，则认为是用户手动设置
     if (maibotPath.value) {
         const extractedName = extractInstanceNameFromPath(maibotPath.value);
@@ -2029,17 +2113,16 @@ watch(existingInstanceName, (newValue, oldValue) => {
     // 如果名称为空，直接返回
     if (!newValue || newValue.trim() === '') {
         return;
-    }
-
-    // 防抖处理，500ms 后执行验证
+    }    // 防抖处理，800ms 后执行验证，避免与路径提取冲突
     validateExistingTimeout = setTimeout(() => {
-        validateExistingInstanceName(newValue.trim());    }, 500);
-});
+        validateExistingInstanceName(newValue.trim());    
+    }, 800);
+}, { flush: 'post' }); // 使用post flush确保DOM更新后执行
 
 // 监听实例名称变化，自动同步安装路径
 watch(instanceName, (newName, oldName) => {
     // 防止循环更新和无效更新
-    if (isUpdatingInstanceName || !newName || newName === oldName) {
+    if (isUpdatingInstanceName || isPathUpdateLocked || !newName || newName === oldName) {
         return;
     }
 
@@ -2054,10 +2137,12 @@ watch(instanceName, (newName, oldName) => {
         clearTimeout(installPathUpdateTimeout);
     }
 
-    // 使用防抖机制，避免频繁更新
+    // 使用防抖机制，避免频繁更新，增加延时到300ms
     installPathUpdateTimeout = setTimeout(() => {
-        if (isUpdatingInstanceName) return; // 双重检查
-          isUpdatingInstallPath = true;
+        if (isUpdatingInstanceName || isPathUpdateLocked) return; // 双重检查
+        
+        isPathUpdateLocked = true; // 设置全局锁
+        isUpdatingInstallPath = true;
         try {
             const savedDeploymentPath = getSafeDeploymentPath();
             
@@ -2089,14 +2174,18 @@ watch(instanceName, (newName, oldName) => {
             console.error('更新安装路径失败:', error);
         } finally {
             isUpdatingInstallPath = false;
+            // 延迟释放全局锁，确保其他监听器不会立即触发
+            setTimeout(() => {
+                isPathUpdateLocked = false;
+            }, 50);
         }
-    }, 100); // 100ms 防抖
+    }, 300); // 增加防抖延时到300ms
 });
 
 // 监听安装路径变化，自动同步实例名称
 watch(installPath, (newPath, oldPath) => {
     // 防止循环更新和无效更新
-    if (isUpdatingInstallPath || !newPath || newPath === oldPath) {
+    if (isUpdatingInstallPath || isPathUpdateLocked || !newPath || newPath === oldPath) {
         return;
     }
 
@@ -2111,10 +2200,12 @@ watch(installPath, (newPath, oldPath) => {
         clearTimeout(instanceNameUpdateTimeout);
     }
 
-    // 使用防抖机制，避免频繁更新
+    // 使用防抖机制，避免频繁更新，增加延时到300ms
     instanceNameUpdateTimeout = setTimeout(() => {
-        if (isUpdatingInstallPath) return; // 双重检查
-          isUpdatingInstanceName = true;
+        if (isUpdatingInstallPath || isPathUpdateLocked) return; // 双重检查
+        
+        isPathUpdateLocked = true; // 设置全局锁
+        isUpdatingInstanceName = true;
         try {
             const savedDeploymentPath = getSafeDeploymentPath();
             const normalizedDeploymentPath = safeNormalizePath(savedDeploymentPath, { operation: 'normalize' });
@@ -2146,8 +2237,12 @@ watch(installPath, (newPath, oldPath) => {
             console.error('从安装路径提取实例名称失败:', error);
         } finally {
             isUpdatingInstanceName = false;
+            // 延迟释放全局锁，确保其他监听器不会立即触发
+            setTimeout(() => {
+                isPathUpdateLocked = false;
+            }, 50);
         }
-    }, 100); // 100ms 防抖
+    }, 300); // 增加防抖延时到300ms
 });
 
 // 处理版本选择并强制关闭下拉菜单
@@ -2197,6 +2292,8 @@ const handleVersionSelect = async (version, event) => {
 const currentToastId = ref(null); // 当前活跃的Toast ID
 const isInDownloadPage = ref(true); // 标记当前是否在下载页面
 const activeDeploymentData = ref(null); // 当前活跃的部署数据
+// 添加事件监听器状态跟踪
+const eventListenersAttached = ref(false);
 
 // 处理从下载页面切换到其他页面时的Toast显示
 const handlePageSwitch = (newPage) => {
@@ -2235,8 +2332,7 @@ const handleDeploymentStarted = (event) => {
 // 监听部署完成事件
 watch(installing, (newValue) => {
     if (!newValue) {
-        // 安装完成，重置活跃部署数据
-        activeDeploymentData.value = null;
+        // 安装完成，重置活跃部署数据        activeDeploymentData.value = null;
     }
 });
 </script>

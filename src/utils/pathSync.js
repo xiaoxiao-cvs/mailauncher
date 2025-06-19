@@ -158,7 +158,27 @@ export const safeNormalizePath = (path, context = {}) => {
       return "";
     }
 
-    return normalizePath(path);
+    // 防止重复调用同一路径
+    const cacheKey = `${path}_${JSON.stringify(context)}`;
+    if (safeNormalizePath._cache && safeNormalizePath._cache.has(cacheKey)) {
+      return safeNormalizePath._cache.get(cacheKey);
+    }
+
+    const result = normalizePath(path);
+    
+    // 缓存结果，避免重复计算
+    if (!safeNormalizePath._cache) {
+      safeNormalizePath._cache = new Map();
+    }
+    
+    // 限制缓存大小，防止内存泄漏
+    if (safeNormalizePath._cache.size > 100) {
+      const firstKey = safeNormalizePath._cache.keys().next().value;
+      safeNormalizePath._cache.delete(firstKey);
+    }
+    
+    safeNormalizePath._cache.set(cacheKey, result);
+    return result;
   } catch (error) {
     console.error('safeNormalizePath: 路径标准化失败', { 
       path, 

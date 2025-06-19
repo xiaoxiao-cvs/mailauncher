@@ -112,9 +112,8 @@
           </svg>
           <p class="opacity-50">等待日志输出...</p>
         </div>
-      </div>
-      <div v-for="(log, index) in processedLogs" :key="log.id || index" 
-           :class="['log-line', getLogLevelClass(log.level)]">
+      </div>      <div v-for="(log, index) in processedLogs" :key="log.id || index" 
+           :class="['log-line', getLogLevelClass(log.level), { 'log-new': log.isNew }]">
         <span v-if="logSettings.showTimestamp" class="log-time text-xs opacity-50">
           [{{ log.time || getCurrentTime() }}]
         </span>
@@ -175,6 +174,10 @@ const logStats = ref({
 // 去重缓存
 const deduplicationCache = ref(new Map());
 
+// 新日志跟踪
+const lastLogCount = ref(0);
+const newLogIds = ref(new Set());
+
 // 加载日志设置
 const loadLogSettings = () => {
   const keys = Object.keys(logSettings.value);
@@ -213,13 +216,26 @@ const saveLogSettings = () => {
 // 监听全局日志设置更新
 if (emitter) {
   emitter.on('log-settings-updated', (newSettings) => {
+    console.log('LogsDisplay: 收到日志设置更新', newSettings);
     Object.assign(logSettings.value, newSettings);
     autoScroll.value = logSettings.value.enableAutoScroll !== false;
+    // 重新保存本地设置，确保同步
+    saveLogSettings();
   });
   
   emitter.on('log-settings-reset', (newSettings) => {
+    console.log('LogsDisplay: 收到日志设置重置', newSettings);
     Object.assign(logSettings.value, newSettings);
     autoScroll.value = logSettings.value.enableAutoScroll !== false;
+    // 清空去重缓存
+    deduplicationCache.value.clear();
+    // 重新保存本地设置，确保同步
+    saveLogSettings();
+  });
+  
+  emitter.on('test-log-deduplication', () => {
+    console.log('LogsDisplay: 收到去重测试指令');
+    debugDeduplication();
   });
 }
 
@@ -242,13 +258,30 @@ const processedLogs = computed(() => {
         source: log.source,
         time: log.time
       })));
-    }
-
-    // 确保所有日志都有ID
+    }    // 确保所有日志都有ID，但不要每次都重新生成
     result = result.map((log, index) => ({
       ...log,
-      id: log.id || `log_${Date.now()}_${index}`
+      id: log.id || `log_${index}_${log.time}_${log.message?.substring(0, 10)}`,
+      isNew: false // 默认不是新日志
     }));
+
+    // 标记新日志
+    if (result.length > lastLogCount.value) {
+      const newLogs = result.slice(lastLogCount.value);
+      newLogs.forEach(log => {
+        log.isNew = true;
+        newLogIds.value.add(log.id);
+      });
+      
+      // 设置定时器移除新日志标记
+      setTimeout(() => {
+        newLogs.forEach(log => {
+          newLogIds.value.delete(log.id);
+        });
+      }, 1000); // 1秒后移除新日志标记
+      
+      lastLogCount.value = result.length;
+    }
 
     // 日志级别过滤
     if (logSettings.value.logLevel && logSettings.value.logLevel !== 'all') {
@@ -325,6 +358,8 @@ const deduplicateLogsSync = (logs) => {
       const existingLog = deduped.find(item => item.id === cachedData.log.id);
       if (existingLog) {
         existingLog.count = cachedData.count;
+        // 更新最后出现的时间为最新的日志时间
+        existingLog.time = log.time || existingLog.time;
       }
       
       duplicatedCount++;
@@ -334,7 +369,7 @@ const deduplicateLogsSync = (logs) => {
       const newLog = { 
         ...log, 
         count: 1, 
-        id: Date.now() + Math.random() + deduped.length 
+        id: log.id || `log_${deduped.length}_${log.time}_${logKey.slice(-8)}` // 更稳定的ID生成
       };
       deduped.push(newLog);
       
@@ -416,7 +451,7 @@ const generateLogKey = (log) => {
     return 'invalid_log';
   }
 
-  const message = String(log.message || '').trim();
+  let message = String(log.message || '').trim();
   const level = String(log.level || 'info').toLowerCase();
   const source = String(log.source || '').trim();
   
@@ -427,16 +462,43 @@ const generateLogKey = (log) => {
     return `${level}|${source}|empty_message`;
   }
   
-  // 非常保守的标准化，只处理明确的重复模式
-  let normalizedMessage = message;
+  // 深度清理消息内容，去除所有HTML标签和实体
+  let cleanMessage = message;
+  let previousLength;
+  do {
+    previousLength = cleanMessage.length;
+    // 清理所有HTML标签
+    cleanMessage = cleanMessage.replace(/<\/?[^>]*>/g, '');
+    // 清理HTML实体
+    cleanMessage = cleanMessage
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&[a-zA-Z0-9#]+;/g, ''); // 清理其他HTML实体
+  } while (cleanMessage.length !== previousLength);
   
-  // 只有在消息确实包含这些模式时才进行替换
-  if (message.includes('Installing') && message.includes('%')) {
-    normalizedMessage = message.replace(/\d+%/g, 'X%');
-  } else if (message.includes('Downloaded') && message.includes('files')) {
-    normalizedMessage = message.replace(/\d+ files/g, 'X files');
-  } else if (message.includes('正在') && (message.includes('%') || message.includes('进度'))) {
-    normalizedMessage = message.replace(/\d+(\.\d+)?%/g, 'X%');
+  // 清理多余的空格
+  cleanMessage = cleanMessage.replace(/\s+/g, ' ').trim();
+    // 非常保守的标准化，只处理明确的重复模式
+  let normalizedMessage = cleanMessage;
+  
+  // 部署进度类消息统一化
+  if (cleanMessage.includes('部署进度:') && cleanMessage.includes('%')) {
+    normalizedMessage = cleanMessage.replace(/\d+(\.\d+)?%/g, 'X%');
+  } else if (cleanMessage.includes('Installing') && cleanMessage.includes('%')) {
+    normalizedMessage = cleanMessage.replace(/\d+%/g, 'X%');
+  } else if (cleanMessage.includes('Downloaded') && cleanMessage.includes('files')) {
+    normalizedMessage = cleanMessage.replace(/\d+ files/g, 'X files');
+  } else if (cleanMessage.includes('Progress:') && cleanMessage.includes('%')) {
+    normalizedMessage = cleanMessage.replace(/\d+(\.\d+)?%/g, 'X%');
+  } else if (cleanMessage.includes('速度') && cleanMessage.match(/\d+(\.\d+)?\s*(KB|MB|GB)\/s/)) {
+    normalizedMessage = cleanMessage.replace(/\d+(\.\d+)?\s*(KB|MB|GB)\/s/g, 'X $2/s');
+  } else if (cleanMessage.includes('状态信息:') || cleanMessage.includes('安装状态:')) {
+    // 状态信息类的重复日志合并
+    normalizedMessage = cleanMessage.replace(/状态信息: .*/, '状态信息: [状态]');
   }
   
   const key = `${level}|${source}|${normalizedMessage}`;
@@ -523,7 +585,7 @@ const debugDeduplication = () => {
     props.logs.slice(0, 5).forEach((log, index) => {
       try {
         const key = generateLogKey(log);
-        console.log(`日志${index + 1}: "${log.message}" -> 键: "${key}"`);
+        console.log(`日志${index + 1}: "${log.message}" -> 销: "${key}"`);
       } catch (error) {
         console.error(`生成日志${index + 1}的键时出错:`, error, log);
       }
@@ -540,6 +602,22 @@ const debugDeduplication = () => {
       console.error('去重函数测试失败:', error);
     }
   }
+  
+  // 测试HTML标签清理功能
+  console.log('HTML标签清理测试:');
+  const testMessages = [
+    '🚀 正在安装 <span class="text-info">测试实例</span>',
+    '✅ 安装完成</span>',
+    '📊 Progress: 50% </span> 完成',
+    '<div>包含HTML的消息</div>',
+    '&lt;script&gt;alert("test")&lt;/script&gt;',
+    '正常消息 🎉 没有HTML标签'
+  ];
+  
+  testMessages.forEach((message, index) => {
+    const cleaned = formatLogMessage(message);
+    console.log(`测试${index + 1}: "${message}" -> "${cleaned}"`);
+  });
   
   console.groupEnd();
 };
@@ -581,8 +659,31 @@ const getLogLevelClass = (level) => {
 const formatLogMessage = (message) => {
   if (!message) return '';
   
-  // 转义HTML特殊字符防止XSS
-  let safeMessage = String(message)
+  // 首先对原始消息进行深度清理
+  let safeMessage = String(message);
+  
+  // 多轮清理所有HTML标签（包括残留的闭合标签）
+  let previousLength;
+  do {
+    previousLength = safeMessage.length;
+    // 清理所有HTML标签（包括自闭合标签和残留的标签）
+    safeMessage = safeMessage.replace(/<\/?[^>]*>/g, '');
+    // 清理残留的HTML实体
+    safeMessage = safeMessage
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&[a-zA-Z0-9#]+;/g, ''); // 清理其他HTML实体
+  } while (safeMessage.length !== previousLength); // 重复清理直到没有变化
+  
+  // 清理多余的空格和换行符
+  safeMessage = safeMessage.replace(/\s+/g, ' ').trim();
+  
+  // 重新转义HTML特殊字符以防止XSS
+  safeMessage = safeMessage
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -592,7 +693,9 @@ const formatLogMessage = (message) => {
   // 对JSON格式的消息进行特殊处理
   if (safeMessage.trim().startsWith('{') && safeMessage.trim().endsWith('}')) {
     try {
-      const jsonObj = JSON.parse(message);
+      // 尝试解析清理后的消息
+      const cleanMessage = safeMessage.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+      const jsonObj = JSON.parse(cleanMessage);
       safeMessage = `<pre class="text-xs bg-base-300 p-2 rounded overflow-x-auto">${JSON.stringify(jsonObj, null, 2)}</pre>`;
       return safeMessage;
     } catch (e) {
@@ -603,32 +706,73 @@ const formatLogMessage = (message) => {
   // 对命令行风格的消息进行高亮处理
   if (safeMessage.startsWith('$')) {
     safeMessage = `<span class="font-bold text-accent">${safeMessage}</span>`;
+    return safeMessage;
   }
   
-  // 高亮各种状态和关键词
+  // 高亮各种状态和关键词 - 使用更保守且安全的匹配策略
+  // 首先处理表情符号，避免与文字高亮冲突
+  const emojiMap = {
+    '✅': '<span class="text-success">✅</span>',
+    '🎉': '<span class="text-success">🎉</span>',
+    '❌': '<span class="text-error">❌</span>',
+    '💥': '<span class="text-error">💥</span>',
+    '⚠️': '<span class="text-warning">⚠️</span>',
+    '⏰': '<span class="text-warning">⏰</span>',
+    '🚀': '<span class="text-info">🚀</span>',
+    '🔄': '<span class="text-info">🔄</span>',
+    '📊': '<span class="text-info">📊</span>',
+    '📝': '<span class="text-info">📝</span>',
+    '🔍': '<span class="text-info">🔍</span>',
+    '�': '<span class="text-info">📄</span>',
+    '�': '<span class="text-info">🔧</span>',
+    '�': '<span class="text-info">📦</span>',
+    '�': '<span class="text-info">📁</span>',
+    '🌐': '<span class="text-info">🌐</span>',
+    '�': '<span class="text-info">🔌</span>',
+    '�': '<span class="text-info">📋</span>',
+    '�': '<span class="text-info">📥</span>'
+  };
+  
+  // 安全地替换表情符号（每个表情符号单独处理）
+  Object.entries(emojiMap).forEach(([emoji, replacement]) => {
+    if (safeMessage.includes(emoji)) {
+      safeMessage = safeMessage.split(emoji).join(replacement);
+    }
+  });
+  
+  // 然后处理文字高亮（使用词边界确保精确匹配）
   safeMessage = safeMessage
     // 成功状态
-    .replace(/(成功|完成|SUCCESS|COMPLETE|✅|🎉)/gi, '<span class="text-success font-medium">$1</span>')
+    .replace(/\b(成功|完成|SUCCESS|COMPLETE)\b/gi, '<span class="text-success font-medium">$1</span>')
     // 错误状态
-    .replace(/(错误|失败|ERROR|FAILED|FAIL|❌|💥)/gi, '<span class="text-error font-medium">$1</span>')
+    .replace(/\b(错误|失败|ERROR|FAILED|FAIL)\b/gi, '<span class="text-error font-medium">$1</span>')
     // 警告状态
-    .replace(/(警告|WARNING|WARN|⚠️|⏰)/gi, '<span class="text-warning font-medium">$1</span>')
+    .replace(/\b(警告|WARNING|WARN)\b/gi, '<span class="text-warning font-medium">$1</span>')
     // 信息状态
-    .replace(/(开始|启动|START|BEGIN|🚀|🔄|📊|📝|🔍|📄|🔧)/gi, '<span class="text-info font-medium">$1</span>')
+    .replace(/\b(开始|启动|START|BEGIN)\b/gi, '<span class="text-info font-medium">$1</span>')
     // 数值和百分比
-    .replace(/(\d+(?:\.\d+)?%)/g, '<span class="text-accent font-mono font-bold">$1</span>')
+    .replace(/\b(\d+(?:\.\d+)?%)\b/g, '<span class="text-accent font-mono font-bold">$1</span>')
     // 文件大小
-    .replace(/(\d+(?:\.\d+)?\s*(?:KB|MB|GB|TB))/gi, '<span class="text-secondary font-mono">$1</span>')
+    .replace(/\b(\d+(?:\.\d+)?\s*(?:KB|MB|GB|TB))\b/gi, '<span class="text-secondary font-mono">$1</span>')
     // 端口号
     .replace(/(端口[:：]\s*)(\d+)/gi, '$1<span class="text-primary font-mono">$2</span>')
     // IP地址
-    .replace(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g, '<span class="text-accent font-mono">$1</span>')
-    // 路径
-    .replace(/([\\/][^\s<>"]+)/g, '<span class="text-neutral font-mono">$1</span>')
+    .replace(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g, '<span class="text-accent font-mono">$1</span>')
+    // 路径（更保守的匹配）
+    .replace(/\b((?:[a-zA-Z]:\\|\/)[^\s<>"]*)\b/g, '<span class="text-neutral font-mono">$1</span>')
     // HTTP状态码
     .replace(/(HTTP\s+)(\d{3})/gi, '$1<span class="text-warning font-mono">$2</span>')
     // 实例ID
     .replace(/(实例ID[:：]\s*)([a-f0-9]{32,})/gi, '$1<span class="text-primary font-mono text-xs">$2</span>');
+  
+  // 最后检查并清理任何可能的双重标签或格式问题
+  safeMessage = safeMessage
+    // 清理双重span标签
+    .replace(/<span[^>]*>(<span[^>]*>.*?<\/span>)<\/span>/g, '$1')
+    // 清理空的span标签
+    .replace(/<span[^>]*><\/span>/g, '')
+    // 清理格式问题导致的多余空格
+    .replace(/\s+/g, ' ');
   
   return safeMessage;
 };
@@ -812,6 +956,26 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* 新日志动画效果 */
+.log-line.log-new {
+  animation: logFadeIn 0.5s ease-out;
+  background-color: rgba(59, 130, 246, 0.1);
+  border-left-color: var(--primary);
+}
+
+@keyframes logFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+    background-color: rgba(59, 130, 246, 0.3);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    background-color: rgba(59, 130, 246, 0.1);
+  }
 }
 
 .log-line:hover {
