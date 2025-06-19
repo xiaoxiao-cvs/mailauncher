@@ -23,6 +23,14 @@ export const useDeployStore = defineStore("deploy", () => {
   const deployments = reactive(new Map()); // 使用 Map 管理多个部署任务
   const currentDeploymentId = ref(null);
 
+  // 下载页状态管理
+  const downloadPageState = reactive({
+    isInDownloadPage: false, // 是否在下载页
+    currentStep: 'select-mode', // 当前步骤: 'select-mode', 'existing-instance', 'new-instance', 'downloading'
+    isLocked: false, // 是否锁定下载页状态
+    activeToastId: null, // 当前活跃的部署Toast ID
+  });
+
   // 日志自动滚动控制
   const autoScrollEnabled = ref(true);
   const scrollTrigger = ref(0); // 用于触发滚动的响应式变量
@@ -190,17 +198,21 @@ export const useDeployStore = defineStore("deploy", () => {
     }
   };
 
-  // 切换自动滚动
-  const toggleAutoScroll = () => {
-    autoScrollEnabled.value = !autoScrollEnabled.value;
-    return autoScrollEnabled.value;
+  // 清空指定部署的日志
+  const clearLogs = (deploymentId) => {
+    if (deploymentId) {
+      const deployment = deployments.get(deploymentId);
+      if (deployment) {
+        deployment.logs = [];
+      }
+    } else if (currentDeploymentId.value) {
+      // 如果没有指定 deploymentId，则清空当前部署的日志
+      const deployment = deployments.get(currentDeploymentId.value);
+      if (deployment) {
+        deployment.logs = [];
+      }
+    }
   };
-
-  // 手动触发滚动到底部
-  const scrollToBottom = () => {
-    scrollTrigger.value++;
-  };
-
   // 更新部署进度
   const updateDeploymentProgress = (
     deploymentId,
@@ -213,6 +225,17 @@ export const useDeployStore = defineStore("deploy", () => {
     deployment.installProgress = progress;
     if (servicesProgress) {
       deployment.servicesProgress = servicesProgress;
+    }
+  };
+
+  // 设置部署状态
+  const setDeploymentStatus = (deploymentId, installing, installComplete = null) => {
+    const deployment = deployments.get(deploymentId);
+    if (!deployment) return;
+
+    deployment.installing = installing;
+    if (installComplete !== null) {
+      deployment.installComplete = installComplete;
     }
   };
   // 检查安装状态（轮询方案）
@@ -413,10 +436,20 @@ export const useDeployStore = defineStore("deploy", () => {
         deploymentId,
         `📤 收到部署响应: ${JSON.stringify(deployResponse)}`,
         "info"
-      ); // 修复响应检查逻辑 - 后端返回的可能在 data 字段中
+      );      // 修复响应检查逻辑 - 处理嵌套的 data 字段和多种成功判断条件
       const responseData = deployResponse?.data || deployResponse;
-      console.log("解析后的响应数据:", responseData); // 检查成功标志 - 后端返回 success: true
-      if (!responseData || responseData.success !== true) {
+      console.log("解析后的响应数据:", responseData);
+      
+      // 检查成功标志 - 支持多种成功指示
+      const isSuccess = responseData && (
+        responseData.success === true || 
+        responseData.success === "true" ||
+        (responseData.message && responseData.message.includes("已启动") && responseData.instance_id)
+      );
+      
+      console.log(`部署成功判断: isSuccess=${isSuccess}, success=${responseData?.success}, message=${responseData?.message}, instance_id=${responseData?.instance_id}`);
+      
+      if (!isSuccess) {
         const errorMessage =
           responseData?.message || responseData?.detail || "部署失败";
         const detailMessage = responseData?.detail
@@ -428,7 +461,7 @@ export const useDeployStore = defineStore("deploy", () => {
         // 显示详细的错误Toast，持续时间更长
         toastService.error(fullErrorMessage, { duration: 8000 });
         throw new Error(fullErrorMessage);
-      } // 检查是否有 instance_id
+      }// 检查是否有 instance_id
       if (!responseData.instance_id) {
         addLog(
           deploymentId,
@@ -549,6 +582,19 @@ export const useDeployStore = defineStore("deploy", () => {
       return new Date(b.startTime) - new Date(a.startTime);
     });
   };
+  // 切换自动滚动
+  const toggleAutoScroll = () => {
+    autoScrollEnabled.value = !autoScrollEnabled.value;
+    if (autoScrollEnabled.value) {
+      // 如果启用自动滚动，立即触发一次滚动
+      scrollTrigger.value++;
+    }
+  };
+
+  // 手动滚动到底部
+  const scrollToBottom = () => {
+    scrollTrigger.value++;
+  };
 
   // 清理所有连接和轮询
   const cleanup = () => {
@@ -572,15 +618,16 @@ export const useDeployStore = defineStore("deploy", () => {
     isDeploying,
     autoScrollEnabled,
     scrollTrigger,
-
-    // 方法
+    downloadPageState, // 暴露下载页状态管理    // 方法
     fetchVersions,
     fetchServices,
     createDeployment,
     startDeployment,
     cancelDeployment,
     addLog,
+    clearLogs,
     updateDeploymentProgress,
+    setDeploymentStatus,
     cleanupDeployments,
     getDeploymentHistory,
     cleanup,

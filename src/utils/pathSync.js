@@ -58,12 +58,16 @@ export const setDeploymentPath = (path) => {
  * 获取默认数据路径
  */
 export const getDefaultDataPath = () => {
+  // 检测当前平台
+  const isWindows = navigator.platform.includes('Win') || window.__TAURI_INTERNALS__?.platform === "windows";
+  const isMacOS = navigator.platform.includes('Mac') || window.__TAURI_INTERNALS__?.platform === "macos";
+  
   // Windows 默认路径
-  if (window.__TAURI_INTERNALS__?.platform === "windows") {
+  if (isWindows) {
     return "D:\\MaiBot\\Data";
   }
   // macOS 默认路径
-  if (window.__TAURI_INTERNALS__?.platform === "macos") {
+  if (isMacOS) {
     return "~/Documents/MaiBot/Data";
   }
   // Linux 默认路径
@@ -74,13 +78,18 @@ export const getDefaultDataPath = () => {
  * 获取默认部署路径
  */
 export const getDefaultDeploymentPath = () => {
-  // Windows 默认路径
-  if (window.__TAURI_INTERNALS__?.platform === "windows") {
-    return "D:\\MaiBot\\Deployments";
+  // 检测当前平台
+  const isWindows = navigator.platform.includes('Win') || window.__TAURI_INTERNALS__?.platform === "windows";
+  const isMacOS = navigator.platform.includes('Mac') || window.__TAURI_INTERNALS__?.platform === "macos";
+  
+  // 所有平台都使用相对于后端根目录的路径
+  // ~ 表示相对于启动器后端根目录（开发时）或exe根目录（打包后）
+  if (isWindows) {
+    return "~\\MaiBot\\Deployments";
   }
   // macOS 默认路径
-  if (window.__TAURI_INTERNALS__?.platform === "macos") {
-    return "~/Documents/MaiBot/Deployments";
+  if (isMacOS) {
+    return "~/MaiBot/Deployments";
   }
   // Linux 默认路径
   return "~/MaiBot/Deployments";
@@ -89,14 +98,17 @@ export const getDefaultDeploymentPath = () => {
 /**
  * 生成实例安装路径
  */
-export const generateInstancePath = (instanceName, version) => {
+export const generateInstancePath = (instanceName, version = null) => {
   const basePath = getDeploymentPath();
   const safeName = instanceName.replace(/[^a-zA-Z0-9\-_]/g, "-");
 
   // 根据平台使用正确的路径分隔符
   const separator =
     window.__TAURI_INTERNALS__?.platform === "windows" ? "\\" : "/";
-  return `${basePath}${separator}${safeName}-${version}`;
+  
+  // 直接使用实例名称，不再重复添加版本号
+  // 因为实例名称通常已经包含了版本信息
+  return `${basePath}${separator}${safeName}`;
 };
 
 /**
@@ -107,9 +119,15 @@ export const validatePath = (path) => {
     return false;
   }
 
-  // 基本路径格式验证
-  const pathRegex = /^[a-zA-Z]:\\|^~\/|^\/[a-zA-Z]/;
-  return pathRegex.test(path.trim());
+  const trimmedPath = path.trim();
+  
+  // 支持多种路径格式：
+  // - Windows绝对路径: C:\, D:\
+  // - Unix绝对路径: /home, /usr
+  // - 波浪号路径: ~/Documents, ~\MaiBot
+  // - 相对路径: MaiBot, .\MaiBot, ..\MaiBot
+  const pathRegex = /^([a-zA-Z]:\\|\/|~\/|~\\|\.\/|\.\\|\.\.\/|\.\.\\|[a-zA-Z0-9\u4e00-\u9fa5])/;
+  return pathRegex.test(trimmedPath) && trimmedPath.length > 0;
 };
 
 /**
@@ -118,11 +136,46 @@ export const validatePath = (path) => {
 export const normalizePath = (path) => {
   if (!path) return "";
 
+  // 检测当前平台
+  const isWindows = navigator.platform.includes('Win') || window.__TAURI_INTERNALS__?.platform === "windows";
+
   // Windows 使用反斜杠，其他系统使用正斜杠
-  if (window.__TAURI_INTERNALS__?.platform === "windows") {
+  if (isWindows) {
     return path.replace(/\//g, "\\");
   } else {
     return path.replace(/\\/g, "/");
+  }
+};
+
+/**
+ * 安全的路径标准化函数
+ * 包含错误处理和日志记录
+ */
+export const safeNormalizePath = (path, context = {}) => {
+  try {
+    if (!path || typeof path !== "string") {
+      console.warn('safeNormalizePath: 无效的路径输入', { path, context });
+      return "";
+    }
+
+    return normalizePath(path);
+  } catch (error) {
+    console.error('safeNormalizePath: 路径标准化失败', { 
+      path, 
+      context, 
+      error: error.message 
+    });
+    
+    // 触发全局错误处理
+    if (window.globalErrorHandler) {
+      window.globalErrorHandler.triggerAppError(error, '路径标准化', {
+        inputPath: path,
+        context
+      });
+    }
+    
+    // 返回原始路径作为后备
+    return path || "";
   }
 };
 
@@ -157,4 +210,24 @@ export const initializePaths = () => {
   if (!localStorage.getItem("deploymentPath")) {
     setDeploymentPath(getDefaultDeploymentPath());
   }
+};
+
+/**
+ * 展开路径中的波浪号
+ * 注意：~ 路径应该由后端处理，前端不做展开
+ * 这个函数主要用于向后兼容和特殊情况处理
+ */
+export const expandPath = (path) => {
+  if (!path || typeof path !== "string") {
+    return "";
+  }
+
+  // 如果路径以~开头，保持原样，让后端处理
+  // ~ 表示相对于启动器后端根目录（开发时）或exe根目录（打包后）
+  if (path.startsWith("~")) {
+    // 直接返回原路径，让后端处理相对路径展开
+    return path;
+  }
+
+  return path;
 };

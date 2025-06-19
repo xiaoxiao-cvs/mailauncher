@@ -97,19 +97,28 @@ export const useSystemStore = defineStore("system", () => {
     try {
       loading.value = true;
       error.value = null;
-      console.log("发起新的系统性能请求");
-
-      // 尝试从API获取真实数据
+      console.log("发起新的系统性能请求");      // 尝试从API获取真实数据
       try {
         const response = await apiService.get("/api/v1/system/metrics");
-        if (response.data && response.data.data) {
+        console.log("系统性能API响应:", response);
+        
+        // 检查响应结构
+        if (response && response.status === "success" && response.data) {
           // 适配后端返回的数据结构
+          _adaptBackendData(response.data);
+        } else if (response && response.data && response.data.status === "success" && response.data.data) {
+          // 兼容嵌套的data结构
           _adaptBackendData(response.data.data);
         } else {
+          console.error("API响应数据格式不正确:", response);
           throw new Error("API响应数据格式错误");
         }
       } catch (apiError) {
         console.error("API获取系统性能失败:", apiError);
+        // 如果是网络错误，提供更具体的错误信息
+        if (apiError.code === 'ECONNREFUSED' || apiError.message.includes('Network Error')) {
+          throw new Error(`无法连接到后端服务，请检查后端是否正常运行`);
+        }
         throw new Error(`无法获取系统性能数据: ${apiError.message}`);
       }
 
@@ -124,11 +133,16 @@ export const useSystemStore = defineStore("system", () => {
     } finally {
       loading.value = false;
     }
-  };
-  // 适配后端返回的数据结构
+  };  // 适配后端返回的数据结构
   const _adaptBackendData = (backendData) => {
     try {
       console.log("适配后端数据:", backendData);
+
+      // 确保backendData存在
+      if (!backendData) {
+        console.error("后端数据为空");
+        return;
+      }
 
       // 适配CPU数据
       if (backendData.cpu_usage_percent !== undefined) {

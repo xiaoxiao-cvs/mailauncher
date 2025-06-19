@@ -11,8 +11,18 @@ import versionUtils from "../utils/versionUtils.js";
  */
 class VersionService {
   constructor() {
+    // 明确初始化所有属性
     this.checkInterval = null;
     this.listeners = new Set();
+    
+    // 绑定方法以避免this上下文丢失
+    this.checkForUpdates = this.checkForUpdates.bind(this);
+    this.startAutoCheck = this.startAutoCheck.bind(this);
+    this.stopAutoCheck = this.stopAutoCheck.bind(this);
+    this.getCurrentVersion = this.getCurrentVersion.bind(this);
+    this.cleanup = this.cleanup.bind(this);
+    
+    console.log('VersionService 已初始化');
   }
 
   /**
@@ -122,14 +132,23 @@ class VersionService {
    */
   async getCurrentVersionFromBackend() {
     try {
-      console.log("获取后端版本信息...");
+      console.log("获取后端版本信息...");      const response = await apiService.get("/api/v1/version/current");
+      const data = response.data || response;console.log("后端版本信息响应:", data);
 
-      const response = await apiService.get("/version/current");
-      const data = response.data || response;
-
-      console.log("后端版本信息响应:", data);
-
-      if (data.status === "success" && data.data) {
+      // 处理多种可能的响应格式
+      if (data.version && data.internal_version) {
+        // 直接格式
+        return {
+          success: true,
+          data: {
+            version: data.version,
+            internal_version: data.internal_version,
+            build_date: data.build_date || data.release_date,
+            git_commit: data.git_commit,
+          },
+        };
+      } else if (data.status === "success" && data.data) {
+        // 嵌套格式
         return {
           success: true,
           data: {
@@ -140,6 +159,7 @@ class VersionService {
           },
         };
       } else {
+        console.error("未知的响应格式:", data);
         throw new Error(data.message || "获取后端版本失败");
       }
     } catch (error) {
@@ -228,13 +248,17 @@ class VersionService {
       };
     }
   }
-
   /**
    * 开始自动检查更新
    * @param {number} interval 检查间隔（毫秒）
    */
   startAutoCheck(interval = 30 * 60 * 1000) {
     // 默认30分钟
+    // 确保checkInterval已初始化
+    if (!this.hasOwnProperty('checkInterval')) {
+      this.checkInterval = null;
+    }
+    
     this.stopAutoCheck();
 
     console.log(`开启自动版本检查，间隔: ${interval / 1000 / 60} 分钟`);
@@ -257,6 +281,11 @@ class VersionService {
    * 停止自动检查更新
    */
   stopAutoCheck() {
+    // 确保checkInterval已初始化
+    if (!this.hasOwnProperty('checkInterval')) {
+      this.checkInterval = null;
+    }
+    
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
@@ -315,17 +344,96 @@ class VersionService {
   formatVersion(version) {
     return versionUtils.formatVersionInfo(version);
   }
-
   /**
    * 清理资源
    */
   cleanup() {
-    this.stopAutoCheck();
-    this.listeners.clear();
+    try {
+      this.stopAutoCheck();
+      if (this.listeners) {
+        this.listeners.clear();
+      }
+      console.log('VersionService 资源已清理');
+    } catch (error) {
+      console.error('VersionService 清理资源时出错:', error);
+    }
   }
 }
 
-// 创建单例实例
-const versionService = new VersionService();
+/**
+ * 安全的属性访问方法
+ */
+function safePropertyAccess(obj, propertyName, defaultValue = null) {
+  try {
+    if (obj && obj.hasOwnProperty(propertyName)) {
+      return obj[propertyName];
+    }
+    return defaultValue;
+  } catch (error) {
+    console.warn(`安全访问属性 ${propertyName} 失败:`, error);
+    return defaultValue;
+  }
+}
+
+/**
+ * 安全的方法调用包装器
+ */
+function safeMethodCall(context, methodName, ...args) {
+  try {
+    if (context && typeof context[methodName] === 'function') {
+      return context[methodName].apply(context, args);
+    } else {
+      console.warn(`方法 ${methodName} 不存在或不是函数`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`调用方法 ${methodName} 时出错:`, error);
+    throw error;
+  }
+}
+
+// 创建单例实例，添加错误处理
+let versionService;
+
+try {
+  versionService = new VersionService();
+  
+  // 添加初始化验证
+  if (!versionService.checkInterval && versionService.checkInterval !== null) {
+    console.warn('VersionService 初始化可能不完整，重新初始化...');
+    versionService.checkInterval = null;
+  }
+  
+  if (!versionService.listeners || typeof versionService.listeners.add !== 'function') {
+    console.warn('VersionService listeners 初始化失败，重新创建...');
+    versionService.listeners = new Set();
+  }
+  
+  console.log('VersionService 单例创建成功');
+  
+} catch (error) {
+  console.error('VersionService 初始化失败:', error);
+  
+  // 创建一个降级版本
+  versionService = {
+    checkInterval: null,
+    listeners: new Set(),
+    getCurrentVersion: () => ({
+      frontend: {
+        version: "0.1.0",
+        internal: 0,
+        formatted: "v0.1.0"
+      }
+    }),
+    checkForUpdates: () => Promise.resolve({ hasUpdate: false, checked: false }),
+    startAutoCheck: () => console.warn('VersionService 降级模式，自动检查不可用'),
+    stopAutoCheck: () => console.warn('VersionService 降级模式，停止检查不可用'),
+    cleanup: () => console.warn('VersionService 降级模式，清理不可用'),
+    addListener: () => {},
+    removeListener: () => {}
+  };
+  
+  console.log('使用 VersionService 降级版本');
+}
 
 export default versionService;

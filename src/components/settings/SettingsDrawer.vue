@@ -585,6 +585,53 @@
                                                 <span class="toggle-slider"></span>
                                             </label>
                                         </div>
+                                    </div>                                </div>
+
+                                <!-- 实例命名设置 -->
+                                <div class="setting-group">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div
+                                            class="w-8 h-8 bg-cyan-500/10 rounded-lg flex items-center justify-center">
+                                            <IconifyIcon icon="mdi:tag-outline" class="w-5 h-5 text-cyan-500" />
+                                        </div>
+                                        <div>
+                                            <h4 class="group-title">实例命名设置</h4>
+                                            <p class="text-sm text-base-content/70">配置实例自动命名模式</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">实例名称模式</label>
+                                            <p class="setting-desc">定义新实例的自动命名规则，支持变量占位符</p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <div class="instance-naming-control">
+                                                <div class="flex gap-2 mb-2">
+                                                    <input v-model="instanceNamePattern" type="text" 
+                                                        placeholder="例如: MaiBot-{version}"
+                                                        class="input input-bordered input-sm flex-1"
+                                                        @blur="updateInstanceNamePattern" />
+                                                    <button @click="resetInstanceNamePattern" class="btn btn-ghost btn-sm">
+                                                        <IconifyIcon icon="mdi:refresh" class="w-4 h-4" />
+                                                        默认
+                                                    </button>
+                                                </div>
+                                                <div class="text-xs text-base-content/60 space-y-1">
+                                                    <div>支持的变量:</div>
+                                                    <div class="grid grid-cols-2 gap-2 font-mono">
+                                                        <span>{version} - 版本名称</span>
+                                                        <span>{timestamp} - 时间戳</span>
+                                                        <span>{date} - 日期(YYYYMMDD)</span>
+                                                        <span>{time} - 时间(HHMMSS)</span>
+                                                    </div>
+                                                    <div class="mt-2">
+                                                        <span class="text-info">预览: </span>
+                                                        <span class="font-mono">{{ instanceNamePreview }}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1139,6 +1186,31 @@ const logSettings = ref({
 // 启动设置
 const showWelcomeOnStartup = ref(localStorage.getItem('showWelcomeOnStartup') !== 'false')
 
+// 实例命名设置
+const instanceNamePattern = ref(localStorage.getItem('instanceNamePattern') || 'MaiBot-{version}')
+
+// 计算实例名称预览
+const instanceNamePreview = computed(() => {
+    const pattern = instanceNamePattern.value || 'MaiBot-{version}'
+    const variables = {
+        version: 'v1.0.0',
+        timestamp: '123456',
+        date: '20250619',
+        time: '120000'
+    }
+    
+    let result = pattern
+    Object.keys(variables).forEach(key => {
+        const placeholder = `{${key}}`
+        result = result.replace(new RegExp(placeholder, 'g'), variables[key])
+    })
+    
+    // 清理多余的分隔符
+    result = result.replace(/[-_]+/g, '-').replace(/^[-_]+|[-_]+$/g, '')
+    
+    return result || 'MaiBot-v1-0-0'
+})
+
 // WebUI 设置
 const webuiEnabled = ref(localStorage.getItem('webuiEnabled') !== 'false')
 const webuiPort = ref(parseInt(localStorage.getItem('webuiPort')) || 11111)
@@ -1281,13 +1353,14 @@ const initDataPath = () => {
 
 // 获取默认部署路径
 const getDefaultDeploymentPath = () => {
-    // Windows 默认路径
+    // 所有平台都使用相对于后端根目录的路径
+    // ~ 表示相对于启动器后端根目录（开发时）或exe根目录（打包后）
     if (window.__TAURI_INTERNALS__?.platform === "windows") {
-        return "D:\\MaiBot\\Deployments"
+        return "~\\MaiBot\\Deployments"
     }
     // macOS 默认路径
     if (window.__TAURI_INTERNALS__?.platform === "macos") {
-        return "~/Documents/MaiBot/Deployments"
+        return "~/MaiBot/Deployments"
     }
     // Linux 默认路径
     return "~/MaiBot/Deployments"
@@ -1348,6 +1421,13 @@ const selectDeploymentFolder = async () => {
 
     isSelectingDeploymentFolder.value = true
     try {
+        // 检查是否在 Tauri 环境中
+        if (typeof window === 'undefined' || (!window.__TAURI__ && !window.isTauriApp)) {
+            const { default: toastService } = await import('@/services/toastService')
+            toastService.error('文件夹选择功能仅在桌面应用中可用，请手动输入路径')
+            return
+        }
+
         // 动态导入 folderSelector
         const { selectFolder } = await import('@/utils/folderSelector')
 
@@ -1371,7 +1451,15 @@ const selectDeploymentFolder = async () => {
     } catch (error) {
         console.error('选择文件夹失败:', error)
         const { default: toastService } = await import('@/services/toastService')
-        toastService.error('选择文件夹失败，请重试')
+        
+        // 提供更具体的错误信息
+        if (error.message && error.message.includes('invoke')) {
+            toastService.error('Tauri API 未正确初始化，请重启应用后重试')
+        } else if (error.message && error.message.includes('dialog')) {
+            toastService.error('文件对话框插件未正确加载，请检查应用配置')
+        } else {
+            toastService.error('选择文件夹失败，请重试或手动输入路径')
+        }
     } finally {
         isSelectingDeploymentFolder.value = false
     }
@@ -1391,6 +1479,40 @@ const toggleInstanceNotifications = () => {
 const toggleShowWelcomeOnStartup = () => {
     localStorage.setItem('showWelcomeOnStartup', showWelcomeOnStartup.value.toString())
     console.log('启动时显示欢迎页面设置已更新:', showWelcomeOnStartup.value)
+}
+
+// 实例名称模式设置相关方法
+const updateInstanceNamePattern = async () => {
+    const pattern = instanceNamePattern.value.trim()
+    
+    // 基本验证
+    if (!pattern) {
+        instanceNamePattern.value = 'MaiBot-{version}'
+        return
+    }
+    
+    // 保存到localStorage
+    localStorage.setItem('instanceNamePattern', pattern)
+    
+    // 调用实例名称生成器的设置方法
+    try {
+        const { setInstanceNamePattern } = await import('@/utils/instanceNameGenerator')
+        setInstanceNamePattern(pattern)
+        
+        const { default: toastService } = await import('@/services/toastService')
+        toastService.success('实例名称模式已更新')
+        
+        console.log('实例名称模式已更新:', pattern)
+    } catch (error) {
+        console.error('更新实例名称模式失败:', error)
+        const { default: toastService } = await import('@/services/toastService')
+        toastService.error('更新实例名称模式失败')
+    }
+}
+
+const resetInstanceNamePattern = () => {
+    instanceNamePattern.value = 'MaiBot-{version}'
+    updateInstanceNamePattern()
 }
 
 // 日志设置相关方法
@@ -1926,7 +2048,15 @@ const initializeSettings = () => {
     showWelcomeOnStartup.value = localStorage.getItem('showWelcomeOnStartup') !== 'false'
 
     dataStoragePath.value = localStorage.getItem('dataStoragePath') || getDefaultDataPath()
-    deploymentPath.value = localStorage.getItem('deploymentPath') || getDefaultDeploymentPath()
+    
+    // 安全获取部署路径，检查并修复有问题的路径
+    let savedDeploymentPath = localStorage.getItem('deploymentPath');
+    if (savedDeploymentPath && (savedDeploymentPath.includes('MaiBot\\MaiBot') || savedDeploymentPath.includes('D:\\MaiBot'))) {
+        console.warn('设置页面检测到localStorage中的部署路径有问题，重置为默认值:', savedDeploymentPath);
+        localStorage.removeItem('deploymentPath');
+        savedDeploymentPath = null;
+    }
+    deploymentPath.value = savedDeploymentPath || getDefaultDeploymentPath()
 
     console.log('初始化主题模式:', themeMode.value)
 

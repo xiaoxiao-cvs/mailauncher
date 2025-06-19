@@ -111,8 +111,7 @@
                                                 d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
                                                 clip-rule="evenodd" />
                                         </svg>
-                                    </div>
-                                    <div v-else-if="instanceDetection.error" class="text-error">
+                                    </div>                                    <div v-else-if="instanceDetection.error" class="text-error">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
                                             fill="currentColor">
                                             <path fill-rule="evenodd"
@@ -150,14 +149,31 @@
                                         class="label-text-alt text-error">
                                         ✗ 已存在
                                     </span>
-                                </label>
-                                <input v-model="existingInstanceName" type="text" placeholder="请输入实例名称" :class="[
+                                </label>                                <input v-model="existingInstanceName" 
+                                       type="text" 
+                                       placeholder="请输入实例名称" 
+                                       @blur="handleInstanceNameBlur"
+                                       :class="[
                                     'input input-bordered w-full bg-base-100 text-base-content',
                                     {
                                         'input-success': existingInstanceName && existingInstanceNameValidation.isValid && !existingInstanceNameValidation.isDuplicate,
                                         'input-error': existingInstanceName && (!existingInstanceNameValidation.isValid || existingInstanceNameValidation.isDuplicate)
                                     }
-                                ]" />
+                                ]" />                                
+                                <!-- 显示自动提取的实例名称提示 -->
+                                <div v-if="maibotPath && !existingInstanceNameManuallySet && existingInstanceName" class="mt-1">
+                                    <span class="text-xs text-info opacity-75">
+                                        💡 已从路径自动提取实例名称：{{ existingInstanceName }}
+                                    </span>
+                                </div>
+                                
+                                <!-- 提示用户可以输入路径格式 -->
+                                <div class="mt-1">
+                                    <span class="text-xs text-base-content opacity-60">
+                                        💡 提示：如果输入完整路径，系统会自动提取最后的文件夹名作为实例名称
+                                    </span>
+                                </div>
+                                
                                 <label v-if="existingInstanceNameValidation.message" class="label">
                                     <span :class="[
                                         'label-text-alt',
@@ -447,14 +463,13 @@
                                             class="label-text-alt text-error">
                                             ✗ 已存在
                                         </span>
-                                    </label>
-                                    <input v-model="instanceName" type="text" placeholder="请输入实例名称" :class="[
+                                    </label>                                    <input v-model="instanceName" type="text" placeholder="请输入实例名称" :class="[
                                         'input input-bordered w-full bg-base-100 text-base-content',
                                         {
                                             'input-success': instanceName && instanceNameValidation.isValid && !instanceNameValidation.isDuplicate,
                                             'input-error': instanceName && (!instanceNameValidation.isValid || instanceNameValidation.isDuplicate)
                                         }
-                                    ]" :disabled="installing" />
+                                    ]" :disabled="installing" @input="handleInstanceNameInput" />
                                     <label v-if="instanceNameValidation.message" class="label">
                                         <span :class="[
                                             'label-text-alt',
@@ -467,15 +482,15 @@
                                             {{ instanceNameValidation.message }}
                                         </span>
                                     </label>
-                                </div>
-
-                                <!-- 安装路径 -->
+                                </div>                                <!-- 安装路径 -->
                                 <div class="mb-4">
                                     <label class="label">
                                         <span class="label-text">安装路径</span> </label> <input v-model="installPath"
                                         type="text" placeholder="例如：D:\MaiBot\MaiBot-1"
                                         class="input input-bordered w-full bg-base-100 text-base-content"
-                                        :disabled="installing" @blur="installPath = normalizePath(installPath)" />
+                                        :disabled="installing" 
+                                        @input="handleInstallPathInput"
+                                        @blur="installPath = normalizePath(installPath)" />
                                 </div>
 
                                 <!-- Napcat-ada 服务配置 -->
@@ -556,20 +571,14 @@
 
                 <!-- 安装进度 -->
                 <transition name="fade">
-                    <div v-if="installing" class="mt-4">
-                        <div class="install-summary p-3 rounded-lg bg-base-200 mb-4">
+                    <div v-if="installing" class="mt-4">                        <div class="install-summary p-3 rounded-lg bg-base-200 mb-4">
                             <div class="font-medium mb-2">安装配置概要</div>
                             <div class="text-sm grid grid-cols-2 gap-x-4 gap-y-2">
-                                <div>版本: <span class="font-medium">{{ selectedVersion }}</span></div>
-                                <div>实例名: <span class="font-medium">{{ instanceName }}</span></div>
-                                <div>路径: <span class="font-medium">{{ normalizePath(installPath) }}</span></div>
-                                <div>MaiBot端口: <span class="font-medium">{{ maibotPort }}</span></div>
-                                <template v-for="service in availableServices" :key="`summary-${service.name}`">
-                                    <div v-if="selectedServices[service.name]">
-                                        Napcat-ada端口:
-                                        <span class="font-medium">{{ servicePorts[service.name] }}</span>
-                                    </div>
-                                </template>
+                                <div>版本: <span class="font-medium">{{ installationSnapshot?.version || selectedVersion }}</span></div>
+                                <div>实例名: <span class="font-medium">{{ installationSnapshot?.instanceName || instanceName }}</span></div>
+                                <div>路径: <span class="font-medium">{{ installationSnapshot ? normalizePath(installationSnapshot.installPath) : normalizePath(installPath) }}</span></div>
+                                <div>MaiBot端口: <span class="font-medium">{{ installationSnapshot?.maibotPort || maibotPort }}</span></div>
+                                <div>Napcat-ada端口: <span class="font-medium">{{ installationSnapshot?.napcatPort || servicePorts['napcat-ada'] }}</span></div>
                                 <div class="col-span-2 flex justify-end items-center">
                                     <span v-if="!installComplete"
                                         class="loading loading-spinner loading-xs mr-2"></span>
@@ -611,7 +620,7 @@
                     </div>
                 </transition>                <!-- 安装日志 -->
                 <transition name="fade">
-                    <div v-if="installing && logs.length > 0" class="mt-4">
+                    <div v-if="installing" class="mt-4">
                         <LogsDisplay :logs="logs" @clear-logs="clearInstallLogs" />
                     </div>
                 </transition>
@@ -625,14 +634,54 @@ import { ref, computed, reactive, onMounted, onBeforeUnmount, watch, nextTick } 
 import { useDeployStore } from '@/stores/deployStore';
 import { useInstanceStore } from '@/stores/instanceStore';
 import toastService from '@/services/toastService';
+import enhancedToastService from '@/services/enhancedToastService';
+import apiService from '@/services/apiService';
+import { deployWithToast } from '@/api/deploy';
+import { normalizePath, validatePath, getDefaultDeploymentPath, safeNormalizePath, generateInstancePath } from '@/utils/pathSync';
+import { 
+    generateUniqueInstanceNameAsync, 
+    formatVersionForInstanceName,
+    fetchExistingInstances, 
+    isInstanceNameExists 
+} from '@/utils/instanceNameGenerator';
 import { addExistingInstance as addExistingInstanceAPI } from '@/api/instances';
-import { generateUniqueInstanceNameAsync, fetchExistingInstances, isInstanceNameExists } from '@/utils/instanceNameGenerator';
-import { validatePath, normalizePath, generateInstancePath } from '@/utils/pathSync';
+
+// 组件导入
 import LogsDisplay from './LogsDisplay.vue';
 
 // 使用 stores
 const deployStore = useDeployStore();
 const instanceStore = useInstanceStore();
+
+// 防止循环更新的标志变量和防抖定时器
+let isUpdatingInstallPath = false;
+let isUpdatingInstanceName = false;
+let installPathUpdateTimeout = null;
+let instanceNameUpdateTimeout = null;
+
+// 安全获取部署路径，自动修复有问题的路径
+const getSafeDeploymentPath = () => {
+    let savedPath = localStorage.getItem('deploymentPath');
+    
+    // 检查并修复有问题的路径
+    if (savedPath && (savedPath.includes('MaiBot\\MaiBot') || savedPath.includes('D:\\MaiBot'))) {
+        console.warn('检测到localStorage中的部署路径有问题，重置为默认值:', savedPath);
+        localStorage.removeItem('deploymentPath');
+        savedPath = null;
+    }
+    
+    const finalPath = savedPath || getDefaultDeploymentPath();
+    // 只在第一次调用或路径变化时输出日志
+    if (!getSafeDeploymentPath._lastPath || getSafeDeploymentPath._lastPath !== finalPath) {
+        console.log('getSafeDeploymentPath 结果:', { savedPath, finalPath });
+        getSafeDeploymentPath._lastPath = finalPath;
+    }
+    return finalPath;
+};
+
+// 用户手动修改标志
+const installPathManuallySet = ref(false);
+const instanceNameManuallySet = ref(false);
 
 // 本地状态变量
 const loading = ref(false);
@@ -673,6 +722,7 @@ const existingInstanceName = ref('');
 const existingMaibotPort = ref('8000');
 const existingEulaAgreed = ref(false);
 const addingInstance = ref(false);
+const existingInstanceNameManuallySet = ref(false); // 跟踪用户是否手动设置了实例名称
 const maibotDetection = reactive({
     loading: false,
     valid: false,
@@ -712,7 +762,9 @@ const availableVersions = computed(() => {
     return versions;
 });
 const availableServices = computed(() => deployStore.availableServices);
-const installing = computed(() => deployStore.currentDeployment?.installing || false);
+// 本地 installing 状态，不依赖 deployStore，避免重复部署问题
+const localInstalling = ref(false);
+const installing = computed(() => localInstalling.value || deployStore.currentDeployment?.installing || false);
 const installComplete = computed(() => deployStore.currentDeployment?.installComplete || false);
 const installProgress = computed(() => deployStore.currentDeployment?.installProgress || 0);
 const servicesProgress = computed(() => deployStore.currentDeployment?.servicesProgress || []);
@@ -720,26 +772,40 @@ const logs = computed(() => deployStore.currentDeployment?.logs || []);
 
 // 计算属性 - 是否可以安装新实例
 const canInstall = computed(() => {
+    console.log('=== canInstall 计算属性检查 ===');
+    console.log('selectedVersion.value:', selectedVersion.value);
+    console.log('instanceName.value:', instanceName.value);
+    console.log('installPath.value:', installPath.value);
+    console.log('maibotPort.value:', maibotPort.value);
+    console.log('selectedServices:', selectedServices);
+    console.log('servicePorts:', servicePorts);
+    console.log('eulaAgreed.value:', eulaAgreed.value);
+    
     // 基础验证：必须有版本和实例名称
     if (!selectedVersion.value || !instanceName.value.trim() || !installPath.value.trim()) {
+        console.log('基础验证失败');
         return false;
     }
 
     // 端口验证 - 主端口必须有效
     if (!maibotPort.value) {
+        console.log('主端口验证失败');
         return false;
     }
 
     // 如果选择了Napcat-ada服务，必须有对应端口
     if (selectedServices['napcat-ada'] && !servicePorts['napcat-ada']) {
+        console.log('Napcat-ada端口验证失败');
         return false;
     }
 
     // EULA 必须同意
     if (!eulaAgreed.value) {
+        console.log('EULA未同意');
         return false;
     }
 
+    console.log('所有验证通过，canInstall = true');
     return true;
 });
 
@@ -812,62 +878,187 @@ const initializeData = async () => {
         console.log('📋 阶段3: 显示下拉框');
         versionLoadingStage.value = 'dropdown';
 
-        // 初始化服务选择状态和端口
-        selectedServices['napcat-ada'] = true; // 默认选中
+        // 初始化服务选择状态和端口        selectedServices['napcat-ada'] = true; // 默认选中
         servicePorts['napcat-ada'] = '8095'; // 默认端口
 
         // 初始化部署路径
-        initializeDeploymentPath();
-
-        console.log('🎉 数据初始化完成，当前阶段:', versionLoadingStage.value);
+        await initializeDeploymentPath();        console.log('🎉 数据初始化完成，当前阶段:', versionLoadingStage.value);
     } catch (error) {
         console.error('❌ 数据初始化失败:', error);
-        toastService.warning('数据初始化失败，使用默认配置');
+        
+        // 使用增强的错误显示
+        enhancedToastService.showError('数据初始化失败', error, {
+            duration: 5000,
+            context: {
+                operation: '初始化下载中心数据',
+                timestamp: new Date().toLocaleString()
+            }
+        });
 
         // 失败时直接跳到下拉框阶段
-        versionLoadingStage.value = 'dropdown';
-
-        // 确保即使初始化失败，也要设置基本的默认值
+        versionLoadingStage.value = 'dropdown';        // 确保即使初始化失败，也要设置基本的默认值
         selectedServices['napcat-ada'] = true;
         servicePorts['napcat-ada'] = '8095';
-        initializeDeploymentPath();
+        await initializeDeploymentPath();
     } finally {
         loading.value = false;
     }
 };
 
 // 初始化部署路径
-const initializeDeploymentPath = () => {
-    // 从本地获取部署路径，如果没有则使用默认值
-    const savedDeploymentPath = localStorage.getItem('deploymentPath');
-
-    if (savedDeploymentPath) {
-        // 使用保存的部署路径作为基础路径并规范化路径分隔符
-        if (!installPath.value) {
-            const rawPath = `${savedDeploymentPath}\\MaiBot-1`;
-            installPath.value = normalizePath(rawPath);
-        }
-    } else {
-        // 使用默认路径并规范化路径分隔符
-        const defaultPath = getDefaultDeploymentPath();
-        if (!installPath.value) {
-            const rawPath = `${defaultPath}\\MaiBot-1`;
-            installPath.value = normalizePath(rawPath);
+const initializeDeploymentPath = async () => {    // 从本地获取部署路径，如果没有则使用默认值
+    const savedDeploymentPath = getSafeDeploymentPath();
+    
+    // 使用部署路径作为基础路径并规范化路径分隔符
+    if (!installPath.value) {
+        try {
+            const defaultName = await generateUniqueInstanceNameAsync('1');
+            // 使用 generateInstancePath 确保路径一致性
+            installPath.value = generateInstancePath(defaultName);
+        } catch (error) {
+            // 使用 generateInstancePath 确保路径一致性
+            installPath.value = generateInstancePath('MaiBot-1');
         }
     }
 };
 
-// 获取默认部署路径
-const getDefaultDeploymentPath = () => {
-    // Windows 默认路径
-    if (window.__TAURI_INTERNALS__?.platform === "windows") {
-        return "D:\\MaiBot\\Deployments";
+// 部署状态跟踪
+const startDeploymentStatusTracking = async (deploymentId, instanceId) => {
+    if (!deploymentId || !instanceId) {
+        console.error('部署状态跟踪参数无效:', { deploymentId, instanceId });
+        return;
     }
-    // macOS 默认路径
-    if (window.__TAURI_INTERNALS__?.platform === "macos") {
-        return "~/Documents/MaiBot/Deployments";
-    }
-    // Linux 默认路径    return "~/MaiBot/Deployments";
+    
+    const maxAttempts = 120; // 最大等待2分钟
+    let attempts = 0;
+    const checkInterval = 1000; // 1秒检查一次
+    
+    deployStore.addLog(deploymentId, '🔄 开始跟踪部署状态...', 'info');
+    deployStore.addLog(deploymentId, `📊 轮询配置: 间隔${checkInterval}ms, 最大尝试${maxAttempts}次`, 'info');
+
+    const checkStatus = async () => {
+        try {
+            deployStore.addLog(deploymentId, `🔍 检查部署状态 (尝试 ${attempts + 1}/${maxAttempts})`, 'info');
+            const response = await apiService.get(`/deploy/install-status/${instanceId}`);
+            const status = response?.data || response;
+
+            console.log('获取到的部署状态:', status);
+            deployStore.addLog(deploymentId, `📥 收到状态响应: ${JSON.stringify(status)}`, 'info');
+
+            // 如果状态数据无效，继续等待
+            if (!status || typeof status !== 'object') {
+                console.log('状态数据无效，继续等待...');
+                deployStore.addLog(deploymentId, '⚠️ 状态数据无效，继续等待...', 'warning');
+                attempts++;
+                if (attempts < maxAttempts) {
+                    setTimeout(checkStatus, checkInterval);
+                }
+                return;
+            }            // 安全地访问状态属性
+            const currentProgress = Number(status?.progress) || 0;
+            const currentStatus = status?.status || status?.message || "正在部署...";
+            const installStatus = status?.install_status || status?.status;
+
+            // 更新日志 - 更详细的状态信息
+            deployStore.addLog(deploymentId, `📊 部署进度: ${currentProgress}%`, 'info');
+            deployStore.addLog(deploymentId, `📝 状态信息: ${currentStatus}`, 'info');
+            if (installStatus && installStatus !== currentStatus) {
+                deployStore.addLog(deploymentId, `� 安装状态: ${installStatus}`, 'info');
+            }
+
+            // 如果有详细的状态信息，记录到日志
+            if (status?.details && typeof status.details === 'object') {
+                Object.entries(status.details).forEach(([key, value]) => {
+                    deployStore.addLog(deploymentId, `📄 ${key}: ${value}`, 'info');
+                });
+            }
+
+            // 如果有服务状态，也记录到日志
+            if (status?.services_install_status && Array.isArray(status.services_install_status)) {
+                deployStore.addLog(deploymentId, `🔧 检查到 ${status.services_install_status.length} 个服务状态`, 'info');
+                status.services_install_status.forEach((service, index) => {
+                    if (service?.message) {
+                        const serviceName = service.name || `服务${index + 1}`;
+                        const serviceStatus = service.status || '未知';
+                        const serviceProgress = service.progress ? ` (${service.progress}%)` : '';
+                        deployStore.addLog(deploymentId, `[${serviceName}] ${serviceStatus}${serviceProgress}: ${service.message}`, 'info');
+                    }
+                });            }// 检查是否完成
+            if (installStatus === "completed") {
+                deployStore.addLog(deploymentId, '🎉 部署已完成！', 'success');
+                deployStore.addLog(deploymentId, `✅ 实例 ${instanceName.value} 已成功部署`, 'success');
+                deployStore.addLog(deploymentId, `📁 安装路径: ${installPath.value}`, 'success');
+                deployStore.addLog(deploymentId, `🌐 MaiBot服务端口: ${maibotPort.value}`, 'success');
+                if (selectedServices['napcat-ada']) {
+                    deployStore.addLog(deploymentId, `🔌 Napcat-ada服务端口: ${servicePorts['napcat-ada']}`, 'success');
+                }
+                deployStore.addLog(deploymentId, `⏱️ 部署总用时: ${attempts} 秒`, 'info');
+                  // 部署完成时重置安装状态
+                localInstalling.value = false;
+                installationSnapshot.value = null; // 清除快照
+                try {
+                    deployStore.setDeploymentStatus(deploymentId, false, true);
+                } catch (error) {
+                    console.warn('设置部署完成状态失败:', error);
+                }
+                
+                return; // 停止轮询            } else if (installStatus === "failed") {
+                deployStore.addLog(deploymentId, `❌ 部署失败: ${currentStatus}`, 'error');
+                deployStore.addLog(deploymentId, `💥 失败详情: ${JSON.stringify(status, null, 2)}`, 'error');
+                deployStore.addLog(deploymentId, `⏱️ 失败前运行时间: ${attempts} 秒`, 'warning');
+                  // 部署失败时重置安装状态
+                localInstalling.value = false;
+                installationSnapshot.value = null; // 清除快照
+                try {
+                    deployStore.setDeploymentStatus(deploymentId, false, false);
+                } catch (error) {
+                    console.warn('设置部署失败状态失败:', error);
+                }
+                
+                return; // 停止轮询
+            }            // 继续轮询
+            attempts++;
+            if (attempts < maxAttempts) {
+                setTimeout(checkStatus, checkInterval);            } else {
+                deployStore.addLog(deploymentId, '⏰ 部署状态检查超时', 'warning');
+                deployStore.addLog(deploymentId, `⚠️ 已等待 ${maxAttempts} 秒，停止状态检查`, 'warning');
+                deployStore.addLog(deploymentId, '💡 建议检查后端服务状态或手动查看部署进度', 'info');
+                  // 超时时重置安装状态
+                localInstalling.value = false;
+                installationSnapshot.value = null; // 清除快照
+                try {
+                    deployStore.setDeploymentStatus(deploymentId, false, false);
+                } catch (error) {
+                    console.warn('设置部署超时状态失败:', error);
+                }
+            }        } catch (error) {
+            console.error('获取部署状态失败:', error);
+            
+            // 如果是404错误，说明实例还未开始部署，继续等待
+            if (error.response?.status === 404) {
+                console.log('实例尚未开始部署，继续等待...');
+                deployStore.addLog(deploymentId, '⌛ 等待实例开始部署...', 'info');
+                attempts++;
+                if (attempts < maxAttempts) {
+                    setTimeout(checkStatus, checkInterval);
+                }
+                return;
+            }
+            
+            const errorMsg = error.response?.data?.detail || error.response?.data?.message || error.message || '未知错误';
+            const statusCode = error.response?.status || 'unknown';
+            deployStore.addLog(deploymentId, `❌ 状态检查失败 (HTTP ${statusCode}): ${errorMsg}`, 'error');
+            deployStore.addLog(deploymentId, `🔍 错误详情: ${JSON.stringify(error.response?.data || error.message)}`, 'error');
+            
+            attempts++;
+            if (attempts < maxAttempts) {
+                setTimeout(checkStatus, checkInterval);
+            }
+        }
+    };
+
+    // 开始第一次检查
+    setTimeout(checkStatus, checkInterval);
 };
 
 // 清空安装日志
@@ -875,35 +1066,64 @@ const clearInstallLogs = () => {
     deployStore.clearLogs();
 };
 
-// 开始安装流程 (使用 deployStore)
+// 开始安装流程 (使用新的Toast系统)
 const startInstall = async () => {
+    console.log('=== 开始安装流程 ===');
+    console.log('canInstall.value:', canInstall.value);
+    console.log('localInstalling.value:', localInstalling.value);
+    console.log('eulaAgreed.value:', eulaAgreed.value);
+    console.log('installPath.value:', installPath.value);
+    console.log('instanceName.value:', instanceName.value);
+    console.log('selectedVersion.value:', selectedVersion.value);
+    
     if (!canInstall.value) {
+        console.log('canInstall检查失败');
         toastService.error('请完成所有必填项');
+        return;
+    }
+
+    // 防止重复点击
+    if (localInstalling.value) {
+        console.log('安装正在进行中，忽略重复请求');
         return;
     }
 
     // 再次检查 EULA 是否已同意
     if (!eulaAgreed.value) {
+        console.log('EULA未同意');
         toastService.error('请先阅读并同意最终用户许可协议 (EULA)');
         return;
     }
 
     // 验证安装路径
     if (!installPath.value.trim()) {
+        console.log('安装路径为空');
         toastService.error('请输入安装路径');
         return;
     }
 
     // 验证路径格式
     if (!validatePath(installPath.value)) {
+        console.log('路径格式验证失败');
         toastService.error('安装路径格式无效，请检查路径设置');
         return;
     }
 
     // 规范化安装路径
     const normalizedInstallPath = normalizePath(installPath.value);
-    installPath.value = normalizedInstallPath; try {
-        // 准备部署配置
+    installPath.value = normalizedInstallPath;    // 设置安装状态
+    localInstalling.value = true;
+
+    // 创建安装配置快照，防止页面切换时数据混乱
+    installationSnapshot.value = {
+        version: selectedVersion.value,
+        instanceName: instanceName.value,
+        installPath: installPath.value,
+        maibotPort: maibotPort.value,
+        napcatPort: servicePorts['napcat-ada'] || '8095'
+    };
+
+    try {// 准备部署配置
         const installServices = [];
         if (selectedServices['napcat-ada']) {
             installServices.push({
@@ -912,33 +1132,129 @@ const startInstall = async () => {
                 port: parseInt(servicePorts['napcat-ada']),
                 run_cmd: 'python main.py'
             });
-        }        const deployConfig = {
-            instance_name: instanceName.value,
-            install_services: installServices,
-            install_path: installPath.value,
-            port: parseInt(maibotPort.value),
+        }        // 调试信息：检查路径来源
+        const savedDeploymentPath = getSafeDeploymentPath();
+        const defaultPath = getDefaultDeploymentPath();
+        console.log('调试路径信息:', {
+            savedDeploymentPath,
+            defaultPath,
+            installPath: installPath.value,
+            instanceName: instanceName.value
+        });
+        
+        // 最后一次安全检查：如果installPath包含错误路径，强制修正
+        if (installPath.value && installPath.value.includes('MaiBot\\MaiBot')) {
+            console.error('检测到installPath包含错误路径，强制修正:', installPath.value);
+            const correctedPath = installPath.value.replace('MaiBot\\MaiBot', 'MaiBot');
+            installPath.value = correctedPath;
+            console.log('修正后的路径:', installPath.value);
+        }
+        
+        // 部署配置（路径由后端处理展开）
+        const deployConfig = {
+            instanceName: instanceName.value,
             version: selectedVersion.value,
-            host: "127.0.0.1", // 默认主机地址
-            token: "" // 默认为空token，后续可以配置
-        };
-
-        // 使用 deployStore 开始部署
-        await deployStore.startDeployment(deployConfig);
-
-        // 触发实例列表刷新
+            ports: {
+                web: parseInt(maibotPort.value),
+                napcat: parseInt(servicePorts['napcat-ada'] || '3001')
+            },
+            installPath: installPath.value,
+            installServices: installServices,
+            host: "127.0.0.1",
+            token: ""
+        };console.log('最终部署配置:', deployConfig);        // 创建 deployStore 记录，以便日志组件能显示数据
+        const deploymentId = deployStore.createDeployment(deployConfig);
+        
+        // 立即设置安装状态，确保UI显示日志区域
+        // 临时解决方案：直接设置localInstalling来触发UI显示
+        try {
+            deployStore.setDeploymentStatus(deploymentId, true, false);
+        } catch (error) {
+            console.warn('setDeploymentStatus方法调用失败，使用fallback方案:', error);
+        }
+          deployStore.addLog(deploymentId, `🚀 开始部署实例: ${instanceName.value}`, 'info');
+        deployStore.addLog(deploymentId, `📦 版本: ${selectedVersion.value}`, 'info');
+        deployStore.addLog(deploymentId, `📁 安装路径: ${installPath.value}`, 'info');
+        deployStore.addLog(deploymentId, `🌐 MaiBot端口: ${maibotPort.value}`, 'info');
+        if (selectedServices['napcat-ada']) {
+            deployStore.addLog(deploymentId, `🔌 Napcat-ada端口: ${servicePorts['napcat-ada']}`, 'info');
+        }
+        deployStore.addLog(deploymentId, `📋 部署配置: ${JSON.stringify(deployConfig, null, 2)}`, 'info');
+        
+        // 使用新的带Toast的部署API
+        console.log('开始使用Toast系统部署实例:', deployConfig);
+        
+        // 这里会自动检查当前页面，如果在下载页就不显示Toast
+        const result = await deployWithToast(selectedVersion.value, deployConfig);
+          console.log('部署API响应:', result);
+          // 更健壮的成功检查
+        if (result && result.success) {
+            console.log('部署启动成功，Toast系统将显示进度');
+            deployStore.addLog(deploymentId, `✅ 部署请求已发送，实例ID: ${result.instance_id}`, 'success');
+            
+            try {
+                // 开始轮询部署状态并同步到日志
+                console.log('开始调用startDeploymentStatusTracking');
+                startDeploymentStatusTracking(deploymentId, result.instance_id);
+                console.log('startDeploymentStatusTracking调用成功');
+            } catch (trackingError) {
+                console.error('startDeploymentStatusTracking调用失败:', trackingError);
+                // 即使轮询失败，也不应该显示启动失败
+                deployStore.addLog(deploymentId, `⚠️ 状态跟踪启动失败，但部署已开始: ${trackingError.message}`, 'warning');
+            }
+            
+            console.log('部署请求已成功发送，实例ID:', result.instance_id);
+            
+            // 注意：这里不重置 localInstalling，让它保持 true 以显示安装进度UI        } else {
+            console.error('部署启动失败:', result?.message || '未知错误');
+            deployStore.addLog(deploymentId, `❌ 部署启动失败: ${result?.message || '未知错误'}`, 'error');
+            toastService.error(`部署启动失败: ${result?.message || '未知错误'}`);
+            
+            // 部署启动失败时，重置安装状态和快照
+            localInstalling.value = false;
+            installationSnapshot.value = null;
+        }// 触发实例列表刷新
         emit('refresh');
-        instanceStore.fetchInstances(true);
-    } catch (error) {
+        instanceStore.fetchInstances(true);    } catch (error) {
         console.error('安装过程出错:', error);
-        toastService.error(`安装失败: ${error.message}`);
+        enhancedToastService.showError('安装失败', error, {
+            context: {
+                operation: '安装新实例',
+                instanceName: instanceName.value,
+                version: selectedVersion.value,
+                installPath: installPath.value
+            }
+        });
+          // 出现错误时重置安装状态
+        localInstalling.value = false;
+        installationSnapshot.value = null; // 清除快照
+        
+        // 如果有当前部署，也重置其installing状态
+        if (deployStore.currentDeployment) {
+            try {
+                deployStore.setDeploymentStatus(deployStore.currentDeployment.id, false);
+            } catch (setStatusError) {
+                console.warn('重置部署状态失败:', setStatusError);
+            }
+        }
     }
+    // 注意：移除了finally块，因为成功启动部署后应该保持installing状态
 };
+
+// 安装配置快照，防止页面切换时数据混乱
+const installationSnapshot = ref(null);
 
 // 选择安装模式
 const selectInstallMode = (mode) => {
     if (mode === 'existing') {
         currentStep.value = 'existing-instance';
+        // 重置手动设置标记
+        existingInstanceNameManuallySet.value = false;
     } else if (mode === 'new') {
+        currentStep.value = 'new-instance';
+        // 重置手动设置标记
+        instanceNameManuallySet.value = false;
+        installPathManuallySet.value = false;
         currentStep.value = 'new-instance';
         // 当选择下载新实例时，重新开始三阶段动画
         console.log('选择下载新实例，重新开始三阶段动画');
@@ -995,20 +1311,37 @@ const selectVersion = async (version) => {
                 element.blur();
             }
         });
-    }, 10);
-
-    // 使用新的实例名称生成逻辑
+    }, 10);    // 使用新的实例名称生成逻辑
     try {
+        // 临时禁用监听器，避免循环更新
+        isUpdatingInstanceName = true;
+        isUpdatingInstallPath = true;
+        
         const uniqueName = await generateUniqueInstanceNameAsync(version);
-        instanceName.value = uniqueName;
+        instanceName.value = uniqueName;        // 同步更新安装路径以使用唯一的实例名称
+        const savedDeploymentPath = getSafeDeploymentPath();
+        // 使用 generateInstancePath 确保路径一致性
+        installPath.value = generateInstancePath(uniqueName);
+        
         toastService.success(`已为您生成实例名称: ${uniqueName}`);
     } catch (error) {
         console.error('生成实例名称失败:', error);
-        // 降级处理：使用原有逻辑
-        if (!instanceName.value) {
-            instanceName.value = `MaiBot-${version}-${Date.now().toString().slice(-4)}`;
-        }
+        // 降级处理：生成简单的带时间戳的名称
+        const formattedVersion = formatVersionForInstanceName(version);
+        const timestamp = Date.now().toString().slice(-4);
+        const fallbackName = `MaiBot-${formattedVersion}-${timestamp}`;
+        instanceName.value = fallbackName;        // 同步更新安装路径
+        const savedDeploymentPath = getSafeDeploymentPath();
+        // 使用 generateInstancePath 确保路径一致性
+        installPath.value = generateInstancePath(fallbackName);
+        
         toastService.warning('自动生成实例名称失败，请手动检查名称是否重复');
+    } finally {
+        // 延迟重新启用监听器
+        setTimeout(() => {
+            isUpdatingInstanceName = false;
+            isUpdatingInstallPath = false;
+        }, 200);
     }
 };
 
@@ -1139,8 +1472,14 @@ const goBack = () => {
     maibotPath.value = '';
     adapterPath.value = '';
     existingInstanceName.value = '';
+    existingInstanceNameManuallySet.value = false; // 重置手动设置标记
     existingMaibotPort.value = '8000';
     existingEulaAgreed.value = false;
+    
+    // 重置新实例相关的手动设置标记
+    instanceNameManuallySet.value = false;
+    installPathManuallySet.value = false;
+    
     resetMaibotDetection();
     resetAdapterDetection();
 
@@ -1329,8 +1668,7 @@ const addExistingInstance = async () => {
 
     addingInstance.value = true;
 
-    try {
-        // 构建符合后端API格式的请求数据，支持分离的MaiBot和适配器路径
+    try {        // 构建符合后端API格式的请求数据，支持分离的MaiBot和适配器路径
         const instanceConfig = {
             instance_name: existingInstanceName.value,
             maibot_path: maibotPath.value,
@@ -1346,7 +1684,9 @@ const addExistingInstance = async () => {
                 ],
             install_path: maibotPath.value, // 主安装路径使用MaiBot路径
             port: parseInt(existingMaibotPort.value),
-            version: maibotDetection.version || 'unknown'
+            version: maibotDetection.version || 'unknown',
+            host: 'localhost', // 默认主机地址
+            token: '' // 默认空令牌
         };
 
         // 调用后端API
@@ -1359,11 +1699,16 @@ const addExistingInstance = async () => {
         instanceStore.fetchInstances(true);
 
         // 返回首页
-        goBack();
-
-    } catch (error) {
+        goBack();    } catch (error) {
         console.error('添加实例失败:', error);
-        toastService.error(`添加实例失败: ${error.message}`);
+        enhancedToastService.showError('添加实例失败', error, {
+            context: {
+                operation: '添加已有实例',
+                instanceName: existingInstanceName.value,
+                maibotPath: maibotPath.value,
+                adapterPath: adapterPath.value
+            }
+        });
     } finally {
         addingInstance.value = false;
     }
@@ -1372,11 +1717,20 @@ const addExistingInstance = async () => {
 // 当组件挂载时初始化数据
 onMounted(async () => {
     console.log('DownloadCenter 组件挂载，开始初始化...');
-
+    
+    // 强制清理可能有问题的localStorage项目
+    const savedPath = localStorage.getItem('deploymentPath');
+    if (savedPath && (savedPath.includes('MaiBot\\MaiBot') || savedPath.includes('D:\\MaiBot'))) {
+        console.warn('强制清理有问题的部署路径:', savedPath);
+        localStorage.removeItem('deploymentPath');
+        // 也清理可能相关的其他缓存
+        localStorage.removeItem('dataStoragePath');
+    }
+    
     // 先设置基本的默认值，确保界面可用
     selectedServices['napcat-ada'] = true;
     servicePorts['napcat-ada'] = '8095';
-    initializeDeploymentPath();
+    await initializeDeploymentPath();
 
     // 设置初始状态为dropdown，避免在选择模式页面就开始动画
     versionLoadingStage.value = 'dropdown';
@@ -1390,46 +1744,215 @@ onMounted(async () => {
 
 // 组件卸载时清理资源
 onBeforeUnmount(() => {
-    // deployStore 会自动处理清理工作
-    if (deployStore.currentDeployment) {
-        deployStore.cleanup();
-    }    // 移除事件监听器
-    window.removeEventListener('deployment-path-changed', handleDeploymentPathChange);
+    console.log('DownloadCenter 组件即将卸载，清理事件监听');
+    
+    // 清理事件监听器
+    if (window.emitter) {
+        window.emitter.off('navigate-to-tab', handlePageSwitch);
+    }
+    
+    window.removeEventListener('force-navigate', handlePageSwitch);
+    window.removeEventListener('deployment-started-in-downloads', handleDeploymentStarted);
+    
+    // 如果有活跃的Toast，关闭它
+    if (currentToastId.value) {
+        enhancedToastService.close(currentToastId.value);
+        currentToastId.value = null;
+    }
+    
+    // 清理定时器
+    if (installPathUpdateTimeout) {
+        clearTimeout(installPathUpdateTimeout);
+    }
+    if (instanceNameUpdateTimeout) {
+        clearTimeout(instanceNameUpdateTimeout);
+    }
+});
 
-    // CSS focus方法已替代JavaScript监听，无需移除点击监听
+// 组件生命周期
+onMounted(() => {
+    console.log('DownloadCenter 组件已挂载，设置事件监听');
+    
+    // 监听页面切换事件
+    if (window.emitter) {
+        window.emitter.on('navigate-to-tab', handlePageSwitch);
+    }
+    
+    // 监听全局导航事件
+    window.addEventListener('force-navigate', (event) => {
+        if (event.detail && event.detail.tab) {
+            handlePageSwitch(event.detail.tab);
+        }
+    });
+    
+    // 监听部署开始事件（当在下载页面时）
+    window.addEventListener('deployment-started-in-downloads', handleDeploymentStarted);
+    
+    // 标记当前在下载页面
+    isInDownloadPage.value = true;
+    
+    // 初始化组件数据
+    initializeData();
+});
+
+onBeforeUnmount(() => {
+    console.log('DownloadCenter 组件即将卸载，清理事件监听');
+    
+    // 清理事件监听器
+    if (window.emitter) {
+        window.emitter.off('navigate-to-tab', handlePageSwitch);
+    }
+    
+    window.removeEventListener('force-navigate', handlePageSwitch);
+    window.removeEventListener('deployment-started-in-downloads', handleDeploymentStarted);
+    
+    // 如果有活跃的Toast，关闭它
+    if (currentToastId.value) {
+        enhancedToastService.close(currentToastId.value);
+        currentToastId.value = null;
+    }
+    
+    // 清理定时器
+    if (installPathUpdateTimeout) {
+        clearTimeout(installPathUpdateTimeout);
+    }
+    if (instanceNameUpdateTimeout) {
+        clearTimeout(instanceNameUpdateTimeout);
+    }
 });
 
 // 处理部署路径变更
-const handleDeploymentPathChange = (event) => {
+const handleDeploymentPathChange = async (event) => {
     const newPath = event.detail.path;
     if (newPath && selectedVersion.value) {
         // 更新安装路径并规范化路径分隔符
-        const rawPath = `${newPath}\\MaiBot-${selectedVersion.value}-1`;
-        installPath.value = normalizePath(rawPath);
+        try {
+            const defaultName = await generateUniqueInstanceNameAsync(selectedVersion.value);
+            // 使用 generateInstancePath 确保路径一致性
+            installPath.value = generateInstancePath(defaultName);
+        } catch (error) {
+            // 使用 generateInstancePath 确保路径一致性
+            installPath.value = generateInstancePath(`MaiBot-${selectedVersion.value}-1`);
+        }
     }
 };
 
 // 监听选择版本变化
-watch(selectedVersion, (newValue) => {
+watch(selectedVersion, async (newValue) => {
     if (newValue) {
+        // 重置手动设置标志，允许自动生成名称和路径
+        instanceNameManuallySet.value = false;
+        installPathManuallySet.value = false;
+        
         // 预填充一些默认值
         if (!instanceName.value) {
-            instanceName.value = `maibot-${newValue}-1`;
+            try {
+                const defaultName = await generateUniqueInstanceNameAsync(newValue);
+                instanceName.value = defaultName;
+            } catch (error) {
+                instanceName.value = `maibot-${newValue}-1`;
+            }
+        }        // 根据设置的部署路径预填充安装路径并规范化路径分隔符
+        const savedDeploymentPath = getSafeDeploymentPath();
+        
+        try {
+            const defaultName = await generateUniqueInstanceNameAsync(newValue);
+            // 使用 generateInstancePath 确保路径一致性
+            installPath.value = generateInstancePath(defaultName);
+        } catch (error) {
+            // 使用 generateInstancePath 确保路径一致性
+            installPath.value = generateInstancePath(`MaiBot-${newValue}-1`);
         }
-
-        // 根据设置的部署路径预填充安装路径并规范化路径分隔符
-        const savedDeploymentPath = localStorage.getItem('deploymentPath') || getDefaultDeploymentPath();
-        const rawPath = `${savedDeploymentPath}\\MaiBot-${newValue}-1`;
-        installPath.value = normalizePath(rawPath);
     }
 });
+
+// 从路径中提取实例名称
+const extractInstanceNameFromPath = (path) => {
+    if (!path || !path.trim()) {
+        return '';
+    }
+    
+    try {
+        // 规范化路径并处理 ~ 符号
+        let normalizedPath = path.trim();
+        
+        // 如果路径以 ~ 开头，这表示相对于后端存放目录
+        if (normalizedPath.startsWith('~')) {
+            normalizedPath = normalizedPath.substring(1);
+            if (normalizedPath.startsWith('/') || normalizedPath.startsWith('\\')) {
+                normalizedPath = normalizedPath.substring(1);
+            }
+        }
+        
+        // 移除末尾的路径分隔符
+        normalizedPath = normalizedPath.replace(/[\/\\]+$/, '');
+        
+        // 分割路径并获取最后一个非空部分
+        const pathParts = normalizedPath.split(/[\/\\]/).filter(part => part.length > 0);
+        
+        if (pathParts.length > 0) {
+            const extractedName = pathParts[pathParts.length - 1];
+            return extractedName;
+        }
+        
+        return '';
+    } catch (error) {
+        console.warn('提取实例名称失败:', error);
+        return '';
+    }
+};
+
+// 处理实例名称输入框失去焦点事件
+const handleInstanceNameBlur = () => {
+    const currentValue = existingInstanceName.value.trim();
+    
+    // 检查输入的是否是路径格式（包含路径分隔符）
+    if (currentValue && (currentValue.includes('\\') || currentValue.includes('/') || currentValue.includes('~'))) {
+        // 尝试从输入的路径中提取实例名称
+        const extractedName = extractInstanceNameFromPath(currentValue);
+        
+        if (extractedName && extractedName !== currentValue) {
+            existingInstanceName.value = extractedName;
+            
+            // 显示提示信息
+            toastService.info(`已从路径中提取实例名称: ${extractedName}`);
+            
+            // 重置手动设置标记，因为我们已经自动处理了
+            existingInstanceNameManuallySet.value = false;
+        }
+    }
+};
+
+// 处理用户手动输入实例名称
+const handleInstanceNameInput = () => {
+    instanceNameManuallySet.value = true;
+    console.log('用户手动修改了实例名称');
+};
+
+// 处理用户手动输入安装路径
+const handleInstallPathInput = () => {
+    installPathManuallySet.value = true;
+    console.log('用户手动修改了安装路径');
+};
 
 // 监听MaiBot路径变化
 watch(maibotPath, (newValue) => {
     if (newValue && newValue.trim()) {
         detectMaibot();
+        
+        // 自动从路径提取实例名称（只在用户未手动设置时）
+        if (!existingInstanceNameManuallySet.value) {
+            const extractedName = extractInstanceNameFromPath(newValue);
+            if (extractedName) {
+                existingInstanceName.value = extractedName;
+            }
+        }
     } else {
         resetMaibotDetection();
+        // 清空自动提取的实例名称（只在用户未手动设置时）
+        if (!existingInstanceNameManuallySet.value) {
+            existingInstanceName.value = '';
+        }
     }
 });
 
@@ -1478,7 +2001,20 @@ watch(instanceName, (newValue) => {
 
 // 监听已有实例名称变化，实时验证
 let validateExistingTimeout = null;
-watch(existingInstanceName, (newValue) => {
+watch(existingInstanceName, (newValue, oldValue) => {
+    // 如果新值与从路径提取的名称不同，则认为是用户手动设置
+    if (maibotPath.value) {
+        const extractedName = extractInstanceNameFromPath(maibotPath.value);
+        if (newValue !== extractedName && newValue.trim() !== '') {
+            existingInstanceNameManuallySet.value = true;
+        } else if (newValue === extractedName) {
+            existingInstanceNameManuallySet.value = false;
+        }
+    } else if (newValue.trim() !== '') {
+        // 如果没有路径但有名称，认为是手动设置
+        existingInstanceNameManuallySet.value = true;
+    }
+    
     // 清除之前的定时器
     if (validateExistingTimeout) {
         clearTimeout(validateExistingTimeout);
@@ -1497,37 +2033,121 @@ watch(existingInstanceName, (newValue) => {
 
     // 防抖处理，500ms 后执行验证
     validateExistingTimeout = setTimeout(() => {
-        validateExistingInstanceName(newValue.trim());
-    }, 500);
+        validateExistingInstanceName(newValue.trim());    }, 500);
 });
 
-// 监听安装路径变化，自动同步实例名称
-watch(installPath, (newPath) => {
-    if (!newPath || !newPath.trim()) {
+// 监听实例名称变化，自动同步安装路径
+watch(instanceName, (newName, oldName) => {
+    // 防止循环更新和无效更新
+    if (isUpdatingInstanceName || !newName || newName === oldName) {
         return;
     }
 
-    // 从安装路径提取最后一个文件夹名称
-    const extractFolderNameFromPath = (path) => {
-        if (!path) return '';
-
-        // 使用 normalizePath 确保路径分隔符正确
-        const normalizedPath = normalizePath(path.trim());
-
-        // 根据平台使用正确的分隔符进行分割
-        const separator = window.__TAURI_INTERNALS__?.platform === "windows" ? "\\" : "/";
-        const pathParts = normalizedPath.split(separator).filter(part => part.length > 0);
-
-        // 返回最后一个非空部分作为文件夹名称
-        return pathParts[pathParts.length - 1] || '';
-    };
-
-    const folderName = extractFolderNameFromPath(newPath);
-
-    // 只有当提取到有效的文件夹名称时才更新实例名称
-    if (folderName && folderName !== instanceName.value) {
-        instanceName.value = folderName;
+    // 如果用户手动修改了安装路径，不要自动更新
+    if (installPathManuallySet.value) {
+        console.log('用户已手动设置安装路径，跳过自动更新');
+        return;
     }
+
+    // 清除之前的定时器
+    if (installPathUpdateTimeout) {
+        clearTimeout(installPathUpdateTimeout);
+    }
+
+    // 使用防抖机制，避免频繁更新
+    installPathUpdateTimeout = setTimeout(() => {
+        if (isUpdatingInstanceName) return; // 双重检查
+          isUpdatingInstallPath = true;
+        try {
+            const savedDeploymentPath = getSafeDeploymentPath();
+            
+            // 检查当前安装路径是否已经是完整路径格式
+            // 如果用户手动输入了完整路径，不要自动替换
+            const currentPath = installPath.value;
+            const normalizedDeploymentPath = safeNormalizePath(savedDeploymentPath, { operation: 'normalize' });
+            const normalizedCurrentPath = safeNormalizePath(currentPath, { operation: 'normalize' });
+            
+            if (currentPath && !normalizedCurrentPath.startsWith(normalizedDeploymentPath) && 
+                (currentPath.includes(':\\') || currentPath.startsWith('/') || currentPath.startsWith('~'))) {
+                // 用户输入了完整路径，不自动更新
+                console.log('检测到用户手动输入完整路径，跳过自动更新');
+                return;
+            }
+            
+            // 只有当前路径为空或者是基于部署路径的子路径时，才自动更新
+            const newInstallPath = `${savedDeploymentPath}\\${newName.trim()}`;
+            const normalizedPath = safeNormalizePath(newInstallPath, { 
+                operation: 'updateInstallPath', 
+                instanceName: newName.trim() 
+            });
+            
+            // 只在路径真的不同时才更新
+            if (normalizedPath && normalizedPath !== installPath.value) {
+                installPath.value = normalizedPath;
+            }
+        } catch (error) {
+            console.error('更新安装路径失败:', error);
+        } finally {
+            isUpdatingInstallPath = false;
+        }
+    }, 100); // 100ms 防抖
+});
+
+// 监听安装路径变化，自动同步实例名称
+watch(installPath, (newPath, oldPath) => {
+    // 防止循环更新和无效更新
+    if (isUpdatingInstallPath || !newPath || newPath === oldPath) {
+        return;
+    }
+
+    // 如果用户手动修改了实例名称，不要自动更新
+    if (instanceNameManuallySet.value) {
+        console.log('用户已手动设置实例名称，跳过自动更新');
+        return;
+    }
+
+    // 清除之前的定时器
+    if (instanceNameUpdateTimeout) {
+        clearTimeout(instanceNameUpdateTimeout);
+    }
+
+    // 使用防抖机制，避免频繁更新
+    instanceNameUpdateTimeout = setTimeout(() => {
+        if (isUpdatingInstallPath) return; // 双重检查
+          isUpdatingInstanceName = true;
+        try {
+            const savedDeploymentPath = getSafeDeploymentPath();
+            const normalizedDeploymentPath = safeNormalizePath(savedDeploymentPath, { operation: 'normalize' });
+            const normalizedNewPath = safeNormalizePath(newPath, { operation: 'normalize' });
+            
+            // 只有当路径是基于部署路径的子路径时，才自动提取实例名称
+            // 避免从用户自定义的完整路径中错误提取名称
+            if (!normalizedNewPath.startsWith(normalizedDeploymentPath)) {
+                console.log('检测到非标准部署路径，跳过自动提取实例名称');
+                return;
+            }
+            
+            // 提取文件夹名称函数
+            const extractFolderName = (path) => {
+                if (!path) return '';
+                const normalizedPath = safeNormalizePath(path.trim(), { operation: 'extractFolderName' });
+                const separator = window.__TAURI_INTERNALS__?.platform === "windows" ? "\\" : "/";
+                const pathParts = normalizedPath.split(separator).filter(part => part.length > 0);
+                return pathParts[pathParts.length - 1] || '';
+            };
+
+            const folderName = extractFolderName(newPath);
+            
+            // 只在文件夹名称有效且不同时才更新
+            if (folderName && folderName !== instanceName.value) {
+                instanceName.value = folderName;
+            }
+        } catch (error) {
+            console.error('从安装路径提取实例名称失败:', error);
+        } finally {
+            isUpdatingInstanceName = false;
+        }
+    }, 100); // 100ms 防抖
 });
 
 // 处理版本选择并强制关闭下拉菜单
@@ -1572,6 +2192,53 @@ const handleVersionSelect = async (version, event) => {
     event.preventDefault();
     return false;
 };
+
+// 页面切换和Toast管理相关状态
+const currentToastId = ref(null); // 当前活跃的Toast ID
+const isInDownloadPage = ref(true); // 标记当前是否在下载页面
+const activeDeploymentData = ref(null); // 当前活跃的部署数据
+
+// 处理从下载页面切换到其他页面时的Toast显示
+const handlePageSwitch = (newPage) => {
+    console.log('页面切换检测:', { from: 'downloads', to: newPage, isDeploying: installing.value });
+    
+    // 如果正在安装且切换到其他页面，显示Toast
+    if (installing.value && newPage !== 'downloads' && activeDeploymentData.value) {
+        console.log('正在安装中，切换到其他页面，显示Toast');
+        
+        // 显示Toast，包含当前进度
+        currentToastId.value = enhancedToastService.showDeploymentToastOnPageSwitch(
+            activeDeploymentData.value,
+            installProgress.value,
+            installStatusText.value
+        );
+        
+        isInDownloadPage.value = false;
+    } else if (newPage === 'downloads' && currentToastId.value) {
+        // 切换回下载页面，关闭Toast
+        console.log('切换回下载页面，关闭Toast');
+        enhancedToastService.close(currentToastId.value);
+        currentToastId.value = null;
+        isInDownloadPage.value = true;
+    }
+};
+
+// 监听部署开始事件（当在下载页面时）
+const handleDeploymentStarted = (event) => {
+    const { deploymentData } = event.detail;
+    console.log('接收到部署开始事件:', deploymentData);
+    
+    // 保存部署数据用于页面切换时的Toast显示
+    activeDeploymentData.value = deploymentData;
+};
+
+// 监听部署完成事件
+watch(installing, (newValue) => {
+    if (!newValue) {
+        // 安装完成，重置活跃部署数据
+        activeDeploymentData.value = null;
+    }
+});
 </script>
 
 <style scoped>
@@ -1846,7 +2513,7 @@ const handleVersionSelect = async (version, event) => {
 .version-option:hover {
     background: hsl(var(--b2)) !important;
     transform: translateY(-1px) scale(1.02);
-    box-shadow: 0 4px 12px hsl(var(--bc) / 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     border-color: hsl(var(--p) / 0.3);
 }
 

@@ -2,6 +2,20 @@
 import setupNodePolyfills from "./utils/node-polyfill.js";
 setupNodePolyfills();
 
+// 初始化 Tauri（如果在 Tauri 环境中）
+let isTauriApp = false;
+try {
+  if (typeof window !== 'undefined' && window.__TAURI__) {
+    isTauriApp = true;
+    console.log("🔌 检测到 Tauri 环境");
+  }
+} catch (error) {
+  console.log("📱 运行在浏览器环境");
+}
+
+// 导入路径修复工具（开发环境调试用）
+import './utils/pathFixHelper.js';
+
 // 全局配置被动事件监听器以提高页面响应性
 // 这将解决 ECharts 和其他库的滚轮事件监听器警告
 if (typeof window !== "undefined") {
@@ -44,6 +58,9 @@ import { usePollingStore } from "./stores/pollingStore";
 
 // 导入后端配置
 import backendConfig from "./config/backendConfig";
+
+// 导入全局错误处理器
+import globalErrorHandler from "./services/globalErrorHandler";
 
 // 创建应用实例
 const app = createApp(App);
@@ -105,7 +122,6 @@ const initCssVariables = () => {
   if (!animationsEnabled) {
     document.documentElement.classList.add("no-animations");
   }
-
   // 保存侧边栏状态到全局，供组件访问
   window.sidebarState = {
     collapsed: sidebarCollapsed,
@@ -142,6 +158,9 @@ const initCssVariables = () => {
       }
     },
   };
+
+  // 保存 Tauri 状态到全局
+  window.isTauriApp = isTauriApp;
 
   // 初始化主题色
   try {
@@ -187,11 +206,19 @@ eventBus.clear();
 // 异步初始化轮询服务，然后挂载应用
 const initAndMountApp = async () => {
   console.log("🚀 初始化应用...");
-
   try {
     // 初始化后端配置
     backendConfig.loadFromStorage();
     console.log("✅ 后端配置加载完成");
+
+    // 自动检测后端服务
+    console.log("🔍 检测后端服务...");
+    const backendAvailable = await backendConfig.autoDetectBackend();
+    if (backendAvailable) {
+      console.log("✅ 后端服务检测成功");
+    } else {
+      console.warn("⚠️ 未检测到后端服务，将使用默认配置");
+    }
 
     // 确保轮询服务正确初始化
     const pollingStore = usePollingStore();
@@ -205,6 +232,12 @@ const initAndMountApp = async () => {
   app.mount("#app");
   console.log("✅ 应用挂载完成");
 };
+
+// 初始化全局错误处理
+globalErrorHandler.init();
+
+// 将全局错误处理器挂载到window对象，以便在组件中使用
+window.globalErrorHandler = globalErrorHandler;
 
 // 启动应用
 initAndMountApp();

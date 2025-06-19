@@ -140,7 +140,7 @@ import { deployApi } from '@/services/api';
 import { useDeployStore } from '@/stores/deployStore';
 import axios from 'axios';
 import toastService from '@/services/toastService';
-import { validatePath, normalizePath } from '@/utils/pathSync';
+import { validatePath, normalizePath, generateInstancePath } from '@/utils/pathSync';
 
 // 初始化 deployStore
 const deployStore = useDeployStore();
@@ -287,19 +287,27 @@ const installVersion = async () => {
     toastService.error('请输入实例名称');
     return;
   }
-
   // 检查安装路径是否有效
-  const installPath = localStorage.getItem('deploymentPath') || '';
-  if (!installPath.trim()) {
+  const basePath = localStorage.getItem('deploymentPath') || '';
+  if (!basePath.trim()) {
     toastService.error('请先设置部署路径');
     return;
   }
 
-  // 验证安装路径格式
-  if (!validatePath(installPath)) {
+  // 验证基础路径格式
+  if (!validatePath(basePath)) {
     toastService.error('安装路径格式无效，请检查路径设置');
     return;
   }
+  // 生成实例安装路径
+  const installPath = generateInstancePath(instanceName.value, selectedVersion.value);
+  
+  console.log('InstallConfig: 路径生成详情', {
+    basePath,
+    instanceName: instanceName.value,
+    version: selectedVersion.value,
+    finalPath: installPath
+  });
 
   // 检查Bot配置 (QQ号)
   if ((installNapcat.value || installAdapter.value) && (!qqNumber.value || !/^\d+$/.test(qqNumber.value))) {
@@ -536,23 +544,49 @@ const emitter = inject('emitter', null);
 
 // 生命周期管理
 onMounted(() => {
+  // 重置组件状态
+  resetComponentState();
+  
   // 使用 deployStore 获取版本，避免重复请求
   if (deployStore.availableVersions.length === 0) {
     deployStore.fetchVersions().then((versions) => {
       availableVersions.value = versions;
+      
+      // 默认选择第一个版本
+      if (versions.length > 0) {
+        selectedVersion.value = versions[0];
+        console.log('InstallConfig: 默认版本已设置为:', selectedVersion.value);
+      }
     }).catch((error) => {
       console.error('从 deployStore 获取版本失败:', error);
       // 在获取版本失败时提供静态版本选择
       availableVersions.value = ['latest', 'beta', 'stable', 'v0.6.3', 'v0.6.2'];
       versionError.value = '获取版本列表失败，已提供备选版本选择。';
+      
+      // 设置默认版本
+      if (availableVersions.value.length > 0) {
+        selectedVersion.value = availableVersions.value[0];
+      }
     });
   } else {
     // 直接使用 deployStore 中已有的版本
     availableVersions.value = deployStore.availableVersions;
+    
+    // 设置默认版本
+    if (availableVersions.value.length > 0) {
+      selectedVersion.value = availableVersions.value[0];
+      console.log('InstallConfig: 使用已有版本，默认设置为:', selectedVersion.value);
+    }
   }
 });
 
 onUnmounted(() => {
+  // 清理轮询
+  if (statusPollingInterval) {
+    clearInterval(statusPollingInterval);
+    statusPollingInterval = null;
+  }
+  
   // 清理 deployStore 连接
   if (deployStore.cleanup) {
     deployStore.cleanup();
@@ -573,6 +607,34 @@ watch(() => logs.value.length, () => {
 const addLog = (log) => {
   logs.value.push(log);
   emit('add-log', log);
+};
+
+// 重置组件状态的方法
+const resetComponentState = () => {
+  // 重置安装状态
+  installLoading.value = false;
+  installStatus.value = 'idle';
+  installationProgress.value = 0;
+  progressText.value = '准备中...';
+  
+  // 清理轮询
+  if (statusPollingInterval) {
+    clearInterval(statusPollingInterval);
+    statusPollingInterval = null;
+  }
+  
+  // 重置表单数据（保留路径配置）
+  instanceName.value = '';
+  qqNumber.value = '';
+  selectedVersion.value = '';
+  
+  // 清空日志
+  logs.value = [];
+  
+  // 重置错误状态
+  versionError.value = '';
+  
+  console.log('InstallConfig: 组件状态已重置');
 };
 
 // 格式化时间展示

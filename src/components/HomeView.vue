@@ -5,6 +5,15 @@
       <!-- 页面标题 -->
       <div class="mb-6 flex justify-between items-center">
         <h1 class="text-2xl md:text-3xl font-bold text-base-content">控制台</h1>
+        <!-- Toast测试按钮 -->
+        <div class="flex gap-2">
+          <button @click="testEnhancedToast" class="btn btn-primary btn-sm">
+            测试增强Toast
+          </button>
+          <button @click="testErrorToast" class="btn btn-error btn-sm">
+            测试错误Toast
+          </button>
+        </div>
       </div>
       <!-- 卡片布局 -->
       <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4"> <!-- 消息数图表卡片 -->
@@ -157,6 +166,9 @@ import { adaptInstancesList, adaptInstancesListWithUptime } from '../utils/apiAd
 import { useInstanceStore } from '../stores/instanceStore';
 import { useSystemStore } from '../stores/systemStore';
 import { usePollingStore } from '../stores/pollingStore';
+
+// 导入增强的toast服务
+import enhancedToastService from '@/services/enhancedToastService';
 
 // 计算属性获取当前主题
 const currentTheme = computed(() => {
@@ -513,6 +525,37 @@ const navigateToInstances = () => {
       window.location.href = '#/instances';
     }
   }
+};
+
+// Toast测试方法
+const testEnhancedToast = () => {
+  enhancedToastService.show('这是一个测试消息！', {
+    type: 'success',
+    size: 'medium',
+    duration: 5000,
+    deploymentData: {
+      status: '部署进行中',
+      instanceName: 'test-instance',
+      port: '8000',
+      lastUpdate: new Date().toLocaleString()
+    }
+  });
+};
+
+const testErrorToast = () => {
+  const testError = new ReferenceError('normalizePath is not defined');
+  testError.stack = `ReferenceError: normalizePath is not defined
+    at initializeDeploymentPath (DownloadCenter.vue:846:13)
+    at initializeData (DownloadCenter.vue:818:9)
+    at Object.handler (component.vue:25:3)`;
+  
+  enhancedToastService.showError('数据初始化失败', testError, {
+    context: {
+      component: 'DownloadCenter',
+      operation: '初始化部署路径',
+      timestamp: new Date().toLocaleString()
+    }
+  });
 };
 
 // 优化：使用统一的store管理，避免重复请求

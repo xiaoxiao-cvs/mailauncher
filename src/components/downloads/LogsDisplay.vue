@@ -29,11 +29,21 @@
                 <input type="checkbox" v-model="logSettings.showSource" @change="saveLogSettings" class="checkbox checkbox-sm" />
                 <span class="label-text ml-2">显示日志来源</span>
               </label>
-            </li>
-            <li>
+            </li>            <li>
               <label class="label cursor-pointer justify-start">
                 <input type="checkbox" v-model="logSettings.enableWordWrap" @change="saveLogSettings" class="checkbox checkbox-sm" />
                 <span class="label-text ml-2">自动换行</span>
+              </label>
+            </li>
+            <li>
+              <label class="label cursor-pointer justify-start">
+                <span class="label-text">日志级别:</span>
+                <select v-model="logSettings.logLevel" @change="saveLogSettings" class="select select-bordered select-xs w-20 ml-2">
+                  <option value="all">全部</option>
+                  <option value="info">信息+</option>
+                  <option value="warning">警告+</option>
+                  <option value="error">错误</option>
+                </select>
               </label>
             </li>
             <li>
@@ -121,7 +131,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUpdated, watch, computed, inject, nextTick } from 'vue';
+import { ref, onMounted, onUpdated, watch, computed, inject, nextTick, onUnmounted } from 'vue';
 
 const props = defineProps({
   logs: {
@@ -130,7 +140,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['clear-logs']);
+const emit = defineEmits(['clear-logs', 'deployment-log']);
 
 const logsContainer = ref(null);
 const autoScroll = ref(true);
@@ -138,14 +148,22 @@ const autoScroll = ref(true);
 // 注入事件总线
 const emitter = inject('emitter', null);
 
+// 下载页面安装状态
+const isInstalling = ref(false);
+const installProgress = ref(0);
+const installStatus = ref('');
+const currentDeploymentData = ref(null);
+
 // 日志设置
 const logSettings = ref({
-  enableDeduplication: false, // 默认禁用去重，避免问题
+  enableDeduplication: true, // 启用去重功能
   showTimestamp: true,
   showSource: true,
   enableWordWrap: true,
   maxLogLines: 1000,
   deduplicationWindow: 5, // 秒
+  logLevel: 'all', // 日志级别过滤：error, warning, info, all
+  enableAutoScroll: true, // 自动滚动
 });
 
 // 日志统计
@@ -571,35 +589,160 @@ const formatLogMessage = (message) => {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
   
-  // 对命令行风格的消息进行高亮处理
-  if (safeMessage.startsWith('$')) {
-    safeMessage = `<span class="font-bold">${safeMessage}</span>`;
+  // 对JSON格式的消息进行特殊处理
+  if (safeMessage.trim().startsWith('{') && safeMessage.trim().endsWith('}')) {
+    try {
+      const jsonObj = JSON.parse(message);
+      safeMessage = `<pre class="text-xs bg-base-300 p-2 rounded overflow-x-auto">${JSON.stringify(jsonObj, null, 2)}</pre>`;
+      return safeMessage;
+    } catch (e) {
+      // 不是有效JSON，继续正常处理
+    }
   }
   
-  // 关键字高亮
+  // 对命令行风格的消息进行高亮处理
+  if (safeMessage.startsWith('$')) {
+    safeMessage = `<span class="font-bold text-accent">${safeMessage}</span>`;
+  }
+  
+  // 高亮各种状态和关键词
   safeMessage = safeMessage
-    .replace(/(成功|完成|SUCCESS|COMPLETE)/gi, '<span class="text-success font-medium">$1</span>')
-    .replace(/(错误|失败|ERROR|FAILED|FAIL)/gi, '<span class="text-error font-medium">$1</span>')
-    .replace(/(警告|WARNING|WARN)/gi, '<span class="text-warning font-medium">$1</span>')
-    .replace(/(开始|启动|START|BEGIN)/gi, '<span class="text-info font-medium">$1</span>')
-    .replace(/(\d+\.\d+%)/g, '<span class="text-accent font-mono">$1</span>') // 百分比
-    .replace(/(\d+\.\d+ (?:KB|MB|GB))/g, '<span class="text-secondary font-mono">$1</span>'); // 文件大小
+    // 成功状态
+    .replace(/(成功|完成|SUCCESS|COMPLETE|✅|🎉)/gi, '<span class="text-success font-medium">$1</span>')
+    // 错误状态
+    .replace(/(错误|失败|ERROR|FAILED|FAIL|❌|💥)/gi, '<span class="text-error font-medium">$1</span>')
+    // 警告状态
+    .replace(/(警告|WARNING|WARN|⚠️|⏰)/gi, '<span class="text-warning font-medium">$1</span>')
+    // 信息状态
+    .replace(/(开始|启动|START|BEGIN|🚀|🔄|📊|📝|🔍|📄|🔧)/gi, '<span class="text-info font-medium">$1</span>')
+    // 数值和百分比
+    .replace(/(\d+(?:\.\d+)?%)/g, '<span class="text-accent font-mono font-bold">$1</span>')
+    // 文件大小
+    .replace(/(\d+(?:\.\d+)?\s*(?:KB|MB|GB|TB))/gi, '<span class="text-secondary font-mono">$1</span>')
+    // 端口号
+    .replace(/(端口[:：]\s*)(\d+)/gi, '$1<span class="text-primary font-mono">$2</span>')
+    // IP地址
+    .replace(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g, '<span class="text-accent font-mono">$1</span>')
+    // 路径
+    .replace(/([\\/][^\s<>"]+)/g, '<span class="text-neutral font-mono">$1</span>')
+    // HTTP状态码
+    .replace(/(HTTP\s+)(\d{3})/gi, '$1<span class="text-warning font-mono">$2</span>')
+    // 实例ID
+    .replace(/(实例ID[:：]\s*)([a-f0-9]{32,})/gi, '$1<span class="text-primary font-mono text-xs">$2</span>');
   
   return safeMessage;
 };
 
-// 监听日志变化，自动滚动
-watch(() => processedLogs.value.length, () => {
-  if (autoScroll.value) {
-    // 使用nextTick确保DOM更新后滚动
-    setTimeout(scrollToBottom, 0);
+// 处理下载页面部署启动事件
+const handleDeploymentStarted = (event) => {
+  console.log('LogsDisplay: 接收到部署启动事件', event.detail);
+  
+  const { deploymentData } = event.detail;
+  currentDeploymentData.value = deploymentData;
+  isInstalling.value = true;
+  installProgress.value = 0;
+  installStatus.value = '正在准备安装...';
+  
+  // 添加安装开始日志
+  emit('deployment-log', {
+    id: Date.now(),
+    time: new Date().toLocaleTimeString(),
+    level: 'info',
+    source: 'installer',
+    message: `🚀 开始安装实例: ${deploymentData.instanceName}`
+  });
+};
+
+// 处理部署进度更新事件
+const handleDeploymentProgress = (event) => {
+  console.log('LogsDisplay: 接收到进度更新事件', event.detail);
+  
+  const { progress, status, deploymentData } = event.detail;
+  installProgress.value = progress || 0;
+  installStatus.value = status || '安装中...';
+  
+  // 添加进度日志
+  if (status) {
+    emit('deployment-log', {
+      id: Date.now(),
+      time: new Date().toLocaleTimeString(),
+      level: 'info',
+      source: 'installer',
+      message: `📋 ${status} (${progress}%)`
+    });
   }
-});
+};
+
+// 处理部署完成事件
+const handleDeploymentCompleted = (event) => {
+  console.log('LogsDisplay: 接收到部署完成事件', event.detail);
+  
+  const { success, message, deploymentData } = event.detail;
+  isInstalling.value = false;
+  installProgress.value = success ? 100 : 0;
+  installStatus.value = success ? '安装完成' : '安装失败';
+  
+  // 添加完成日志
+  emit('deployment-log', {
+    id: Date.now(),
+    time: new Date().toLocaleTimeString(),
+    level: success ? 'success' : 'error',
+    source: 'installer',
+    message: success ? `✅ ${message || '安装完成'}` : `❌ ${message || '安装失败'}`
+  });
+  
+  // 清理数据
+  setTimeout(() => {
+    currentDeploymentData.value = null;
+    installProgress.value = 0;
+    installStatus.value = '';
+  }, 3000);
+};
+
+// 处理安装日志
+const handleInstallLogs = (log) => {
+  if (log.message.includes('Installing') || log.message.includes('下载中')) {
+    isInstalling.value = true;
+    installStatus.value = '安装中...';
+    installProgress.value = 0;
+  } else if (log.message.includes('Install completed') || log.message.includes('安装完成')) {
+    isInstalling.value = false;
+    installStatus.value = '安装完成';
+    installProgress.value = 100;
+  } else if (log.message.includes('Install failed') || log.message.includes('安装失败')) {
+    isInstalling.value = false;
+    installStatus.value = '安装失败';
+    installProgress.value = 0;
+  } else if (log.message.includes('Progress:')) {
+    const progressMatch = log.message.match(/Progress:\s*(\d+)%/);
+    if (progressMatch && progressMatch[1]) {
+      installProgress.value = parseInt(progressMatch[1]);
+    }
+  }
+};
+
+// 监听安装日志
+watch(() => props.logs, (newLogs) => {
+  if (Array.isArray(newLogs)) {
+    newLogs.forEach(log => {
+      handleInstallLogs(log);
+    });
+  }
+}, { immediate: true });
 
 // 组件挂载时初始化
 onMounted(() => {
   loadLogSettings();
   scrollToBottom();
+
+  // 监听下载页面部署启动事件
+  window.addEventListener('deployment-started-in-downloads', handleDeploymentStarted);
+  
+  // 监听部署进度更新事件
+  window.addEventListener('deployment-progress-update', handleDeploymentProgress);
+  
+  // 监听部署完成事件
+  window.addEventListener('deployment-completed', handleDeploymentCompleted);
 });
 
 // 组件更新后，如果启用了自动滚动则滚动到底部
@@ -607,6 +750,17 @@ onUpdated(() => {
   if (autoScroll.value) {
     scrollToBottom();
   }
+});
+
+// 组件卸载时清理
+onUnmounted(() => {
+  emitter.off('log-settings-updated');
+  emitter.off('log-settings-reset');
+  
+  // 移除部署事件监听器
+  window.removeEventListener('deployment-started-in-downloads', handleDeploymentStarted);
+  window.removeEventListener('deployment-progress-update', handleDeploymentProgress);
+  window.removeEventListener('deployment-completed', handleDeploymentCompleted);
 });
 </script>
 

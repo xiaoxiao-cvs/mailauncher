@@ -68,9 +68,7 @@ const testBackendConnection = async () => {
     console.log("后端地址:", backendConfig.getBackendUrl());
     console.log(
       "健康检查URL:",
-      `${backendConfig.getBackendUrl()}${backendConfig.getFullUrl(
-        "/system/health"
-      )}`
+      `${backendConfig.getBackendUrl()}${backendConfig.getFullUrl("/system/health")}`
     );
 
     // 使用正确的健康检查路径和完整URL

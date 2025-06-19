@@ -3,8 +3,6 @@
  * 使用 Tauri 的文件对话框 API
  */
 
-import { open } from "@tauri-apps/plugin-dialog";
-
 /**
  * 选择文件夹
  * @param {Object} options - 选择选项
@@ -16,16 +14,38 @@ export const selectFolder = async (options = {}) => {
   try {
     const { title = "选择文件夹", defaultPath = undefined } = options;
 
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title,
-      defaultPath,
-    });
+    // 检查是否在 Tauri 环境中
+    if (typeof window !== 'undefined' && (window.__TAURI__ || window.isTauriApp)) {
+      // 动态导入 Tauri dialog 插件以避免在非 Tauri 环境中出错
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title,
+        defaultPath,
+      });
 
-    return selected;
+      return selected;
+    } else {
+      // 如果不在 Tauri 环境中，使用浏览器的文件选择 API（如果可用）
+      console.warn("文件夹选择功能仅在 Tauri 环境中可用");
+      
+      // 可以考虑显示一个提示对话框
+      if (typeof window !== 'undefined' && window.confirm) {
+        alert("请在桌面应用中使用此功能，或手动输入路径。");
+      }
+      
+      return null;
+    }
   } catch (error) {
     console.error("选择文件夹失败:", error);
+    
+    // 如果是 Tauri API 错误，提供更详细的错误信息
+    if (error.message && error.message.includes('invoke')) {
+      console.error("Tauri API 调用失败，请确保应用已正确编译并运行在 Tauri 环境中");
+    }
+    
     return null;
   }
 };

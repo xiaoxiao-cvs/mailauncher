@@ -6,6 +6,60 @@
 import { instancesApi } from "@/services/api";
 
 /**
+ * 获取实例名称模式配置
+ * @returns {string} - 实例名称模式
+ */
+const getInstanceNamePattern = () => {
+  // 从localStorage获取用户自定义的实例名称模式
+  const savedPattern = localStorage.getItem("instanceNamePattern");
+
+  // 默认模式：MaiBot-{version}
+  const defaultPattern = "MaiBot-{version}";
+
+  return savedPattern || defaultPattern;
+};
+
+/**
+ * 设置实例名称模式
+ * @param {string} pattern - 实例名称模式
+ */
+export const setInstanceNamePattern = (pattern) => {
+  if (!pattern || typeof pattern !== "string") {
+    pattern = "MaiBot-{version}";
+  }
+
+  localStorage.setItem("instanceNamePattern", pattern);
+
+  // 触发实例名称模式变更事件
+  window.dispatchEvent(
+    new CustomEvent("instance-name-pattern-changed", {
+      detail: { pattern },
+    })
+  );
+};
+
+/**
+ * 根据模式和变量生成实例名称
+ * @param {string} pattern - 名称模式
+ * @param {Object} variables - 变量对象
+ * @returns {string} - 生成的实例名称
+ */
+const applyNamePattern = (pattern, variables) => {
+  let result = pattern;
+
+  // 替换变量占位符
+  Object.keys(variables).forEach((key) => {
+    const placeholder = `{${key}}`;
+    result = result.replace(new RegExp(placeholder, "g"), variables[key] || "");
+  });
+
+  // 清理多余的分隔符
+  result = result.replace(/[-_]+/g, "-").replace(/^[-_]+|[-_]+$/g, "");
+
+  return result;
+};
+
+/**
  * 格式化版本名称为实例名称的一部分
  * @param {string} version - 版本名称
  * @returns {string} - 格式化后的版本名称
@@ -92,6 +146,8 @@ export const isInstanceNameExists = (name, existingInstances) => {
  */
 export const generateUniqueInstanceName = (version, existingInstances = []) => {
   const formattedVersion = formatVersionForInstanceName(version);
+  
+  // 基础名称格式：MaiBot-{Version}
   const baseName = `MaiBot-${formattedVersion}`;
 
   // 如果基础名称不存在，直接返回
@@ -99,8 +155,8 @@ export const generateUniqueInstanceName = (version, existingInstances = []) => {
     return baseName;
   }
 
-  // 如果存在，则递增数字后缀
-  let counter = 1;
+  // 如果存在，则递增数字后缀：MaiBot-{Version}-2, MaiBot-{Version}-3, ...
+  let counter = 2; // 从2开始，因为第一个是没有数字后缀的
   let candidateName = `${baseName}-${counter}`;
 
   while (isInstanceNameExists(candidateName, existingInstances)) {
@@ -119,10 +175,10 @@ export const generateUniqueInstanceName = (version, existingInstances = []) => {
 export const generateUniqueInstanceNameAsync = async (version) => {
   try {
     const existingInstances = await fetchExistingInstances();
-    return generateUniqueInstanceName(version, existingInstances);
+    return generateUniqueInstanceName(version, existingInstances);  
   } catch (error) {
     console.error("生成实例名称时获取实例列表失败:", error);
-    // 降级处理：使用时间戳确保唯一性
+    // 降级处理：生成带时间戳的名称确保唯一性
     const formattedVersion = formatVersionForInstanceName(version);
     const timestamp = Date.now().toString().slice(-4);
     return `MaiBot-${formattedVersion}-${timestamp}`;
@@ -135,4 +191,6 @@ export default {
   isInstanceNameExists,
   generateUniqueInstanceName,
   generateUniqueInstanceNameAsync,
+  setInstanceNamePattern,
+  getInstanceNamePattern,
 };

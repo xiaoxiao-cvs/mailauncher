@@ -40,7 +40,7 @@ import { initTheme, setTheme, useDarkMode, useTheme } from './services/theme-sim
 import toastService from './services/toastService';
 import { exposeToastForDebugging } from './utils/debugUtils';
 import apiService from './services/apiService';
-import backendConfig from './config/backendConfig';
+import backendConfig from './config/backendConfig.js';
 import { usePollingStore } from './stores/pollingStore';
 
 // 快速重连状态
@@ -194,6 +194,13 @@ const handleTabSelect = (tab) => {
 
 // 提供activeTab供侧边栏组件使用
 provide('activeTab', activeTab);
+
+// 暴露activeTab到全局供Toast服务等使用
+window.currentActiveTab = activeTab.value;
+watch(activeTab, (newTab) => {
+  window.currentActiveTab = newTab;
+  console.log('当前活跃标签页更新为:', newTab);
+});
 
 // 计算当前组件 - 简化逻辑，移除设置页面
 const currentComponent = computed(() => {
