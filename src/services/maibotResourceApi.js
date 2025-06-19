@@ -46,14 +46,14 @@ export const emojiApi = {
   // 获取表情包总数
   async getCount(instanceId, filters = {}) {
     return await apiService.post(`${API_BASE}/${instanceId}/emoji/count`, filters);
-  },
-  // 批量获取表情包
+  },  // 批量获取表情包
   async getBatch(instanceId, options = {}) {
     const { batchSize = 50, offset = 0, filters = {} } = options;
+    // 根据后端API文档，筛选条件应该平铺到请求体中，而不是嵌套在filters对象中
     return await apiService.post(`${API_BASE}/${instanceId}/emoji/batch`, {
       batch_size: batchSize,
       offset,
-      filters
+      ...filters  // 将筛选条件平铺到请求体中
     });
   }
 };
@@ -109,14 +109,14 @@ export const personApi = {
   async getCount(instanceId, filters = {}) {
     return await apiService.post(`${API_BASE}/${instanceId}/person/count`, filters);
   },
-
   // 批量获取用户信息
   async getBatch(instanceId, options = {}) {
     const { batchSize = 50, offset = 0, filters = {} } = options;
+    // 根据后端API文档，筛选条件应该平铺到请求体中，而不是嵌套在filters对象中
     return await apiService.post(`${API_BASE}/${instanceId}/person/batch`, {
       batch_size: batchSize,
       offset,
-      filters
+      ...filters  // 将筛选条件平铺到请求体中
     });
   }
 };

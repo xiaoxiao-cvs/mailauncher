@@ -335,6 +335,15 @@ const loadEmojis = async () => {
       searchFilters.is_banned = 1;
     }
 
+    // 先获取总数（用于分页）
+    const countResponse = await maibotResourceApi.emoji.getCount(props.instanceId, searchFilters);
+    if (countResponse.status === 'success' && countResponse.data) {
+      totalCount.value = countResponse.data.total_count || 0;
+    } else {
+      totalCount.value = 0;
+    }
+
+    // 再获取当前页的数据
     const response = await maibotResourceApi.emoji.getBatch(props.instanceId, {
       batchSize: pageSize.value,
       offset: (currentPage.value - 1) * pageSize.value,
@@ -343,7 +352,6 @@ const loadEmojis = async () => {
 
     if (response.status === 'success') {
       emojis.value = response.data || [];
-      totalCount.value = response.total_count || 0;
       
       // 更新统计信息
       emit('stats-updated', { total: totalCount.value });

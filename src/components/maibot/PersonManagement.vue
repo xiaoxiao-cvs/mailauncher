@@ -428,11 +428,10 @@ const loadPersons = async () => {
     loading.value = true;
     
     const searchFilters = {};
-    
-    // 添加搜索条件
+      // 添加搜索条件
     if (searchQuery.value) {
+      // 优先搜索用户名，如果用户希望搜索昵称，可以在UI中提供选项
       searchFilters.person_name_like = searchQuery.value;
-      searchFilters.nickname_like = searchQuery.value;
     }
     
     if (filters.value.platform) {
@@ -443,6 +442,15 @@ const loadPersons = async () => {
       searchFilters.has_person_name = true;
     }
 
+    // 先获取总数（用于分页）
+    const countResponse = await maibotResourceApi.person.getCount(props.instanceId, searchFilters);
+    if (countResponse.status === 'success' && countResponse.data) {
+      totalCount.value = countResponse.data.total_count || 0;
+    } else {
+      totalCount.value = 0;
+    }
+
+    // 再获取当前页的数据
     const response = await maibotResourceApi.person.getBatch(props.instanceId, {
       batchSize: pageSize.value,
       offset: (currentPage.value - 1) * pageSize.value,
@@ -451,7 +459,6 @@ const loadPersons = async () => {
 
     if (response.status === 'success') {
       persons.value = response.data || [];
-      totalCount.value = response.total_count || 0;
       
       // 更新统计信息
       emit('stats-updated', { total: totalCount.value });

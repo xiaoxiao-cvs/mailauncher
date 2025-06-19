@@ -173,9 +173,7 @@ const apiRequest = async (method, url, data = null, config = {}) => {
       url: requestUrl,
       data,
       ...requestConfig,
-    });
-
-    // 对实例相关的API响应进行数据预处理
+    });    // 对实例相关的API响应进行数据预处理
     if (
       url.includes("/instances") &&
       response.data &&
@@ -191,7 +189,7 @@ const apiRequest = async (method, url, data = null, config = {}) => {
       });
     }
 
-    return response;
+    return response.data;  // 返回后端响应的实际数据，而不是axios response对象
   } catch (error) {
     // 直接抛出错误，不使用模拟数据
     console.error(`API请求失败: ${method} ${url}`, error.message);

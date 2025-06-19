@@ -635,6 +635,228 @@
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 日志设置标签页 -->
+                        <div v-else-if="activeTab === 'logs'" key="logs" class="settings-panel">
+                            <div class="panel-header">
+                                <h3 class="panel-title">日志设置</h3>
+                                <p class="panel-description">配置安装和运行日志的显示和处理方式</p>
+                            </div>
+
+                            <div class="settings-section">
+                                <!-- 日志显示设置 -->
+                                <div class="setting-group">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                                            <IconifyIcon icon="mdi:text-box-outline" class="w-5 h-5 text-blue-500" />
+                                        </div>
+                                        <div>
+                                            <h4 class="group-title">日志显示</h4>
+                                            <p class="text-sm text-base-content/70">控制日志的显示方式和格式</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">启用日志去重</label>
+                                            <p class="setting-desc">自动合并重复的日志条目，减少界面冗余信息</p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" v-model="logSettings.enableDeduplication"
+                                                    @change="saveLogSettings" class="toggle-input" />
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">显示时间戳</label>
+                                            <p class="setting-desc">在每条日志前显示时间信息</p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" v-model="logSettings.showTimestamp"
+                                                    @change="saveLogSettings" class="toggle-input" />
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">显示日志来源</label>
+                                            <p class="setting-desc">显示日志的来源组件或模块</p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" v-model="logSettings.showSource"
+                                                    @change="saveLogSettings" class="toggle-input" />
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">自动换行</label>
+                                            <p class="setting-desc">启用后长日志消息会自动换行显示</p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" v-model="logSettings.enableWordWrap"
+                                                    @change="saveLogSettings" class="toggle-input" />
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">自动滚动</label>
+                                            <p class="setting-desc">新日志到达时自动滚动到底部</p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" v-model="logSettings.enableAutoScroll"
+                                                    @change="saveLogSettings" class="toggle-input" />
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 日志过滤设置 -->
+                                <div class="setting-group">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="w-8 h-8 bg-yellow-500/10 rounded-lg flex items-center justify-center">
+                                            <IconifyIcon icon="mdi:filter-outline" class="w-5 h-5 text-yellow-500" />
+                                        </div>
+                                        <div>
+                                            <h4 class="group-title">日志过滤</h4>
+                                            <p class="text-sm text-base-content/70">设置显示的日志级别和过滤条件</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">日志级别</label>
+                                            <p class="setting-desc">选择要显示的最低日志级别</p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <select v-model="logSettings.logLevel" @change="saveLogSettings"
+                                                class="select select-bordered select-sm">
+                                                <option value="all">全部</option>
+                                                <option value="info">信息及以上</option>
+                                                <option value="warning">警告及以上</option>
+                                                <option value="error">仅错误</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 日志性能设置 -->
+                                <div class="setting-group">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="w-8 h-8 bg-green-500/10 rounded-lg flex items-center justify-center">
+                                            <IconifyIcon icon="mdi:speedometer" class="w-5 h-5 text-green-500" />
+                                        </div>
+                                        <div>
+                                            <h4 class="group-title">性能优化</h4>
+                                            <p class="text-sm text-base-content/70">优化日志性能和内存使用</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">最大日志条数</label>
+                                            <p class="setting-desc">限制内存中保留的日志条数，超出时自动清理旧日志</p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <div class="flex items-center gap-2">
+                                                <input type="range" v-model.number="logSettings.maxLogLines"
+                                                    @change="saveLogSettings" class="range range-sm range-primary flex-1"
+                                                    min="100" max="5000" step="100" />
+                                                <span class="text-sm font-mono min-w-16 text-center">{{ logSettings.maxLogLines }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">去重时间窗口（秒）</label>
+                                            <p class="setting-desc">在此时间内的重复日志将被合并</p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <div class="flex items-center gap-2">
+                                                <input type="range" v-model.number="logSettings.deduplicationWindow"
+                                                    @change="saveLogSettings" class="range range-sm range-primary flex-1"
+                                                    min="1" max="60" step="1" />
+                                                <span class="text-sm font-mono min-w-12 text-center">{{ logSettings.deduplicationWindow }}s</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 日志存储设置 -->
+                                <div class="setting-group">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                                            <IconifyIcon icon="mdi:content-save" class="w-5 h-5 text-purple-500" />
+                                        </div>
+                                        <div>
+                                            <h4 class="group-title">日志存储</h4>
+                                            <p class="text-sm text-base-content/70">配置日志的保存和导出选项</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">允许导出日志</label>
+                                            <p class="setting-desc">允许将日志导出为文本文件</p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" v-model="logSettings.enableLogExport"
+                                                    @change="saveLogSettings" class="toggle-input" />
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">自动保存间隔（分钟）</label>
+                                            <p class="setting-desc">自动保存日志到本地文件的时间间隔</p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <div class="flex items-center gap-2">
+                                                <input type="number" v-model.number="logSettings.autoSaveInterval"
+                                                    @change="saveLogSettings" class="input input-bordered input-sm w-24"
+                                                    min="5" max="240" />
+                                                <span class="text-sm">分钟</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 重置按钮 -->
+                                <div class="setting-group">
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">重置日志设置</label>
+                                            <p class="setting-desc">将所有日志设置恢复为默认值</p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <button @click="resetLogSettings" class="btn btn-outline btn-warning btn-sm">
+                                                <IconifyIcon icon="mdi:restore" class="w-4 h-4" />
+                                                重置设置
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -839,6 +1061,7 @@ const activeTab = ref('appearance')
 const settingTabs = [
     { key: 'appearance', title: '外观', icon: 'mdi:palette' },
     { key: 'system', title: '系统', icon: 'mdi:cog' },
+    { key: 'logs', title: '日志', icon: 'mdi:text-box-outline' },
     { key: 'paths', title: '路径配置', icon: 'mdi:folder-cog' },
     { key: 'webui', title: 'WebUI', icon: 'mdi:web' },
     { key: 'backend', title: '后端服务', icon: 'mdi:server-network' },
@@ -898,6 +1121,20 @@ const isSelectingDeploymentFolder = ref(false)
 // 通知设置
 const deploymentNotifications = ref(localStorage.getItem('deploymentNotifications') !== 'false')
 const instanceNotifications = ref(localStorage.getItem('instanceNotifications') !== 'false')
+
+// 日志设置
+const logSettings = ref({
+    enableDeduplication: localStorage.getItem('logSettings.enableDeduplication') !== 'false',
+    showTimestamp: localStorage.getItem('logSettings.showTimestamp') !== 'false', 
+    showSource: localStorage.getItem('logSettings.showSource') !== 'false',
+    enableWordWrap: localStorage.getItem('logSettings.enableWordWrap') !== 'false',
+    maxLogLines: parseInt(localStorage.getItem('logSettings.maxLogLines')) || 1000,
+    deduplicationWindow: parseInt(localStorage.getItem('logSettings.deduplicationWindow')) || 5,
+    enableAutoScroll: localStorage.getItem('logSettings.enableAutoScroll') !== 'false',
+    logLevel: localStorage.getItem('logSettings.logLevel') || 'all',
+    enableLogExport: localStorage.getItem('logSettings.enableLogExport') !== 'false',
+    autoSaveInterval: parseInt(localStorage.getItem('logSettings.autoSaveInterval')) || 30,
+})
 
 // 启动设置
 const showWelcomeOnStartup = ref(localStorage.getItem('showWelcomeOnStartup') !== 'false')
@@ -1154,6 +1391,49 @@ const toggleInstanceNotifications = () => {
 const toggleShowWelcomeOnStartup = () => {
     localStorage.setItem('showWelcomeOnStartup', showWelcomeOnStartup.value.toString())
     console.log('启动时显示欢迎页面设置已更新:', showWelcomeOnStartup.value)
+}
+
+// 日志设置相关方法
+const saveLogSettings = () => {
+    // 保存每个日志设置到localStorage
+    Object.keys(logSettings.value).forEach(key => {
+        localStorage.setItem(`logSettings.${key}`, logSettings.value[key].toString())
+    })
+    
+    // 通知其他组件日志设置已更新
+    if (emitter) {
+        emitter.emit('log-settings-updated', logSettings.value)
+    }
+    
+    console.log('日志设置已保存:', logSettings.value)
+}
+
+const resetLogSettings = () => {
+    // 重置为默认值
+    logSettings.value = {
+        enableDeduplication: true,
+        showTimestamp: true, 
+        showSource: true,
+        enableWordWrap: true,
+        maxLogLines: 1000,
+        deduplicationWindow: 5,
+        enableAutoScroll: true,
+        logLevel: 'all',
+        enableLogExport: true,
+        autoSaveInterval: 30,
+    }
+    
+    // 清除localStorage中的设置
+    Object.keys(logSettings.value).forEach(key => {
+        localStorage.removeItem(`logSettings.${key}`)
+    })
+    
+    // 通知组件设置已重置
+    if (emitter) {
+        emitter.emit('log-settings-reset', logSettings.value)
+    }
+    
+    console.log('日志设置已重置为默认值')
 }
 
 // WebUI 配置方法

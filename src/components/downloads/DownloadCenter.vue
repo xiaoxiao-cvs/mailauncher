@@ -282,23 +282,48 @@
                                     </div> <!-- 阶段3: 版本选择下拉框 (使用 daisyUI CSS focus 方法) -->
                                     <div v-else-if="versionLoadingStage === 'dropdown'" key="dropdown-stage"
                                         class="version-stage dropdown-stage">
-                                        <div class="dropdown w-full">
-                                            <!-- 下拉框按钮 - 使用 CSS focus 方法 -->
+                                        <div class="dropdown w-full">                                            <!-- 下拉框按钮 - 优化样式 -->
                                             <div tabindex="0" role="button"
-                                                class="btn btn-outline w-full justify-between hover:bg-base-200 transition-all duration-300 animate-slide-in"
+                                                class="w-full p-4 rounded-lg border-2 cursor-pointer transition-all duration-300 animate-slide-in flex items-center justify-between group"
                                                 :class="{
-                                                    'btn-disabled': installing || loading,
-                                                    'border-primary bg-primary/5': selectedVersion,
-                                                    'text-base-content/50': !selectedVersion
+                                                    'pointer-events-none opacity-50': installing || loading,
+                                                    'border-primary bg-primary/5 shadow-md': selectedVersion,
+                                                    'border-base-300 bg-base-100 hover:border-primary/50 hover:bg-base-200': !selectedVersion,
+                                                    'focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none': true
                                                 }">
-                                                <div class="flex items-center gap-2">
-                                                    <span class="font-medium transition-colors duration-300"
-                                                        :class="{ 'text-primary': selectedVersion }">
-                                                        {{ selectedVersion || '请选择一个版本' }}
-                                                    </span>
+                                                <div class="flex items-center gap-3">
+                                                    <!-- 版本图标 -->
+                                                    <div class="flex-shrink-0">
+                                                        <div class="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300"
+                                                            :class="{
+                                                                'bg-primary text-primary-content': selectedVersion,
+                                                                'bg-base-300 text-base-content/60 group-hover:bg-primary/10 group-hover:text-primary': !selectedVersion
+                                                            }">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                    <!-- 版本信息 -->
+                                                    <div class="flex-1 min-w-0">
+                                                        <div class="font-medium transition-colors duration-300"
+                                                            :class="{ 
+                                                                'text-primary': selectedVersion,
+                                                                'text-base-content': selectedVersion,
+                                                                'text-base-content/70': !selectedVersion
+                                                            }">
+                                                            {{ selectedVersion || '请选择一个版本' }}
+                                                        </div>
+                                                        <div v-if="selectedVersion" class="text-xs text-base-content/60 mt-0.5 truncate">
+                                                            {{ getVersionDescription(selectedVersion) }}
+                                                        </div>
+                                                        <div v-else class="text-xs text-base-content/50 mt-0.5">
+                                                            点击查看可用版本列表
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <!-- 右侧箭头：未选择时显示 >，已选择时显示 ✓ -->
-                                                <div class="transition-transform duration-300"
+                                                <!-- 右侧指示器 -->
+                                                <div class="flex-shrink-0 transition-transform duration-300"
                                                     :class="{ 'scale-110': selectedVersion }">
                                                     <svg v-if="selectedVersion" xmlns="http://www.w3.org/2000/svg"
                                                         class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24"
@@ -307,71 +332,92 @@
                                                             stroke-width="2" d="M5 13l4 4L19 7" />
                                                     </svg>
                                                     <svg v-else xmlns="http://www.w3.org/2000/svg"
-                                                        class="h-4 w-4 text-base-content/60" fill="none"
-                                                        viewBox="0 0 24 24" stroke="currentColor">
+                                                        class="h-5 w-5 text-base-content/40 group-hover:text-base-content/60 transition-colors duration-300" 
+                                                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2" d="M9 5l7 7-7 7" />
+                                                            stroke-width="2" d="M19 9l-7 7-7-7" />
                                                     </svg>
                                                 </div>
-                                            </div> <!-- 下拉菜单内容 - 使用 CSS focus 方法 -->
+                                            </div>                                            <!-- 下拉菜单内容 - 优化样式 -->
                                             <ul tabindex="0"
-                                                class="dropdown-content z-[99999] menu p-0 shadow-xl bg-base-100 rounded-lg w-full mt-2 border border-base-200 max-h-80 overflow-hidden">
-                                                <div class="p-3">
+                                                class="dropdown-content z-[99999] menu p-0 shadow-2xl bg-base-100 rounded-xl w-full mt-2 border border-base-200/50 max-h-80 overflow-hidden backdrop-blur-sm">
+                                                <div class="p-4">
                                                     <div v-if="availableVersions.length === 0"
-                                                        class="py-6 text-center text-base-content/60">
-                                                        <div class="flex flex-col items-center gap-3">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8"
-                                                                fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2 2v-5m16 0h-2M4 13h2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v4.01" />
-                                                            </svg>
-                                                            <span class="text-sm">暂无可用版本</span>
+                                                        class="py-8 text-center text-base-content/60">
+                                                        <div class="flex flex-col items-center gap-4">
+                                                            <div class="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6"
+                                                                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                                        stroke-width="2"
+                                                                        d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2 2v-5m16 0h-2M4 13h2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v4.01" />
+                                                                </svg>
+                                                            </div>
+                                                            <div>
+                                                                <div class="font-medium text-base-content/80">暂无可用版本</div>
+                                                                <div class="text-xs text-base-content/50 mt-1">请检查网络连接或稍后重试</div>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <div v-else
                                                         class="space-y-1 max-h-64 overflow-y-auto version-list-container">
+                                                        <!-- 版本列表标题 -->
+                                                        <div class="px-2 py-2 border-b border-base-200/50 mb-2">
+                                                            <div class="text-xs font-medium text-base-content/60 uppercase tracking-wider">
+                                                                可用版本 ({{ availableVersions.length }})
+                                                            </div>
+                                                        </div>
                                                         <li v-for="(version, index) in availableVersions"
-                                                            :key="version"> <a
-                                                                @click="handleVersionSelect(version, $event)"
-                                                                class="version-option w-full text-left p-3 rounded-lg hover:bg-base-200 transition-all duration-150 flex items-center justify-between group animate-item-fade-in"
+                                                            :key="version"> 
+                                                            <a @click="handleVersionSelect(version, $event)"
+                                                                class="version-option w-full text-left p-3 rounded-lg transition-all duration-200 flex items-center justify-between group animate-item-fade-in cursor-pointer"
                                                                 :style="{ 'animation-delay': `${index * 30}ms` }"
                                                                 :class="{
-                                                                    'bg-primary/10 text-primary border border-primary/20 shadow-sm': selectedVersion === version,
-                                                                    'hover:bg-primary/5': selectedVersion !== version
+                                                                    'bg-primary/10 text-primary border border-primary/20 shadow-sm ring-2 ring-primary/10': selectedVersion === version,
+                                                                    'hover:bg-base-200/80 hover:shadow-sm': selectedVersion !== version
                                                                 }">
                                                                 <div class="flex items-center gap-3">
                                                                     <div class="flex-shrink-0">
                                                                         <div class="transition-all duration-200"
                                                                             :class="{ 'scale-110': selectedVersion === version }">
-                                                                            <svg v-if="selectedVersion === version"
-                                                                                xmlns="http://www.w3.org/2000/svg"
-                                                                                class="h-5 w-5 text-primary animate-pulse"
-                                                                                fill="none" viewBox="0 0 24 24"
-                                                                                stroke="currentColor">
-                                                                                <path stroke-linecap="round"
-                                                                                    stroke-linejoin="round"
-                                                                                    stroke-width="2"
-                                                                                    d="M5 13l4 4L19 7" />
-                                                                            </svg>
+                                                                            <div v-if="selectedVersion === version"
+                                                                                class="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                                                                                <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                    class="h-3 w-3 text-primary-content"
+                                                                                    fill="none" viewBox="0 0 24 24"
+                                                                                    stroke="currentColor">
+                                                                                    <path stroke-linecap="round"
+                                                                                        stroke-linejoin="round"
+                                                                                        stroke-width="3"
+                                                                                        d="M5 13l4 4L19 7" />
+                                                                                </svg>
+                                                                            </div>
                                                                             <div v-else
-                                                                                class="w-5 h-5 rounded-full border-2 border-base-300 group-hover:border-primary transition-all duration-200">
+                                                                                class="w-5 h-5 rounded-full border-2 border-base-300 group-hover:border-primary/50 transition-all duration-200 group-hover:scale-105">
                                                                             </div>
                                                                         </div>
                                                                     </div>
-                                                                    <div>
+                                                                    <div class="flex-1 min-w-0">
                                                                         <div class="font-medium text-sm transition-colors duration-200"
                                                                             :class="{ 'text-primary': selectedVersion === version }">
                                                                             {{ version }}
                                                                         </div>
-                                                                        <div class="text-xs text-base-content/60">
+                                                                        <div class="text-xs text-base-content/60 mt-0.5 truncate">
                                                                             {{ getVersionDescription(version) }}
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                                <div v-if="isLatestVersion(version)"
-                                                                    class="badge badge-primary badge-sm animate-pulse">
-                                                                    最新
+                                                                <div class="flex items-center gap-2">
+                                                                    <div v-if="isLatestVersion(version)"
+                                                                        class="px-2 py-1 text-xs font-medium bg-success/10 text-success rounded-full border border-success/20">
+                                                                        最新
+                                                                    </div>
+                                                                    <div v-if="selectedVersion === version" 
+                                                                        class="text-primary opacity-75">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                                                        </svg>
+                                                                    </div>
                                                                 </div>
                                                             </a>
                                                         </li>
@@ -563,19 +609,10 @@
                             </div>
                         </div>
                     </div>
-                </transition>
-
-                <!-- 安装日志 -->
+                </transition>                <!-- 安装日志 -->
                 <transition name="fade">
                     <div v-if="installing && logs.length > 0" class="mt-4">
-                        <div class="flex items-center justify-between mb-2">
-                            <div class="font-medium">安装日志</div>
-                        </div>
-                        <div class="log-container bg-base-300 rounded-lg p-3 h-80 overflow-y-auto font-mono text-sm">
-                            <div v-for="(log, index) in logs" :key="index" class="log-line" :class="getLogClass(log)">
-                                <span class="opacity-60">[{{ log.time }}]</span> {{ log.message }}
-                            </div>
-                        </div>
+                        <LogsDisplay :logs="logs" @clear-logs="clearInstallLogs" />
                     </div>
                 </transition>
             </div>
@@ -591,6 +628,7 @@ import toastService from '@/services/toastService';
 import { addExistingInstance as addExistingInstanceAPI } from '@/api/instances';
 import { generateUniqueInstanceNameAsync, fetchExistingInstances, isInstanceNameExists } from '@/utils/instanceNameGenerator';
 import { validatePath, normalizePath, generateInstancePath } from '@/utils/pathSync';
+import LogsDisplay from './LogsDisplay.vue';
 
 // 使用 stores
 const deployStore = useDeployStore();
@@ -829,18 +867,12 @@ const getDefaultDeploymentPath = () => {
     if (window.__TAURI_INTERNALS__?.platform === "macos") {
         return "~/Documents/MaiBot/Deployments";
     }
-    // Linux 默认路径
-    return "~/MaiBot/Deployments";
+    // Linux 默认路径    return "~/MaiBot/Deployments";
 };
 
-// 获取日志类样式
-const getLogClass = (log) => {
-    switch (log.level) {
-        case 'error': return 'text-error';
-        case 'warning': return 'text-warning';
-        case 'success': return 'text-success';
-        default: return 'text-base-content';
-    }
+// 清空安装日志
+const clearInstallLogs = () => {
+    deployStore.clearLogs();
 };
 
 // 开始安装流程 (使用 deployStore)
@@ -984,12 +1016,26 @@ const getVersionDescription = (version) => {
     const descriptions = {
         'main': '主分支 - 最新开发版本',
         'dev': '开发分支 - 实验性功能',
-        'latest': '最新稳定版',
-        'stable': '稳定版本'
+        'latest': '最新稳定版 - 推荐使用',
+        'stable': '稳定版本 - 长期支持'
     };
 
-    if (version.startsWith('v') || version.startsWith('0.')) {
-        return '正式发布版本';
+    // 检查是否为正式版本号
+    if (version.startsWith('v') || /^\d+\.\d+/.test(version)) {
+        return '正式发布版本 - 稳定可靠';
+    }
+
+    // 检查是否为预发布版本
+    if (version.includes('beta')) {
+        return '测试版本 - 功能预览';
+    }
+    
+    if (version.includes('alpha')) {
+        return '内测版本 - 早期功能';
+    }
+    
+    if (version.includes('rc')) {
+        return '候选版本 - 即将发布';
     }
 
     return descriptions[version] || '发布版本';
@@ -1750,7 +1796,7 @@ const handleVersionSelect = async (version, event) => {
     background: hsl(var(--bc) / 0.5);
 }
 
-/* 确保版本选择下拉框的定位稳定 */
+/* 版本选择下拉框优化样式 */
 .version-stage.dropdown-stage .dropdown {
     position: relative !important;
 }
@@ -1762,6 +1808,156 @@ const handleVersionSelect = async (version, event) => {
     width: 100% !important;
     margin-top: 0.5rem !important;
     transform: none !important;
+    border: 1px solid hsl(var(--b3) / 0.3) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+/* 下拉框按钮聚焦状态 */
+.dropdown [role="button"]:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px hsl(var(--p) / 0.2);
+}
+
+/* 版本选项的交互效果增强 */
+.version-option {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid transparent;
+    color: hsl(var(--bc)) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.version-option::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, hsl(var(--p) / 0.1), transparent);
+    transition: left 0.5s;
+}
+
+.version-option:hover::before {
+    left: 100%;
+}
+
+.version-option:hover {
+    background: hsl(var(--b2)) !important;
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 4px 12px hsl(var(--bc) / 0.1);
+    border-color: hsl(var(--p) / 0.3);
+}
+
+.version-option:active {
+    transform: translateY(0) scale(1);
+}
+
+/* 选中状态的版本选项增强 */
+.version-option.bg-primary\/10 {
+    background: hsl(var(--p) / 0.1) !important;
+    color: hsl(var(--p)) !important;
+    border-color: hsl(var(--p) / 0.3) !important;
+    box-shadow: 0 2px 8px hsl(var(--p) / 0.2);
+}
+
+/* 版本列表容器滚动优化 */
+.version-list-container {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--bc) / 0.3) transparent;
+}
+
+.version-list-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.version-list-container::-webkit-scrollbar-track {
+    background: hsl(var(--b3) / 0.3);
+    border-radius: 4px;
+    margin: 8px 0;
+}
+
+.version-list-container::-webkit-scrollbar-thumb {
+    background: hsl(var(--bc) / 0.3);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.version-list-container::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--bc) / 0.5);
+}
+
+/* 下拉框展开动画优化 */
+@keyframes dropdownFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-12px) scale(0.95);
+    }
+    
+    50% {
+        opacity: 0.8;
+        transform: translateY(-4px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.dropdown-content {
+    animation: dropdownFadeIn 0.25s ease-out;
+}
+
+/* 版本列表项的进入动画优化 */
+@keyframes item-fade-in {
+    0% {
+        opacity: 0;
+        transform: translateX(-20px) translateY(4px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateX(0) translateY(0);
+    }
+}
+
+.animate-item-fade-in {
+    opacity: 0;
+    animation: item-fade-in 0.4s ease-out forwards;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+    .dropdown-content {
+        max-height: 16rem;
+        margin-top: 0.25rem;
+    }
+
+    .version-option {
+        padding: 1rem;
+    }
+    
+    .version-option:hover {
+        transform: none;
+    }
+}
+
+/* 暗色主题优化 */
+[data-theme="dark"] .dropdown-content,
+[data-theme="night"] .dropdown-content,
+[data-theme="black"] .dropdown-content,
+[data-theme="dracula"] .dropdown-content {
+    box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.6), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+    border-color: hsl(var(--b3) / 0.5);
+}
+
+[data-theme="dark"] .version-option:hover,
+[data-theme="night"] .version-option:hover,
+[data-theme="black"] .version-option:hover,
+[data-theme="dracula"] .version-option:hover {
+    box-shadow: 0 4px 12px hsl(var(--bc) / 0.2);
 }
 
 /* 移除外层容器的滚动条 */
@@ -1771,73 +1967,6 @@ const handleVersionSelect = async (version, event) => {
 
 .dropdown-content {
     overflow: visible !important;
-}
-
-/* 确保下拉框内所有文本支持主题切换 */
-.dropdown-content,
-.dropdown-content * {
-    color: hsl(var(--bc)) !important;
-}
-
-/* 下拉框内的无内容提示文字 */
-.dropdown-content .text-base-content\/60 {
-    color: hsl(var(--bc) / 0.6) !important;
-}
-
-/* 版本下拉框样式优化 */
-.dropdown {
-    position: relative;
-}
-
-.dropdown-content {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: 100%;
-    background: hsl(var(--b1)) !important;
-    border: 1px solid hsl(var(--b3));
-    border-radius: 0.5rem;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    z-index: 99999 !important;
-    max-height: 16rem;
-    overflow: visible;
-    animation: dropdownFadeIn 0.2s ease-out;
-}
-
-@keyframes dropdownFadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-8px) scale(0.95);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-/* 版本选项样式 */
-.version-option {
-    transition: all 0.15s ease;
-    border: 1px solid transparent;
-    color: hsl(var(--bc)) !important;
-}
-
-.version-option:hover {
-    background: hsl(var(--b2)) !important;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px hsl(var(--bc) / 0.1);
-}
-
-.version-option:active {
-    transform: translateY(0);
-}
-
-/* 选中状态的版本选项 */
-.version-option.bg-primary\/10 {
-    background: hsl(var(--p) / 0.1) !important;
-    color: hsl(var(--p)) !important;
-    border-color: hsl(var(--p) / 0.2) !important;
 }
 
 /* 日志容器样式 */
@@ -1863,14 +1992,6 @@ const handleVersionSelect = async (version, event) => {
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
-/* 强制关闭下拉菜单的样式 */
-.dropdown-close .dropdown-content {
-    display: none !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-}
-
 /* 确保下拉菜单在失去焦点时关闭 */
 .dropdown:not(:focus-within) .dropdown-content {
     display: none;
@@ -1885,31 +2006,5 @@ const handleVersionSelect = async (version, event) => {
     opacity: 0;
     transform: translateY(-8px) scale(0.95);
     pointer-events: none;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-    .dropdown-content {
-        max-height: 12rem;
-    }
-
-    .version-option {
-        padding: 0.75rem;
-    }
-}
-
-/* 暗色模式增强样式 */
-[data-theme="dark"] .dropdown-content,
-[data-theme="night"] .dropdown-content,
-[data-theme="black"] .dropdown-content,
-[data-theme="dracula"] .dropdown-content {
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
-}
-
-[data-theme="dark"] .version-option:hover,
-[data-theme="night"] .version-option:hover,
-[data-theme="black"] .version-option:hover,
-[data-theme="dracula"] .version-option:hover {
-    box-shadow: 0 2px 8px hsl(var(--bc) / 0.2);
 }
 </style>
