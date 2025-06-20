@@ -7,6 +7,15 @@ on:
       - main
       # - master
       # - dev # 示例：如果你有开发分支，也可以加上
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: # 允许手动触发
+
+# 添加必要的权限
+permissions:
+  contents: read
+  actions: read
 
 # 限制并发执行，防止不必要的资源消耗
 concurrency:
@@ -29,13 +38,13 @@ jobs:
         
     # 设置 Python 环境用于构建后端
     - name: Set up Python for backend
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.12'
         
     # 缓存 pip 依赖
     - name: Cache pip dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~\AppData\Local\pip\Cache
         key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
@@ -58,37 +67,38 @@ jobs:
         
     # 构建 Windows 后端
     - name: Build Windows backend
-      run: |        cd backend
+      run: |
+        cd backend
         pyinstaller main.spec
         
     # 复制后端可执行文件到 Tauri binaries 目录
     - name: Copy backend executable to Tauri binaries
       run: |
-        if (!(Test-Path "src-tauri\binaries")) { New-Item -ItemType Directory -Path "src-tauri\binaries" -Force }
-        Copy-Item "backend\dist\MaiLauncher-Backend.exe" "src-tauri\binaries\MaiLauncher-Backend-x86_64-pc-windows-msvc.exe"
+        if (!(Test-Path "src-tauri\binaries")) { New-Item -ItemType Directory -Path "src-tauri\binaries" -Force }        Copy-Item "backend\dist\MaiLauncher-Backend.exe" "src-tauri\binaries\MaiLauncher-Backend-x86_64-pc-windows-msvc.exe"
 
     # 检查并安装 Node.js
     - name: Setup Node.js 22
       uses: actions/setup-node@v4
       with:
         node-version: 22
-
+        
     # 设置 pnpm
     - name: Setup pnpm
       uses: pnpm/action-setup@v3
-      with:        version: latest
+      with:
+        version: latest
         run_install: true
 
     # 构建 Tauri 应用
     - name: Build Tauri (Windows)
       run: pnpm tauri build
-
+      
     # 上传构建产物
     - name: Upload Artifacts (Windows)
-      uses: actions/upload-artifact@v4      with:
+      uses: actions/upload-artifact@v4
+      with:
         name: tauri-build-windows # Artifact 名称
         path: src-tauri/target/release/bundle/ # 构建产物所在的目录
-
   build-linux:
     runs-on: ubuntu-latest # 使用最新的 Ubuntu runner
 
@@ -103,13 +113,13 @@ jobs:
         
     # 设置 Python 环境用于构建后端
     - name: Set up Python for backend
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.12'
         
     # 缓存 pip 依赖
     - name: Cache pip dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
@@ -164,8 +174,7 @@ jobs:
     # ubuntu-latest 通常预装了大部分，但添加这个步骤更保险
     - name: Install Linux Dependencies (Optional but Recommended)
       run: |
-        sudo apt-get update
-        # 在 Ubuntu 24.04 (Noble) 中，libwebkit2gtk-4.0-dev 被更新的版本取代
+        sudo apt-get update        # 在 Ubuntu 24.04 (Noble) 中，libwebkit2gtk-4.0-dev 被更新的版本取代
         # 使用 webkit2gtk-4.1-dev 或 libwebkit2gtk-6.0-dev 是更适合 24.04 的选择
         # webkit2gtk-4.1-dev 是 Tauri v2 推荐的更通用的包名
         sudo apt-get install -y webkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
@@ -174,12 +183,12 @@ jobs:
       # 使用 pnpm 执行 Tauri 构建命令
       # 这会自动处理 Rust 工具链的安装
       run: pnpm tauri build
-
+      
     - name: Upload Artifacts (Linux)
       uses: actions/upload-artifact@v4 # 上传构建产物
-      with:        name: tauri-build-linux # Artifact 名称
+      with:
+        name: tauri-build-linux # Artifact 名称
         path: src-tauri/target/release/bundle/ # 构建产物所在的目录（包含 .AppImage 等）
-
   build-macos:
     runs-on: macos-latest # 使用最新的 macOS runner
 
@@ -194,13 +203,13 @@ jobs:
         
     # 设置 Python 环境用于构建后端
     - name: Set up Python for backend
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.12'
         
     # 缓存 pip 依赖
     - name: Cache pip dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
