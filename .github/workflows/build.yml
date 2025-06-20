@@ -58,7 +58,8 @@ jobs:
         
     # 构建 Windows 后端
     - name: Build Windows backend
-      run: |        cd backend
+      run: |        
+        cd backend
         pyinstaller main.spec
         
     # 复制后端可执行文件到 Tauri binaries 目录
@@ -76,7 +77,8 @@ jobs:
     # 设置 pnpm
     - name: Setup pnpm
       uses: pnpm/action-setup@v3
-      with:        version: latest
+      with:        
+        version: latest
         run_install: true
 
     # 构建 Tauri 应用
@@ -85,7 +87,8 @@ jobs:
 
     # 上传构建产物
     - name: Upload Artifacts (Windows)
-      uses: actions/upload-artifact@v4      with:
+      uses: actions/upload-artifact@v4      
+      with:
         name: tauri-build-windows # Artifact 名称
         path: src-tauri/target/release/bundle/ # 构建产物所在的目录
 
@@ -177,7 +180,8 @@ jobs:
 
     - name: Upload Artifacts (Linux)
       uses: actions/upload-artifact@v4 # 上传构建产物
-      with:        name: tauri-build-linux # Artifact 名称
+      with:        
+        name: tauri-build-linux # Artifact 名称
         path: src-tauri/target/release/bundle/ # 构建产物所在的目录（包含 .AppImage 等）
 
   build-macos:
