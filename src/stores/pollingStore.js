@@ -49,15 +49,14 @@ export const usePollingStore = defineStore("polling", () => {
     if (pollingTasks.value.has(taskName)) {
       console.log(`任务 ${taskName} 已存在，先停止旧任务`);
       stopPolling(taskName);
-    }
-
-    pollingTasks.value.set(taskName, {
+    }    pollingTasks.value.set(taskName, {
       fn: pollingFn,
       config: finalConfig,
       timer: null,
       lastExecuted: 0,
       errorCount: 0,
       isRunning: false,
+      isExecuting: false, // 添加执行状态标志
     });
 
     pollingStatus.value.set(taskName, {
@@ -148,17 +147,23 @@ export const usePollingStore = defineStore("polling", () => {
     console.log(`停止轮询任务成功: ${taskName}`);
     return true;
   };
-
   // 执行轮询任务
   const _executePollingTask = async (taskName) => {
     const task = pollingTasks.value.get(taskName);
     const status = pollingStatus.value.get(taskName);
 
-    if (!task || !task.config.enabled) {
+    if (!task || !task.config.enabled || task.isRunning === false) {
+      return;
+    }
+
+    // 防止重复执行 - 检查是否已在执行中
+    if (task.isExecuting) {
+      console.log(`轮询任务 ${taskName} 正在执行中，跳过此次调度`);
       return;
     }
 
     try {
+      task.isExecuting = true;
       console.log(`执行轮询任务: ${taskName}`);
       await task.fn();
 
@@ -181,6 +186,8 @@ export const usePollingStore = defineStore("polling", () => {
         console.warn(`轮询任务错误次数过多，暂停任务: ${taskName}`);
         stopPolling(taskName);
       }
+    } finally {
+      task.isExecuting = false;
     }
   };
 
@@ -357,32 +364,46 @@ export const usePollingStore = defineStore("polling", () => {
     pollingTasks.value.clear();
     pollingStatus.value.clear();
     isGlobalPollingActive.value = false;
-  };
+  };  // 初始化标志
+  const isInitialized = ref(false);
+
   // 初始化默认轮询任务
   const initializeDefaultPolling = () => {
-    // 延迟获取store引用，避免循环依赖
-    const instanceStore = useInstanceStore();
-    const systemStore = useSystemStore();
+    // 防止重复初始化
+    if (isInitialized.value) {
+      console.log("轮询系统已经初始化，跳过重复初始化");
+      return;
+    }
 
-    // 注册实例轮询任务
-    registerPollingTask("instances", async () => {
-      await instanceStore.fetchInstances();
-    });
+    try {
+      // 延迟获取store引用，避免循环依赖
+      const instanceStore = useInstanceStore();
+      const systemStore = useSystemStore();
 
-    // 注册系统性能轮询任务
-    registerPollingTask("systemStats", async () => {
-      await systemStore.fetchSystemStats();
-    });
+      // 注册实例轮询任务
+      registerPollingTask("instances", async () => {
+        await instanceStore.fetchInstances();
+      });
 
-    console.log("默认轮询任务初始化完成");
+      // 注册系统性能轮询任务
+      registerPollingTask("systemStats", async () => {
+        await systemStore.fetchSystemStats();
+      });
+
+      isInitialized.value = true;
+      console.log("默认轮询任务初始化完成");
+    } catch (error) {
+      console.error("轮询系统初始化失败:", error);
+      isInitialized.value = false;
+    }
   };
-
   return {
     // 状态
     pollingTasks,
     pollingStatus,
     isGlobalPollingActive,
     defaultPollingConfig,
+    isInitialized,
 
     // 方法
     registerPollingTask,

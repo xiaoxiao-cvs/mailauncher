@@ -14,11 +14,10 @@
     >
       ×
     </button>    <!-- Toast内容区 -->
-    <div class="toast-content">
-      <!-- 主要消息 -->
+    <div class="toast-content">      <!-- 主要消息 -->
       <div class="toast-main-message">
         <span v-if="localDeploymentData && progressMode === 'deployment'">
-          正在安装实例 "{{ localDeploymentData.instanceName }}"... ({{ Math.round(deploymentProgress) }}%)
+          正在安装实例 "{{ localDeploymentData.instanceName }}"... ({{ Math.round(progressPercent) }}%)
         </span>
         <span v-else>
           {{ message }}
@@ -283,26 +282,44 @@ const switchToDeploymentMode = () => {
 
 // 外部调用的方法
 const updateProgress = (progress) => {
+  console.log(`Toast ${props.id} 更新进度:`, { 
+    from: deploymentProgress.value, 
+    to: progress, 
+    mode: progressMode.value 
+  });
+  
   deploymentProgress.value = progress
+  
   if (progressMode.value === 'deployment') {
     progressPercent.value = progress
   } else {
     // 切换到部署模式
     switchToDeploymentMode()
   }
+  
+  // 强制触发响应式更新
+  if (props.onProgressUpdate) {
+    props.onProgressUpdate(props.id, progress);
+  }
 }
 
 const updateDeploymentData = (data) => {
-  console.log('Toast更新部署数据:', data);
+  console.log(`Toast ${props.id} 更新部署数据:`, data);
   
-  // 更新本地响应式状态
+  // 更新本地响应式状态，确保触发响应式更新
   if (localDeploymentData.value) {
-    Object.assign(localDeploymentData.value, data);
+    // 使用响应式赋值，确保Vue能检测到变化
+    localDeploymentData.value = { ...localDeploymentData.value, ...data };
   } else {
     localDeploymentData.value = { ...data };
   }
   
-  console.log('Toast部署数据更新后:', localDeploymentData.value);
+  // 如果包含进度信息，同步更新进度
+  if (data.progress !== undefined) {
+    updateProgress(data.progress);
+  }
+  
+  console.log(`Toast ${props.id} 部署数据更新后:`, localDeploymentData.value);
 }
 
 const complete = (finalType, finalMessage) => {
@@ -326,13 +343,31 @@ onMounted(() => {
   if (props.autoClose && progressMode.value === 'countdown') {
     startCountdown()
   }
+  
+  console.log(`Toast ${props.id} 挂载完成:`, { 
+    deploymentData: localDeploymentData.value,
+    progressMode: progressMode.value,
+    progressPercent: progressPercent.value
+  });
 })
 
 onBeforeUnmount(() => {
   if (countdownTimer) {
     clearInterval(countdownTimer)
   }
+  
+  console.log(`Toast ${props.id} 即将卸载`);
 })
+
+// 监听进度变化
+watch(progressPercent, (newValue, oldValue) => {
+  console.log(`Toast ${props.id} 进度变化:`, { from: oldValue, to: newValue });
+}, { immediate: true })
+
+// 监听部署数据变化
+watch(localDeploymentData, (newValue) => {
+  console.log(`Toast ${props.id} 部署数据变化:`, newValue);
+}, { deep: true })
 </script>
 
 <style scoped>

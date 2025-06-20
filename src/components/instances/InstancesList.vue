@@ -207,7 +207,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, inject, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, inject, onUnmounted, watch, nextTick } from 'vue';
 import { Icon } from '@iconify/vue';
 import toastService from '@/services/toastService';
 
@@ -238,6 +238,9 @@ const instanceToRestart = ref(null);
 const deleteLoading = ref(false);
 const restartLoading = ref(false);
 
+// 添加防重复调用标志
+const isFetching = ref(false);
+
 // 使用计算属性从store获取数据，避免重复请求
 const instances = computed(() => instanceStore.instances);
 const loading = computed(() => instanceStore.loading);
@@ -257,10 +260,10 @@ const filterLabel = computed(() => {
     return filterLabels[filterType.value] || '所有';
 });
 
-// 监听活动标签页变化，当切换到instances标签时自动刷新
-watch(activeTab, (newTab) => {
-    if (newTab === 'instances') {
-        console.log('自动刷新实例列表');
+// 监听活动标签页变化，当切换到instances标签时自动刷新（添加防重复调用）
+watch(activeTab, (newTab, oldTab) => {
+    if (newTab === 'instances' && oldTab !== 'instances' && !isFetching.value) {
+        console.log('标签页切换到instances，自动刷新实例列表');
         fetchInstances();
     }
 });
@@ -291,13 +294,22 @@ const filteredInstances = computed(() => {
 
 // 优化：使用store统一获取实例，避免重复请求
 const fetchInstances = async () => {
+    // 防止重复调用
+    if (isFetching.value) {
+        console.log('实例数据正在获取中，跳过重复请求');
+        return;
+    }
+
     try {
+        isFetching.value = true;
         console.log('从store获取实例列表...');
         await instanceStore.fetchInstances();
         console.log(`获取到${instances.value.length}个实例`);
     } catch (error) {
         console.error("获取实例失败:", error);
         toastService.error('获取实例列表失败: ' + (error.message || '未知错误'));
+    } finally {
+        isFetching.value = false;
     }
 };
 
@@ -525,16 +537,23 @@ const openSettings = (instance) => {
 
 // 初始化 - 优化版本
 onMounted(() => {
-    // 初始加载时自动刷新一次
-    fetchInstances();
+    // 延迟初始化，避免与其他组件冲突
+    nextTick(() => {
+        // 初始加载时自动刷新一次
+        if (!isFetching.value) {
+            fetchInstances();
+        }
 
-    // 启动智能轮询
-    startPolling();
+        // 启动智能轮询（延迟启动以避免重复）
+        setTimeout(() => {
+            startPolling();
+        }, 1000);
 
-    // 监听刷新实例列表事件
-    if (emitter) {
-        emitter.on('refresh-instances', fetchInstances);
-    }
+        // 监听刷新实例列表事件
+        if (emitter) {
+            emitter.on('refresh-instances', fetchInstances);
+        }
+    });
 });
 
 // 移除事件监听器 - 优化版本

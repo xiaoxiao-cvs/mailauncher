@@ -2,6 +2,59 @@
 import setupNodePolyfills from "./utils/node-polyfill.js";
 setupNodePolyfills();
 
+// 导入ECharts错误处理器
+import { setupGlobalErrorHandler } from "./utils/chartErrorHandler.js";
+
+// 设置全局错误处理器
+setupGlobalErrorHandler();
+
+// 导入调试工具（仅在开发环境）
+if (import.meta.env?.MODE === 'development' || 
+    (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development')) {
+  import('./utils/chartDebugTools.js');
+}
+
+// 全局错误处理器 - 用于捕获ECharts等库的错误
+window.addEventListener('error', (event) => {
+  // 检查是否是ECharts相关错误
+  const isEChartsError = (event.filename && event.filename.includes('echarts')) ||
+    (event.error && event.error.message && event.error.message.toLowerCase().includes('echarts')) ||
+    (event.message && event.message.toLowerCase().includes('echarts'));
+    
+  if (isEChartsError) {
+    console.error('ECharts Error:', {
+      message: event.message,
+      filename: event.filename,
+      line: event.lineno,
+      column: event.colno,
+      error: event.error
+    });
+    
+    // 提供更详细的错误信息和解决建议
+    if (event.message.includes("Cannot read properties of undefined (reading 'type')")) {
+      console.warn('ECharts 数据错误: 检查传入的数据对象是否包含正确的 type 属性');
+      console.warn('解决方案:');
+      console.warn('1. 确保所有series对象都有type属性（如"bar", "line"等）');
+      console.warn('2. 检查图表数据是否完整且格式正确');
+      console.warn('3. 验证图表配置选项中的series数组不为空');
+      console.warn('4. 确保在图表数据加载完成后再初始化图表');
+    }
+    
+    // 阻止错误继续传播到控制台（可选）
+    event.preventDefault();
+    return true;
+  }
+});
+
+// 处理未捕获的Promise拒绝
+window.addEventListener('unhandledrejection', (event) => {
+  if (event.reason && event.reason.toString().toLowerCase().includes('echarts')) {
+    console.error('ECharts Promise Error:', event.reason);
+    console.warn('建议检查异步图表操作的错误处理');
+    event.preventDefault();
+  }
+});
+
 // 初始化 Tauri（如果在 Tauri 环境中）
 let isTauriApp = false;
 try {
@@ -218,12 +271,9 @@ const initAndMountApp = async () => {
       console.log("✅ 后端服务检测成功");
     } else {
       console.warn("⚠️ 未检测到后端服务，将使用默认配置");
-    }
-
-    // 确保轮询服务正确初始化
-    const pollingStore = usePollingStore();
-    await pollingStore.initializeDefaultPolling();
-    console.log("✅ 轮询服务初始化完成");
+    }    // 确保轮询服务配置正确，但不立即初始化
+    // 轮询将在App.vue组件挂载时启动
+    console.log("✅ 轮询服务配置完成");
   } catch (error) {
     console.error("❌ 服务初始化失败:", error);
   }

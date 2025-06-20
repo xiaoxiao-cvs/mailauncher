@@ -164,8 +164,7 @@ class EnhancedToastService {
       `正在安装实例 "${instanceName}"...`,
       { ...defaultOptions, ...options }
     );
-  }
-  /**
+  }  /**
    * 当用户从下载页面切换到其他页面时，显示部署Toast
    * @param {Object} deploymentData 部署数据
    * @param {number} currentProgress 当前进度
@@ -174,6 +173,16 @@ class EnhancedToastService {
    */
   showDeploymentToastOnPageSwitch(deploymentData, currentProgress = 0, currentStatus = '安装中...') {
     const { instanceName } = deploymentData;
+    
+    // 检查是否已经有相同实例的部署Toast存在
+    const existingToast = this.getDeploymentToast(instanceName);
+    if (existingToast) {
+      console.log(`实例 "${instanceName}" 的部署Toast已存在，ID: ${existingToast.id}，更新进度而不是创建新的`);
+      
+      // 更新现有Toast的进度
+      this.updateDeploymentProgress(existingToast.id, currentProgress, currentStatus);
+      return existingToast.id;
+    }
     
     // 完整的部署数据
     const fullDeploymentData = {
@@ -253,7 +262,6 @@ class EnhancedToastService {
     console.warn('无法获取当前活跃标签，默认为home');
     return 'home';
   }
-
   /**
    * 更新部署进度
    * @param {number} toastId Toast ID
@@ -263,21 +271,36 @@ class EnhancedToastService {
    */
   updateDeploymentProgress(toastId, progress, status = "", servicesProgress = []) {
     const toast = this.toasts.get(toastId);
-    if (!toast) return;
+    if (!toast) {
+      console.warn(`Toast ${toastId} 不存在，无法更新进度`);
+      return;
+    }
 
+    console.log(`更新Toast ${toastId} 进度:`, { progress, status, servicesProgress });
+
+    // 更新进度
     if (toast.updateProgress) {
       toast.updateProgress(progress);
     }
 
+    // 构建完整的部署数据
+    const updatedData = {
+      ...toast.deploymentData,
+      progress,
+      status,
+      servicesProgress,
+      lastUpdate: new Date().toLocaleTimeString()
+    };
+
+    // 更新部署数据
     if (toast.updateDeploymentData) {
-      toast.updateDeploymentData({
-        ...toast.deploymentData,
-        progress,
-        status,
-        servicesProgress,
-        lastUpdate: new Date().toLocaleTimeString()
-      });
+      toast.updateDeploymentData(updatedData);
     }
+
+    // 同步更新存储的部署数据
+    toast.deploymentData = updatedData;
+    
+    console.log(`Toast ${toastId} 进度更新完成:`, updatedData);
   }
 
   /**
@@ -516,6 +539,43 @@ class EnhancedToastService {
     } catch (error) {
       console.error("初始化增强Toast容器失败:", error);
     }
+  }
+
+  /**
+   * 关闭指定实例的部署Toast
+   * @param {string} instanceName 实例名称
+   * @returns {boolean} 是否找到并关闭了Toast
+   */
+  closeDeploymentToast(instanceName) {
+    const deploymentToast = this.getDeploymentToast(instanceName);
+    if (deploymentToast) {
+      console.log(`关闭实例 "${instanceName}" 的部署Toast，ID: ${deploymentToast.id}`);
+      this.close(deploymentToast.id);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * 确保Toast进度更新，如果Toast不存在则尝试查找或创建
+   * @param {string} instanceName 实例名称
+   * @param {number} progress 进度百分比
+   * @param {string} status 当前状态
+   * @param {Array} servicesProgress 服务进度列表
+   * @returns {boolean} 是否成功更新
+   */
+  ensureDeploymentProgressUpdate(instanceName, progress, status = "", servicesProgress = []) {
+    // 先尝试通过实例名查找现有Toast
+    const existingToast = this.getDeploymentToast(instanceName);
+    
+    if (existingToast) {
+      console.log(`找到实例 "${instanceName}" 的Toast，更新进度:`, { toastId: existingToast.id, progress });
+      this.updateDeploymentProgress(existingToast.id, progress, status, servicesProgress);
+      return true;
+    }
+    
+    console.log(`未找到实例 "${instanceName}" 的Toast，无法更新进度`);
+    return false;
   }
 }
 

@@ -8,13 +8,16 @@ export const defaultEChartsOptions = {
   // 启用被动事件监听器
   usePassiveEvent: true,
   // 设备像素比
-  devicePixelRatio: window.devicePixelRatio || 1,
+  devicePixelRatio: (typeof window !== 'undefined' && window.devicePixelRatio) || 1,
   // 禁用动画以提高性能
   animation: false,
   // 默认主题配置
   theme: null,
   // 渲染器类型（'canvas' 或 'svg'）
   renderer: "canvas",
+  // 宽度和高度设置为 auto，让 ECharts 自动检测
+  width: 'auto',
+  height: 'auto'
 };
 
 /**
@@ -22,18 +25,32 @@ export const defaultEChartsOptions = {
  * @param {HTMLElement} container - 容器元素
  * @param {string} theme - 主题名称
  * @param {Object} opts - 额外选项
- * @returns {echarts.ECharts} ECharts 实例
+ * @returns {Promise<echarts.ECharts>} ECharts 实例的 Promise
  */
-export const createChart = (container, theme = null, opts = {}) => {
-  const options = {
-    ...defaultEChartsOptions,
-    ...opts,
-  };
+export const createChart = async (container, theme = null, opts = {}) => {
+  try {
+    // 验证容器
+    if (!container) {
+      throw new Error('Container element is required');
+    }
 
-  // 动态导入 echarts 以避免循环依赖
-  return import("echarts").then(({ default: echarts }) => {
+    const options = {
+      ...defaultEChartsOptions,
+      ...opts,
+    };
+
+    // 动态导入 echarts 以避免循环依赖
+    const { default: echarts } = await import("echarts");
+    
+    if (!echarts || typeof echarts.init !== 'function') {
+      throw new Error('Failed to load ECharts library');
+    }
+
     return echarts.init(container, theme, options);
-  });
+  } catch (error) {
+    console.error('Error creating ECharts instance:', error);
+    throw error;
+  }
 };
 
 /**

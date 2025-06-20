@@ -4,6 +4,165 @@
 
 ### 🐛 修复 (Bugfix)
 
+#### 修复 deployStore Toast管理方法未正确导出的问题
+
+**问题描述：**
+- DownloadCenter 组件报错：`deployStore.registerPageSwitchToast is not a function`
+- DownloadCenter 组件报错：`deployStore.clearPageSwitchToast is not a function`
+- 新增的Toast管理方法没有在store的返回对象中正确暴露
+
+**具体修复内容：**
+
+1. **修复方法导出问题**
+   - 确保 `registerPageSwitchToast` 和 `clearPageSwitchToast` 方法在 deployStore 返回对象中正确暴露
+   - 重新组织返回对象的结构，增加清晰的分组注释
+   - 添加调试信息确认方法可用性
+
+2. **清理缓存问题**
+   - 添加调试日志来跟踪方法定义和导出状态
+   - 确保浏览器使用最新版本的代码
+
+**影响文件：**
+- `src/stores/deployStore.js` - 修复方法导出
+- `src/components/downloads/DownloadCenter.vue` - 添加调试信息
+
+**修复前错误：**
+```
+TypeError: deployStore.registerPageSwitchToast is not a function
+TypeError: deployStore.clearPageSwitchToast is not a function
+```
+
+**修复后效果：**
+```
+✅ Toast管理方法正确导出和调用
+✅ 页面切换时Toast功能正常工作
+```
+
+#### 修复下载页面缺失后端详细安装日志的问题
+
+**问题描述：**
+- 后端在安装过程中有详细的状态日志（如"正在下载依赖包..."、"正在安装Python包..."）
+- 前端下载页面的实时日志没有显示这些详细信息
+- 用户无法看到具体的安装进度和当前进行的操作
+
+**具体修复内容：**
+
+1. **完善状态消息日志显示**
+   - 修改 `deployStore.js` 中的状态检查逻辑
+   - 添加后端状态消息的日志级别判断
+   - 确保所有状态变化都正确记录到前端日志
+
+2. **添加服务级别详细日志**
+   - 处理服务安装状态的详细信息
+   - 显示每个服务的具体安装消息和进度
+   - 避免重复日志，只在消息变化时记录
+
+3. **添加进度变化检测**
+   - 检测安装进度的显著变化（>2%）
+   - 在日志中显示进度更新信息
+   - 提供更直观的安装进度反馈
+
+4. **避免重复日志记录**
+   - 添加消息去重机制
+   - 只有当状态消息真正改变时才添加新日志
+   - 分别跟踪整体状态和各服务状态
+
+**修复前问题：**
+```
+❌ 前端日志缺失详细安装信息
+❌ 无法看到"正在下载依赖包"等具体操作
+❌ 进度变化没有日志记录
+```
+
+**修复后效果：**
+```
+✅ 显示详细的安装状态消息
+✅ 📋 正在下载依赖包...
+✅ 📋 正在安装Python包...
+✅ 🔧 service-name: 安装详情 (progress%)
+✅ 📊 安装进度更新: 72%
+```
+
+#### 修复下载时切换到其他页面弹出多个Toast的问题
+
+**问题描述：**
+- 用户在下载页面进行实例安装时，如果切换到其他页面会出现多个Toast弹窗
+- 每次状态更新都可能触发新的Toast创建，导致Toast重复显示
+- 普通的toast服务不检查当前页面，即使在下载页面也会显示成功/失败通知
+- Toast显示进度始终为0%，实时更新功能不工作
+
+**具体修复内容：**
+
+1. **修复普通Toast服务页面检测缺失**
+   - 在 `deployStore.js` 中的安装状态检查函数添加当前页面检测
+   - 安装成功/失败时只在非下载页面显示Toast通知
+   - 保留系统通知功能，确保用户能收到重要提醒
+
+2. **防止重复创建页面切换Toast**
+   - 在 `DownloadCenter.vue` 中添加Toast状态检查
+   - 只有当前没有Toast时才创建新的Toast
+   - 增强日志记录，便于调试和问题追踪
+
+3. **改进增强Toast服务的重复检测**
+   - 在 `enhancedToastService.js` 中添加相同实例Toast检测
+   - 如果已存在相同实例的Toast，更新进度而不是创建新的
+   - 添加关闭特定实例Toast的方法
+
+4. **修复Toast实时进度更新问题**
+   - 在 `deployStore` 中建立Toast注册机制
+   - 页面切换时将Toast ID注册到deployStore
+   - 进度更新时优先使用注册的Toast ID
+   - 添加完整的Toast生命周期管理
+
+5. **修复部署数据端口映射**
+   - 修正 `deployWithToast` 中的端口配置逻辑
+   - 确保Toast显示正确的MaiBot和Napcat端口信息
+
+**影响文件：**
+- `src/stores/deployStore.js` - Toast管理和页面检查
+- `src/components/downloads/DownloadCenter.vue` - 页面切换处理
+- `src/services/enhancedToastService.js` - 重复检测和生命周期
+- `src/api/deploy.js` - 部署数据修正
+
+**修复前问题：**
+```
+❌ 切换页面时连续弹出多个相同Toast
+❌ Toast进度始终显示0%，状态不更新
+❌ 在下载页面仍然显示安装成功/失败Toast
+```
+
+**修复后效果：**
+```
+✅ 切换页面时只显示一个Toast
+✅ Toast实时显示安装进度和状态更新
+✅ 切换回下载页面时Toast正确关闭
+✅ 下载页面内不显示重复的状态通知
+```
+
+4. **完善Toast生命周期管理**
+   - 安装完成时自动清理Toast状态
+   - 组件卸载时确保清理所有相关Toast
+   - 添加详细的状态变化日志
+
+**影响文件：**
+- `src/stores/deployStore.js`
+- `src/components/downloads/DownloadCenter.vue`
+- `src/services/enhancedToastService.js`
+
+**修复前问题：**
+```
+用户切换页面 → 多个Toast同时显示
+安装完成 → 在下载页面仍显示成功Toast
+状态更新 → 重复创建相同的Toast
+```
+
+**修复后效果：**
+```
+用户切换页面 → 最多只显示一个Toast
+安装完成 → 在下载页面不显示Toast，其他页面正常显示
+状态更新 → 更新现有Toast而不是创建新的
+```
+
 #### 修复部署任务启动时错误显示为失败的问题
 
 **问题描述：**

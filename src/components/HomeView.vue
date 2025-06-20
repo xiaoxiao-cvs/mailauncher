@@ -160,6 +160,8 @@ import { ref, onMounted, inject, watch, onBeforeUnmount, nextTick, computed } fr
 import * as echarts from 'echarts';
 import { initMessageChart } from '../services/charts';
 import { defaultEChartsOptions } from '../config/echartsConfig.js';
+import { safeSetOption, validateChartData, validateChartOption, validateContainer, safeDisposeChart, safeResizeChart } from '../utils/chartErrorHandler.js';
+import chartMonitor from '../utils/chartMonitor.js';
 import { adaptInstancesList, adaptInstancesListWithUptime } from '../utils/apiAdapters';
 
 // 导入优化的状态管理
@@ -275,78 +277,183 @@ const initCharts = () => {
   nextTick(() => {
     // 消息图表
     if (messageChartRef.value && !messageChart.value) {
-      // 使用全局配置创建 ECharts 实例
-      messageChart.value = echarts.init(messageChartRef.value, null, defaultEChartsOptions);
-      updateMessageChart();
+      try {
+        // 确保DOM元素已准备好
+        if (!messageChartRef.value.offsetWidth || !messageChartRef.value.offsetHeight) {
+          console.warn('Chart container is not ready, retrying...');
+          setTimeout(initCharts, 100);
+          return;
+        }
+        
+        // 检查容器的有效性
+        if (!validateContainer(messageChartRef.value)) {
+          console.error('Chart container validation failed');
+          return;
+        }
+          // 使用全局配置创建 ECharts 实例
+        messageChart.value = echarts.init(messageChartRef.value, null, defaultEChartsOptions);
+        
+        // 确保图表实例创建成功
+        if (messageChart.value) {
+          // 注册到图表监控器
+          chartMonitor.register('homeMessageChart', messageChart.value, {
+            component: 'HomeView',
+            type: 'bar',
+            description: '消息数量统计图表'
+          });
+          
+          // 监听图表实例的错误事件
+          messageChart.value.on('error', (params) => {
+            console.error('ECharts instance error:', params);
+            chartMonitor.reportError('homeMessageChart', new Error('Chart instance error'), params);
+          });
+          
+          updateMessageChart();
+          console.log('Message chart initialized successfully');
+        } else {
+          console.error('Failed to create ECharts instance');
+        }
+      } catch (error) {
+        console.error('Error initializing chart:', error);
+        
+        // 重试机制
+        setTimeout(() => {
+          console.log('Retrying chart initialization...');
+          initCharts();
+        }, 1000);
+      }
     }
   });
 };
 
 // 更新消息图表数据
 const updateMessageChart = () => {
-  if (messageChart.value) {
-    const data = chartData[activeChart.value].data;
-    const labels = chartData[activeChart.value].labels;
-
-    const option = {
-      tooltip: {
-        trigger: 'axis',
-        formatter: '{b}: {c} 条消息'
-      },
-      grid: {
-        left: '3%',
-        right: '4%',
-        bottom: '3%',
-        top: '3%',
-        containLabel: true
-      },
-      xAxis: {
-        type: 'category',
-        data: labels,
-        axisLine: {
-          lineStyle: {
-            color: isDarkMode.value ? '#555' : '#ddd'
-          }
-        },
-        axisLabel: {
-          color: isDarkMode.value ? '#ccc' : '#666',
-          fontSize: 10
+  if (!messageChart.value) {
+    console.warn('Message chart instance is not available');
+    return;
+  }
+  
+  // 安全检查：确保chartData和activeChart都有效
+  if (!chartData || !activeChart.value || !chartData[activeChart.value]) {
+    console.warn('Chart data is not available yet');
+    return;
+  }
+    const rawData = chartData[activeChart.value].data;
+  const rawLabels = chartData[activeChart.value].labels;
+  
+  // 确保数据和标签都存在
+  if (!rawData || !rawLabels || !Array.isArray(rawData) || !Array.isArray(rawLabels)) {
+    console.warn('Invalid chart data or labels');
+    chartMonitor.reportError('homeMessageChart', new Error('Invalid chart data structure'), {
+      rawData: typeof rawData,
+      rawLabels: typeof rawLabels,
+      activeChart: activeChart.value
+    });
+    return;
+  }
+  
+  // 清洁和验证数据
+  const data = rawData.map(item => {
+    const num = typeof item === 'number' ? item : parseFloat(item);
+    return isNaN(num) ? 0 : num;
+  });
+  
+  const labels = rawLabels.map(item => String(item));
+  
+  // 验证图表数据格式
+  if (!validateChartData(data, 'bar')) {
+    console.error('Chart data validation failed');
+    return;
+  }
+    // 确保数据和标签长度匹配
+  if (data.length !== labels.length) {
+    console.warn('Data and labels length mismatch', { dataLength: data.length, labelsLength: labels.length });
+    chartMonitor.reportError('homeMessageChart', new Error('Data length mismatch'), {
+      dataLength: data.length,
+      labelsLength: labels.length
+    });
+    return;
+  }
+  
+  const option = {
+    tooltip: {
+      trigger: 'axis',
+      formatter: '{b}: {c} 条消息'
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      top: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: labels,
+      axisLine: {
+        lineStyle: {
+          color: isDarkMode.value ? '#555' : '#ddd'
         }
       },
-      yAxis: {
-        type: 'value',
-        axisLine: {
-          lineStyle: {
-            color: isDarkMode.value ? '#555' : '#ddd'
-          }
-        },
-        axisLabel: {
-          color: isDarkMode.value ? '#ccc' : '#666',
-          fontSize: 10
-        },
-        splitLine: {
-          lineStyle: {
-            color: isDarkMode.value ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
-          }
+      axisLabel: {
+        color: isDarkMode.value ? '#ccc' : '#666',
+        fontSize: 10
+      }
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: {
+        lineStyle: {
+          color: isDarkMode.value ? '#555' : '#ddd'
         }
       },
-      series: [
-        {
-          data: data,
-          type: 'bar',
+      axisLabel: {
+        color: isDarkMode.value ? '#ccc' : '#666',
+        fontSize: 10
+      },
+      splitLine: {
+        lineStyle: {
+          color: isDarkMode.value ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
+        }
+      }
+    },
+    series: [
+      {
+        data: data,
+        type: 'bar',
+        name: '消息数量', // 添加name属性
+        itemStyle: {
+          color: isDarkMode.value ? '#5983ff' : '#4a7eff'
+        },
+        emphasis: {
           itemStyle: {
-            color: isDarkMode.value ? '#5983ff' : '#4a7eff'
-          },
-          emphasis: {
-            itemStyle: {
-              color: isDarkMode.value ? '#7a9dff' : '#6b93ff'
-            }
+            color: isDarkMode.value ? '#7a9dff' : '#6b93ff'
           }
         }
-      ]
-    };
+      }
+    ],
+    animation: false // 禁用动画以提高性能
+  };
 
-    messageChart.value.setOption(option);
+  // 验证配置选项
+  if (!validateChartOption(option)) {
+    console.error('Chart option validation failed');
+    return;
+  }
+  // 使用安全的 setOption 方法
+  if (!safeSetOption(messageChart.value, option)) {
+    console.error('Failed to set chart option safely');
+    chartMonitor.reportError('homeMessageChart', new Error('Failed to set chart option'), {
+      option,
+      data: data.length,
+      labels: labels.length
+    });
+  } else {
+    // 检查图表健康状态
+    const health = chartMonitor.checkHealth('homeMessageChart');
+    if (!health.healthy) {
+      console.warn('Chart health check failed:', health.reason);
+    }
   }
 };
 
@@ -410,7 +517,9 @@ const updateChartTheme = (isDark) => {
 
 // 窗口大小变化处理 - 重命名为handleWindowResize
 const handleWindowResize = () => {
-  messageChart.value?.resize();
+  if (messageChart.value) {
+    safeResizeChart(messageChart.value);
+  }
 };
 
 // 监听深色模式变化
@@ -639,7 +748,14 @@ onMounted(() => {
 // 清理
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleWindowResize);
-  messageChart.value?.dispose();
+  
+  // 从监控器中注销图表
+  chartMonitor.unregister('homeMessageChart');
+  // 安全地清理图表实例
+  if (messageChart.value) {
+    safeDisposeChart(messageChart.value);
+    messageChart.value = null;
+  }
 
   // 停止自动刷新
   stopAutoRefresh();

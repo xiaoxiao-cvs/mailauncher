@@ -995,34 +995,47 @@ const startDeploymentStatusTracking = async (deploymentId, instanceId) => {
               // 安全地访问状态属性
             const currentProgress = Number(status?.progress) || 0;
             const currentStatus = status?.status || status?.message || "正在部署...";
-            const installStatus = status?.install_status || status?.status;
-
-            // 只在进度或状态发生变化时记录日志，避免重复日志
-            const statusKey = `${deploymentId}_status`;
-            const lastStatus = window[statusKey] || {};
+            const installStatus = status?.install_status || status?.status;            // 使用更可靠的状态缓存机制，避免重复日志
+            const deployment = deployStore.deployments.get(deploymentId);
+            if (!deployment) {
+                console.warn('找不到部署实例:', deploymentId);
+                return;
+            }
             
+            // 初始化状态缓存
+            if (!deployment.lastStatus) {
+                deployment.lastStatus = {};
+            }
+            
+            const lastStatus = deployment.lastStatus;
+            
+            // 只在进度或状态发生变化时记录日志
             if (lastStatus.progress !== currentProgress || lastStatus.status !== currentStatus) {
                 deployStore.addLog(deploymentId, `📊 部署进度: ${currentProgress}% - ${currentStatus}`, 'info');
-                window[statusKey] = { progress: currentProgress, status: currentStatus };
+                lastStatus.progress = currentProgress;
+                lastStatus.status = currentStatus;
             }
 
             // 只在安装状态变化时记录
             if (installStatus && installStatus !== lastStatus.installStatus) {
-                deployStore.addLog(deploymentId, `� 安装状态: ${installStatus}`, 'info');
-                window[statusKey].installStatus = installStatus;
-            }
-
-            // 只在第一次或者服务状态发生变化时记录服务信息
+                deployStore.addLog(deploymentId, `🔧 安装状态: ${installStatus}`, 'info');
+                lastStatus.installStatus = installStatus;
+            }            // 只在第一次或者服务状态发生变化时记录服务信息
             if (status?.services_install_status && Array.isArray(status.services_install_status)) {
-                const servicesKey = `${deploymentId}_services`;
-                const lastServices = window[servicesKey] || [];
+                // 初始化服务状态缓存
+                if (!deployment.lastServicesStatus) {
+                    deployment.lastServicesStatus = [];
+                }
+                
+                const lastServicesStatus = deployment.lastServicesStatus;
                 
                 // 检查服务状态是否有变化
                 const hasServiceChanges = status.services_install_status.some((service, index) => {
-                    const lastService = lastServices[index];
+                    const lastService = lastServicesStatus[index];
                     return !lastService || 
                            lastService.status !== service.status || 
-                           lastService.progress !== service.progress;
+                           lastService.progress !== service.progress ||
+                           lastService.message !== service.message;
                 });
                 
                 if (hasServiceChanges) {
@@ -1034,7 +1047,8 @@ const startDeploymentStatusTracking = async (deploymentId, instanceId) => {
                             deployStore.addLog(deploymentId, `[${serviceName}] ${serviceStatus}${serviceProgress}: ${service.message}`, 'info');
                         }
                     });
-                    window[servicesKey] = status.services_install_status;
+                    // 更新服务状态缓存
+                    deployment.lastServicesStatus = JSON.parse(JSON.stringify(status.services_install_status));
                 }
             }
             
@@ -1848,11 +1862,14 @@ onBeforeUnmount(() => {
         
         // 标记事件监听器已清理
         eventListenersAttached.value = false;
-    }
-    
-    // 如果有活跃的Toast，关闭它
+    }    // 如果有活跃的Toast，关闭它
     if (currentToastId.value) {
+        console.log('组件卸载，关闭Toast，ID:', currentToastId.value);
         enhancedToastService.close(currentToastId.value);
+        
+        // 清理deployStore中的Toast注册
+        deployStore.clearPageSwitchToast();
+        
         currentToastId.value = null;
     }
       // 清理定时器
@@ -2328,21 +2345,49 @@ const handlePageSwitch = (newPage) => {
     console.log('页面切换检测:', { from: 'downloads', to: newPage, isDeploying: installing.value });
     
     // 如果正在安装且切换到其他页面，显示Toast
-    if (installing.value && newPage !== 'downloads' && activeDeploymentData.value) {
-        console.log('正在安装中，切换到其他页面，显示Toast');
+    if (installing.value && newPage !== 'downloads' && activeDeploymentData.value) {        // 检查是否已经有Toast存在，避免重复创建
+        if (!currentToastId.value) {
+            console.log('正在安装中，切换到其他页面，显示Toast');
+            
+            // 显示Toast，包含当前进度
+            currentToastId.value = enhancedToastService.showDeploymentToastOnPageSwitch(
+                activeDeploymentData.value,
+                installProgress.value,
+                installStatusText.value
+            );
+            
+            console.log('已创建Toast，ID:', currentToastId.value);
+              // 将Toast ID注册到deployStore，以便进度更新能找到正确的Toast
+            if (currentToastId.value && currentToastId.value !== -1 && activeDeploymentData.value?.instanceName) {
+                deployStore.registerPageSwitchToast(activeDeploymentData.value.instanceName, currentToastId.value);
+                console.log('已注册Toast到deployStore:', { 
+                    instanceName: activeDeploymentData.value.instanceName, 
+                    toastId: currentToastId.value 
+                });
+                
+                // 确保当前进度状态同步到新创建的Toast
+                if (installProgress.value > 0) {
+                    setTimeout(() => {
+                        enhancedToastService.updateDeploymentProgress(
+                            currentToastId.value, 
+                            installProgress.value, 
+                            installStatusText.value
+                        );
+                    }, 200);
+                }
+            }
+        } else {
+            console.log('Toast已存在，不重复创建，当前Toast ID:', currentToastId.value);
+        }
         
-        // 显示Toast，包含当前进度
-        currentToastId.value = enhancedToastService.showDeploymentToastOnPageSwitch(
-            activeDeploymentData.value,
-            installProgress.value,
-            installStatusText.value
-        );
-        
-        isInDownloadPage.value = false;
-    } else if (newPage === 'downloads' && currentToastId.value) {
+        isInDownloadPage.value = false;    } else if (newPage === 'downloads' && currentToastId.value) {
         // 切换回下载页面，关闭Toast
-        console.log('切换回下载页面，关闭Toast');
+        console.log('切换回下载页面，关闭Toast，ID:', currentToastId.value);
         enhancedToastService.close(currentToastId.value);
+        
+        // 清理deployStore中的Toast注册
+        deployStore.clearPageSwitchToast();
+        
         currentToastId.value = null;
         isInDownloadPage.value = true;
     }
@@ -2358,9 +2403,23 @@ const handleDeploymentStarted = (event) => {
 };
 
 // 监听部署完成事件
-watch(installing, (newValue) => {
-    if (!newValue) {
-        // 安装完成，重置活跃部署数据        activeDeploymentData.value = null;
+watch(installing, (newValue, oldValue) => {
+    console.log('安装状态变化:', { from: oldValue, to: newValue });
+    
+    if (!newValue && oldValue) {
+        // 安装完成，重置活跃部署数据和Toast状态
+        console.log('安装完成，清理部署数据和Toast状态');
+        activeDeploymentData.value = null;
+          // 如果有Toast正在显示，关闭它
+        if (currentToastId.value) {
+            console.log('安装完成，关闭Toast，ID:', currentToastId.value);
+            enhancedToastService.close(currentToastId.value);
+            
+            // 清理deployStore中的Toast注册
+            deployStore.clearPageSwitchToast();
+            
+            currentToastId.value = null;
+        }
     }
 });
 </script>

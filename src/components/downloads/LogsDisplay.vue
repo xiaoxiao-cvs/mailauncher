@@ -1093,6 +1093,45 @@ onUnmounted(() => {
 }
 
 /* 日志级别图标 */
+/* 日志重复计数样式 */
+.log-count {
+  margin-left: 0.25rem;
+  margin-right: 0.25rem;
+  font-weight: bold;
+  animation: pulse 1s ease-in-out;
+}
+
+.log-count:hover {
+  transform: scale(1.05);
+  transition: transform 0.2s ease;
+}
+
+/* 新日志标记 */
+.log-new {
+  background-color: rgba(34, 197, 94, 0.1);
+  border-left: 3px solid #22c55e;
+  padding-left: 0.5rem;
+  animation: highlight 2s ease-out;
+}
+
+@keyframes highlight {
+  0% {
+    background-color: rgba(34, 197, 94, 0.3);
+  }
+  100% {
+    background-color: rgba(34, 197, 94, 0.1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
 .log-line.text-error::before {
   content: '❌';
   margin-right: 0.25rem;

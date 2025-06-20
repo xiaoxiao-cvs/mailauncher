@@ -29,6 +29,11 @@ const mapChineseStatusToEnglish = (chineseStatus) => {
 export const adaptInstanceData = (instance) => {
   if (!instance) return null;
 
+  // 防止递归调用
+  if (instance._isAdapted) {
+    return instance;
+  }
+
   // 创建一个格式化日期的辅助函数，确保日期格式一致
   const formatDateIfExists = (dateStr) => {
     if (!dateStr) return null;
@@ -40,7 +45,7 @@ export const adaptInstanceData = (instance) => {
   };
 
   // 适配后的实例对象
-  return {
+  const adaptedInstance = {
     id: instance.id || instance.instance_id,
     name: instance.name,
     status: mapChineseStatusToEnglish(instance.status), // 应用状态映射
@@ -57,7 +62,10 @@ export const adaptInstanceData = (instance) => {
     createdAt: formatDateIfExists(
       instance.createdAt || instance.created_at || instance.installedAt
     ),
+    _isAdapted: true, // 标记已适配
   };
+
+  return adaptedInstance;
 };
 
 /**

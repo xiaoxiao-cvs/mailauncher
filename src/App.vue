@@ -460,10 +460,14 @@ onMounted(() => {
     console.log("应用初始化完成");
   });
 
-  // 初始化轮询系统
-  console.log("正在初始化轮询系统...");
-  pollingStore.initializeDefaultPolling();
-  console.log("轮询系统初始化完成");  // 监听localStorage变化
+  // 检查轮询系统是否已经初始化，避免重复初始化
+  if (!pollingStore.isGlobalPollingActive) {
+    console.log("正在初始化轮询系统...");
+    pollingStore.initializeDefaultPolling();
+    console.log("轮询系统初始化完成");
+  } else {
+    console.log("轮询系统已经初始化，跳过重复初始化");
+  }// 监听localStorage变化
   window.addEventListener('storage', (e) => {
     // 可以在这里处理其他需要监听的localStorage变化
     console.log('localStorage变更:', e.key, e.newValue);

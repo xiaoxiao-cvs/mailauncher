@@ -175,15 +175,14 @@ export const deployWithToast = async (version, deploymentConfig) => {
   const { instanceName, ports = {}, installPath, installServices = [], ...otherConfig } = deploymentConfig;
 
   console.log(`开始部署 ${version}，实例: ${instanceName}`);
-
   // 准备部署数据
   const deploymentData = {
     instanceName,
     version,
     image: `maimai:${version}`,
-    port: ports.web || "8080",
-    napcatPort: ports.napcat || "3001",
-    webPort: ports.web || "8080",
+    port: ports.maibot || ports.web || otherConfig.maibot_port || "8000",
+    napcatPort: ports.napcat || ports['napcat-ada'] || otherConfig.napcat_port || "8095",
+    webPort: ports.maibot || ports.web || otherConfig.maibot_port || "8000",
     ...otherConfig,
   };
   // 显示部署Toast（会自动检查当前页面）
