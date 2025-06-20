@@ -2,7 +2,26 @@
   <div class="section logs-display-section">
     <div class="section-header">
       <div class="section-title">安装日志</div>
-      <div class="logs-actions">        <!-- 日志设置下拉菜单 -->
+      <div class="logs-actions">
+        <!-- 日志级别过滤器 -->
+        <div class="dropdown dropdown-end mr-2">
+          <label tabindex="0" class="btn btn-sm btn-outline" title="过滤日志级别">
+            <i class="fas fa-filter mr-1"></i>
+            {{ logLevelLabels[logLevel] }}
+          </label>
+          <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-48">
+            <li class="menu-title">
+              <span>日志级别</span>
+            </li>
+            <li><a @click="logLevel = 'all'" :class="{ active: logLevel === 'all' }">📋 全部日志</a></li>
+            <li><a @click="logLevel = 'important'" :class="{ active: logLevel === 'important' }">⭐ 重要信息</a></li>
+            <li><a @click="logLevel = 'success'" :class="{ active: logLevel === 'success' }">✅ 成功</a></li>
+            <li><a @click="logLevel = 'warning'" :class="{ active: logLevel === 'warning' }">⚠️ 警告</a></li>
+            <li><a @click="logLevel = 'error'" :class="{ active: logLevel === 'error' }">❌ 错误</a></li>
+          </ul>
+        </div>
+
+        <!-- 日志设置下拉菜单 -->
         <div class="dropdown dropdown-end">
           <label tabindex="0" class="btn btn-sm btn-ghost" title="日志设置">
             <i class="icon icon-settings"></i>
@@ -29,7 +48,8 @@
                 <input type="checkbox" v-model="logSettings.showSource" @change="saveLogSettings" class="checkbox checkbox-sm" />
                 <span class="label-text ml-2">显示日志来源</span>
               </label>
-            </li>            <li>
+            </li>
+            <li>
               <label class="label cursor-pointer justify-start">
                 <input type="checkbox" v-model="logSettings.enableWordWrap" @change="saveLogSettings" class="checkbox checkbox-sm" />
                 <span class="label-text ml-2">自动换行</span>
@@ -49,14 +69,14 @@
             <li>
               <label class="label cursor-pointer justify-start">
                 <span class="label-text">最大日志条数:</span>
-                <input type="number" v-model.number="logSettings.maxLogLines" @change="saveLogSettings" 
+                <input type="number" v-model.number="logSettings.maxLogLines" @change="saveLogSettings"
                        class="input input-bordered input-xs w-16 ml-2" min="100" max="10000" />
               </label>
             </li>
             <li>
               <label class="label cursor-pointer justify-start">
                 <span class="label-text">去重时间窗口(秒):</span>
-                <input type="number" v-model.number="logSettings.deduplicationWindow" @change="saveLogSettings" 
+                <input type="number" v-model.number="logSettings.deduplicationWindow" @change="saveLogSettings"
                        class="input input-bordered input-xs w-16 ml-2" min="1" max="60" />
               </label>
             </li>
@@ -67,7 +87,7 @@
             </li>
           </ul>
         </div>
-        
+
         <button class="btn btn-sm btn-ghost" @click="exportLogs" title="导出日志">
           <i class="icon icon-download"></i>
         </button>
@@ -77,12 +97,13 @@
         <button class="btn btn-sm btn-ghost" @click="scrollToBottom" title="滚动到底部">
           <i class="icon icon-chevrons-down"></i>
         </button>
-        <button class="btn btn-sm btn-ghost" :class="{'text-primary': autoScroll}" @click="toggleAutoScroll" 
+        <button class="btn btn-sm btn-ghost" :class="{'text-primary': autoScroll}" @click="toggleAutoScroll"
                 :title="autoScroll ? '禁用自动滚动' : '启用自动滚动'">
           <i class="icon icon-scroll"></i>
         </button>
       </div>
-    </div>    <!-- 日志统计信息 -->
+    </div>
+    <!-- 日志统计信息 -->
     <div v-if="logSettings.enableDeduplication && (logStats.duplicatedCount > 0 || logStats.totalCount > 0)" class="mb-2">
       <div class="alert alert-info py-2">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-4 h-4">
@@ -102,7 +123,7 @@
     <slot name="before-logs"></slot>
 
     <!-- 日志内容区域 -->
-    <div class="logs-container mockup-code bg-base-200 text-base-content" 
+    <div class="logs-container mockup-code bg-base-200 text-base-content"
          ref="logsContainer"
          :class="{ 'word-wrap': logSettings.enableWordWrap }">
       <div v-if="processedLogs.length === 0" class="empty-logs">
@@ -112,7 +133,8 @@
           </svg>
           <p class="opacity-50">等待日志输出...</p>
         </div>
-      </div>      <div v-for="(log, index) in processedLogs" :key="log.id || index" 
+      </div>
+      <div v-for="(log, index) in processedLogs" :key="log.id || index"
            :class="['log-line', getLogLevelClass(log.level), { 'log-new': log.isNew }]">
         <span v-if="logSettings.showTimestamp" class="log-time text-xs opacity-50">
           [{{ log.time || getCurrentTime() }}]
@@ -178,6 +200,61 @@ const deduplicationCache = ref(new Map());
 const lastLogCount = ref(0);
 const newLogIds = ref(new Set());
 
+// 日志级别过滤
+const logLevel = ref('all');
+const logLevelLabels = {
+  all: '全部日志',
+  important: '重要信息',
+  success: '成功',
+  warning: '警告',
+  error: '错误'
+};
+
+// 过滤后的日志
+const filteredLogs = computed(() => {
+  if (!props.logs || props.logs.length === 0) return [];
+  
+  if (logLevel.value === 'all') {
+    return props.logs;
+  }
+  
+  return props.logs.filter(log => {
+    const level = log.level || 'info';
+    const message = log.message || '';
+    
+    switch (logLevel.value) {
+      case 'important':
+        // 重要信息：成功、警告、错误、进度信息
+        return level === 'success' || 
+               level === 'warning' || 
+               level === 'error' || 
+               message.includes('✅') || 
+               message.includes('⚠️') || 
+               message.includes('❌') || 
+               message.includes('🚀') ||
+               message.includes('%') ||
+               message.includes('完成') ||
+               message.includes('开始');
+      case 'success':
+        return level === 'success' || 
+               message.includes('✅') || 
+               message.includes('成功') || 
+               message.includes('完成');
+      case 'warning':
+        return level === 'warning' || 
+               message.includes('⚠️') || 
+               message.includes('警告');
+      case 'error':
+        return level === 'error' || 
+               message.includes('❌') || 
+               message.includes('错误') || 
+               message.includes('失败');
+      default:
+        return true;
+    }
+  });
+});
+
 // 加载日志设置
 const loadLogSettings = () => {
   const keys = Object.keys(logSettings.value);
@@ -193,7 +270,7 @@ const loadLogSettings = () => {
       }
     }
   });
-  
+
   // 同步自动滚动设置
   autoScroll.value = logSettings.value.enableAutoScroll !== false;
 };
@@ -203,10 +280,10 @@ const saveLogSettings = () => {
   Object.keys(logSettings.value).forEach(key => {
     localStorage.setItem(`logSettings.${key}`, logSettings.value[key].toString());
   });
-  
+
   // 同步自动滚动设置
   autoScroll.value = logSettings.value.enableAutoScroll !== false;
-  
+
   // 通知其他组件设置已更新
   if (emitter) {
     emitter.emit('log-settings-updated', logSettings.value);
@@ -222,7 +299,7 @@ if (emitter) {
     // 重新保存本地设置，确保同步
     saveLogSettings();
   });
-  
+
   emitter.on('log-settings-reset', (newSettings) => {
     console.log('LogsDisplay: 收到日志设置重置', newSettings);
     Object.assign(logSettings.value, newSettings);
@@ -232,7 +309,7 @@ if (emitter) {
     // 重新保存本地设置，确保同步
     saveLogSettings();
   });
-  
+
   emitter.on('test-log-deduplication', () => {
     console.log('LogsDisplay: 收到去重测试指令');
     debugDeduplication();
@@ -242,23 +319,23 @@ if (emitter) {
 // 处理后的日志（去重、限制数量等）
 const processedLogs = computed(() => {
   try {
-    let result = [...props.logs];
-    
+    let result = [...filteredLogs.value];
+
     // 重置统计信息（但不在computed中直接修改ref）
     const currentStats = {
       totalCount: result.length,
       duplicatedCount: 0
     };
 
-    console.log('原始日志数量:', result.length);
+    console.log('过滤后日志数量:', result.length);
     if (result.length > 0) {
-      console.log('前5条原始日志内容:', result.slice(0, 5).map(log => ({
+      console.log('前5条过滤日志内容:', result.slice(0, 5).map(log => ({
         message: log.message,
         level: log.level,
         source: log.source,
         time: log.time
       })));
-    }    // 确保所有日志都有ID，但不要每次都重新生成
+    }// 确保所有日志都有ID，但不要每次都重新生成
     result = result.map((log, index) => ({
       ...log,
       id: log.id || `log_${index}_${log.time}_${log.message?.substring(0, 10)}`,
@@ -272,14 +349,14 @@ const processedLogs = computed(() => {
         log.isNew = true;
         newLogIds.value.add(log.id);
       });
-      
+
       // 设置定时器移除新日志标记
       setTimeout(() => {
         newLogs.forEach(log => {
           newLogIds.value.delete(log.id);
         });
       }, 1000); // 1秒后移除新日志标记
-      
+
       lastLogCount.value = result.length;
     }
 
@@ -328,7 +405,7 @@ const filterByLogLevel = (logs) => {
   };
     const allowedLevels = levelMap[logSettings.value.logLevel];
   if (!allowedLevels) return logs;
-  
+
   return logs.filter(log => {
     const level = (log.level || 'info').toLowerCase();
     return allowedLevels.includes(level);
@@ -346,14 +423,14 @@ const deduplicateLogsSync = (logs) => {
   for (const log of logs) {
     const logKey = generateLogKey(log);
     console.log(`处理日志: "${log.message}" -> 键: "${logKey}"`);
-    
+
     const cachedData = tempCache.get(logKey);
-    
+
     if (cachedData && (currentTime - cachedData.lastSeen < windowMs)) {
       // 是重复日志，更新现有日志的计数
       cachedData.count++;
       cachedData.lastSeen = currentTime;
-      
+
       // 更新已存在的日志项
       const existingLog = deduped.find(item => item.id === cachedData.log.id);
       if (existingLog) {
@@ -361,31 +438,31 @@ const deduplicateLogsSync = (logs) => {
         // 更新最后出现的时间为最新的日志时间
         existingLog.time = log.time || existingLog.time;
       }
-      
+
       duplicatedCount++;
       console.log(`发现重复日志，计数更新为: ${cachedData.count}`);
     } else {
       // 新日志，添加到结果中
-      const newLog = { 
-        ...log, 
-        count: 1, 
+      const newLog = {
+        ...log,
+        count: 1,
         id: log.id || `log_${deduped.length}_${log.time}_${logKey.slice(-8)}` // 更稳定的ID生成
       };
       deduped.push(newLog);
-      
+
       // 更新临时缓存
       tempCache.set(logKey, {
         log: newLog,
         count: 1,
         lastSeen: currentTime,
       });
-      
+
       console.log(`添加新日志: "${log.message}"`);
     }
   }
 
   console.log(`去重完成: 原始${logs.length}条 -> 去重后${deduped.length}条，重复${duplicatedCount}条`);
-  
+
   return {
     logs: deduped,
     duplicatedCount: duplicatedCount
@@ -397,7 +474,7 @@ const deduplicateLogs = (logs) => {
   const deduped = [];
   const currentTime = Date.now();
   const windowMs = logSettings.value.deduplicationWindow * 1000;
-  
+
   // 清理过期的缓存
   for (const [key, data] of deduplicationCache.value.entries()) {
     if (currentTime - data.lastSeen > windowMs) {
@@ -408,30 +485,30 @@ const deduplicateLogs = (logs) => {
   for (const log of logs) {
     const logKey = generateLogKey(log);
     const cachedData = deduplicationCache.value.get(logKey);
-    
+
     if (cachedData && (currentTime - cachedData.lastSeen < windowMs)) {
       // 是重复日志，更新计数和时间
       cachedData.count++;
       cachedData.lastSeen = currentTime;
-      
+
       // 更新已存在的日志项的计数
-      const existingLogIndex = deduped.findIndex(item => 
+      const existingLogIndex = deduped.findIndex(item =>
         item.id === cachedData.log.id
       );
       if (existingLogIndex !== -1) {
         deduped[existingLogIndex].count = cachedData.count;
       }
-      
+
       logStats.value.duplicatedCount++;
     } else {
       // 新日志或超出时间窗口，添加到结果中
-      const newLog = { 
-        ...log, 
-        count: 1, 
-        id: Date.now() + Math.random() + deduped.length 
+      const newLog = {
+        ...log,
+        count: 1,
+        id: Date.now() + Math.random() + deduped.length
       };
       deduped.push(newLog);
-      
+
       // 更新缓存
       deduplicationCache.value.set(logKey, {
         log: newLog,
@@ -454,14 +531,14 @@ const generateLogKey = (log) => {
   let message = String(log.message || '').trim();
   const level = String(log.level || 'info').toLowerCase();
   const source = String(log.source || '').trim();
-  
+
   console.log('生成键的原始数据:', { message, level, source });
-  
+
   if (!message) {
     console.warn('日志消息为空');
     return `${level}|${source}|empty_message`;
   }
-  
+
   // 深度清理消息内容，去除所有HTML标签和实体
   let cleanMessage = message;
   let previousLength;
@@ -479,12 +556,12 @@ const generateLogKey = (log) => {
       .replace(/&nbsp;/g, ' ')
       .replace(/&[a-zA-Z0-9#]+;/g, ''); // 清理其他HTML实体
   } while (cleanMessage.length !== previousLength);
-  
+
   // 清理多余的空格
   cleanMessage = cleanMessage.replace(/\s+/g, ' ').trim();
     // 非常保守的标准化，只处理明确的重复模式
   let normalizedMessage = cleanMessage;
-  
+
   // 部署进度类消息统一化
   if (cleanMessage.includes('部署进度:') && cleanMessage.includes('%')) {
     normalizedMessage = cleanMessage.replace(/\d+(\.\d+)?%/g, 'X%');
@@ -500,7 +577,7 @@ const generateLogKey = (log) => {
     // 状态信息类的重复日志合并
     normalizedMessage = cleanMessage.replace(/状态信息: .*/, '状态信息: [状态]');
   }
-  
+
   const key = `${level}|${source}|${normalizedMessage}`;
   console.log(`生成的唯一键: "${key}"`);
   return key;
@@ -524,7 +601,7 @@ const exportLogs = () => {
     console.warn('日志导出功能已被禁用');
     return;
   }
-  
+
   const logText = processedLogs.value
     .map(log => {
       const parts = [];
@@ -565,7 +642,7 @@ const debugDeduplication = () => {
   console.group('🐛 日志去重调试信息');
   console.log('当前设置:', logSettings.value);
   console.log('统计信息:', logStats.value);
-  
+
   // 打印原始日志的详细信息
   console.log('原始日志详情:');
   props.logs.forEach((log, index) => {
@@ -578,7 +655,7 @@ const debugDeduplication = () => {
       keys: Object.keys(log)
     });
   });
-  
+
   // 测试前几条日志的键生成
   if (props.logs.length > 0) {
     console.log('日志唯一键生成测试:');
@@ -591,7 +668,7 @@ const debugDeduplication = () => {
       }
     });
   }
-  
+
   // 测试去重函数
   if (props.logs.length > 0) {
     console.log('测试去重函数:');
@@ -602,7 +679,7 @@ const debugDeduplication = () => {
       console.error('去重函数测试失败:', error);
     }
   }
-  
+
   // 测试HTML标签清理功能
   console.log('HTML标签清理测试:');
   const testMessages = [
@@ -613,12 +690,12 @@ const debugDeduplication = () => {
     '&lt;script&gt;alert("test")&lt;/script&gt;',
     '正常消息 🎉 没有HTML标签'
   ];
-  
+
   testMessages.forEach((message, index) => {
     const cleaned = formatLogMessage(message);
     console.log(`测试${index + 1}: "${message}" -> "${cleaned}"`);
   });
-  
+
   console.groupEnd();
 };
 
@@ -634,7 +711,7 @@ const toggleAutoScroll = () => {
   autoScroll.value = !autoScroll.value;
   logSettings.value.enableAutoScroll = autoScroll.value;
   saveLogSettings();
-  
+
   if (autoScroll.value) {
     scrollToBottom();
   }
@@ -643,7 +720,7 @@ const toggleAutoScroll = () => {
 // 获取日志级别对应的类名
 const getLogLevelClass = (level) => {
   if (!level) return '';
-  
+
   const lowerLevel = level.toLowerCase();
   switch (lowerLevel) {
     case 'error': return 'text-error';
@@ -658,10 +735,10 @@ const getLogLevelClass = (level) => {
 // 格式化日志消息
 const formatLogMessage = (message) => {
   if (!message) return '';
-  
+
   // 首先对原始消息进行深度清理
   let safeMessage = String(message);
-  
+
   // 多轮清理所有HTML标签（包括残留的闭合标签）
   let previousLength;
   do {
@@ -678,10 +755,10 @@ const formatLogMessage = (message) => {
       .replace(/&nbsp;/g, ' ')
       .replace(/&[a-zA-Z0-9#]+;/g, ''); // 清理其他HTML实体
   } while (safeMessage.length !== previousLength); // 重复清理直到没有变化
-  
+
   // 清理多余的空格和换行符
   safeMessage = safeMessage.replace(/\s+/g, ' ').trim();
-  
+
   // 重新转义HTML特殊字符以防止XSS
   safeMessage = safeMessage
     .replace(/&/g, '&amp;')
@@ -689,7 +766,7 @@ const formatLogMessage = (message) => {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
-  
+
   // 对JSON格式的消息进行特殊处理
   if (safeMessage.trim().startsWith('{') && safeMessage.trim().endsWith('}')) {
     try {
@@ -702,13 +779,13 @@ const formatLogMessage = (message) => {
       // 不是有效JSON，继续正常处理
     }
   }
-  
+
   // 对命令行风格的消息进行高亮处理
   if (safeMessage.startsWith('$')) {
     safeMessage = `<span class="font-bold text-accent">${safeMessage}</span>`;
     return safeMessage;
   }
-  
+
   // 高亮各种状态和关键词 - 使用更保守且安全的匹配策略
   // 首先处理表情符号，避免与文字高亮冲突
   const emojiMap = {
@@ -732,14 +809,14 @@ const formatLogMessage = (message) => {
     '�': '<span class="text-info">📋</span>',
     '�': '<span class="text-info">📥</span>'
   };
-  
+
   // 安全地替换表情符号（每个表情符号单独处理）
   Object.entries(emojiMap).forEach(([emoji, replacement]) => {
     if (safeMessage.includes(emoji)) {
       safeMessage = safeMessage.split(emoji).join(replacement);
     }
   });
-  
+
   // 然后处理文字高亮（使用词边界确保精确匹配）
   safeMessage = safeMessage
     // 成功状态
@@ -764,7 +841,7 @@ const formatLogMessage = (message) => {
     .replace(/(HTTP\s+)(\d{3})/gi, '$1<span class="text-warning font-mono">$2</span>')
     // 实例ID
     .replace(/(实例ID[:：]\s*)([a-f0-9]{32,})/gi, '$1<span class="text-primary font-mono text-xs">$2</span>');
-  
+
   // 最后检查并清理任何可能的双重标签或格式问题
   safeMessage = safeMessage
     // 清理双重span标签
@@ -773,20 +850,20 @@ const formatLogMessage = (message) => {
     .replace(/<span[^>]*><\/span>/g, '')
     // 清理格式问题导致的多余空格
     .replace(/\s+/g, ' ');
-  
+
   return safeMessage;
 };
 
 // 处理下载页面部署启动事件
 const handleDeploymentStarted = (event) => {
   console.log('LogsDisplay: 接收到部署启动事件', event.detail);
-  
+
   const { deploymentData } = event.detail;
   currentDeploymentData.value = deploymentData;
   isInstalling.value = true;
   installProgress.value = 0;
   installStatus.value = '正在准备安装...';
-  
+
   // 添加安装开始日志
   emit('deployment-log', {
     id: Date.now(),
@@ -800,11 +877,11 @@ const handleDeploymentStarted = (event) => {
 // 处理部署进度更新事件
 const handleDeploymentProgress = (event) => {
   console.log('LogsDisplay: 接收到进度更新事件', event.detail);
-  
+
   const { progress, status, deploymentData } = event.detail;
   installProgress.value = progress || 0;
   installStatus.value = status || '安装中...';
-  
+
   // 添加进度日志
   if (status) {
     emit('deployment-log', {
@@ -820,12 +897,12 @@ const handleDeploymentProgress = (event) => {
 // 处理部署完成事件
 const handleDeploymentCompleted = (event) => {
   console.log('LogsDisplay: 接收到部署完成事件', event.detail);
-  
+
   const { success, message, deploymentData } = event.detail;
   isInstalling.value = false;
   installProgress.value = success ? 100 : 0;
   installStatus.value = success ? '安装完成' : '安装失败';
-  
+
   // 添加完成日志
   emit('deployment-log', {
     id: Date.now(),
@@ -834,7 +911,7 @@ const handleDeploymentCompleted = (event) => {
     source: 'installer',
     message: success ? `✅ ${message || '安装完成'}` : `❌ ${message || '安装失败'}`
   });
-  
+
   // 清理数据
   setTimeout(() => {
     currentDeploymentData.value = null;
@@ -881,10 +958,10 @@ onMounted(() => {
 
   // 监听下载页面部署启动事件
   window.addEventListener('deployment-started-in-downloads', handleDeploymentStarted);
-  
+
   // 监听部署进度更新事件
   window.addEventListener('deployment-progress-update', handleDeploymentProgress);
-  
+
   // 监听部署完成事件
   window.addEventListener('deployment-completed', handleDeploymentCompleted);
 });
@@ -900,7 +977,7 @@ onUpdated(() => {
 onUnmounted(() => {
   emitter.off('log-settings-updated');
   emitter.off('log-settings-reset');
-  
+
   // 移除部署事件监听器
   window.removeEventListener('deployment-started-in-downloads', handleDeploymentStarted);
   window.removeEventListener('deployment-progress-update', handleDeploymentProgress);
@@ -1178,23 +1255,23 @@ onUnmounted(() => {
     font-size: 0.75rem;
     height: 300px;
   }
-  
+
   .log-time {
     min-width: 60px;
     font-size: 0.7rem;
   }
-  
+
   .log-source {
     font-size: 0.7rem;
     padding: 0.05rem 0.2rem;
   }
-  
+
   .section-header {
     flex-direction: column;
     align-items: stretch;
     gap: 0.5rem;
   }
-  
+
   .logs-actions {
     justify-content: center;
   }

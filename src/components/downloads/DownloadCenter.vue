@@ -961,192 +961,51 @@ const initializeDeploymentPath = async () => {    // 从本地获取部署路径
     }
 };
 
-// 部署状态跟踪
-const startDeploymentStatusTracking = async (deploymentId, instanceId) => {
-    if (!deploymentId || !instanceId) {
-        console.error('部署状态跟踪参数无效:', { deploymentId, instanceId });
-        return;
-    }
-    
-    const maxAttempts = 120; // 最大等待2分钟
-    let attempts = 0;
-    const checkInterval = 1000; // 1秒检查一次
-      deployStore.addLog(deploymentId, '🔄 开始跟踪部署状态...', 'info');
-    deployStore.addLog(deploymentId, `📊 轮询配置: 间隔${checkInterval}ms, 最大尝试${maxAttempts}次`, 'info');
-    
-    const checkStatus = async () => {
-        try {
-            // deployStore.addLog(deploymentId, `🔍 检查部署状态 (尝试 ${attempts + 1}/${maxAttempts})`, 'info'); // 注释掉避免日志刷屏
-            const response = await apiService.get(`/deploy/install-status/${instanceId}`);
-            const status = response?.data || response;
-            
-            console.log('获取到的部署状态:', status);
-            // deployStore.addLog(deploymentId, `📥 收到状态响应: ${JSON.stringify(status)}`, 'info'); // 注释掉避免日志刷屏
-
-            // 如果状态数据无效，继续等待
-            if (!status || typeof status !== 'object') {
-                console.log('状态数据无效，继续等待...');                // deployStore.addLog(deploymentId, '⚠️ 状态数据无效，继续等待...', 'warning'); // 注释掉避免日志刷屏
-                attempts++;
-                if (attempts < maxAttempts) {
-                    setTimeout(checkStatus, checkInterval);
-                }
-                return;
-            }
-              // 安全地访问状态属性
-            const currentProgress = Number(status?.progress) || 0;
-            const currentStatus = status?.status || status?.message || "正在部署...";
-            const installStatus = status?.install_status || status?.status;            // 使用更可靠的状态缓存机制，避免重复日志
-            const deployment = deployStore.deployments.get(deploymentId);
-            if (!deployment) {
-                console.warn('找不到部署实例:', deploymentId);
-                return;
-            }
-            
-            // 初始化状态缓存
-            if (!deployment.lastStatus) {
-                deployment.lastStatus = {};
-            }
-            
-            const lastStatus = deployment.lastStatus;
-            
-            // 只在进度或状态发生变化时记录日志
-            if (lastStatus.progress !== currentProgress || lastStatus.status !== currentStatus) {
-                deployStore.addLog(deploymentId, `📊 部署进度: ${currentProgress}% - ${currentStatus}`, 'info');
-                lastStatus.progress = currentProgress;
-                lastStatus.status = currentStatus;
-            }
-
-            // 只在安装状态变化时记录
-            if (installStatus && installStatus !== lastStatus.installStatus) {
-                deployStore.addLog(deploymentId, `🔧 安装状态: ${installStatus}`, 'info');
-                lastStatus.installStatus = installStatus;
-            }            // 只在第一次或者服务状态发生变化时记录服务信息
-            if (status?.services_install_status && Array.isArray(status.services_install_status)) {
-                // 初始化服务状态缓存
-                if (!deployment.lastServicesStatus) {
-                    deployment.lastServicesStatus = [];
-                }
-                
-                const lastServicesStatus = deployment.lastServicesStatus;
-                
-                // 检查服务状态是否有变化
-                const hasServiceChanges = status.services_install_status.some((service, index) => {
-                    const lastService = lastServicesStatus[index];
-                    return !lastService || 
-                           lastService.status !== service.status || 
-                           lastService.progress !== service.progress ||
-                           lastService.message !== service.message;
-                });
-                
-                if (hasServiceChanges) {
-                    status.services_install_status.forEach((service, index) => {
-                        if (service?.message) {
-                            const serviceName = service.name || `服务${index + 1}`;
-                            const serviceStatus = service.status || '未知';
-                            const serviceProgress = service.progress ? ` (${service.progress}%)` : '';
-                            deployStore.addLog(deploymentId, `[${serviceName}] ${serviceStatus}${serviceProgress}: ${service.message}`, 'info');
-                        }
-                    });
-                    // 更新服务状态缓存
-                    deployment.lastServicesStatus = JSON.parse(JSON.stringify(status.services_install_status));
-                }
-            }
-            
-            // 检查是否完成
-            if (installStatus === "completed") {
-                deployStore.addLog(deploymentId, '🎉 部署已完成！', 'success');
-                deployStore.addLog(deploymentId, `✅ 实例 ${instanceName.value} 已成功部署`, 'success');
-                deployStore.addLog(deploymentId, `📁 安装路径: ${installPath.value}`, 'success');
-                deployStore.addLog(deploymentId, `🌐 MaiBot服务端口: ${maibotPort.value}`, 'success');
-                if (selectedServices['napcat-ada']) {
-                    deployStore.addLog(deploymentId, `🔌 Napcat-ada服务端口: ${servicePorts['napcat-ada']}`, 'success');
-                }
-                deployStore.addLog(deploymentId, `⏱️ 部署总用时: ${attempts} 秒`, 'info');
-                  // 部署完成时重置安装状态
-                localInstalling.value = false;
-                installationSnapshot.value = null; // 清除快照
-                try {
-                    deployStore.setDeploymentStatus(deploymentId, false, true);
-                } catch (error) {
-                    console.warn('设置部署完成状态失败:', error);
-                }
-                
-                return; // 停止轮询
-            } else if (installStatus === "failed") {
-                deployStore.addLog(deploymentId, `❌ 部署失败: ${currentStatus}`, 'error');
-                deployStore.addLog(deploymentId, `💥 失败详情: ${JSON.stringify(status, null, 2)}`, 'error');
-                deployStore.addLog(deploymentId, `⏱️ 失败前运行时间: ${attempts} 秒`, 'warning');
-                  // 部署失败时重置安装状态
-                localInstalling.value = false;
-                installationSnapshot.value = null; // 清除快照
-                try {
-                    deployStore.setDeploymentStatus(deploymentId, false, false);                } catch (error) {
-                    console.warn('设置部署失败状态失败:', error);
-                }
-                
-                return; // 停止轮询
-            }
-            
-            // 继续轮询
-            attempts++;
-            if (attempts < maxAttempts) {
-                setTimeout(checkStatus, checkInterval);
-            } else {
-                deployStore.addLog(deploymentId, '⏰ 部署状态检查超时', 'warning');
-                deployStore.addLog(deploymentId, `⚠️ 已等待 ${maxAttempts} 秒，停止状态检查`, 'warning');
-                deployStore.addLog(deploymentId, '💡 建议检查后端服务状态或手动查看部署进度', 'info');
-                  // 超时时重置安装状态                localInstalling.value = false;
-                installationSnapshot.value = null; // 清除快照
-                try {
-                    deployStore.setDeploymentStatus(deploymentId, false, false);
-                } catch (error) {
-                    console.warn('设置部署超时状态失败:', error);
-                }
-            }
-        } catch (error) {
-            console.error('获取部署状态失败:', error);
-            
-            // 如果是404错误，说明实例还未开始部署，继续等待
-            if (error.response?.status === 404) {
-                console.log('实例尚未开始部署，继续等待...');
-                deployStore.addLog(deploymentId, '⌛ 等待实例开始部署...', 'info');
-                attempts++;
-                if (attempts < maxAttempts) {
-                    setTimeout(checkStatus, checkInterval);
-                }
-                return;
-            }
-            
-            const errorMsg = error.response?.data?.detail || error.response?.data?.message || error.message || '未知错误';
-            const statusCode = error.response?.status || 'unknown';
-            deployStore.addLog(deploymentId, `❌ 状态检查失败 (HTTP ${statusCode}): ${errorMsg}`, 'error');
-            deployStore.addLog(deploymentId, `🔍 错误详情: ${JSON.stringify(error.response?.data || error.message)}`, 'error');
-            
-            attempts++;
-            if (attempts < maxAttempts) {
-                setTimeout(checkStatus, checkInterval);
-            }
+// **修复5: 监听 deployStore 状态变化，自动同步本地状态**
+watch(
+    () => deployStore.currentDeployment?.installing,
+    (installing) => {
+        if (installing !== undefined) {
+            localInstalling.value = installing;
         }
-    };
+    },
+    { immediate: true }
+);
 
-    // 开始第一次检查
-    setTimeout(checkStatus, checkInterval);
-};
+watch(
+    () => deployStore.currentDeployment?.installComplete,
+    (completed) => {
+        if (completed) {
+            localInstalling.value = false;
+            installationSnapshot.value = null;
+            
+            // 显示完成消息
+            toastService.success('实例安装完成！');
+        }
+    }
+);
+
+watch(
+    () => deployStore.currentDeployment?.error,
+    (error) => {
+        if (error) {
+            localInstalling.value = false;
+            installationSnapshot.value = null;
+        }
+    }
+);
+
+// **修复2: 移除重复的状态跟踪，统一使用 deployStore 的轮询机制**
+// 不再需要 startDeploymentStatusTracking 函数，deployStore.startDeployment 会自动处理状态跟踪
 
 // 清空安装日志
 const clearInstallLogs = () => {
     deployStore.clearLogs();
 };
 
-// 开始安装流程 (使用新的Toast系统)
+// 开始安装流程 (统一部署逻辑，避免重复调用)
 const startInstall = async () => {
     console.log('=== 开始安装流程 ===');
-    console.log('canInstall.value:', canInstall.value);
-    console.log('localInstalling.value:', localInstalling.value);
-    console.log('eulaAgreed.value:', eulaAgreed.value);
-    console.log('installPath.value:', installPath.value);
-    console.log('instanceName.value:', instanceName.value);
-    console.log('selectedVersion.value:', selectedVersion.value);
     
     if (!canInstall.value) {
         console.log('canInstall检查失败');
@@ -1183,7 +1042,9 @@ const startInstall = async () => {
 
     // 规范化安装路径
     const normalizedInstallPath = normalizePath(installPath.value);
-    installPath.value = normalizedInstallPath;    // 设置安装状态
+    installPath.value = normalizedInstallPath;
+
+    // 设置安装状态
     localInstalling.value = true;
 
     // 创建安装配置快照，防止页面切换时数据混乱
@@ -1195,7 +1056,8 @@ const startInstall = async () => {
         napcatPort: servicePorts['napcat-ada'] || '8095'
     };
 
-    try {// 准备部署配置
+    try {
+        // 准备部署配置
         const installServices = [];
         if (selectedServices['napcat-ada']) {
             installServices.push({
@@ -1204,16 +1066,8 @@ const startInstall = async () => {
                 port: parseInt(servicePorts['napcat-ada']),
                 run_cmd: 'python main.py'
             });
-        }        // 调试信息：检查路径来源
-        const savedDeploymentPath = getSafeDeploymentPath();
-        const defaultPath = getDefaultDeploymentPath();
-        console.log('调试路径信息:', {
-            savedDeploymentPath,
-            defaultPath,
-            installPath: installPath.value,
-            instanceName: instanceName.value
-        });
-        
+        }
+
         // 最后一次安全检查：如果installPath包含错误路径，强制修正
         if (installPath.value && installPath.value.includes('MaiBot\\MaiBot')) {
             console.error('检测到installPath包含错误路径，强制修正:', installPath.value);
@@ -1224,97 +1078,26 @@ const startInstall = async () => {
         
         // 部署配置（路径由后端处理展开）
         const deployConfig = {
-            instanceName: instanceName.value,
+            instance_name: instanceName.value,
             version: selectedVersion.value,
-            ports: {
-                web: parseInt(maibotPort.value),
-                napcat: parseInt(servicePorts['napcat-ada'] || '3001')
-            },
-            installPath: installPath.value,
-            installServices: installServices,
+            install_path: installPath.value,
+            port: parseInt(maibotPort.value),
+            install_services: installServices,
             host: "127.0.0.1",
             token: ""
-        };console.log('最终部署配置:', deployConfig);        // 创建 deployStore 记录，以便日志组件能显示数据
-        const deploymentId = deployStore.createDeployment(deployConfig);
+        };
+
+        console.log('最终部署配置:', deployConfig);
+
+        // **修复1: 统一使用 deployStore.startDeployment，避免重复API调用**
+        const result = await deployStore.startDeployment(deployConfig);
         
-        // 立即设置安装状态，确保UI显示日志区域
-        // 临时解决方案：直接设置localInstalling来触发UI显示
-        try {
-            deployStore.setDeploymentStatus(deploymentId, true, false);
-        } catch (error) {
-            console.warn('setDeploymentStatus方法调用失败，使用fallback方案:', error);
-        }
-          deployStore.addLog(deploymentId, `🚀 开始部署实例: ${instanceName.value}`, 'info');
-        deployStore.addLog(deploymentId, `📦 版本: ${selectedVersion.value}`, 'info');
-        deployStore.addLog(deploymentId, `📁 安装路径: ${installPath.value}`, 'info');
-        deployStore.addLog(deploymentId, `🌐 MaiBot端口: ${maibotPort.value}`, 'info');
-        if (selectedServices['napcat-ada']) {
-            deployStore.addLog(deploymentId, `🔌 Napcat-ada端口: ${servicePorts['napcat-ada']}`, 'info');
-        }
-        deployStore.addLog(deploymentId, `📋 部署配置: ${JSON.stringify(deployConfig, null, 2)}`, 'info');
-        
-        // 使用新的带Toast的部署API
-        console.log('开始使用Toast系统部署实例:', deployConfig);
-          // 这里会自动检查当前页面，如果在下载页就不显示Toast
-        const result = await deployWithToast(selectedVersion.value, deployConfig);
-        
-        console.log('部署API响应:', result);
-        
-        // 更健壮的成功检查 - 支持多种成功判断条件        // 详细的响应分析和日志
-        console.log('完整的部署响应:', {
-            result,
-            resultType: typeof result,
-            resultKeys: result ? Object.keys(result) : 'null',
-            success: result?.success,
-            successType: typeof result?.success,
-            message: result?.message,
-            instance_id: result?.instance_id
-        });        // 更精确的成功判断逻辑，修复消息包含"部署任务已启动"时的判断问题
-        const isSuccess = result && (
-            result.success === true || 
-            result.success === "true" ||
-            result.success === 1 ||
-            String(result.success).toLowerCase() === 'true' ||
-            (result.message && result.message.includes("部署任务已启动")) ||
-            (result.message && result.message.includes("已启动") && result.instance_id) ||
-            (result.instance_id && result.message) // 有实例ID和消息就认为成功
-        );
-        
-        console.log(`部署成功判断: isSuccess=${isSuccess}, success=${result?.success}, message="${result?.message}", instance_id=${result?.instance_id}`);
-        
-        if (isSuccess) {
-            console.log('部署启动成功，Toast系统将显示进度');
-            // 修复日志级别：包含"部署任务已启动"的消息应该是info级别，不是error
-            const logLevel = result.message && result.message.includes("部署任务已启动") ? 'info' : 'success';
-            deployStore.addLog(deploymentId, `✅ 部署请求已发送，实例ID: ${result.instance_id}`, logLevel);
-            deployStore.addLog(deploymentId, `📝 后端响应: ${result.message}`, 'info');
-            
-            try {
-                // 开始轮询部署状态并同步到日志
-                console.log('开始调用startDeploymentStatusTracking');
-                startDeploymentStatusTracking(deploymentId, result.instance_id);
-                console.log('startDeploymentStatusTracking调用成功');
-            } catch (trackingError) {
-                console.error('startDeploymentStatusTracking调用失败:', trackingError);
-                // 即使轮询失败，也不应该显示启动失败
-                deployStore.addLog(deploymentId, `⚠️ 状态跟踪启动失败，但部署已开始: ${trackingError.message}`, 'warning');            }
-            
-            console.log('部署请求已成功发送，实例ID:', result.instance_id);
-            
-            // 注意：这里不重置 localInstalling，让它保持 true 以显示安装进度UI
-        } else {
-            console.error('部署启动失败:', result?.message || '未知错误');
-            deployStore.addLog(deploymentId, `❌ 部署启动失败: ${result?.message || '未知错误'}`, 'error');
-            // 修复Toast类型：只有真正失败时才显示error toast
-            toastService.error(`部署启动失败: ${result?.message || '未知错误'}`);
-            
-            // 部署启动失败时，重置安装状态和快照
-            localInstalling.value = false;
-            installationSnapshot.value = null;        }
+        console.log('部署启动结果:', result);
         
         // 触发实例列表刷新
         emit('refresh');
         instanceStore.fetchInstances(true);
+        
     } catch (error) {
         console.error('安装过程出错:', error);
         enhancedToastService.showError('安装失败', error, {
@@ -1325,20 +1108,11 @@ const startInstall = async () => {
                 installPath: installPath.value
             }
         });
-          // 出现错误时重置安装状态
-        localInstalling.value = false;
-        installationSnapshot.value = null; // 清除快照
         
-        // 如果有当前部署，也重置其installing状态
-        if (deployStore.currentDeployment) {
-            try {
-                deployStore.setDeploymentStatus(deployStore.currentDeployment.id, false);
-            } catch (setStatusError) {
-                console.warn('重置部署状态失败:', setStatusError);
-            }
-        }
+        // 出现错误时重置安装状态
+        localInstalling.value = false;
+        installationSnapshot.value = null;
     }
-    // 注意：移除了finally块，因为成功启动部署后应该保持installing状态
 };
 
 // 安装配置快照，防止页面切换时数据混乱

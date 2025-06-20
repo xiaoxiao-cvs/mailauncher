@@ -167,22 +167,31 @@ export const useDeployStore = defineStore("deploy", () => {
       startTime: null,
       endTime: null,
       error: null,
+      lastLogOffset: 0, // 用于跟踪已处理的后端日志数量，避免重复显示
     };
 
     deployments.set(deploymentId, deployment);
     currentDeploymentId.value = deploymentId;
     return deploymentId;
-  };
-  // 添加日志到指定部署（带去重功能）
+  };  // 添加日志到指定部署（带去重功能和智能过滤）
   const addLog = (deploymentId, message, level = "info") => {
     const deployment = deployments.get(deploymentId);
     if (!deployment) return;
+
+    // 智能过滤：过滤掉过于详细的技术日志
+    if (shouldFilterLog(message)) {
+      console.log(`🚫 过滤详细日志: "${message}"`);
+      return;
+    }
+
+    // 简化日志消息
+    const simplifiedMessage = simplifyLogMessage(message);
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString("zh-CN");
     
     // 生成日志唯一键用于去重
-    const logKey = generateLogKey(message, level);
+    const logKey = generateLogKey(simplifiedMessage, level);
     
     // 初始化去重缓存
     if (!deployment.logDeduplicationCache) {
@@ -207,7 +216,7 @@ export const useDeployStore = defineStore("deploy", () => {
         deployment.logs[existingLogIndex].time = timeStr; // 更新为最新时间
       }
       
-      console.log(`📋 去重日志: "${message}" (计数: ${cachedLog.count})`);
+      console.log(`📋 去重日志: "${simplifiedMessage}" (计数: ${cachedLog.count})`);
       return; // 不添加新的日志条目
     }
     
@@ -216,7 +225,7 @@ export const useDeployStore = defineStore("deploy", () => {
     const newLog = {
       id: logId,
       time: timeStr,
-      message: message,
+      message: simplifiedMessage,
       level: level,
       count: 1
     };
@@ -238,8 +247,8 @@ export const useDeployStore = defineStore("deploy", () => {
     }
 
     // 限制日志数量，避免内存溢出
-    if (deployment.logs.length > 1000) {
-      deployment.logs.splice(0, 100); // 删除最早的 100 条日志
+    if (deployment.logs.length > 200) { // 降低日志数量限制
+      deployment.logs.splice(0, 50); // 删除最早的 50 条日志
       // 同时清理对应的缓存
       deployment.logDeduplicationCache.clear();
     }
@@ -249,9 +258,75 @@ export const useDeployStore = defineStore("deploy", () => {
       scrollTrigger.value++;
     }
     
-    console.log(`📝 新增日志: "${message}"`);
+    console.log(`📝 新增日志: "${simplifiedMessage}"`);
   };
-  
+    // 日志过滤和分类函数
+  const shouldFilterLog = (message) => {
+    if (!message || typeof message !== 'string') return false;
+    
+    const msg = message.toLowerCase();
+    
+    // 过滤掉过于详细的技术日志
+    const verbosePatterns = [
+      'collecting',
+      'downloading',
+      'using cached',
+      'building wheel',
+      'installing collected packages',
+      'successfully installed',
+      'requirement already satisfied',
+      'obtaining file://',
+      'installing build dependencies',
+      'getting requirements to build wheel',
+      'preparing metadata',
+      'cloning into',
+      'already up to date',
+      'checking connectivity',
+      'resolving deltas',
+      'compressing objects',
+      'writing objects'
+    ];
+    
+    // 如果消息包含这些模式，则过滤掉
+    for (const pattern of verbosePatterns) {
+      if (msg.includes(pattern)) {
+        return true; // 需要过滤
+      }
+    }
+    
+    return false; // 不需要过滤
+  };
+
+  // 简化日志消息函数
+  const simplifyLogMessage = (message) => {
+    if (!message || typeof message !== 'string') return message;
+    
+    let simplified = message;
+    
+    // 简化Git相关消息
+    if (simplified.includes('Git克隆进行中')) {
+      simplified = simplified.replace(/已用时\d+秒/, '进行中...');
+    }
+    
+    // 简化Python依赖安装消息
+    if (simplified.includes('执行依赖安装命令:')) {
+      simplified = '📦 正在安装Python依赖包...';
+    }
+    
+    // 简化文件路径
+    simplified = simplified.replace(/[A-Z]:\\[^\\]*\\[^\\]*\\[^\\]*\\/, '...\\');
+    
+    // 移除过长的命令行参数
+    if (simplified.length > 150) {
+      const parts = simplified.split(' ');
+      if (parts.length > 10) {
+        simplified = parts.slice(0, 8).join(' ') + ' ...';
+      }
+    }
+    
+    return simplified;
+  };
+
   // 生成日志唯一键的辅助函数
   const generateLogKey = (message, level) => {
     if (!message) return `${level}||empty_message`;
@@ -268,6 +343,12 @@ export const useDeployStore = defineStore("deploy", () => {
       cleanMessage = cleanMessage.replace(/安装状态: .*/, '安装状态: [状态]');
     } else if (cleanMessage.includes('Progress:') && cleanMessage.includes('%')) {
       cleanMessage = cleanMessage.replace(/\d+(\.\d+)?%/g, 'X%');
+    } else if (cleanMessage.includes('Git克隆进行中')) {
+      cleanMessage = 'Git克隆进行中';
+    } else if (cleanMessage.includes('执行依赖安装命令:')) {
+      cleanMessage = '执行依赖安装命令';
+    } else if (cleanMessage.includes('Python依赖包')) {
+      cleanMessage = 'Python依赖包安装';
     }
     
     return `${level}||${cleanMessage}`;
@@ -390,22 +471,27 @@ export const useDeployStore = defineStore("deploy", () => {
     if (installComplete !== null) {
       deployment.installComplete = installComplete;
     }
-  };
-  // 检查安装状态（轮询方案）
+  };  // 检查安装状态（轮询方案）
   const checkInstallStatus = async (deploymentId) => {
     const deployment = deployments.get(deploymentId);
-    if (!deployment || !deployment.instanceId) return;
+    if (!deployment || !deployment.instanceId) {
+      console.log('❌ checkInstallStatus: 部署或实例ID不存在', { deploymentId, deployment });
+      return;
+    }
 
     try {
       console.log(
-        `检查部署 ${deploymentId} 的安装状态，实例ID: ${deployment.instanceId}`
+        `🔍 [调试] 检查部署 ${deploymentId} 的安装状态，实例ID: ${deployment.instanceId}`
       );
-
-      const response = await deployApi.checkInstallStatus(
+      
+      // 添加时间戳，确认轮询在执行
+      const currentTime = new Date().toLocaleTimeString();
+      addLog(deploymentId, `🔍 [${currentTime}] 正在检查安装状态...`, "info");      const response = await deployApi.checkInstallStatus(
         deployment.instanceId
       );
 
-      console.log(`收到安装状态响应:`, response);
+      console.log(`📥 [调试] 收到安装状态响应:`, response);
+      addLog(deploymentId, `� [调试] API响应: ${JSON.stringify(response)}`, "info");
 
       // 修复响应解析逻辑 - 处理嵌套的 data 字段
       let statusData = response;
@@ -478,14 +564,111 @@ export const useDeployStore = defineStore("deploy", () => {
           
           // 记录最后一次状态消息
           deployment.lastStatusMessage = statusData.message;
-        }
-
-        // 如果有详细日志，逐条添加
+        }        // 如果有详细日志，智能处理（批量过滤和分类）
         if (statusData.logs && Array.isArray(statusData.logs)) {
-          statusData.logs.forEach((log) => {
-            addLog(deploymentId, log.message || log, log.level || "info");
+          console.log('🔍 后端返回logs数组:', statusData.logs.length, '条日志');
+          console.log('🔍 当前lastLogOffset:', deployment.lastLogOffset || 0);
+          
+          // 初始化日志偏移量，确保不重复显示已处理的日志
+          if (!deployment.lastLogOffset) {
+            deployment.lastLogOffset = 0;
+          }
+          
+          // 只处理新增的日志
+          const newLogs = statusData.logs.slice(deployment.lastLogOffset);
+          console.log('🔍 新增日志数量:', newLogs.length);
+          
+          // 智能分类和过滤新日志
+          const importantLogs = [];
+          const categories = {
+            git: [],
+            python: [],
+            progress: [],
+            error: [],
+            success: []
+          };
+          
+          newLogs.forEach((log) => {
+            if (!log || (!log.message && typeof log !== 'string')) return;
+            
+            const logMessage = log.message || log;
+            const logLevel = log.level || "info";
+            
+            // 过滤掉过于详细的日志
+            if (shouldFilterLog(logMessage)) {
+              return; // 跳过这条日志
+            }
+            
+            // 分类日志
+            const msg = logMessage.toLowerCase();
+            if (msg.includes('git') || msg.includes('clone') || msg.includes('克隆')) {
+              categories.git.push({ message: logMessage, level: logLevel, timestamp: log.timestamp });
+            } else if (msg.includes('python') || msg.includes('pip') || msg.includes('依赖')) {
+              categories.python.push({ message: logMessage, level: logLevel, timestamp: log.timestamp });
+            } else if (msg.includes('progress') || msg.includes('进度') || msg.includes('%')) {
+              categories.progress.push({ message: logMessage, level: logLevel, timestamp: log.timestamp });
+            } else if (msg.includes('error') || msg.includes('failed') || msg.includes('错误') || msg.includes('失败')) {
+              categories.error.push({ message: logMessage, level: logLevel, timestamp: log.timestamp });
+            } else if (msg.includes('success') || msg.includes('completed') || msg.includes('成功') || msg.includes('完成')) {
+              categories.success.push({ message: logMessage, level: logLevel, timestamp: log.timestamp });
+            } else {
+              // 其他重要日志
+              importantLogs.push({ message: logMessage, level: logLevel, timestamp: log.timestamp });
+            }
           });
-        } // 检查是否已安装完成
+          
+          // 对每个分类进行合并处理
+          Object.entries(categories).forEach(([category, logs]) => {
+            if (logs.length === 0) return;
+            
+            if (category === 'git' && logs.length > 3) {
+              // Git日志合并显示
+              const firstLog = logs[0];
+              const lastLog = logs[logs.length - 1];
+              addLog(deploymentId, `🔄 Git操作: ${firstLog.message}`, firstLog.level);
+              if (logs.length > 1) {
+                addLog(deploymentId, `� Git进度: ${logs.length}个步骤完成`, "info");
+              }
+              addLog(deploymentId, `✅ Git操作完成: ${lastLog.message}`, lastLog.level);
+            } else if (category === 'python' && logs.length > 5) {
+              // Python依赖安装日志合并
+              addLog(deploymentId, `🐍 Python依赖安装开始`, "info");
+              addLog(deploymentId, `📦 正在安装 ${logs.length} 个依赖包...`, "info");
+              // 只显示重要的Python日志
+              logs.filter(log => 
+                log.message.includes('成功') || 
+                log.message.includes('完成') || 
+                log.message.includes('错误') ||
+                log.message.includes('失败')
+              ).forEach(log => {
+                const timestamp = log.timestamp ? `[${log.timestamp}] ` : '';
+                addLog(deploymentId, `${timestamp}${log.message}`, log.level);
+              });
+            } else {
+              // 其他分类正常显示，但限制数量
+              const logsToShow = logs.slice(0, 3); // 最多显示3条
+              logsToShow.forEach(log => {
+                const timestamp = log.timestamp ? `[${log.timestamp}] ` : '';
+                addLog(deploymentId, `${timestamp}${log.message}`, log.level);
+              });
+              
+              if (logs.length > 3) {
+                addLog(deploymentId, `📋 ${category}分类还有${logs.length - 3}条日志...`, "info");
+              }
+            }
+          });
+          
+          // 显示其他重要日志
+          importantLogs.forEach(log => {
+            const timestamp = log.timestamp ? `[${log.timestamp}] ` : '';
+            addLog(deploymentId, `${timestamp}${log.message}`, log.level);
+          });
+          
+          // 更新日志偏移量
+          deployment.lastLogOffset = statusData.logs.length;
+          console.log('🔍 更新lastLogOffset为:', deployment.lastLogOffset);
+          console.log('🔍 当前deployment.logs长度:', deployment.logs.length);
+        }// 检查是否已安装完成
         const status = statusData.status || statusData.install_status;
         if (status === "completed" || progress >= 100) {
           deployment.installComplete = true;
@@ -605,8 +788,7 @@ export const useDeployStore = defineStore("deploy", () => {
         });
       }
     }
-  };
-  // 开始部署
+  };  // **修复3: 优化部署启动逻辑，避免重复轮询**
   const startDeployment = async (config) => {
     const deploymentId = createDeployment(config);
     const deployment = deployments.get(deploymentId);
@@ -645,7 +827,9 @@ export const useDeployStore = defineStore("deploy", () => {
         deploymentId,
         `📋 部署配置: 实例名="${config.instance_name}", 版本="${config.version}", 路径="${config.install_path}"`,
         "info"
-      ); // 发送部署请求
+      );
+
+      // 发送部署请求
       addLog(deploymentId, "🚀 步骤 2/2: 发送部署请求...", "info");
       addLog(deploymentId, "📤 使用HTTP请求发送部署配置...", "info");
       const deployResponse = await deployApi.deploy(deployConfig);
@@ -655,10 +839,13 @@ export const useDeployStore = defineStore("deploy", () => {
         deploymentId,
         `📤 收到部署响应: ${JSON.stringify(deployResponse)}`,
         "info"
-      );      // 修复响应检查逻辑 - 处理嵌套的 data 字段和多种成功判断条件
+      );
+
+      // 修复响应检查逻辑 - 处理嵌套的 data 字段和多种成功判断条件
       const responseData = deployResponse?.data || deployResponse;
       console.log("解析后的响应数据:", responseData);
-        // 检查成功标志 - 支持多种成功指示，修复对"部署任务已启动"消息的判断
+      
+      // 检查成功标志 - 支持多种成功指示，修复对"部署任务已启动"消息的判断
       const isSuccess = responseData && (
         responseData.success === true || 
         responseData.success === "true" ||
@@ -680,14 +867,18 @@ export const useDeployStore = defineStore("deploy", () => {
         // 显示详细的错误Toast，持续时间更长
         toastService.error(fullErrorMessage, { duration: 8000 });
         throw new Error(fullErrorMessage);
-      }// 检查是否有 instance_id
+      }
+
+      // 检查是否有 instance_id
       if (!responseData.instance_id) {
         addLog(
           deploymentId,
           "⚠️ 警告: 响应中没有实例ID，但部署可能成功",
           "warning"
         );
-      }      deployment.instanceId = responseData.instance_id;
+      }
+
+      deployment.instanceId = responseData.instance_id;
       
       // 修复日志级别：根据消息内容决定日志级别
       const logLevel = responseData.message && responseData.message.includes("部署任务已启动") ? 'info' : 'success';
@@ -697,60 +888,49 @@ export const useDeployStore = defineStore("deploy", () => {
         logLevel
       );
       addLog(deploymentId, `📝 后端响应: ${responseData.message}`, "info");
-      addLog(deploymentId, "🔄 启动状态轮询检查...", "info");// 先注册轮询任务，然后启动
+      addLog(deploymentId, "🔄 启动状态轮询检查...", "info");      // **修复4: 统一轮询管理，避免重复轮询**
       const pollingTaskName = `deploy_status_${deploymentId}`;
       console.log(
-        `准备注册轮询任务: ${pollingTaskName}，部署ID: ${deploymentId}`
+        `🔄 [调试] 准备注册轮询任务: ${pollingTaskName}，部署ID: ${deploymentId}`
       );
-
-      pollingStore.registerPollingTask(
-        pollingTaskName,
-        () => checkInstallStatus(deploymentId),
-        {
+      
+      // 调试信息：检查 pollingStore 对象
+      console.log('🔄 [调试] pollingStore 对象:', pollingStore);
+      console.log('🔄 [调试] pollingStore.pollingTasks:', pollingStore.pollingTasks);
+      console.log('🔄 [调试] pollingTasks 类型:', typeof pollingStore.pollingTasks);
+      
+      // 确保不会重复注册轮询 - 使用正确的API检查轮询任务是否存在
+      if (pollingStore.pollingTasks.has(pollingTaskName)) {
+        console.log(`⚠️ [调试] 轮询任务 ${pollingTaskName} 已存在，跳过注册`);
+      } else {
+        console.log(`🆕 [调试] 开始注册新的轮询任务: ${pollingTaskName}`);
+        
+        // 先注册轮询任务
+        pollingStore.registerPollingTask(pollingTaskName, async () => {
+          console.log(`🔄 [调试] 执行轮询回调: ${pollingTaskName}`);
+          await checkInstallStatus(deploymentId);
+        }, {
           interval: 2000, // 每2秒检查一次
           enabled: true,
-          priority: "high",
-        }
-      );
-
-      console.log(`轮询任务 ${pollingTaskName} 注册完成，开始启动`);
-
-      // 启动轮询任务
-      const startResult = pollingStore.startPolling(pollingTaskName);
-      if (!startResult) {
-        throw new Error(`轮询任务 ${pollingTaskName} 启动失败`);
-      }
-
-      console.log(`轮询任务 ${pollingTaskName} 启动成功`);
-
-      return deploymentId;
+          priority: "high"
+        });
+        
+        // 然后启动轮询
+        const startResult = pollingStore.startPolling(pollingTaskName);
+        console.log(`✅ [调试] 轮询任务注册和启动结果: ${startResult}`);
+      }return {
+        success: true,
+        deploymentId,
+        instanceId: deployment.instanceId,
+        message: responseData.message || "部署已启动",
+      };
     } catch (error) {
-      console.error("安装过程出错:", error);
-
-      // 构建详细的错误信息
-      let errorMessage = error.message || "未知错误";
-      if (error.response?.data) {
-        const errorData = error.response.data;
-        if (errorData.detail) {
-          errorMessage += ` (详细: ${errorData.detail})`;
-        } else if (errorData.message && errorData.message !== error.message) {
-          errorMessage += ` (后端: ${errorData.message})`;
-        }
-      }
-
-      addLog(deploymentId, `❌ 安装失败: ${errorMessage}`, "error");      // 显示详细的错误Toast，持续时间更长
-      const currentTab = window.currentActiveTab || 'unknown';
-      console.log('安装过程出错，当前页面:', currentTab);
-      
-      if (currentTab !== 'downloads') {
-        toastService.error(`安装失败: ${errorMessage}`, { duration: 10000 });
-      } else {
-        console.log('当前在下载页面，不显示安装错误Toast');
-      }
-
+      console.error("部署失败:", error);
       deployment.installing = false;
-      deployment.error = errorMessage;
+      deployment.error = error.message;
       deployment.endTime = new Date();
+
+      addLog(deploymentId, `❌ 部署启动失败: ${error.message}`, "error");
       throw error;
     }
   };

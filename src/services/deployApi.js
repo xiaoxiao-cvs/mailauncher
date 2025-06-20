@@ -43,85 +43,101 @@ const getServices = async () => {
   }
 };
 
+// 防重复调用的请求缓存
+const activeRequests = new Map();
+
+const preventDuplicateRequest = async (key, requestFn) => {
+  if (activeRequests.has(key)) {
+    console.log(`防止重复请求: ${key}，等待已存在的请求完成`);
+    return await activeRequests.get(key);
+  }
+  
+  const requestPromise = requestFn().finally(() => {
+    activeRequests.delete(key);
+  });
+  
+  activeRequests.set(key, requestPromise);
+  return requestPromise;
+};
+
 /**
- * 部署指定版本
+ * 部署指定版本 - **修复6: 添加重复调用防护机制**
  * @param {Object} config - 部署配置
- * @param {string} config.instance_name - 实例名称
- * @param {Array} config.install_services - 要安装的服务列表
- * @param {string} config.install_path - 安装路径
- * @param {number} config.port - 端口
- * @param {string} config.version - 版本
- * @param {string} [config.websocket_session_id] - WebSocket会话ID（用于实时日志）
  * @returns {Promise<Object>} 部署结果
  */
 const deploy = async (config) => {
-  try {
-    console.log("发送部署请求:", config);
+  const requestKey = `deploy-${config.instance_name}-${config.version}`;
+  
+  return preventDuplicateRequest(requestKey, async () => {
+    try {
+      console.log("发送部署请求:", config);
 
-    // 构建请求配置
-    const requestConfig = {
-      timeout: config.websocket_session_id ? 30000 : 15000, // WebSocket模式使用更长超时
-    };
-
-    // 如果有WebSocket会话ID，添加到请求头
-    if (config.websocket_session_id) {
-      requestConfig.headers = {
-        "X-WebSocket-Session-ID": config.websocket_session_id,
+      // 构建请求配置
+      const requestConfig = {
+        timeout: config.websocket_session_id ? 30000 : 15000, // WebSocket模式使用更长超时
       };
-      console.log("添加WebSocket会话ID到请求头:", config.websocket_session_id);
-    }    const response = await apiService.post(
-      "/api/v1/deploy/deploy",
-      config,
-      requestConfig
-    );
-    console.log("deploy响应:", response);
 
-    // 确保返回正确的数据结构
-    const responseData = response?.data || response;
-    console.log("解析后的响应数据:", responseData);
+      // 如果有WebSocket会话ID，添加到请求头
+      if (config.websocket_session_id) {
+        requestConfig.headers = {
+          "X-WebSocket-Session-ID": config.websocket_session_id,
+        };
+        console.log("添加WebSocket会话ID到请求头:", config.websocket_session_id);
+      }      const response = await apiService.post(
+        "/api/v1/deploy/deploy",
+        config,
+        requestConfig
+      );
 
-    return responseData;
-  } catch (error) {
-    console.error("部署失败:", error);
-    console.error("错误详情:", {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      code: error.code,
-    });
+      console.log("deploy响应:", response);
+      
+      // 确保返回正确的数据结构
+      const responseData = response?.data || response;
+      console.log("解析后的响应数据:", responseData);
 
-    // 增强错误信息
-    if (error.code === "ECONNABORTED") {
-      throw new Error("部署请求超时，但后端可能正在处理，请查看实时日志");
-    } // 如果有响应数据，尝试提取错误信息
-    if (error.response?.data) {
-      const errorData = error.response.data;
-
-      // 处理结构化错误信息
-      if (typeof errorData === "object") {
-        let errorMessage =
-          errorData.message || errorData.detail || error.message;
-
-        // 如果有更详细的信息，添加到错误消息中
-        if (errorData.detail && errorData.detail !== errorData.message) {
-          errorMessage += ` (${errorData.detail})`;
-        }
-
-        // 如果有建议信息，也添加进去
-        if (errorData.suggestion) {
-          errorMessage += ` 建议: ${errorData.suggestion}`;
-        }
-
-        throw new Error(errorMessage);
-      } else {
-        // 如果是字符串格式的错误
-        const errorMessage = errorData || error.message;
-        throw new Error(errorMessage);
+      return responseData;
+    } catch (error) {
+      console.error("部署失败:", error);
+      console.error("错误详情:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        code: error.code,
+      });      // 增强错误信息
+      if (error.code === "ECONNABORTED") {
+        throw new Error("部署请求超时，但后端可能正在处理，请查看实时日志");
       }
-    }
+      
+      // 如果有响应数据，尝试提取错误信息
+      if (error.response?.data) {
+        const errorData = error.response.data;
 
-    throw error;
-  }
+        // 处理结构化错误信息
+        if (typeof errorData === "object") {
+          let errorMessage =
+            errorData.message || errorData.detail || error.message;
+
+          // 如果有更详细的信息，添加到错误消息中
+          if (errorData.detail && errorData.detail !== errorData.message) {
+            errorMessage += ` (${errorData.detail})`;
+          }
+
+          // 如果有建议信息，也添加进去
+          if (errorData.suggestion) {
+            errorMessage += ` 建议: ${errorData.suggestion}`;
+          }
+
+          throw new Error(errorMessage);
+        } else {
+          // 如果是字符串格式的错误
+          const errorMessage = errorData || error.message;
+          throw new Error(errorMessage);
+        }
+      }
+
+      throw error;
+    }
+  });
 };
 
 const deployVersion = async (version, instanceName) => {
@@ -161,12 +177,16 @@ const configureBot = async (config) => {
  */
 const checkInstallStatus = async (instanceId = null) => {
   try {
-    console.log("检查安装状态", instanceId ? `实例ID: ${instanceId}` : "");    const url = instanceId
+    console.log("🔍 [调试] checkInstallStatus调用", instanceId ? `实例ID: ${instanceId}` : "");
+    
+    const url = instanceId
       ? `/api/v1/deploy/install-status/${instanceId}`
       : "/api/v1/deploy/install-status";
+    
+    console.log("🔍 [调试] 请求URL:", url);
     const response = await apiService.get(url);
 
-    console.log("checkInstallStatus响应:", response);
+    console.log("🔍 [调试] checkInstallStatus响应:", response);
     return response.data || response;
   } catch (error) {
     console.error("检查安装状态失败:", error);
@@ -190,32 +210,8 @@ const getInstances = async () => {
     console.log("getInstances响应:", response);
     return response.data || response;
   } catch (error) {
-    console.error("获取实例列表失败:", error);
-    throw error;
+    console.error("获取实例列表失败:", error);    throw error;
   }
-};
-
-// 添加请求防重复保护
-const activeRequests = new Map();
-
-/**
- * 防重复请求包装器
- * @param {string} key - 请求唯一标识
- * @param {Function} requestFunc - 请求函数
- * @returns {Promise} - 请求结果
- */
-const preventDuplicateRequest = async (key, requestFunc) => {
-  if (activeRequests.has(key)) {
-    console.log(`重复请求被拦截: ${key}`);
-    return activeRequests.get(key);
-  }
-
-  const requestPromise = requestFunc().finally(() => {
-    activeRequests.delete(key);
-  });
-
-  activeRequests.set(key, requestPromise);
-  return requestPromise;
 };
 
 /**
@@ -309,7 +305,8 @@ export { checkInstallStatus, getInstances };
 
 export default {
   fetchVersions, // 主要方法
-  getVersions, // 别名方法  getServices, // 获取服务列表
+  getVersions, // 别名方法
+  getServices, // 获取服务列表
   deploy, // 部署方法
   deployVersion, // 部署指定版本
   configureBot, // 配置Bot
