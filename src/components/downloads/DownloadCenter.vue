@@ -3,7 +3,7 @@
         <div class="version-select-container">
             <div class="card rounded-xl bg-base-100 p-5 shadow-md">                <!-- 安装方式选择页面 -->
                 <transition name="page-fade" mode="out-in">
-                    <div v-if="currentStep === 'select-mode' && !installing" key="select-mode" class="install-mode-selection">
+                    <div v-if="currentStep === 'select-mode' && !installing && !installComplete" key="select-mode" class="install-mode-selection">
                         <div class="card-title mb-6 text-center">选择安装方式</div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -39,10 +39,8 @@
                                 </button>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- 添加已有实例页面 -->
-                    <div v-else-if="currentStep === 'existing-instance'" key="existing-instance"
+                    </div>                    <!-- 添加已有实例页面 -->
+                    <div v-else-if="currentStep === 'existing-instance' && !installComplete" key="existing-instance"
                         class="existing-instance-setup">
                         <div class="flex items-center mb-6">
                             <button @click="goBack"
@@ -224,10 +222,8 @@
                                 </button>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- 下载新实例页面 -->
-                    <div v-else-if="currentStep === 'new-instance'" key="new-instance" class="new-instance-setup">
+                    </div>                    <!-- 下载新实例页面 -->
+                    <div v-else-if="currentStep === 'new-instance' && !installComplete" key="new-instance" class="new-instance-setup">
                         <div class="flex items-center mb-6">
                             <button @click="goBack"
                                 class="btn btn-ghost btn-sm mr-3 hover:scale-105 transition-transform">
@@ -560,15 +556,145 @@
                                         :disabled="!canInstall || installing">
                                         <span v-if="installing" class="loading loading-spinner loading-xs mr-2"></span>
                                         开始安装
-                                    </button>                                </div>
+                                    </button>                                </div>                            </div>
+                        </transition>                    </div>
+
+                    <!-- 安装完成页面 -->
+                    <div v-else-if="installComplete" key="install-complete" class="install-complete-page">
+                        <div class="card p-6 rounded-xl bg-gradient-to-br from-success/10 to-primary/10 border border-success/20">
+                            <!-- 成功图标和标题 -->
+                            <div class="text-center mb-6">
+                                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-success/20 mb-4 animate-pulse">
+                                    <svg class="w-12 h-12 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </div>
+                                <h2 class="text-2xl font-bold text-success mb-2">🎉 安装完成！</h2>
+                                <p class="text-base-content/70">您的 MaiBot 实例已成功安装并配置完成</p>
                             </div>
-                        </transition>
+
+                            <!-- 安装概览 -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                <!-- 基本信息 -->
+                                <div class="card bg-base-100 p-4 shadow-sm">
+                                    <h3 class="font-semibold text-base-content mb-3 flex items-center">
+                                        <svg class="w-5 h-5 mr-2 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        实例信息
+                                    </h3>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="flex justify-between">
+                                            <span class="text-base-content/70">实例名称:</span>
+                                            <span class="font-medium">{{ installationSnapshot?.instanceName }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-base-content/70">版本:</span>
+                                            <span class="font-medium">{{ installationSnapshot?.version }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-base-content/70">主端口:</span>
+                                            <span class="font-medium">{{ installationSnapshot?.maibotPort }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-base-content/70">适配器端口:</span>
+                                            <span class="font-medium">{{ installationSnapshot?.napcatPort }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 统计信息 -->
+                                <div class="card bg-base-100 p-4 shadow-sm">
+                                    <h3 class="font-semibold text-base-content mb-3 flex items-center">
+                                        <svg class="w-5 h-5 mr-2 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        安装统计
+                                    </h3>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="flex justify-between">
+                                            <span class="text-base-content/70">总用时:</span>
+                                            <span class="font-medium">{{ installDuration }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-base-content/70">安装组件:</span>
+                                            <span class="font-medium">{{ installedServicesCount }} 个</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-base-content/70">完成时间:</span>
+                                            <span class="font-medium">{{ completionTime }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-base-content/70">状态:</span>
+                                            <span class="badge badge-success badge-sm">运行中</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 安装路径信息 -->
+                            <div class="card bg-base-100 p-4 shadow-sm mb-6">
+                                <h3 class="font-semibold text-base-content mb-3 flex items-center">
+                                    <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
+                                    </svg>
+                                    安装位置
+                                </h3>
+                                <div class="bg-base-200 rounded-lg p-3 font-mono text-sm break-all">
+                                    {{ installationSnapshot?.installPath }}
+                                </div>
+                                <div class="flex justify-end mt-2">
+                                    <button class="btn btn-sm btn-ghost" @click="copyInstallPath">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                        </svg>
+                                        复制路径
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 下一步建议 -->
+                            <div class="alert alert-info mb-6">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <div>
+                                    <h3 class="font-bold">下一步建议</h3>
+                                    <div class="text-sm mt-1">
+                                        1. 前往「实例管理」页面查看和管理您的实例<br>
+                                        2. 检查实例状态并根据需要启动服务<br>
+                                        3. 查看日志确保所有组件正常运行
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 操作按钮 -->
+                            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                                <button class="btn btn-primary" @click="goToInstances">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                    </svg>
+                                    前往实例管理
+                                </button>
+                                <button class="btn btn-outline" @click="installAnother">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                    </svg>
+                                    安装另一个实例
+                                </button>
+                                <button class="btn btn-ghost" @click="viewLogs">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    查看安装日志                                </button>
+                            </div>
+                        </div>
                     </div>
                 </transition>
                 
                 <!-- 安装进度 -->
                 <transition name="fade">
-                    <div v-if="installing" class="mt-4">
+                    <div v-if="installing && !installComplete" class="mt-4">
                         <div class="install-summary p-3 rounded-lg bg-base-200 mb-4">
                             <div class="font-medium mb-2">安装配置概要</div>
                             <div class="text-sm grid grid-cols-2 gap-x-4 gap-y-2">
@@ -625,11 +751,9 @@
                                 </div>
                             </div>                        </div>
                     </div>
-                </transition>
-                
-                <!-- 安装日志 -->
+                </transition>                  <!-- 安装日志 -->
                 <transition name="fade">
-                    <div v-if="installing" class="mt-4">
+                    <div v-if="(installing && !installComplete) || showLogsInComplete" class="mt-4">
                         <LogsDisplay :logs="logs" @clear-logs="clearInstallLogs" />
                     </div>
                 </transition>
@@ -809,6 +933,30 @@ const installProgress = computed(() => deployStore.currentDeployment?.installPro
 const servicesProgress = computed(() => deployStore.currentDeployment?.servicesProgress || []);
 const logs = computed(() => deployStore.currentDeployment?.logs || []);
 
+// 计算属性 - 安装统计信息
+const installDuration = computed(() => {
+    if (!installStartTime.value || !installEndTime.value) return '未知';
+    
+    const duration = installEndTime.value - installStartTime.value;
+    const minutes = Math.floor(duration / 60000);
+    const seconds = Math.floor((duration % 60000) / 1000);
+    
+    if (minutes > 0) {
+        return `${minutes}分${seconds}秒`;
+    } else {
+        return `${seconds}秒`;
+    }
+});
+
+const installedServicesCount = computed(() => {
+    return Object.keys(selectedServices).filter(key => selectedServices[key]).length + 1; // +1 for MaiBot itself
+});
+
+const completionTime = computed(() => {
+    if (!installEndTime.value) return '未知';
+    return new Date(installEndTime.value).toLocaleString('zh-CN');
+});
+
 // 计算属性 - 是否可以安装新实例
 const canInstall = computed(() => {
     console.log('=== canInstall 计算属性检查 ===');
@@ -976,21 +1124,28 @@ watch(
     () => deployStore.currentDeployment?.installComplete,
     (completed) => {
         if (completed) {
+            // 立即停止显示安装进度，切换到完成页面
             localInstalling.value = false;
-            installationSnapshot.value = null;
+            installEndTime.value = Date.now(); // 记录结束时间
             
             // 显示完成消息
             toastService.success('实例安装完成！');
+            
+            // 确保完成页面立即显示
+            nextTick(() => {
+                console.log('安装完成，切换到完成页面');
+            });
         }
     }
 );
 
 watch(
     () => deployStore.currentDeployment?.error,
-    (error) => {
-        if (error) {
+    (error) => {        if (error) {
             localInstalling.value = false;
             installationSnapshot.value = null;
+            installStartTime.value = null;
+            installEndTime.value = null;
         }
     }
 );
@@ -1042,10 +1197,9 @@ const startInstall = async () => {
 
     // 规范化安装路径
     const normalizedInstallPath = normalizePath(installPath.value);
-    installPath.value = normalizedInstallPath;
-
-    // 设置安装状态
+    installPath.value = normalizedInstallPath;    // 设置安装状态
     localInstalling.value = true;
+    installStartTime.value = Date.now(); // 记录开始时间
 
     // 创建安装配置快照，防止页面切换时数据混乱
     installationSnapshot.value = {
@@ -1108,15 +1262,89 @@ const startInstall = async () => {
                 installPath: installPath.value
             }
         });
-        
-        // 出现错误时重置安装状态
+          // 出现错误时重置安装状态
         localInstalling.value = false;
         installationSnapshot.value = null;
+        installStartTime.value = null;
+        installEndTime.value = null;
     }
 };
 
 // 安装配置快照，防止页面切换时数据混乱
 const installationSnapshot = ref(null);
+
+// 安装完成页面相关状态
+const showLogsInComplete = ref(false);
+const installStartTime = ref(null);
+const installEndTime = ref(null);
+
+// 安装完成页面相关方法
+const copyInstallPath = async () => {
+    if (!installationSnapshot.value?.installPath) return;
+    
+    try {
+        await navigator.clipboard.writeText(installationSnapshot.value.installPath);
+        toastService.success('安装路径已复制到剪贴板');
+    } catch (error) {
+        console.warn('复制到剪贴板失败，使用备用方法');
+        // 备用方法：创建临时文本区域
+        const textArea = document.createElement('textarea');
+        textArea.value = installationSnapshot.value.installPath;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        toastService.success('安装路径已复制到剪贴板');
+    }
+};
+
+const goToInstances = () => {
+    // 触发页面切换到实例管理
+    if (window.emitter) {
+        window.emitter.emit('navigate-to-tab', 'instances');
+    }
+    
+    // 清理完成状态，重置到初始页面
+    resetToInitialState();
+};
+
+const installAnother = () => {
+    // 重置到安装模式选择页面
+    resetToInitialState();
+    currentStep.value = 'select-mode';
+    
+    toastService.info('请选择新的安装方式');
+};
+
+const viewLogs = () => {
+    showLogsInComplete.value = !showLogsInComplete.value;
+};
+
+const resetToInitialState = () => {
+    // 重置所有状态到初始值
+    installationSnapshot.value = null;
+    installStartTime.value = null;
+    installEndTime.value = null;
+    showLogsInComplete.value = false;
+    localInstalling.value = false;
+    
+    // 重置表单数据
+    selectedVersion.value = '';
+    instanceName.value = '';
+    installPath.value = '';
+    maibotPort.value = '8000';
+    eulaAgreed.value = false;
+    
+    // 重置手动设置标记
+    instanceNameManuallySet.value = false;
+    installPathManuallySet.value = false;
+    
+    // 重置路径相关状态
+    resetPathStates();
+    
+    // 清理部署相关状态（使用现有的方法）
+    deployStore.clearLogs();
+};
 
 // 选择安装模式
 const selectInstallMode = (mode) => {
@@ -2630,5 +2858,80 @@ watch(installing, (newValue, oldValue) => {
     opacity: 0;
     transform: translateY(-8px) scale(0.95);
     pointer-events: none;
+}
+
+/* 安装完成页面样式 */
+.install-complete-page {
+    animation: fade-in-up 0.6s ease-out;
+}
+
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.install-complete-page .card {
+    border: 2px solid transparent;
+    background: linear-gradient(135deg, 
+        oklch(var(--su) / 0.1) 0%, 
+        oklch(var(--p) / 0.1) 100%);
+    backdrop-filter: blur(10px);
+}
+
+.install-complete-page .animate-pulse {
+    animation: success-pulse 2s ease-in-out infinite;
+}
+
+@keyframes success-pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+    }
+}
+
+/* 统计卡片悬停效果 */
+.install-complete-page .card.bg-base-100:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+/* 按钮悬停效果 */
+.install-complete-page .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+}
+
+/* 路径显示区域样式 */
+.install-complete-page .font-mono {
+    background: linear-gradient(90deg, 
+        oklch(var(--b2)) 0%, 
+        oklch(var(--b3)) 100%);
+    border: 1px solid oklch(var(--bc) / 0.1);
+}
+
+/* 成功徽章动画 */
+.badge-success {
+    animation: badge-glow 2s ease-in-out infinite;
+}
+
+@keyframes badge-glow {
+    0%, 100% {
+        box-shadow: 0 0 5px oklch(var(--su) / 0.3);
+    }
+    50% {
+        box-shadow: 0 0 15px oklch(var(--su) / 0.6);
+    }
 }
 </style>
