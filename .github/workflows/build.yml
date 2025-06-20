@@ -74,7 +74,8 @@ jobs:
     # 复制后端可执行文件到 Tauri binaries 目录
     - name: Copy backend executable to Tauri binaries
       run: |
-        if (!(Test-Path "src-tauri\binaries")) { New-Item -ItemType Directory -Path "src-tauri\binaries" -Force }        Copy-Item "backend\dist\MaiLauncher-Backend.exe" "src-tauri\binaries\MaiLauncher-Backend-x86_64-pc-windows-msvc.exe"
+        if (!(Test-Path "src-tauri\binaries")) { New-Item -ItemType Directory -Path "src-tauri\binaries" -Force }
+        Copy-Item "backend\dist\MaiLauncher-Backend.exe" "src-tauri\binaries\MaiLauncher-Backend-x86_64-pc-windows-msvc.exe"
 
     # 检查并安装 Node.js
     - name: Setup Node.js 22
