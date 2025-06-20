@@ -1,0 +1,673 @@
+/* 增强亮色主题 - 基于安装完成页面的配色风格 */
+
+/* 全局主题变量定义 */
+:root,
+[data-theme="light"] {
+  /* 基础颜色 - 使用更柔和的色调 */
+  --primary: 219 234 254; /* 蓝色主色调 */
+  --primary-focus: 191 219 254;
+  --primary-content: 30 58 138;
+  
+  --secondary: 236 254 255; /* 青色辅助色 */
+  --secondary-focus: 207 250 254;
+  --secondary-content: 21 94 117;
+  
+  --accent: 254 240 138; /* 黄色强调色 */
+  --accent-focus: 253 224 71;
+  --accent-content: 146 64 14;
+  
+  --neutral: 248 250 252; /* 中性色 */
+  --neutral-focus: 241 245 249;
+  --neutral-content: 51 65 85;
+  
+  --base-100: 255 255 255; /* 主背景 */
+  --base-200: 249 250 251; /* 次级背景 */
+  --base-300: 243 244 246; /* 三级背景 */
+  --base-content: 31 41 55; /* 文字颜色 */
+  
+  --info: 219 234 254; /* 信息色 */
+  --info-content: 30 58 138;
+  
+  --success: 220 252 231; /* 成功色 */
+  --success-content: 21 128 61;
+  
+  --warning: 254 240 138; /* 警告色 */
+  --warning-content: 146 64 14;
+  
+  --error: 254 226 226; /* 错误色 */
+  --error-content: 185 28 28;
+  
+  /* 自定义增强变量 */
+  --gradient-primary: linear-gradient(135deg, oklch(var(--su) / 0.1) 0%, oklch(var(--p) / 0.1) 100%);
+  --gradient-secondary: linear-gradient(135deg, oklch(var(--p) / 0.05) 0%, oklch(var(--s) / 0.05) 100%);
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-medium: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-large: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --blur-amount: 12px;
+}
+
+/* 全局基础样式增强 */
+body,
+html,
+#app {
+  background: linear-gradient(135deg, 
+    oklch(var(--p) / 0.03) 0%, 
+    oklch(var(--s) / 0.03) 50%,
+    oklch(var(--su) / 0.03) 100%);
+  min-height: 100vh;
+}
+
+/* 全局卡片样式增强 */
+.card,
+.card.bg-base-100 {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-amount));
+  -webkit-backdrop-filter: blur(var(--blur-amount));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-soft);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-medium);
+  border-color: oklch(var(--p) / 0.2);
+}
+
+/* 按钮增强样式 */
+.btn {
+  border-radius: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-medium);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, oklch(var(--p)) 0%, oklch(var(--p) / 0.8) 100%);
+  border: none;
+  color: white;
+  box-shadow: 0 4px 12px oklch(var(--p) / 0.3);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, oklch(var(--p) / 0.9) 0%, oklch(var(--p) / 0.7) 100%);
+  box-shadow: 0 6px 20px oklch(var(--p) / 0.4);
+}
+
+.btn-secondary {
+  background: var(--glass-bg);
+  border: 1px solid oklch(var(--p) / 0.2);
+  color: oklch(var(--p));
+}
+
+.btn-secondary:hover {
+  background: oklch(var(--p) / 0.1);
+  border-color: oklch(var(--p) / 0.3);
+}
+
+/* 表单控件增强 */
+.input,
+.textarea,
+.select {
+  background: var(--glass-bg);
+  border: 1px solid oklch(var(--bc) / 0.2);
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+  border-color: oklch(var(--p) / 0.5);
+  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
+  outline: none;
+}
+
+/* 下拉菜单增强 */
+.dropdown-content {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-amount));
+  -webkit-backdrop-filter: blur(var(--blur-amount));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-large);
+  border-radius: 1rem;
+}
+
+/* 模态框增强 */
+.modal-box {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-amount));
+  -webkit-backdrop-filter: blur(var(--blur-amount));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-large);
+  border-radius: 1.5rem;
+}
+
+/* 警告框增强 */
+.alert {
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+}
+
+.alert-success {
+  background: linear-gradient(135deg, 
+    oklch(var(--su) / 0.1) 0%, 
+    oklch(var(--su) / 0.05) 100%);
+  border-color: oklch(var(--su) / 0.3);
+  color: oklch(var(--suc));
+}
+
+.alert-info {
+  background: linear-gradient(135deg, 
+    oklch(var(--in) / 0.1) 0%, 
+    oklch(var(--in) / 0.05) 100%);
+  border-color: oklch(var(--in) / 0.3);
+  color: oklch(var(--inc));
+}
+
+.alert-warning {
+  background: linear-gradient(135deg, 
+    oklch(var(--wa) / 0.1) 0%, 
+    oklch(var(--wa) / 0.05) 100%);
+  border-color: oklch(var(--wa) / 0.3);
+  color: oklch(var(--wac));
+}
+
+.alert-error {
+  background: linear-gradient(135deg, 
+    oklch(var(--er) / 0.1) 0%, 
+    oklch(var(--er) / 0.05) 100%);
+  border-color: oklch(var(--er) / 0.3);
+  color: oklch(var(--erc));
+}
+
+/* 徽章增强 */
+.badge {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-success {
+  background: linear-gradient(135deg, oklch(var(--su)) 0%, oklch(var(--su) / 0.8) 100%);
+  animation: badge-glow 2s ease-in-out infinite;
+}
+
+@keyframes badge-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px oklch(var(--su) / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 15px oklch(var(--su) / 0.6);
+  }
+}
+
+/* 进度条增强 */
+.progress {
+  background: oklch(var(--b3));
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.progress::-webkit-progress-bar {
+  background: oklch(var(--b3));
+  border-radius: 1rem;
+}
+
+.progress::-webkit-progress-value {
+  background: linear-gradient(90deg, oklch(var(--p)) 0%, oklch(var(--s)) 100%);
+  border-radius: 1rem;
+  transition: all 0.3s ease;
+}
+
+/* 选项卡增强 */
+.tabs {
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+}
+
+.tab {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.tab:hover {
+  color: oklch(var(--p));
+}
+
+.tab.tab-active {
+  color: oklch(var(--p));
+}
+
+.tab.tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, oklch(var(--p)) 0%, oklch(var(--s)) 100%);
+  border-radius: 1px;
+}
+
+/* 分隔线增强 */
+.divider {
+  border-color: oklch(var(--bc) / 0.1);
+}
+
+.divider::before,
+.divider::after {
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    oklch(var(--bc) / 0.1) 50%, 
+    transparent 100%);
+}
+
+/* 代码块增强 */
+.mockup-code,
+code,
+pre {
+  background: linear-gradient(135deg, 
+    oklch(var(--b2)) 0%, 
+    oklch(var(--b3)) 100%);
+  border: 1px solid oklch(var(--bc) / 0.1);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* 抽屉增强 */
+.drawer-side {
+  backdrop-filter: blur(var(--blur-amount));
+  -webkit-backdrop-filter: blur(var(--blur-amount));
+}
+
+.drawer-content {
+  background: var(--gradient-secondary);
+}
+
+/* 菜单增强 */
+.menu li > * {
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.menu li > *:hover,
+.menu li > *.active {
+  background: var(--glass-bg);
+  color: oklch(var(--p));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* 加载动画增强 */
+.loading {
+  background: conic-gradient(from 0deg, transparent, oklch(var(--p)), transparent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 骨架屏增强 */
+.skeleton {
+  background: linear-gradient(90deg, 
+    oklch(var(--b2)) 0%, 
+    oklch(var(--b3)) 50%, 
+    oklch(var(--b2)) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-wave 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-wave {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* 工具提示增强 */
+.tooltip {
+  z-index: 9999;
+}
+
+.tooltip:before {
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-medium);
+  color: oklch(var(--bc));
+}
+
+/* 面包屑增强 */
+.breadcrumbs {
+  padding: 1rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 1rem;
+  border: 1px solid var(--glass-border);
+}
+
+/* 分页增强 */
+.join .btn {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* 滚动条增强 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: oklch(var(--b3) / 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, 
+    oklch(var(--p) / 0.5) 0%, 
+    oklch(var(--s) / 0.5) 100%);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, 
+    oklch(var(--p) / 0.7) 0%, 
+    oklch(var(--s) / 0.7) 100%);
+}
+
+/* 响应式增强 */
+@media (max-width: 768px) {
+  .card:hover {
+    transform: none;
+  }
+  
+  .btn:hover {
+    transform: none;
+  }
+  
+  :root {
+    --blur-amount: 8px;
+  }
+}
+
+/* 无障碍增强 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .card,
+  .btn,
+  .input,
+  .textarea,
+  .select {
+    border-width: 2px;
+  }
+}
+
+/* 侧边栏按钮对齐修复 */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+/* 确保侧边栏菜单项图标和文本正确对齐 */
+.sidebar .menu li a {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0.75rem 1rem;
+  min-height: 3rem;
+  width: 100%;
+  border-radius: 0.75rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: transparent;
+  border: none;
+  text-decoration: none;
+  color: oklch(var(--bc));
+  position: relative;
+  overflow: hidden;
+}
+
+/* 收起状态下的居中对齐 */
+.sidebar:not(.sidebar-expanded) .menu li a {
+  justify-content: center;
+  padding: 0.75rem;
+}
+
+/* 展开状态下的左对齐 */
+.sidebar.sidebar-expanded .menu li a {
+  justify-content: flex-start;
+  padding: 0.75rem 1rem;
+}
+
+/* 图标统一样式 */
+.sidebar .menu li a .iconify,
+.sidebar .menu li a svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+/* 收起状态下图标居中 */
+.sidebar:not(.sidebar-expanded) .menu li a .iconify,
+.sidebar:not(.sidebar-expanded) .menu li a svg {
+  margin: 0;
+}
+
+/* 展开状态下图标左对齐，添加右边距 */
+.sidebar.sidebar-expanded .menu li a .iconify,
+.sidebar.sidebar-expanded .menu li a svg {
+  margin-right: 0.75rem;
+}
+
+/* 文本显示控制 */
+.sidebar .menu li a .sidebar-text {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
+}
+
+.sidebar.sidebar-expanded .menu li a .sidebar-text {
+  opacity: 1;
+  width: auto;
+}
+
+/* 悬停和激活状态 */
+.sidebar .menu li a:hover {
+  background: var(--glass-bg);
+  color: oklch(var(--p));
+  transform: translateX(2px);
+  box-shadow: var(--shadow-soft);
+}
+
+.sidebar .menu li a.active {
+  background: linear-gradient(135deg, 
+    oklch(var(--p) / 0.15) 0%, 
+    oklch(var(--s) / 0.1) 100%);
+  color: oklch(var(--p));
+  border: 1px solid oklch(var(--p) / 0.2);
+  box-shadow: var(--shadow-soft);
+}
+
+.sidebar .menu li a.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 1.5rem;
+  background: linear-gradient(135deg, oklch(var(--p)) 0%, oklch(var(--s)) 100%);
+  border-radius: 0 2px 2px 0;
+}
+
+/* 底部设置和收起按钮区域对齐 */
+.sidebar-footer-section,
+.sidebar-footer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.sidebar-footer-section .menu {
+  padding: 0.5rem;
+}
+
+.sidebar-footer {
+  padding: 0.75rem;
+  margin-top: 0;
+}
+
+/* 收起/展开按钮样式 */
+.sidebar-footer .btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.5rem;
+  border-radius: 0.75rem;
+  background: var(--glass-bg);
+  border: 1px solid oklch(var(--bc) / 0.1);
+  color: oklch(var(--bc));
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar.sidebar-expanded .sidebar-footer .btn {
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+}
+
+.sidebar-footer .btn:hover {
+  background: oklch(var(--p) / 0.1);
+  color: oklch(var(--p));
+  border-color: oklch(var(--p) / 0.2);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.sidebar-footer .btn .iconify {
+  width: 1.25rem;
+  height: 1.25rem;
+  transition: transform 0.3s ease;
+}
+
+.sidebar.sidebar-expanded .sidebar-footer .btn .iconify {
+  margin-right: 0;
+}
+
+/* 确保侧边栏头部对齐 */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  min-height: 4rem;
+}
+
+.sidebar.sidebar-expanded .sidebar-header {
+  justify-content: flex-start;
+}
+
+.sidebar-header img {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+}
+
+.sidebar-title {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 700;
+  font-size: 1.125rem;
+  margin-left: 0;
+}
+
+.sidebar.sidebar-expanded .sidebar-title {
+  opacity: 1;
+  width: auto;
+  margin-left: 0.75rem;
+}
+
+/* 确保菜单项之间的间距一致 */
+.sidebar .menu {
+  gap: 0.25rem;
+  padding: 0.5rem;
+}
+
+.sidebar .menu li {
+  margin-bottom: 0;
+}
+
+/* 修复flex-grow区域 */
+.sidebar .flex-grow {
+  flex: 1;
+  min-height: 0;
+}
+
+/* 确保侧边栏在不同主题下的一致性 */
+.sidebar {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-amount));
+  -webkit-backdrop-filter: blur(var(--blur-amount));
+  border-right: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-medium);
+}
+
+/* 响应式处理 */
+@media (max-width: 768px) {
+  .sidebar .menu li a:hover {
+    transform: none;
+  }
+  
+  .sidebar-footer .btn:hover {
+    transform: none;
+  }
+}

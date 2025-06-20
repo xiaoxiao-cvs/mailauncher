@@ -9,35 +9,31 @@
           MaiLauncher
         </div>
       </div>
-    </div> <!-- 导航菜单 - 主要菜单项 -->
+    </div>    <!-- 导航菜单 - 主要菜单项 -->
     <ul class="menu menu-md menu-vertical py-2 px-2 gap-1">
       <li v-for="(item, key) in filteredMenuItems" :key="key">
         <a href="#" @click.prevent="selectTab(key)" :class="{ 'active': activeTab === key }">
-          <Icon :icon="getIconName(key)" width="18" height="18" />
+          <Icon :icon="getIconName(key)" width="20" height="20" />
           <span class="sidebar-text">{{ item.title }}</span>
         </a>
       </li>
     </ul>
 
-    <div class="flex-grow"></div>
-
-    <!-- 设置菜单项 - 确保在收起按钮上方 -->
+    <div class="flex-grow"></div>    <!-- 设置菜单项 - 确保在收起按钮上方 -->
     <div class="sidebar-footer-section px-2 pb-2">
       <ul class="menu menu-md menu-vertical"> <!-- 设置项 -->
         <li>
           <a href="#" @click.prevent="selectTab('settings')" :class="{ 'active': isSettingsOpen }">
-            <Icon icon="ri:settings-3-line" width="18" height="18" />
+            <Icon icon="ri:settings-3-line" width="20" height="20" />
             <span class="sidebar-text">{{ menuItems.settings?.title }}</span>
           </a>
         </li>
       </ul>
-    </div>
-
-    <!-- 底部收起按钮 -->
+    </div><!-- 底部收起按钮 -->
     <div class="sidebar-footer p-3">
       <button class="btn btn-sm btn-ghost w-full" @click="toggleSidebar">
-        <Icon :icon="isExpanded ? 'ri:arrow-left-s-line' : 'ri:arrow-right-s-line'" width="18" height="18" />
-        <span class="sidebar-text ml-2">{{ isExpanded ? '收起' : '' }}</span>
+        <Icon :icon="isExpanded ? 'ri:arrow-left-s-line' : 'ri:arrow-right-s-line'" width="20" height="20" />
+        <span class="sidebar-text">{{ isExpanded ? '收起' : '' }}</span>
       </button>
     </div>
   </div>

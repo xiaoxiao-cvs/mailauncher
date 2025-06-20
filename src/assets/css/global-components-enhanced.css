@@ -1,0 +1,426 @@
+/* 全局组件增强样式 - 基于安装完成页面的配色风格 */
+
+/* 应用容器背景增强 */
+.app-container {
+  background: var(--gradient-secondary);
+  min-height: 100vh;
+}
+
+/* 内容区域增强 */
+.content-area {
+  background: transparent;
+}
+
+/* 侧边栏增强 */
+.side-nav {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-medium));
+  -webkit-backdrop-filter: blur(var(--blur-medium));
+  border-right: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-medium);
+}
+
+/* 主页视图增强 */
+.home-view,
+.home-content {
+  background: transparent;
+}
+
+/* 实例面板增强 */
+.instances-panel,
+.instances-tab {
+  background: transparent;
+}
+
+.instances-panel .card,
+.instances-tab .card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-medium));
+  -webkit-backdrop-filter: blur(var(--blur-medium));
+  border: 1px solid var(--glass-border);
+  transition: all 0.3s var(--ease-smooth);
+}
+
+.instances-panel .card:hover,
+.instances-tab .card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-large);
+  border-color: oklch(var(--p) / 0.3);
+}
+
+/* 下载面板增强 */
+.downloads-panel,
+.downloads-tab {
+  background: transparent;
+}
+
+.downloads-panel .card,
+.downloads-tab .card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-medium));
+  -webkit-backdrop-filter: blur(var(--blur-medium));
+  border: 1px solid var(--glass-border);
+}
+
+/* 设置抽屉增强 */
+.settings-drawer,
+.settings-drawer-container {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-heavy));
+  -webkit-backdrop-filter: blur(var(--blur-heavy));
+  border-left: 1px solid var(--glass-border);
+}
+
+/* 模态框增强 */
+.modal {
+  backdrop-filter: blur(var(--blur-light));
+  -webkit-backdrop-filter: blur(var(--blur-light));
+}
+
+.modal-box {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-medium));
+  -webkit-backdrop-filter: blur(var(--blur-medium));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-large);
+  border-radius: 1.5rem;
+}
+
+/* 表格增强 */
+.table {
+  background: transparent;
+}
+
+.table thead {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-light));
+  -webkit-backdrop-filter: blur(var(--blur-light));
+}
+
+.table tbody tr {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-light));
+  -webkit-backdrop-filter: blur(var(--blur-light));
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.table tbody tr:hover {
+  background: oklch(var(--p) / 0.05);
+}
+
+/* 统计卡片增强 */
+.stats {
+  background: transparent;
+}
+
+.stat {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-medium));
+  -webkit-backdrop-filter: blur(var(--blur-medium));
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+  transition: all 0.3s var(--ease-smooth);
+}
+
+.stat:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-medium);
+}
+
+/* 聊天室增强 */
+.chat-room {
+  background: transparent;
+}
+
+.chat-bubble {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-light));
+  -webkit-backdrop-filter: blur(var(--blur-light));
+  border: 1px solid var(--glass-border);
+}
+
+/* 日志视图增强 */
+.logs-tab,
+.log-viewer {
+  background: transparent;
+}
+
+.log-container {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-medium));
+  -webkit-backdrop-filter: blur(var(--blur-medium));
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+}
+
+/* 插件视图增强 */
+.plugins-view {
+  background: transparent;
+}
+
+.plugin-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-medium));
+  -webkit-backdrop-filter: blur(var(--blur-medium));
+  border: 1px solid var(--glass-border);
+  transition: all 0.3s var(--ease-smooth);
+}
+
+.plugin-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-large);
+}
+
+/* 表单组增强 */
+.form-control {
+  background: transparent;
+}
+
+.form-control .label {
+  color: oklch(var(--bc) / 0.8);
+  font-weight: 500;
+}
+
+/* 面包屑导航增强 */
+.breadcrumbs {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-light));
+  -webkit-backdrop-filter: blur(var(--blur-light));
+  border: 1px solid var(--glass-border);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+/* 步骤器增强 */
+.steps {
+  background: transparent;
+}
+
+.step {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-light));
+  -webkit-backdrop-filter: blur(var(--blur-light));
+  border: 1px solid var(--glass-border);
+}
+
+.step.step-primary {
+  background: var(--gradient-primary);
+  color: oklch(var(--pc));
+}
+
+/* 时间线增强 */
+.timeline {
+  background: transparent;
+}
+
+.timeline-middle {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-light));
+  -webkit-backdrop-filter: blur(var(--blur-light));
+  border: 1px solid var(--glass-border);
+  border-radius: 50%;
+}
+
+/* 轮播图增强 */
+.carousel {
+  background: transparent;
+}
+
+.carousel-item {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-medium));
+  -webkit-backdrop-filter: blur(var(--blur-medium));
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+}
+
+/* 坍缩面板增强 */
+.collapse {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-medium));
+  -webkit-backdrop-filter: blur(var(--blur-medium));
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+}
+
+.collapse-title {
+  background: transparent;
+  font-weight: 500;
+}
+
+.collapse-content {
+  background: oklch(var(--b1) / 0.5);
+}
+
+/* 抽屉增强 */
+.drawer-content {
+  background: var(--gradient-secondary);
+}
+
+.drawer-side {
+  background: rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(var(--blur-light));
+  -webkit-backdrop-filter: blur(var(--blur-light));
+}
+
+/* 文件输入增强 */
+.file-input {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-light));
+  -webkit-backdrop-filter: blur(var(--blur-light));
+  border: 1px solid var(--glass-border);
+  border-radius: 0.75rem;
+}
+
+/* 键盘按键增强 */
+.kbd {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-light));
+  -webkit-backdrop-filter: blur(var(--blur-light));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-soft);
+}
+
+/* 链接增强 */
+.link {
+  color: oklch(var(--p));
+  transition: all 0.2s var(--ease-smooth);
+}
+
+.link:hover {
+  color: oklch(var(--pf));
+  text-decoration: none;
+  text-shadow: 0 0 8px oklch(var(--p) / 0.3);
+}
+
+/* 遮罩增强 */
+.mask {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-medium));
+  -webkit-backdrop-filter: blur(var(--blur-medium));
+}
+
+/* 分页增强 */
+.join {
+  background: transparent;
+}
+
+.join .btn {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-light));
+  -webkit-backdrop-filter: blur(var(--blur-light));
+  border: 1px solid var(--glass-border);
+}
+
+/* 范围选择器增强 */
+.range {
+  background: oklch(var(--b3));
+  border-radius: 1rem;
+}
+
+.range::-webkit-slider-thumb {
+  background: linear-gradient(135deg, oklch(var(--p)) 0%, oklch(var(--s)) 100%);
+  border-radius: 50%;
+  box-shadow: var(--shadow-soft);
+}
+
+/* 评分增强 */
+.rating {
+  background: transparent;
+}
+
+.rating .mask {
+  background: oklch(var(--bc) / 0.2);
+}
+
+.rating .mask.mask-star-2.mask-half-1,
+.rating .mask.mask-star-2.mask-half-2 {
+  background: linear-gradient(135deg, oklch(var(--wa)) 0%, oklch(var(--er)) 100%);
+}
+
+/* 径向进度增强 */
+.radial-progress {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-light));
+  -webkit-backdrop-filter: blur(var(--blur-light));
+  border: 1px solid var(--glass-border);
+  color: oklch(var(--p));
+}
+
+/* 交换器增强 */
+.swap {
+  transition: all 0.3s var(--ease-smooth);
+}
+
+/* 切换开关增强 */
+.toggle {
+  background: oklch(var(--bc) / 0.2);
+  border-radius: 2rem;
+  transition: all 0.2s var(--ease-smooth);
+}
+
+.toggle:checked {
+  background: linear-gradient(135deg, oklch(var(--p)) 0%, oklch(var(--s)) 100%);
+}
+
+.toggle::after {
+  background: white;
+  box-shadow: var(--shadow-soft);
+}
+
+/* 自定义动画类 */
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 0 5px oklch(var(--p) / 0.3);
+  }
+  to {
+    box-shadow: 0 0 20px oklch(var(--p) / 0.6);
+  }
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  :root {
+    --blur-light: 4px;
+    --blur-medium: 8px;
+    --blur-heavy: 12px;
+  }
+  
+  .card:hover,
+  .stat:hover,
+  .plugin-card:hover {
+    transform: none;
+  }
+}
+
+/* 性能优化 - 减少重绘 */
+.card,
+.btn,
+.stat,
+.plugin-card {
+  will-change: transform, box-shadow;
+}
+
+/* 深色模式时禁用玻璃态效果 */
+[data-theme="dark"] {
+  --glass-bg: rgba(40, 44, 52, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}

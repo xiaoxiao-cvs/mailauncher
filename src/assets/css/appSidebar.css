@@ -77,25 +77,38 @@
   scrollbar-width: none; /* Firefox */
 }
 
-/* 控制菜单项的图标和文本对齐 */
+/* 控制菜单项的图标和文本对齐 - 重构版本 */
 .sidebar .menu a {
-  @apply flex items-center py-3 px-4 rounded-btn transition-all duration-200;
+  @apply flex items-center rounded-btn transition-all duration-200;
+  padding: 0.75rem;
+  min-height: 3rem;
+  width: 100%;
+  justify-content: center;
 }
 
-/* 图标和文本的间距处理 */
+.sidebar-expanded .menu a {
+  justify-content: flex-start;
+  padding: 0.75rem 1rem;
+}
+
+/* 图标和文本的间距处理 - 改进版本 */
 .sidebar .menu a .iconify,
 .sidebar .menu a svg,
 .sidebar .menu a .icon {
-  @apply m-0 flex-shrink-0;
-  font-size: 18px; /* 统一减小图标大小 */
-  width: 18px;
-  height: 18px;
+  @apply flex-shrink-0;
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sidebar-expanded .menu a .iconify,
 .sidebar-expanded .menu a svg,
 .sidebar-expanded .menu a .icon {
-  @apply mr-3;
+  margin-right: 0.75rem;
 }
 
 /* 激活状态 */
@@ -177,6 +190,13 @@
 .sidebar-footer .btn {
   @apply transition-all duration-200;
   border-radius: 6px; /* 与实例按钮保持一致的圆角 */
+  background: transparent !important;
+  border: none !important;
+}
+
+.sidebar-footer .btn:hover {
+  background: var(--glass-bg) !important;
+  border: 1px solid oklch(var(--p) / 0.2) !important;
 }
 
 /* 确保折叠/展开按钮效果良好 */
@@ -200,20 +220,44 @@
   @apply justify-start;
 }
 
-/* 确保展开按钮在两种状态下都对齐 */
+/* 确保展开按钮在两种状态下都对齐 - 改进版本 */
 .sidebar-footer .btn {
-  @apply flex items-center justify-center;
+  @apply flex items-center transition-all duration-200;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem;
+  border-radius: 0.75rem;
 }
 
 .sidebar-expanded .sidebar-footer .btn {
-  @apply justify-between w-full;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
 }
 
-/* 保持图标和文字之间的间距 */
+/* 保持图标和文字之间的间距 - 改进版本 */
 .sidebar-footer .btn .iconify {
   @apply transition-transform duration-300;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
 .sidebar-expanded .sidebar-footer .btn .iconify {
-  @apply mr-2;
+  margin-right: 0;
+}
+
+/* 收起按钮文本控制 */
+.sidebar-footer .btn .sidebar-text {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: all 0.3s ease;
+}
+
+.sidebar-expanded .sidebar-footer .btn .sidebar-text {
+  opacity: 1;
+  width: auto;
+  margin-left: 0.5rem;
 }

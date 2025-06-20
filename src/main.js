@@ -94,6 +94,10 @@ import { createPinia } from "pinia";
 import App from "./App.vue";
 import "./assets/css/tailwind.css";
 import "./assets/global.css";
+import "./assets/css/enhanced-light-theme.css"; // 增强亮色主题
+import "./assets/css/sidebar-enhanced.css"; // 侧边栏增强样式
+import "./assets/css/global-components-enhanced.css"; // 全局组件增强样式
+import "./assets/css/page-specific-enhanced.css"; // 页面特定增强样式
 import "./assets/css/clean-theme.css"; // 使用清理版本的主题样式，兼容DaisyUI
 import "./assets/css/dark-theme-unified.css"; // 统一的暗色主题修复
 import "./assets/css/font-optimization.css"; // 导入字体优化样式

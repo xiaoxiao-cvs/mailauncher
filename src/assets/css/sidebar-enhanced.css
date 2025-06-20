@@ -1,0 +1,470 @@
+/* 侧边栏增强样式 - 专门解决对齐问题 */
+
+/* 侧边栏基础结构 - 确保完美对齐 */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 64px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-amount));
+  -webkit-backdrop-filter: blur(var(--blur-amount));
+  border-right: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-medium);
+  z-index: 50;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.sidebar.sidebar-expanded {
+  width: 220px;
+}
+
+/* 侧边栏头部 */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  min-height: 4rem;
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  flex-shrink: 0;
+}
+
+.sidebar.sidebar-expanded .sidebar-header {
+  justify-content: flex-start;
+}
+
+.sidebar-header img {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+}
+
+/* 收起状态下logo图标向右对齐 */
+.sidebar:not(.sidebar-expanded) .sidebar-header img {
+  transform: translateX(4px); /* 与下方图标保持一致的偏移 */
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 展开状态下logo图标正常位置 */
+.sidebar.sidebar-expanded .sidebar-header img {
+  transform: translateX(0);
+}
+
+.sidebar-title {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 700;
+  font-size: 1.125rem;
+  margin-left: 0;
+}
+
+.sidebar.sidebar-expanded .sidebar-title {
+  opacity: 1;
+  width: auto;
+  margin-left: 0.75rem;
+}
+
+/* 主菜单区域 */
+.sidebar .menu {
+  padding: 0.5rem;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.sidebar .menu li {
+  margin-bottom: 0;
+}
+
+.sidebar .menu li a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  min-height: 3rem;
+  width: 100%;
+  border-radius: 0.75rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: transparent;
+  border: none;
+  text-decoration: none;
+  color: oklch(var(--bc));
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar.sidebar-expanded .menu li a {
+  justify-content: flex-start;
+  padding: 0.75rem 1rem;
+}
+
+/* 图标样式统一 */
+.sidebar .menu li a .iconify,
+.sidebar .menu li a svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  margin: 0;
+}
+
+.sidebar.sidebar-expanded .menu li a .iconify,
+.sidebar.sidebar-expanded .menu li a svg {
+  margin-right: 0.75rem;
+}
+
+/* 菜单文本控制 */
+.sidebar .menu li a .sidebar-text {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
+}
+
+.sidebar.sidebar-expanded .menu li a .sidebar-text {
+  opacity: 1;
+  width: auto;
+}
+
+/* 悬停和激活状态 */
+.sidebar .menu li a:hover {
+  background: var(--glass-bg);
+  color: oklch(var(--p));
+  transform: translateX(2px);
+  box-shadow: var(--shadow-soft);
+  border: 1px solid oklch(var(--p) / 0.2);
+}
+
+/* 收起状态下的悬停效果 */
+.sidebar:not(.sidebar-expanded) .menu li a:hover {
+  transform: none;
+  border: 1px solid oklch(var(--p) / 0.2);
+  background: var(--glass-bg);
+}
+
+/* 收起状态下的特殊悬停样式 */
+.sidebar:not(.sidebar-expanded) .sidebar-footer-section .menu li a:hover {
+  background: var(--glass-bg);
+  border: 1px solid oklch(var(--p) / 0.2);
+  color: oklch(var(--p));
+  transform: none;
+  box-shadow: var(--shadow-soft);
+}
+
+.sidebar:not(.sidebar-expanded) .sidebar-footer .btn:hover {
+  background: var(--glass-bg);
+  border: 1px solid oklch(var(--p) / 0.2);
+  color: oklch(var(--p));
+  transform: none;
+  box-shadow: var(--shadow-soft);
+}
+
+.sidebar .menu li a.active {
+  background: linear-gradient(135deg, 
+    oklch(var(--p) / 0.15) 0%, 
+    oklch(var(--s) / 0.1) 100%);
+  color: oklch(var(--p));
+  border: 1px solid oklch(var(--p) / 0.2);
+  box-shadow: var(--shadow-soft);
+}
+
+.sidebar .menu li a.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 1.5rem;
+  background: linear-gradient(135deg, oklch(var(--p)) 0%, oklch(var(--s)) 100%);
+  border-radius: 0 2px 2px 0;
+}
+
+/* Flex-grow 区域 */
+.sidebar .flex-grow {
+  flex: 1;
+  min-height: 0;
+}
+
+/* 底部设置区域 */
+.sidebar-footer-section {
+  flex-shrink: 0;
+  padding: 0.5rem;
+  margin-bottom: 0;
+}
+
+.sidebar-footer-section .menu {
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-footer-section .menu li a {
+  margin: 0;
+  box-sizing: border-box;
+}
+
+/* 确保设置按钮在收起状态下也完全居中且圆角不被遮挡 */
+.sidebar:not(.sidebar-expanded) .sidebar-footer-section .menu li a {
+  padding: 0.75rem;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  width: 100%;
+  margin: 0;
+  border-radius: 0.75rem;
+  overflow: visible;
+}
+
+/* 底部收起按钮区域 */
+.sidebar-footer {
+  padding: 0.75rem;
+  border-top: 1px solid oklch(var(--bc) / 0.1);
+  flex-shrink: 0;
+}
+
+.sidebar-footer .btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.5rem;
+  border-radius: 0.75rem;
+  background: transparent;
+  border: none;
+  color: oklch(var(--bc));
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 0.875rem;
+  box-sizing: border-box;
+}
+
+.sidebar.sidebar-expanded .sidebar-footer .btn {
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+}
+
+.sidebar-footer .btn:hover {
+  background: var(--glass-bg);
+  color: oklch(var(--p));
+  border: 1px solid oklch(var(--p) / 0.2);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.sidebar-footer .btn .iconify {
+  width: 1.25rem;
+  height: 1.25rem;
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+/* 收起按钮文本控制 */
+.sidebar-footer .btn .sidebar-text {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar.sidebar-expanded .sidebar-footer .btn .sidebar-text {
+  opacity: 1;
+  width: auto;
+  margin-left: 0.5rem;
+}
+
+/* 收起状态下所有图标向右偏移 */
+.sidebar:not(.sidebar-expanded) .menu li a .iconify,
+.sidebar:not(.sidebar-expanded) .menu li a svg,
+.sidebar:not(.sidebar-expanded) .sidebar-footer-section .menu li a .iconify,
+.sidebar:not(.sidebar-expanded) .sidebar-footer-section .menu li a svg,
+.sidebar:not(.sidebar-expanded) .sidebar-footer .btn .iconify,
+.sidebar:not(.sidebar-expanded) .sidebar-footer .btn svg {
+  transform: translateX(4px); /* 向右移动4像素 */
+  transition: transform 0.2s ease;
+}
+
+/* 确保展开状态下图标位置正常 */
+.sidebar.sidebar-expanded .menu li a .iconify,
+.sidebar.sidebar-expanded .menu li a svg,
+.sidebar.sidebar-expanded .sidebar-footer-section .menu li a .iconify,
+.sidebar.sidebar-expanded .sidebar-footer-section .menu li a svg,
+.sidebar.sidebar-expanded .sidebar-footer .btn .iconify,
+.sidebar.sidebar-expanded .sidebar-footer .btn svg {
+  transform: translateX(0);
+}
+
+/* 响应式处理 */
+@media (max-width: 768px) {
+  .sidebar,
+  .sidebar.sidebar-expanded {
+    width: 64px;
+  }
+  
+  .sidebar-text,
+  .sidebar-title {
+    display: none !important;
+  }
+  
+  .sidebar .menu li a:hover {
+    transform: none;
+  }
+  
+  .sidebar-footer .btn:hover {
+    transform: none;
+  }
+}
+
+/* 确保在不同主题下的一致性 */
+[data-theme="dark"] .sidebar,
+[data-theme="night"] .sidebar,
+[data-theme="black"] .sidebar,
+[data-theme="dracula"] .sidebar {
+  background: rgba(0, 0, 0, 0.8);
+  border-right-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 确保菜单项在收起状态下完全居中 */
+.sidebar:not(.sidebar-expanded) .menu li a {
+  padding: 0.75rem;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sidebar:not(.sidebar-expanded) .menu li a .iconify,
+.sidebar:not(.sidebar-expanded) .menu li a svg {
+  margin: 0 auto;
+}
+
+/* 确保所有Iconify图标都有统一的样式 */
+.sidebar .iconify {
+  font-size: 1.25rem !important;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* 确保收起状态下所有按钮完美居中 */
+.sidebar:not(.sidebar-expanded) {
+  align-items: center;
+}
+
+.sidebar:not(.sidebar-expanded) .menu li {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+}
+
+.sidebar:not(.sidebar-expanded) .menu li a {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 0.75rem;
+  margin: 0;
+}
+
+.sidebar:not(.sidebar-expanded) .sidebar-footer .btn {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border-radius: 0.75rem;
+  margin: 0;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 确保设置区域的按钮也遵循相同规则 */
+.sidebar:not(.sidebar-expanded) .sidebar-footer-section .menu li {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+}
+
+.sidebar:not(.sidebar-expanded) .sidebar-footer-section .menu li a {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  margin: 0;
+  border-radius: 0.75rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+}
+
+/* 确保图标在收起状态下完全居中 */
+.sidebar:not(.sidebar-expanded) .iconify {
+  margin: 0 !important;
+  position: static;
+  transform: translateX(4px); /* 向右移动4像素 */
+}
+
+/* 修复可能的容器padding问题 */
+.sidebar:not(.sidebar-expanded) .menu {
+  padding: 0.5rem;
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sidebar:not(.sidebar-expanded) .sidebar-footer-section {
+  padding: 0.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.sidebar:not(.sidebar-expanded) .sidebar-footer {
+  padding: 0.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 确保所有按钮的默认状态都没有边框 */
+.sidebar .menu li a,
+.sidebar-footer-section .menu li a {
+  border: 1px solid transparent;
+  background: transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 移除DaisyUI默认的btn样式干扰 */
+.sidebar-footer .btn.btn-ghost {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: oklch(var(--bc)) !important;
+}
+
+.sidebar-footer .btn.btn-ghost:hover {
+  background: var(--glass-bg) !important;
+  border: 1px solid oklch(var(--p) / 0.2) !important;
+  color: oklch(var(--p)) !important;
+}

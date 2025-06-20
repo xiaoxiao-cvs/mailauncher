@@ -1,7 +1,13 @@
-<template>
-  <div id="app" class="app-container"
-    :class="{ 'dark-mode': darkMode, 'sidebar-expanded': sidebarExpanded, 'sidebar-collapsed': !sidebarExpanded, 'theme-dark': currentTheme === 'dark', 'theme-light': currentTheme === 'light' }"
-    :data-theme="currentTheme"> <!-- 侧边栏 -->
+<template>  <div id="app" class="app-container enhanced-light-theme"
+    :class="{ 
+      'dark-mode': darkMode, 
+      'sidebar-expanded': sidebarExpanded, 
+      'sidebar-collapsed': !sidebarExpanded, 
+      'theme-dark': currentTheme === 'dark', 
+      'theme-light': currentTheme === 'light',
+      'enhanced-theme': true
+    }"
+    :data-theme="currentTheme"><!-- 侧边栏 -->
     <AppSidebar :is-expanded="sidebarExpanded" :is-settings-open="isSettingsOpen" @toggle="toggleSidebar" />
 
     <!-- 主内容区域 -->

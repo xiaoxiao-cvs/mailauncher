@@ -1,7 +1,7 @@
 import { ref, watch } from "vue";
 
-// 全局主题状态 - 确保所有组件使用同一个响应式状态
-const globalThemeState = ref(localStorage.getItem("theme") || "light");
+// 全局主题状态 - 确保所有组件使用同一个响应式状态，默认亮色主题
+const globalThemeState = ref(localStorage.getItem("theme") === "dark" ? "dark" : "light");
 
 // 使用DaisyUI兼容的深色模式
 export const useDarkMode = (emitter = null) => {
@@ -149,12 +149,14 @@ export function setTheme(themeName) {
 // 初始化主题
 export function initTheme() {
   try {
-    // 获取当前主题
-    const currentTheme =
-      localStorage.getItem("theme") ||
-      (window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light");
+    // 强制默认使用亮色主题，除非用户明确选择了暗色主题
+    const savedTheme = localStorage.getItem("theme");
+    let currentTheme = "light"; // 默认亮色主题
+    
+    // 只有当用户明确保存了暗色主题时才使用暗色
+    if (savedTheme === "dark") {
+      currentTheme = "dark";
+    }
 
     // 更新全局状态
     globalThemeState.value = currentTheme;
@@ -162,10 +164,10 @@ export function initTheme() {
     // 应用主题
     setTheme(currentTheme);
 
-    console.log("主题初始化完成:", currentTheme);
+    console.log("主题初始化完成:", currentTheme, "(强制默认亮色主题)");
   } catch (err) {
     console.error("初始化主题时出错:", err);
-    // 使用默认主题
+    // 使用默认亮色主题
     globalThemeState.value = "light";
     setTheme("light");
   }
