@@ -439,11 +439,11 @@ export const useDeployStore = defineStore("deploy", () => {
       );      // 修复响应检查逻辑 - 处理嵌套的 data 字段和多种成功判断条件
       const responseData = deployResponse?.data || deployResponse;
       console.log("解析后的响应数据:", responseData);
-      
-      // 检查成功标志 - 支持多种成功指示
+        // 检查成功标志 - 支持多种成功指示，修复对"部署任务已启动"消息的判断
       const isSuccess = responseData && (
         responseData.success === true || 
         responseData.success === "true" ||
+        (responseData.message && responseData.message.includes("部署任务已启动")) ||
         (responseData.message && responseData.message.includes("已启动") && responseData.instance_id)
       );
       
@@ -468,15 +468,17 @@ export const useDeployStore = defineStore("deploy", () => {
           "⚠️ 警告: 响应中没有实例ID，但部署可能成功",
           "warning"
         );
-      }
-
-      deployment.instanceId = responseData.instance_id;
+      }      deployment.instanceId = responseData.instance_id;
+      
+      // 修复日志级别：根据消息内容决定日志级别
+      const logLevel = responseData.message && responseData.message.includes("部署任务已启动") ? 'info' : 'success';
       addLog(
         deploymentId,
         `✅ 部署任务已提交，实例ID: ${deployment.instanceId || "未知"}`,
-        "success"
+        logLevel
       );
-      addLog(deploymentId, "🔄 启动状态轮询检查...", "info"); // 先注册轮询任务，然后启动
+      addLog(deploymentId, `📝 后端响应: ${responseData.message}`, "info");
+      addLog(deploymentId, "🔄 启动状态轮询检查...", "info");// 先注册轮询任务，然后启动
       const pollingTaskName = `deploy_status_${deploymentId}`;
       console.log(
         `准备注册轮询任务: ${pollingTaskName}，部署ID: ${deploymentId}`

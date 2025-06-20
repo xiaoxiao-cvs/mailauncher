@@ -590,6 +590,16 @@
                                     </span>
                                     <span>{{ installComplete ? '安装完成' : `安装中... (${installStatusText})` }}</span>
                                 </div>
+                            </div>                        </div>
+
+                        <!-- 重要提示 -->
+                        <div class="alert alert-info mb-4" v-if="installProgress >= 65 && installProgress < 85">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <div class="text-sm">
+                                <div class="font-medium">正在安装Python依赖包</div>
+                                <div class="mt-1">此步骤可能需要5-10分钟，请耐心等待。安装时间取决于网络速度和依赖包大小。</div>
                             </div>
                         </div>
 
@@ -1236,19 +1246,34 @@ const startInstall = async () => {
         
         console.log('部署API响应:', result);
         
-        // 更健壮的成功检查 - 支持多种成功判断条件
+        // 更健壮的成功检查 - 支持多种成功判断条件        // 详细的响应分析和日志
+        console.log('完整的部署响应:', {
+            result,
+            resultType: typeof result,
+            resultKeys: result ? Object.keys(result) : 'null',
+            success: result?.success,
+            successType: typeof result?.success,
+            message: result?.message,
+            instance_id: result?.instance_id
+        });        // 更精确的成功判断逻辑，修复消息包含"部署任务已启动"时的判断问题
         const isSuccess = result && (
             result.success === true || 
             result.success === "true" ||
+            result.success === 1 ||
+            String(result.success).toLowerCase() === 'true' ||
+            (result.message && result.message.includes("部署任务已启动")) ||
             (result.message && result.message.includes("已启动") && result.instance_id) ||
-            (result.message && result.message.includes("部署任务已启动"))
+            (result.instance_id && result.message) // 有实例ID和消息就认为成功
         );
         
         console.log(`部署成功判断: isSuccess=${isSuccess}, success=${result?.success}, message="${result?.message}", instance_id=${result?.instance_id}`);
         
         if (isSuccess) {
             console.log('部署启动成功，Toast系统将显示进度');
-            deployStore.addLog(deploymentId, `✅ 部署请求已发送，实例ID: ${result.instance_id}`, 'success');
+            // 修复日志级别：包含"部署任务已启动"的消息应该是info级别，不是error
+            const logLevel = result.message && result.message.includes("部署任务已启动") ? 'info' : 'success';
+            deployStore.addLog(deploymentId, `✅ 部署请求已发送，实例ID: ${result.instance_id}`, logLevel);
+            deployStore.addLog(deploymentId, `📝 后端响应: ${result.message}`, 'info');
             
             try {
                 // 开始轮询部署状态并同步到日志
@@ -1258,22 +1283,25 @@ const startInstall = async () => {
             } catch (trackingError) {
                 console.error('startDeploymentStatusTracking调用失败:', trackingError);
                 // 即使轮询失败，也不应该显示启动失败
-                deployStore.addLog(deploymentId, `⚠️ 状态跟踪启动失败，但部署已开始: ${trackingError.message}`, 'warning');
-            }
+                deployStore.addLog(deploymentId, `⚠️ 状态跟踪启动失败，但部署已开始: ${trackingError.message}`, 'warning');            }
             
             console.log('部署请求已成功发送，实例ID:', result.instance_id);
             
-            // 注意：这里不重置 localInstalling，让它保持 true 以显示安装进度UI        } else {
+            // 注意：这里不重置 localInstalling，让它保持 true 以显示安装进度UI
+        } else {
             console.error('部署启动失败:', result?.message || '未知错误');
             deployStore.addLog(deploymentId, `❌ 部署启动失败: ${result?.message || '未知错误'}`, 'error');
+            // 修复Toast类型：只有真正失败时才显示error toast
             toastService.error(`部署启动失败: ${result?.message || '未知错误'}`);
             
             // 部署启动失败时，重置安装状态和快照
             localInstalling.value = false;
-            installationSnapshot.value = null;
-        }// 触发实例列表刷新
+            installationSnapshot.value = null;        }
+        
+        // 触发实例列表刷新
         emit('refresh');
-        instanceStore.fetchInstances(true);    } catch (error) {
+        instanceStore.fetchInstances(true);
+    } catch (error) {
         console.error('安装过程出错:', error);
         enhancedToastService.showError('安装失败', error, {
             context: {

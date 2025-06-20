@@ -186,7 +186,6 @@ export const deployWithToast = async (version, deploymentConfig) => {
     webPort: ports.web || "8080",
     ...otherConfig,
   };
-
   // 显示部署Toast（会自动检查当前页面）
   const toastId = enhancedToastService.showDeploymentToast(deploymentData);
   if (toastId === -1) {
@@ -194,8 +193,23 @@ export const deployWithToast = async (version, deploymentConfig) => {
     console.log("用户在下载页，执行静默部署");
     const result = await deployVersionWithConfig(version, instanceName, deploymentConfig);
     
+    console.log("静默部署结果:", result);
+    
+    // 改进的成功检查逻辑
+    const isSuccess = result && (
+      result.success === true || 
+      result.success === "true" ||
+      String(result.success).toLowerCase() === 'true' ||
+      (result.instance_id && result.message) ||
+      (result.message && (
+        result.message.includes("已启动") || 
+        result.message.includes("部署任务已启动") ||
+        result.message.includes("部署完成")
+      ))
+    );
+    
     // 确保返回结果包含正确的成功标识
-    if (result && (result.instance_id || result.message?.includes("已启动") || result.message?.includes("部署任务已启动"))) {
+    if (isSuccess) {
       return {
         ...result,
         success: true // 明确标记为成功
@@ -242,26 +256,41 @@ export const deployWithToast = async (version, deploymentConfig) => {
  * @param {Object} deploymentData 部署数据
  */
 async function trackRealDeploymentProgress(toastId, instanceId, deploymentData) {
-  const maxAttempts = 120; // 最大等待2分钟（120 * 1秒）
+  const maxAttempts = 600; // 增加到10分钟（600 * 1秒），为依赖安装留出充足时间
   let attempts = 0;
+  let lastUpdateTime = Date.now();
+  let consecutiveErrors = 0;
+  const maxConsecutiveErrors = 5;
 
   while (attempts < maxAttempts) {    try {
       // 获取部署状态
       const response = await apiService.get(`/deploy/install-status/${instanceId}`);
       const status = response?.data || response;
 
-      console.log('部署状态响应:', { response, status });
-
-      // 如果后端返回404，说明实例还未开始部署，继续等待
+      console.log('部署状态响应:', { response, status });      // 如果后端返回404，说明实例还未开始部署，继续等待
       if (!status || typeof status !== 'object') {
         console.log('状态数据无效，继续等待...');
         await new Promise(resolve => setTimeout(resolve, 1000));
         attempts++;
-        return;
-      }      // 安全地访问状态属性，提供默认值
+        continue;
+      }
+      
+      // 重置连续错误计数
+      consecutiveErrors = 0;
+      lastUpdateTime = Date.now();      // 安全地访问状态属性，提供默认值
       const currentProgress = Number(status?.progress) || 0;
       const rawStatus = status?.status || status?.message || "正在部署...";
-      const installStatus = status?.install_status || status?.status;
+      const installStatus = status?.status; // 后端返回的主要状态字段
+
+      // 详细的调试日志
+      console.log('状态检测详情:', { 
+        currentProgress, 
+        rawStatus, 
+        installStatus, 
+        statusObject: status,
+        attempts,
+        instanceId 
+      });
 
       // 改进状态描述，提供更详细的信息
       let detailedStatus = rawStatus;
@@ -300,41 +329,53 @@ async function trackRealDeploymentProgress(toastId, instanceId, deploymentData) 
           true,
           `实例 "${deploymentData.instanceName}" 部署成功！`
         );
-        return;
-      } else if (installStatus === "failed") {
+        return;      } else if (installStatus === "failed") {
         enhancedToastService.completeDeployment(
           toastId,
           false,
-          currentStatus || "部署失败"
+          rawStatus || "部署失败"
         );
         return;
       }
 
       // 等待1秒后继续轮询
       await new Promise(resolve => setTimeout(resolve, 1000));
-      attempts++;
-    } catch (error) {
+      attempts++;    } catch (error) {
       console.error('获取部署状态失败:', error);
+      consecutiveErrors++;
       
       // 如果是404错误，说明实例还未开始部署，继续等待
       if (error.response?.status === 404) {
         console.log('实例尚未开始部署，继续等待...');
         await new Promise(resolve => setTimeout(resolve, 1000));
         attempts++;
+        continue;
+      }
+
+      // 检查是否连续错误过多
+      if (consecutiveErrors >= maxConsecutiveErrors) {
+        console.error(`连续${consecutiveErrors}次错误，停止轮询`);
+        enhancedToastService.completeDeployment(
+          toastId,
+          false,
+          "网络连接不稳定，部署可能仍在后台进行，请检查实例列表"
+        );
         return;
       }
 
       console.error('错误详情:', error.response?.data || error.message);
       attempts++;
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 错误时等待更长时间再重试
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }
 
-  // 超时处理
+  // 超时处理 - 提供更有用的信息
+  const timeElapsed = (Date.now() - (deploymentData.startTime || Date.now())) / 1000 / 60;
   enhancedToastService.completeDeployment(
     toastId,
     false,
-    "部署超时，请检查后端日志"
+    `部署超时（已等待${Math.round(timeElapsed)}分钟）。依赖安装可能仍在进行中，请稍后检查实例列表或查看后端日志`
   );
 }
 
