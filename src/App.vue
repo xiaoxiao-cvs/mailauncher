@@ -802,12 +802,13 @@ const changeTheme = (themeName) => {
   background-color: hsl(var(--b1)) !important;
 }
 
-/* 确保设置抽屉在深色模式下不透明 */
+/* 确保设置抽屉在深色模式下使用深黑色背景 */
 :root[data-theme="dark"] .settings-drawer-container,
 .dark-mode .settings-drawer-container {
-  background-color: hsl(var(--b1) / 1) !important;
-  color: hsl(var(--bc)) !important;
+  background-color: rgba(22, 25, 30, 0.95) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
   opacity: 1 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 /* 加强暗色模式选择器优先级，确保主题正确应用 */

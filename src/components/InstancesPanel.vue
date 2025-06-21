@@ -173,16 +173,52 @@ onMounted(() => {
   window.addEventListener('theme-changed', handleThemeChanged);
   window.addEventListener('theme-changed-after', handleThemeChanged);
 
+  // 监听来自其他页面的实例详情查看请求
+  if (emitter) {
+    emitter.on('view-instance-details', (instance) => {
+      console.log('接收到查看实例详情请求:', instance);
+      
+      // 先确保实例列表已加载
+      if (instancesData.value.length === 0) {
+        // 如果实例列表为空，先加载实例列表
+        loadInstances().then(() => {
+          // 查找对应的实例
+          const targetInstance = instancesData.value.find(inst => 
+            inst.id === instance.id || inst.name === instance.name
+          );
+          
+          if (targetInstance) {
+            openInstanceDetail(targetInstance);
+          } else {
+            console.warn('未找到指定的实例:', instance);
+            toastService.warning(`未找到实例: ${instance.name || instance.id}`);
+          }
+        });
+      } else {
+        // 查找对应的实例
+        const targetInstance = instancesData.value.find(inst => 
+          inst.id === instance.id || inst.name === instance.name
+        );
+        
+        if (targetInstance) {
+          openInstanceDetail(targetInstance);
+        } else {
+          console.warn('未找到指定的实例:', instance);
+          toastService.warning(`未找到实例: ${instance.name || instance.id}`);
+        }
+      }
+    });
+  }
   // 组件卸载时移除事件监听
   onBeforeUnmount(() => {
     window.removeEventListener('theme-changed', handleThemeChanged);
     window.removeEventListener('theme-changed-after', handleThemeChanged);
+    
+    // 移除事件监听
+    if (emitter) {
+      emitter.off('view-instance-details');
+    }
   });
-});
-
-// 组件卸载时清理事件监听
-onBeforeUnmount(() => {
-  // 移除事件监听 - 由于已删除相关功能，这里也需要清理
 });
 </script>
 
@@ -193,9 +229,8 @@ onBeforeUnmount(() => {
   height: 100vh;
   min-height: 100vh;
   width: 100%;
-  overflow: hidden;
+  overflow: hidden; /* 保持隐藏，让子容器处理滚动 */
   position: relative;
-  /* 移除!important，使用更具体的选择器来确保优先级 */
   margin: 0;
   padding: 0 0 1.5rem 0;
   box-sizing: border-box;
@@ -205,7 +240,6 @@ onBeforeUnmount(() => {
       hsl(var(--p) / 0.5) 100%);
   background-attachment: local;
   background-size: cover;
-  /* 确保容器从左边缘开始，不留间隙 */
   left: 0;
 }
 

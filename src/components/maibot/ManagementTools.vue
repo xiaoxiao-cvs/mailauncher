@@ -75,16 +75,16 @@
           <div class="tool-header">
             <Icon icon="mdi:check-circle" class="text-success" width="24" height="24" />
             <span>数据验证</span>
-          </div>
-          <div class="tool-content">
+          </div>          <div class="tool-content">
             <p class="tool-description">检查数据库完整性和数据一致性</p>
             <div class="tool-actions">
-              <button class="btn btn-sm btn-success" @click="validateData" :disabled="validating">
+              <button class="btn btn-sm btn-primary" @click="validateData" :disabled="validating">
                 <div v-if="validating" class="loading loading-spinner loading-xs mr-1"></div>
                 <Icon v-else icon="mdi:check" width="16" height="16" class="mr-1" />
                 {{ validating ? '验证中...' : '开始验证' }}
               </button>
             </div>
+          </div>
           </div>
         </div>
 
@@ -93,11 +93,10 @@
           <div class="tool-header">
             <Icon icon="mdi:broom" class="text-warning" width="24" height="24" />
             <span>数据清理</span>
-          </div>
-          <div class="tool-content">
+          </div>          <div class="tool-content">
             <p class="tool-description">清理无效的表情包记录和过期数据</p>
             <div class="tool-actions">
-              <button class="btn btn-sm btn-warning" @click="cleanupData" :disabled="cleaning">
+              <button class="btn btn-sm btn-primary" @click="cleanupData" :disabled="cleaning">
                 <div v-if="cleaning" class="loading loading-spinner loading-xs mr-1"></div>
                 <Icon v-else icon="mdi:broom" width="16" height="16" class="mr-1" />
                 {{ cleaning ? '清理中...' : '开始清理' }}
@@ -111,11 +110,10 @@
           <div class="tool-header">
             <Icon icon="mdi:backup-restore" class="text-info" width="24" height="24" />
             <span>数据备份</span>
-          </div>
-          <div class="tool-content">
+          </div>          <div class="tool-content">
             <p class="tool-description">创建数据库备份副本</p>
             <div class="tool-actions">
-              <button class="btn btn-sm btn-info" @click="backupData" :disabled="backing">
+              <button class="btn btn-sm btn-primary" @click="backupData" :disabled="backing">
                 <div v-if="backing" class="loading loading-spinner loading-xs mr-1"></div>
                 <Icon v-else icon="mdi:backup-restore" width="16" height="16" class="mr-1" />
                 {{ backing ? '备份中...' : '创建备份' }}
@@ -133,8 +131,7 @@
           <div class="tool-content">
             <p class="tool-description">导出数据为JSON或CSV格式</p>
             <div class="tool-actions">
-              <div class="dropdown dropdown-top">
-                <label tabindex="0" class="btn btn-sm btn-accent">
+              <div class="dropdown dropdown-top">                <label tabindex="0" class="btn btn-sm btn-primary">
                   <Icon icon="mdi:export" width="16" height="16" class="mr-1" />
                   导出数据
                 </label>
@@ -170,11 +167,10 @@
           <div class="tool-header">
             <Icon icon="mdi:speedometer" class="text-error" width="24" height="24" />
             <span>性能分析</span>
-          </div>
-          <div class="tool-content">
+          </div>          <div class="tool-content">
             <p class="tool-description">分析数据库性能和查询效率</p>
             <div class="tool-actions">
-              <button class="btn btn-sm btn-error" @click="analyzePerformance" :disabled="analyzing">
+              <button class="btn btn-sm btn-primary" @click="analyzePerformance" :disabled="analyzing">
                 <div v-if="analyzing" class="loading loading-spinner loading-xs mr-1"></div>
                 <Icon v-else icon="mdi:speedometer" width="16" height="16" class="mr-1" />
                 {{ analyzing ? '分析中...' : '开始分析' }}
@@ -258,8 +254,7 @@
                   <tr><td>emotion</td><td>TEXT</td><td>情感标签</td><td></td></tr>
                   <tr><td>record_time</td><td>REAL</td><td>记录时间</td><td></td></tr>
                   <tr><td>register_time</td><td>REAL</td><td>注册时间</td><td></td></tr>
-                  <tr><td>usage_count</td><td>INTEGER</td><td>使用次数</td><td>DEFAULT 0</td></tr>
-                  <tr><td>last_used_time</td><td>REAL</td><td>最后使用时间</td><td></td></tr>
+                  <tr><td>usage_count</td><td>INTEGER</td><td>使用次数</td><td>DEFAULT 0</td></tr>                  <tr><td>last_used_time</td><td>REAL</td><td>最后使用时间</td><td></td></tr>
                 </tbody>
               </table>
             </div>
@@ -291,8 +286,7 @@
                   <tr><td>forgotten_points</td><td>TEXT</td><td>遗忘积分</td><td></td></tr>
                   <tr><td>info_list</td><td>TEXT</td><td>信息列表</td><td></td></tr>
                   <tr><td>know_times</td><td>REAL</td><td>认识次数</td><td></td></tr>
-                  <tr><td>know_since</td><td>REAL</td><td>认识开始时间</td><td></td></tr>
-                  <tr><td>last_know</td><td>REAL</td><td>最后认识时间</td><td></td></tr>
+                  <tr><td>know_since</td><td>REAL</td><td>认识开始时间</td><td></td></tr>                  <tr><td>last_know</td><td>REAL</td><td>最后认识时间</td><td></td></tr>
                 </tbody>
               </table>
             </div>
@@ -304,7 +298,6 @@
         </div>
       </div>
     </dialog>
-  </div>
 </template>
 
 <script setup>
@@ -686,7 +679,9 @@ onMounted(() => {
 
 .tool-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  justify-content: flex-start;
+  align-items: center;
 }
 
 .logs-section {
@@ -770,5 +765,120 @@ onMounted(() => {
 
 .table-schema h4 {
   color: hsl(var(--bc));
+}
+
+/* 按钮样式优化 */
+.btn {
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background-color: hsl(var(--p));
+  border-color: hsl(var(--p));
+  color: hsl(var(--pc));
+}
+
+.btn-primary:hover {
+  background-color: hsl(var(--p) / 0.9);
+  border-color: hsl(var(--p) / 0.9);
+  color: hsl(var(--pc));
+}
+
+.btn-sm {
+  min-height: 2rem;
+  height: 2rem;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+}
+
+/* 工具卡片样式优化 */
+.management-tool {
+  background: hsl(var(--b1));
+  border: 1px solid hsl(var(--b3));
+  transition: all 0.2s ease;
+}
+
+.management-tool:hover {
+  border-color: hsl(var(--p) / 0.3);
+  box-shadow: 0 4px 12px hsl(var(--p) / 0.1);
+}
+
+/* 确保文字可见性 */
+.management-tools {
+  color: hsl(var(--bc));
+}
+
+/* 深色模式优化 */
+[data-theme="dark"] .management-tools {
+  color: hsl(var(--bc));
+}
+
+[data-theme="dark"] .info-card,
+[data-theme="dark"] .tool-card {
+  background-color: hsl(var(--b1));
+  border-color: hsl(var(--b3));
+  color: hsl(var(--bc));
+}
+
+[data-theme="dark"] .section-title {
+  color: hsl(var(--bc));
+}
+
+[data-theme="dark"] .status-indicator {
+  color: hsl(var(--bc));
+}
+
+[data-theme="dark"] .detail-item .label {
+  color: hsl(var(--bc) / 0.7);
+}
+
+[data-theme="dark"] .detail-item .value {
+  color: hsl(var(--bc));
+}
+
+[data-theme="dark"] .tool-description {
+  color: hsl(var(--bc) / 0.7);
+}
+
+[data-theme="dark"] .log-item {
+  color: hsl(var(--bc));
+}
+
+[data-theme="dark"] .log-time {
+  color: hsl(var(--bc) / 0.5);
+}
+
+[data-theme="dark"] .logs-container {
+  background-color: hsl(var(--b1));
+  border-color: hsl(var(--b3));
+}
+
+[data-theme="dark"] .empty-logs {
+  color: hsl(var(--bc) / 0.7);
+}
+
+[data-theme="dark"] .table-schema h4 {
+  color: hsl(var(--bc));
+}
+
+[data-theme="dark"] .modal-box {
+  background-color: hsl(var(--b1));
+  color: hsl(var(--bc));
+}
+
+/* 响应式布局优化 */
+@media (max-width: 768px) {
+  .tools-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .tool-actions {
+    justify-content: stretch;
+  }
+  
+  .tool-actions .btn {
+    flex: 1;
+  }
 }
 </style>

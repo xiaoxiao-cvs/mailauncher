@@ -1,5 +1,5 @@
 <template>
-    <div class="instances-container">
+    <div class="instances-container h-full flex flex-col">
         <!-- 顶部导航栏 -->
         <div class="navbar bg-base-200 rounded-box shadow-sm mb-6 animated-header">
             <div class="navbar-start">
@@ -55,10 +55,8 @@
                     </button>
                 </div>
             </div>
-        </div>
-
-        <!-- 实例列表区域 -->
-        <div class="instances-list">
+        </div>        <!-- 实例列表区域 - 添加明确的高度限制和滚动控制 -->
+        <div class="instances-list flex-1 overflow-y-auto">
             <!-- 加载状态 -->
             <div v-if="loading" class="w-full p-8">
                 <div class="flex flex-col gap-4">
@@ -77,7 +75,7 @@
                     <p class="text-sm opacity-60 mb-4">尝试调整过滤条件或创建新的实例</p>
                     <button class="btn btn-primary" @click="goToDownloads">新建应用</button>
                 </div>
-            </div> <!-- 实例卡片网格 -->
+            </div><!-- 实例卡片网格 -->
             <div v-else class="animated-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-2">
                 <div v-for="(instance, index) in filteredInstances" :key="instance.id || instance.name"
                     class="instance-card shadow-md hover:shadow-lg transition-all animated-card clickable-card"
@@ -966,5 +964,55 @@ const viewInstanceLogs = (instance) => {
 /* 下拉菜单样式修正 */
 .dropdown-content {
     z-index: 10;
+}
+
+/* 确保实例容器能够正确处理滚动 */
+.instances-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 强制实例列表区域启用滚动 */
+.instances-list {
+  flex: 1;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  padding: 1rem;
+  background-color: hsl(var(--b2));
+  /* 确保有明确的最大高度 */
+  max-height: calc(100vh - 140px);
+}
+
+/* 实例卡片网格容器的滚动优化 */
+.animated-grid {
+  /* 确保网格容器不会超出父容器高度 */
+  min-height: 0;
+}
+
+/* 自定义滚动条样式 */
+.instances-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.instances-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.instances-list::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--bc) / 0.3);
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.instances-list::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--bc) / 0.5);
+}
+
+/* Firefox 滚动条样式 */
+.instances-list {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--bc) / 0.3) transparent;
 }
 </style>

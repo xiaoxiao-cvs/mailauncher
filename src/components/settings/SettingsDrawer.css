@@ -46,48 +46,62 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 深色模式优化 */
+/* 深色模式优化 - 使用更深的黑色背景 */
 :root[data-theme="dark"] .settings-drawer-container {
-  background-color: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  background-color: rgba(22, 25, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 :root[data-theme="dark"] .settings-header {
-  background: #ffffff;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(22, 25, 30, 0.98);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 :root[data-theme="dark"] .settings-sidebar {
-  background: #ffffff;
-  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(18, 20, 24, 0.95);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="dark"] .settings-panel {
+  background: rgba(22, 25, 30, 0.95);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 :root[data-theme="dark"] .setting-group {
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(26, 29, 35, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 :root[data-theme="dark"] .mode-option {
-  background: #ffffff;
-  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(26, 29, 35, 0.8);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 :root[data-theme="dark"] .mode-option:hover {
-  background: #f8f9fa;
+  background: rgba(30, 34, 42, 0.9);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 :root[data-theme="dark"] .font-size-control {
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(26, 29, 35, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 :root[data-theme="dark"] .density-btn {
-  background: #ffffff;
-  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(26, 29, 35, 0.8);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 :root[data-theme="dark"] .density-btn:hover {
-  background: #f8f9fa;
+  background: rgba(30, 34, 42, 0.9);
 }
 
 /* 标题栏 */
@@ -1100,4 +1114,85 @@
 :root[data-theme="dark"] .settings-panel::-webkit-scrollbar-thumb:hover,
 :root[data-theme="dark"] .settings-sidebar::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--bc) / 0.4);
+}
+
+/* 补充深色模式下的其他元素样式 - 使用深黑色背景 */
+:root[data-theme="dark"] .settings-panel {
+  background: rgba(22, 25, 30, 0.95);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="dark"] .setting-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="dark"] .setting-desc {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+:root[data-theme="dark"] .group-title {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+:root[data-theme="dark"] .nav-item {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="dark"] .nav-item:hover {
+  background: rgba(30, 34, 42, 0.8);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+:root[data-theme="dark"] .nav-item.active {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+:root[data-theme="dark"] .setting-item {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="dark"] input[type="text"],
+:root[data-theme="dark"] input[type="number"],
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea {
+  background: rgba(26, 29, 35, 0.8);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="dark"] input[type="text"]:focus,
+:root[data-theme="dark"] input[type="number"]:focus,
+:root[data-theme="dark"] select:focus,
+:root[data-theme="dark"] textarea:focus {
+  border-color: #60a5fa;
+  background: rgba(26, 29, 35, 0.9);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* 深色模式下修复主题模式控制器样式 - 使用深黑色背景 */
+:root[data-theme="dark"] .theme-mode-control .mode-option {
+  background: rgba(26, 29, 35, 0.8);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-theme="dark"] .theme-mode-control .mode-option:hover {
+  background: rgba(30, 34, 42, 0.9);
+  border-color: rgba(96, 165, 250, 0.6);
+  color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme="dark"] .theme-mode-control .mode-option input[type="radio"]:checked + .option-label {
+  color: #60a5fa;
+}
+
+:root[data-theme="dark"] .option-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="dark"] .option-icon {
+  color: rgba(255, 255, 255, 0.7);
 }

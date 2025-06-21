@@ -37,18 +37,16 @@
             <Icon icon="mdi:refresh" width="16" height="16" />
           </button>
         </div>
-      </div>
-
-      <div class="actions">
-        <button class="btn btn-sm btn-success" @click="showCreateDialog = true">
+      </div>      <div class="actions">
+        <button class="btn btn-sm btn-primary" @click="showCreateDialog = true">
           <Icon icon="mdi:plus" width="16" height="16" class="mr-1" />
           添加用户
         </button>
-        <button class="btn btn-sm btn-info" @click="showStatsDialog = true">
+        <button class="btn btn-sm btn-primary" @click="showStatsDialog = true">
           <Icon icon="mdi:chart-line" width="16" height="16" class="mr-1" />
           统计信息
         </button>
-        <button class="btn btn-sm btn-warning" @click="exportPersons">
+        <button class="btn btn-sm btn-primary" @click="exportPersons">
           <Icon icon="mdi:export" width="16" height="16" class="mr-1" />
           导出数据
         </button>
@@ -635,6 +633,11 @@ onMounted(() => {
   margin-bottom: 1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid hsl(var(--b3));
+  background: hsl(var(--b1));
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid hsl(var(--b3));
 }
 
 .search-controls {
@@ -654,8 +657,9 @@ onMounted(() => {
 
 .actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
   justify-content: flex-end;
+  align-items: center;
 }
 
 .person-list {
@@ -782,5 +786,61 @@ onMounted(() => {
 .pagination-info {
   font-size: 0.875rem;
   color: hsl(var(--bc) / 0.6);
+}
+
+/* 按钮样式优化 */
+.btn {
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background-color: hsl(var(--p));
+  border-color: hsl(var(--p));
+  color: hsl(var(--pc));
+}
+
+.btn-primary:hover {
+  background-color: hsl(var(--p) / 0.9);
+  border-color: hsl(var(--p) / 0.9);
+  color: hsl(var(--pc));
+}
+
+.btn-sm {
+  min-height: 2rem;
+  height: 2rem;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+}
+
+/* 确保在白色背景下文字可见 */
+.search-section {
+  background: hsl(var(--b1));
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid hsl(var(--b3));
+}
+
+.person-management {
+  color: hsl(var(--bc));
+}
+
+/* 响应式布局优化 */
+@media (max-width: 768px) {
+  .search-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .actions {
+    justify-content: stretch;
+    flex-wrap: wrap;
+  }
+  
+  .actions .btn {
+    flex: 1;
+    min-width: 120px;
+  }
 }
 </style>

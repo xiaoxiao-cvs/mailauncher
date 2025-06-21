@@ -43,14 +43,12 @@
             <Icon icon="mdi:refresh" width="16" height="16" />
           </button>
         </div>
-      </div>
-
-      <div class="actions">
-        <button class="btn btn-sm btn-success" @click="showCreateDialog = true">
+      </div>      <div class="actions">
+        <button class="btn btn-sm btn-primary" @click="showCreateDialog = true">
           <Icon icon="mdi:plus" width="16" height="16" class="mr-1" />
           添加表情包
         </button>
-        <button class="btn btn-sm btn-warning" @click="exportEmojis">
+        <button class="btn btn-sm btn-primary" @click="exportEmojis">
           <Icon icon="mdi:export" width="16" height="16" class="mr-1" />
           导出数据
         </button>
@@ -472,6 +470,11 @@ onMounted(() => {
   margin-bottom: 1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid hsl(var(--b3));
+  background: hsl(var(--b1));
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid hsl(var(--b3));
 }
 
 .search-controls {
@@ -479,18 +482,22 @@ onMounted(() => {
   gap: 1rem;
   margin-bottom: 1rem;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .filters {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
   justify-content: flex-end;
+  align-items: center;
 }
 
 .emoji-list {
@@ -631,6 +638,60 @@ onMounted(() => {
 
 .pagination-info {
   font-size: 0.875rem;
-  color: hsl(var(--bc) / 0.6);
+  color: hsl(var(--bc) / 0.7);
+}
+
+/* 按钮样式优化 */
+.btn {
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background-color: hsl(var(--p));
+  border-color: hsl(var(--p));
+  color: hsl(var(--pc));
+}
+
+.btn-primary:hover {
+  background-color: hsl(var(--p) / 0.9);
+  border-color: hsl(var(--p) / 0.9);
+  color: hsl(var(--pc));
+}
+
+.btn-sm {
+  min-height: 2rem;
+  height: 2rem;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+}
+
+/* 确保在白色背景下文字可见 */
+.search-section {
+  background: hsl(var(--b1));
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid hsl(var(--b3));
+}
+
+.emoji-management {
+  color: hsl(var(--bc));
+}
+
+/* 响应式布局优化 */
+@media (max-width: 768px) {
+  .search-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .actions {
+    justify-content: stretch;
+  }
+  
+  .actions .btn {
+    flex: 1;
+  }
 }
 </style>

@@ -217,8 +217,7 @@
                       <label class="resource-label">从备份恢复</label>
                       <p class="resource-desc">从备份文件恢复数据库</p>
                     </div>
-                    <div class="resource-control">
-                      <button class="btn btn-warning btn-sm" @click="restoreBackup" :disabled="isRestoring">
+                    <div class="resource-control">                      <button class="btn btn-primary btn-sm" @click="restoreBackup" :disabled="isRestoring">
                         <div v-if="isRestoring" class="loading loading-spinner loading-xs mr-1"></div>
                         <Icon v-else icon="mdi:database-import" width="16" height="16" class="mr-1" />
                         {{ isRestoring ? '恢复中...' : '选择备份文件' }}
@@ -622,34 +621,31 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: 
-    radial-gradient(circle at center, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 70%);
-  backdrop-filter: blur(12px) saturate(1.5);
-  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  /* 确保鼠标事件正常传递 */
+  pointer-events: auto;
 }
 
 .resource-manager-container {
-  width: 95vw;
-  max-width: 1400px;
-  height: 95vh;
-  min-height: 600px;
-  background-color: hsl(var(--b1));
+  width: 90%;
+  max-width: 1100px;
+  height: 88%;
+  max-height: 750px;
+  background-color: #ffffff;
   border-radius: 16px;
-  box-shadow: 
-    0 25px 50px -12px rgba(0, 0, 0, 0.25), 
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  border: 1px solid hsl(var(--b3));
+  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  backdrop-filter: none; /* 确保主窗口不受外部毛玻璃影响 */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* 头部样式 */
@@ -657,16 +653,16 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.5rem 2rem;
-  background-color: hsl(var(--b1));
-  border-bottom: 1px solid hsl(var(--b3));
+  padding: 1.25rem 1.75rem;
+  background-color: #ffffff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
 }
 
 .resource-title {
   font-size: 1.5rem;
-  font-weight: 700;
-  color: hsl(var(--bc));
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.9);
   margin: 0;
 }
 
@@ -675,9 +671,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 2rem;
-  background-color: hsl(var(--b1));
-  border-bottom: 1px solid hsl(var(--b3));
+  padding: 1rem 1.75rem;
+  background-color: #ffffff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
 }
 
@@ -726,45 +722,47 @@ onMounted(() => {
 .resource-sidebar {
   width: 200px;
   min-width: 180px;
-  background-color: hsl(var(--b1));
-  border-right: 1px solid hsl(var(--b3));
+  background-color: #ffffff;
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
   overflow-y: auto;
+  padding: 1.5rem 0;
 }
 
 .resource-nav {
   display: flex;
   flex-direction: column;
-  padding: 1rem 0.75rem;
-  gap: 0.25rem;
+  padding: 0 1rem;
+  gap: 0.5rem;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.625rem 0.875rem;
-  border-radius: 0.5rem;
+  padding: 0.875rem 1.5rem;
+  border-radius: 12px;
   border: none;
   background: transparent;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: hsl(var(--bc) / 0.7);
+  color: rgba(0, 0, 0, 0.7);
   font-weight: 500;
   text-align: left;
   width: 100%;
   min-height: 40px;
+  margin: 0 0 0.5rem 0;
 }
 
 .nav-item:hover {
-  background-color: hsl(var(--b2));
-  color: hsl(var(--bc));
+  background-color: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.9);
 }
 
 .nav-item.active {
   background-color: hsl(var(--p));
   color: hsl(var(--pc));
-  box-shadow: 0 2px 8px hsl(var(--p) / 0.3);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
 }
 
 .nav-icon {
@@ -784,7 +782,7 @@ onMounted(() => {
   flex: 1;
   overflow: hidden;
   position: relative;
-  background-color: hsl(var(--b1));
+  background-color: #ffffff;
 }
 
 /* 资源面板样式 */
@@ -792,48 +790,67 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: hsl(var(--b1));
+  background-color: #ffffff;
 }
 
 .panel-header {
-  padding: 2rem 2rem 1rem;
-  border-bottom: 1px solid hsl(var(--b3));
+  padding: 2rem 2.5rem 1.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
-  background-color: hsl(var(--b1));
+  background-color: #ffffff;
 }
 
 .panel-title {
   font-size: 1.5rem;
   font-weight: 700;
-  color: hsl(var(--bc));
-  margin: 0 0 0.5rem 0;
+  color: rgba(0, 0, 0, 0.9);
+  margin: 0 0 0.75rem 0;
 }
 
 .panel-description {
-  color: hsl(var(--bc) / 0.6);
+  color: rgba(0, 0, 0, 0.6);
   margin: 0;
-  font-size: 0.9rem;
+  line-height: 1.6;
+  font-size: 0.95rem;
 }
 
 .resource-section {
   flex: 1;
   overflow-y: auto;
-  padding: 1.5rem 2rem;
-  background-color: hsl(var(--b1));
+  padding: 2.5rem;
+  background-color: #ffffff;
+  scroll-behavior: smooth;
 }
 
 /* 资源组样式 */
 .resource-group {
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
+  background: hsl(var(--b2) / 0.3);
+  border-radius: 16px;
+  padding: 1.75rem;
+  border: 1px solid hsl(var(--b3) / 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .group-title {
   font-size: 1.125rem;
   font-weight: 600;
-  color: hsl(var(--bc));
-  margin: 0 0 1rem 0;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid hsl(var(--p) / 0.2);
+  color: rgba(0, 0, 0, 0.9);
+  margin: 0 0 1.5rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.group-title::before {
+  content: "";
+  width: 4px;
+  height: 1.25rem;
+  background: linear-gradient(135deg, hsl(var(--p)) 0%, hsl(var(--s)) 100%);
+  border-radius: 2px;
 }
 
 /* 资源项样式 */
@@ -841,33 +858,44 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem;
-  background-color: hsl(var(--b1));
-  border-radius: 0.75rem;
-  margin-bottom: 0.75rem;
-  border: 1px solid hsl(var(--b3));
+  padding: 1.25rem 0;
+  background: transparent;
+  margin-bottom: 0;
+  border: none;
+  border-bottom: 1px solid hsl(var(--b3) / 0.1);
   transition: all 0.2s ease;
+  gap: 1.5rem;
+}
+
+.resource-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .resource-item:hover {
-  border-color: hsl(var(--p) / 0.3);
-  box-shadow: 0 2px 8px hsl(var(--b3) / 0.5);
+  transform: none;
+  box-shadow: none;
 }
 
 .resource-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .resource-label {
   font-weight: 600;
-  color: hsl(var(--bc));
-  margin-bottom: 0.25rem;
+  color: rgba(0, 0, 0, 0.9);
+  margin-bottom: 0;
   display: block;
+  font-size: 0.95rem;
 }
 
 .resource-desc {
-  color: hsl(var(--bc) / 0.6);
+  color: rgba(0, 0, 0, 0.6);
   font-size: 0.875rem;
+  line-height: 1.5;
   margin: 0;
 }
 
@@ -875,6 +903,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .resource-value {
@@ -925,7 +954,7 @@ onMounted(() => {
   padding: 1rem;
   background-color: hsl(var(--b1));
   border-radius: 0.5rem;
-  border: 1px solid hsl(var(--b3));
+  border: 1px solid hsl(var(--b3) / 0.2);
 }
 
 .stat-icon {
@@ -960,7 +989,7 @@ onMounted(() => {
   background-color: hsl(var(--b1));
   border-radius: 0.75rem;
   padding: 1.5rem;
-  border: 1px solid hsl(var(--b3));
+  border: 1px solid hsl(var(--b3) / 0.2);
 }
 
 .info-item,
@@ -1109,14 +1138,14 @@ onMounted(() => {
 /* 响应式设计 */
 @media (min-width: 1400px) {
   .resource-manager-container {
-    max-width: 1600px;
+    max-width: 1200px;
   }
 }
 
 @media (max-width: 1200px) {
   .resource-manager-container {
-    width: 98vw;
-    height: 98vh;
+    width: 95%;
+    height: 90%;
   }
   
   .resource-sidebar {
@@ -1131,9 +1160,10 @@ onMounted(() => {
   }
   
   .resource-manager-container {
-    width: 100vw;
-    height: 100vh;
-    border-radius: 8px;
+    width: 98%;
+    height: 95%;
+    border-radius: 12px;
+    max-width: none;
   }
   
   .resource-sidebar {
@@ -1155,7 +1185,7 @@ onMounted(() => {
   }
   
   .resource-section {
-    padding: 1rem 1.5rem;
+    padding: 2rem;
   }
 }
 
@@ -1179,7 +1209,8 @@ onMounted(() => {
     min-width: auto;
     height: auto;
     border-right: none;
-    border-bottom: 1px solid hsl(var(--b3));
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 0.75rem 0;
   }
   
   .resource-nav {
@@ -1282,18 +1313,16 @@ onMounted(() => {
 
 /* 深色主题适配 */
 [data-theme="dark"] .resource-manager-backdrop {
-  background: 
-    radial-gradient(circle at center, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.02) 70%);
-  backdrop-filter: blur(16px) saturate(1.8);
-  -webkit-backdrop-filter: blur(16px) saturate(1.8);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 [data-theme="dark"] .resource-manager-container {
   border-color: hsl(var(--bc) / 0.1);
   box-shadow: 
-    0 25px 50px -12px rgba(0, 0, 0, 0.5), 
-    0 0 0 1px rgba(255, 255, 255, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 32px 64px rgba(0, 0, 0, 0.5), 
+    0 0 0 1px rgba(255, 255, 255, 0.05);
   background-color: hsl(var(--b1));
 }
 
@@ -1301,8 +1330,32 @@ onMounted(() => {
 [data-theme="dark"] .instance-info-bar,
 [data-theme="dark"] .resource-sidebar,
 [data-theme="dark"] .resource-main,
-[data-theme="dark"] .resource-panel {
+[data-theme="dark"] .resource-panel,
+[data-theme="dark"] .panel-header,
+[data-theme="dark"] .resource-section {
   background-color: hsl(var(--b1));
+  border-color: hsl(var(--bc) / 0.1);
+}
+
+[data-theme="dark"] .resource-title,
+[data-theme="dark"] .panel-title,
+[data-theme="dark"] .group-title,
+[data-theme="dark"] .resource-label {
+  color: hsl(var(--bc));
+}
+
+[data-theme="dark"] .panel-description,
+[data-theme="dark"] .resource-desc {
+  color: hsl(var(--bc) / 0.6);
+}
+
+[data-theme="dark"] .nav-item {
+  color: hsl(var(--bc) / 0.7);
+}
+
+[data-theme="dark"] .nav-item:hover {
+  background-color: hsl(var(--b2));
+  color: hsl(var(--bc));
 }
 
 [data-theme="dark"] .stat-item,
@@ -1313,13 +1366,12 @@ onMounted(() => {
   border-color: hsl(var(--bc) / 0.1);
 }
 
-[data-theme="dark"] .resource-item {
+[data-theme="dark"] .resource-group {
   border-color: hsl(var(--bc) / 0.1);
 }
 
-[data-theme="dark"] .resource-item:hover {
-  border-color: hsl(var(--p) / 0.4);
-  box-shadow: 0 2px 8px hsl(var(--bc) / 0.1);
+[data-theme="dark"] .group-title {
+  border-bottom-color: hsl(var(--bc) / 0.1);
 }
 
 [data-theme="dark"] .info-item,

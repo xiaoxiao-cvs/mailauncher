@@ -104,9 +104,33 @@
   @apply flex gap-2.5;
 }
 
-/* 实例列表样式 */
+/* 实例列表样式 - 确保滚动功能正常 */
 .instances-list {
-  @apply flex-grow p-4 overflow-y-auto bg-base-200;
+  @apply flex-1 p-4 bg-base-200;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(100vh - 120px); /* 减去导航栏高度，确保有明确的最大高度 */
+  /* 自定义滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--bc) / 0.3) transparent;
+}
+
+/* Webkit浏览器的滚动条样式 */
+.instances-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.instances-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.instances-list::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--bc) / 0.3);
+  border-radius: 4px;
+}
+
+.instances-list::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--bc) / 0.5);
 }
 
 /* 卡片式布局 */

@@ -1304,14 +1304,15 @@ const goToInstances = () => {
         window.emitter.emit('navigate-to-tab', 'instances');
     }
     
-    // 清理完成状态，重置到初始页面
-    resetToInitialState();
+    // 延迟清理状态，确保页面跳转完成
+    setTimeout(() => {
+        resetToInitialState();
+    }, 500);
 };
 
 const installAnother = () => {
     // 重置到安装模式选择页面
     resetToInitialState();
-    currentStep.value = 'select-mode';
     
     toastService.info('请选择新的安装方式');
 };
@@ -1338,6 +1339,9 @@ const resetToInitialState = () => {
     // 重置手动设置标记
     instanceNameManuallySet.value = false;
     installPathManuallySet.value = false;
+    
+    // 重置步骤到选择模式
+    currentStep.value = 'select-mode';
     
     // 重置路径相关状态
     resetPathStates();
