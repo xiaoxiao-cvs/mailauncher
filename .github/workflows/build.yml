@@ -23,9 +23,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-windows:
-    runs-on: windows-latest # 使用 GitHub 提供的 Windows runner
-
+  build-windows-self-hosted:
+    runs-on: [self-hosted, windows, x64] # 使用自托管的 Windows runner
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -91,14 +91,90 @@ jobs:
         run_install: true
 
     # 构建 Tauri 应用
-    - name: Build Tauri (Windows)
+    - name: Build Tauri (Windows Self-Hosted)
       run: pnpm tauri build
       
     # 上传构建产物
-    - name: Upload Artifacts (Windows)
+    - name: Upload Artifacts (Windows Self-Hosted)
       uses: actions/upload-artifact@v4
       with:
-        name: tauri-build-windows # Artifact 名称
+        name: tauri-build-windows-self-hosted # Artifact 名称
+        path: src-tauri/target/release/bundle/ # 构建产物所在的目录
+
+  build-windows-github:
+    runs-on: windows-latest # 使用 GitHub 提供的 Windows runner (保留作为备用)
+    if: false # 默认禁用，需要时可以手动启用
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 克隆后端仓库
+    - name: Clone backend repository
+      run: |
+        if (Test-Path "backend") { Remove-Item -Recurse -Force "backend" }
+        git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
+        
+    # 设置 Python 环境用于构建后端
+    - name: Set up Python for backend
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        
+    # 缓存 pip 依赖
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~\AppData\Local\pip\Cache
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    # 安装后端构建依赖
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    # 创建数据目录
+    - name: Create backend data directory
+      run: |
+        cd backend
+        if (!(Test-Path "data")) { New-Item -ItemType Directory -Path "data" }
+        
+    # 构建 Windows 后端
+    - name: Build Windows backend
+      run: |
+        cd backend
+        pyinstaller main.spec
+        
+    # 复制后端可执行文件到 Tauri binaries 目录
+    - name: Copy backend executable to Tauri binaries
+      run: |
+        if (!(Test-Path "src-tauri\binaries")) { New-Item -ItemType Directory -Path "src-tauri\binaries" -Force }
+        Copy-Item "backend\dist\MaiLauncher-Backend.exe" "src-tauri\binaries\MaiLauncher-Backend-x86_64-pc-windows-msvc.exe"
+
+    # 检查并安装 Node.js
+    - name: Setup Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        
+    # 设置 pnpm
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: latest
+        run_install: true    # 构建 Tauri 应用
+    - name: Build Tauri (Windows GitHub)
+      run: pnpm tauri build
+        # 上传构建产物
+    - name: Upload Artifacts (Windows GitHub)
+      uses: actions/upload-artifact@v4
+      with:
+        name: tauri-build-windows-github # Artifact 名称
         path: src-tauri/target/release/bundle/ # 构建产物所在的目录
   build-linux:
     runs-on: ubuntu-latest # 使用最新的 Ubuntu runner
