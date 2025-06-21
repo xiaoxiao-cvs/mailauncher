@@ -28,12 +28,51 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4    # 克隆后端仓库
+      uses: actions/checkout@v4
+
+    # 克隆后端仓库
     - name: Clone backend repository
       run: |
         if (Test-Path "backend") { Remove-Item -Recurse -Force "backend" }
         git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
-          # 检查并设置 Python 环境（自托管 runner）
+        
+    # 直接设置 Python 路径（基于系统实际路径）
+    - name: Set Python path directly
+      run: |
+        # 尝试多个可能的 Python 路径，包括不同用户目录
+        $pythonPaths = @(
+          "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe",
+          "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\python.exe", 
+          "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\python.exe",
+          "C:\Python313\python.exe",
+          "C:\Python312\python.exe",
+          "C:\Python311\python.exe",
+          "C:\Program Files\Python313\python.exe",
+          "C:\Program Files\Python312\python.exe",
+          "C:\Program Files\Python311\python.exe"
+        )
+        
+        $pythonFound = $false
+        foreach ($pythonPath in $pythonPaths) {
+          Write-Host "Checking: $pythonPath"
+          if (Test-Path $pythonPath) {
+            try {
+              Write-Host "Found Python at: $pythonPath"
+              & $pythonPath --version
+              echo "PYTHON_EXECUTABLE=$pythonPath" >> $env:GITHUB_ENV
+              Write-Host "Python path set successfully"
+              $pythonFound = $true
+              break
+            } catch {
+              Write-Host "Python found but failed to execute: $pythonPath"
+            }
+          }
+        }
+        
+        if (-not $pythonFound) {
+          Write-Host "Python not found at any expected paths"
+          Write-Host "Will try automatic detection in next step..."
+        }# 检查并设置 Python 环境（自托管 runner）
     - name: Setup Python environment
       run: |
         Write-Host "Searching for Python installation..."
@@ -302,21 +341,24 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: 22
-        
-    # 设置 pnpm
+          # 设置 pnpm
     - name: Setup pnpm
       uses: pnpm/action-setup@v3
       with:
         version: latest
-        run_install: true    # 构建 Tauri 应用
+        run_install: true
+    
+    # 构建 Tauri 应用
     - name: Build Tauri (Windows GitHub)
       run: pnpm tauri build
-        # 上传构建产物
+      
+    # 上传构建产物
     - name: Upload Artifacts (Windows GitHub)
       uses: actions/upload-artifact@v4
       with:
         name: tauri-build-windows-github # Artifact 名称
         path: src-tauri/target/release/bundle/ # 构建产物所在的目录
+
   build-linux:
     runs-on: ubuntu-latest # 使用最新的 Ubuntu runner
 
