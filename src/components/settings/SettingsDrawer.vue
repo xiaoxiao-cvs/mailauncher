@@ -1,6 +1,7 @@
 <template>
-    <div v-if="isOpen" class="settings-drawer-backdrop" @click.self="handleBackdropClick">
-        <div class="settings-drawer-container"> <!-- 头部 -->
+    <transition name="settings-drawer" appear>
+        <div v-if="isOpen" class="settings-drawer-backdrop" @click.self="handleBackdropClick">
+            <div class="settings-drawer-container"><!-- 头部 -->
             <div class="settings-header">
                 <h2 class="settings-title">系统设置</h2> <button class="btn btn-ghost btn-sm btn-circle"
                     @click="closeDrawer" title="关闭">
@@ -20,10 +21,19 @@
                             <span class="nav-label">{{ tab.title }}</span>
                         </button>
                     </nav>
-                </div> <!-- 主内容区 -->
-                <div class="settings-main">
+                </div>                <!-- 主内容区 -->                <div class="settings-main" @wheel.stop>
                     <!-- 设置面板切换动画容器 -->
-                    <transition :name="panelTransitionName" mode="out-in">
+                    <transition 
+                        :name="panelTransitionName" 
+                        mode="out-in" 
+                        :duration="{ enter: 500, leave: 300 }"
+                        appear
+                        @before-enter="onBeforeEnter"
+                        @enter="onEnter"
+                        @leave="onLeave"
+                    >
+                        <!-- 动态组件包装器 -->
+                        <div :key="activeTab" class="settings-panel-wrapper">
                         <!-- 外观设置 -->
                         <div v-if="activeTab === 'appearance'" key="appearance" class="settings-panel">
                             <div class="panel-header">
@@ -172,10 +182,8 @@
                                                 </button>
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <!-- 访问信息预览 -->
-                                    <div class="bg-base-200 rounded-lg p-4 mt-4">
+                                    </div>                                    <!-- 访问信息预览 -->
+                                    <div class="bg-base-100 border border-base-300/50 rounded-lg p-4 mt-4">
                                         <h4 class="font-medium mb-3 flex items-center gap-2">
                                             <IconifyIcon icon="mdi:eye-outline" class="w-4 h-4" />
                                             访问信息
@@ -660,9 +668,8 @@
                                         <div class="setting-info">
                                             <label class="setting-label">当前路径状态</label>
                                             <p class="setting-desc">查看当前配置的路径信息</p>
-                                        </div>
-                                        <div class="setting-control">
-                                            <div class="bg-base-200 rounded-lg p-3">
+                                        </div>                                        <div class="setting-control">
+                                            <div class="bg-base-100 border border-base-300/50 rounded-lg p-3">
                                                 <div class="space-y-1 text-xs">
                                                     <div class="flex justify-between">
                                                         <span class="text-base-content/70">数据存储:</span>
@@ -779,12 +786,10 @@
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-
-                                <!-- 路径预览 -->
+                                </div>                                <!-- 路径预览 -->
                                 <div class="setting-group">
                                     <h4 class="group-title">路径预览</h4>
-                                    <div class="bg-base-200 rounded-lg p-4">
+                                    <div class="bg-base-100 border border-base-300/50 rounded-lg p-4">
                                         <div class="space-y-2 text-sm font-mono">
                                             <div class="flex justify-between">
                                                 <span class="text-base-content/70">数据存储:</span>
@@ -816,14 +821,14 @@
                         </div> <!-- 其他标签页的占位内容 -->
                         <div v-else class="settings-panel">
                             <div class="panel-header">
-                                <h3 class="panel-title">{{ getCurrentTabTitle() }}</h3>
-                                <p class="panel-description">功能开发中...</p>
+                                <h3 class="panel-title">{{ getCurrentTabTitle() }}</h3>                                <p class="panel-description">功能开发中...</p>
                             </div>
                             <div class="coming-soon">
                                 <IconifyIcon icon="mdi:construction" class="coming-soon-icon" />
                                 <p>此功能正在开发中，敬请期待</p>
                             </div>
                         </div>
+                        </div> <!-- settings-panel-wrapper 结束标签 -->
                     </transition>
                 </div>
             </div>
@@ -840,11 +845,11 @@
                     <button class="btn btn-primary btn-sm" @click="closeDrawer">
                         <IconifyIcon icon="mdi:check" size="sm" />
                         完成
-                    </button>
-                </div>
+                    </button>                </div>
             </div>
         </div>
     </div>
+    </transition>
 </template>
 
 <script setup>
@@ -896,20 +901,23 @@ const panelTransitionName = computed(() => {
     const currentIndex = settingTabs.findIndex(tab => tab.key === activeTab.value)
     const previousIndex = settingTabs.findIndex(tab => tab.key === previousTab.value)
 
+    console.log('Transition calculation:', {
+        currentTab: activeTab.value,
+        previousTab: previousTab.value,
+        currentIndex,
+        previousIndex
+    })
+
     if (currentIndex === -1 || previousIndex === -1) {
         return 'settings-panel-fade'
     }
 
-    // 向右滑动（下一个）
+    // 确保有明显的过渡效果
     if (currentIndex > previousIndex) {
         return 'settings-panel-slide-right'
-    }
-    // 向左滑动（上一个）
-    else if (currentIndex < previousIndex) {
+    } else if (currentIndex < previousIndex) {
         return 'settings-panel-slide-left'
-    }
-    // 相同索引，使用淡入淡出
-    else {
+    } else {
         return 'settings-panel-fade'
     }
 })
@@ -1050,8 +1058,31 @@ const autoCheckInterval = ref(parseInt(localStorage.getItem('autoVersionCheckInt
 
 // 方法
 const switchTab = (tab) => {
+    // 记录前一个标签页
+    previousTab.value = activeTab.value
+    
+    // 直接切换，让Vue的过渡系统处理动画
     activeTab.value = tab
     settingsService.setTab(tab)
+    
+    console.log('Tab switched from', previousTab.value, 'to', activeTab.value)
+}
+
+// 过渡动画钩子函数
+const onBeforeEnter = (el) => {
+    console.log('Before enter transition:', panelTransitionName.value)
+}
+
+const onEnter = (el, done) => {
+    console.log('Enter transition:', panelTransitionName.value)
+    // 确保动画完成后调用done
+    setTimeout(done, 400)
+}
+
+const onLeave = (el, done) => {
+    console.log('Leave transition:', panelTransitionName.value)
+    // 确保动画完成后调用done
+    setTimeout(done, 200)
 }
 
 const closeDrawer = () => {
@@ -1803,6 +1834,17 @@ onMounted(() => {
     // 初始化版本信息
     initializeVersionInfo()
 
+    // 确保滚轮事件正常工作
+    nextTick(() => {
+        const settingsPanel = document.querySelector('.settings-panel')
+        if (settingsPanel) {
+            // 阻止事件冒泡，确保滚轮事件在设置面板内部处理
+            settingsPanel.addEventListener('wheel', (e) => {
+                e.stopPropagation()
+            }, { passive: true })
+        }
+    })
+
     console.log('SettingsDrawer 组件已挂载')
 })
 
@@ -1955,3 +1997,7 @@ const openUpdateUrl = () => {
     }
 }
 </script>
+
+<style>
+@import './SettingsDrawer.css';
+</style>
