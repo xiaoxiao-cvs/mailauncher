@@ -35,12 +35,20 @@ jobs:
       run: |
         if (Test-Path "backend") { Remove-Item -Recurse -Force "backend" }
         git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
-        
-    # 设置 Python 环境用于构建后端
-    - name: Set up Python for backend
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
+          # 检查并使用系统 Python（自托管 runner）
+    - name: Check Python installation
+      run: |
+        Write-Host "Checking Python installation..."
+        python --version
+        python -m pip --version
+        Write-Host "Python installation verified successfully."
+    
+    # 清理可能的缓存和临时文件（可选但推荐）
+    - name: Clean Python cache
+      run: |
+        Write-Host "Cleaning Python cache..."
+        python -m pip cache purge
+        Write-Host "Cache cleaned."
         
     # 缓存 pip 依赖
     - name: Cache pip dependencies
