@@ -35,58 +35,55 @@ jobs:
       run: |
         if (Test-Path "backend") { Remove-Item -Recurse -Force "backend" }
         git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
-          # 直接设置 Python 路径（基于系统实际路径）
+      # 直接设置 Python 路径（基于系统实际路径）
     - name: Set Python path directly
       run: |
-        # 首先尝试直接使用系统 PATH 中的 Python
-        Write-Host "Trying Python from system PATH..."
+        # 基于日志输出的实际 PATH，直接使用完整路径
+        $pythonPath = "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe"
+        Write-Host "Trying Python at: $pythonPath"
+        
         try {
-          $version = python --version 2>&1
+          # 直接使用完整路径，绕过 Test-Path 的权限检查
+          $version = & $pythonPath --version 2>&1
           if ($LASTEXITCODE -eq 0) {
-            Write-Host "✓ Python found in system PATH"
+            Write-Host "✓ Python found and working"
             Write-Host "Version: $version"
-            echo "PYTHON_EXECUTABLE=python" >> $env:GITHUB_ENV
+            echo "PYTHON_EXECUTABLE=$pythonPath" >> $env:GITHUB_ENV
             Write-Host "Python path set successfully"
             exit 0
+          } else {
+            Write-Host "Python found but failed to execute"
           }
         } catch {
-          Write-Host "Python not found in system PATH"
+          Write-Host "Failed to execute Python: $($_.Exception.Message)"
         }
         
-        # 如果 PATH 中没有，尝试系统级安装路径（跳过用户配置文件）
-        $pythonPaths = @(
+        # 如果直接路径失败，尝试其他系统级路径
+        $systemPaths = @(
           "C:\Python313\python.exe",
           "C:\Python312\python.exe",
-          "C:\Python311\python.exe",
           "C:\Program Files\Python313\python.exe",
-          "C:\Program Files\Python312\python.exe",
-          "C:\Program Files\Python311\python.exe",
-          "C:\Program Files (x86)\Python313\python.exe",
-          "C:\Program Files (x86)\Python312\python.exe",
-          "C:\Program Files (x86)\Python311\python.exe"
+          "C:\Program Files\Python312\python.exe"
         )
         
-        $pythonFound = $false
-        foreach ($pythonPath in $pythonPaths) {
-          Write-Host "Checking: $pythonPath"
+        foreach ($path in $systemPaths) {
+          Write-Host "Checking: $path"
           try {
-            if (Test-Path $pythonPath) {
-              Write-Host "Found Python at: $pythonPath"
-              & $pythonPath --version
-              echo "PYTHON_EXECUTABLE=$pythonPath" >> $env:GITHUB_ENV
-              Write-Host "Python path set successfully"
-              $pythonFound = $true
-              break
+            if (Test-Path $path) {
+              $version = & $path --version 2>&1
+              if ($LASTEXITCODE -eq 0) {
+                Write-Host "✓ Found working Python: $path"
+                Write-Host "Version: $version"
+                echo "PYTHON_EXECUTABLE=$path" >> $env:GITHUB_ENV
+                exit 0
+              }
             }
           } catch {
-            Write-Host "Cannot access or execute: $pythonPath"
+            Write-Host "Cannot access: $path"
           }
         }
         
-        if (-not $pythonFound) {
-          Write-Host "Python not found at expected system paths"
-          Write-Host "Will try automatic detection in next step..."
-        }    # 检查并设置 Python 环境（自托管 runner）
+        Write-Host "Python not found, will try automatic detection..."# 检查并设置 Python 环境（自托管 runner）
     - name: Setup Python environment
       run: |
         # 检查上一步是否已经设置了 Python
