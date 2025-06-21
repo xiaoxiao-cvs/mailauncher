@@ -28,27 +28,67 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
-    # 克隆后端仓库
+      uses: actions/checkout@v4    # 克隆后端仓库
     - name: Clone backend repository
       run: |
         if (Test-Path "backend") { Remove-Item -Recurse -Force "backend" }
         git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
-          # 检查并使用系统 Python（自托管 runner）
-    - name: Check Python installation
+        
+    # 检查并设置 Python 环境（自托管 runner）
+    - name: Setup Python environment
       run: |
-        Write-Host "Checking Python installation..."
-        python --version
-        python -m pip --version
+        Write-Host "Searching for Python installation..."
+        
+        # 尝试多种可能的 Python 路径
+        $pythonPaths = @(
+          "python",
+          "python3",
+          "py",
+          "C:\Python*\python.exe",
+          "C:\Program Files\Python*\python.exe",
+          "C:\Users\*\AppData\Local\Programs\Python\Python*\python.exe"
+        )
+        
+        $pythonFound = $false
+        foreach ($path in $pythonPaths) {
+          try {
+            if ($path -like "*\*") {
+              # 处理通配符路径
+              $resolvedPaths = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+              if ($resolvedPaths) {
+                $pythonPath = $resolvedPaths[0].FullName
+                Write-Host "Found Python at: $pythonPath"
+                & $pythonPath --version
+                echo "PYTHON_EXECUTABLE=$pythonPath" >> $env:GITHUB_ENV
+                $pythonFound = $true
+                break
+              }
+            } else {
+              # 直接命令
+              & $path --version 2>$null
+              if ($LASTEXITCODE -eq 0) {
+                Write-Host "Found Python command: $path"
+                echo "PYTHON_EXECUTABLE=$path" >> $env:GITHUB_ENV
+                $pythonFound = $true
+                break
+              }
+            }
+          } catch {
+            continue
+          }
+        }
+        
+        if (-not $pythonFound) {
+          Write-Error "Python not found! Please ensure Python is installed and in PATH."
+          exit 1
+        }
+        
         Write-Host "Python installation verified successfully."
-    
-    # 清理可能的缓存和临时文件（可选但推荐）
+      # 清理可能的缓存和临时文件（可选但推荐）
     - name: Clean Python cache
       run: |
         Write-Host "Cleaning Python cache..."
-        python -m pip cache purge
-        Write-Host "Cache cleaned."
+        & $env:PYTHON_EXECUTABLE -m pip cache purge        Write-Host "Cache cleaned."
         
     # 缓存 pip 依赖
     - name: Cache pip dependencies
@@ -63,9 +103,9 @@ jobs:
     - name: Install backend dependencies
       run: |
         cd backend
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
+        & $env:PYTHON_EXECUTABLE -m pip install --upgrade pip
+        & $env:PYTHON_EXECUTABLE -m pip install -r requirements.txt
+        & $env:PYTHON_EXECUTABLE -m pip install pyinstaller
         
     # 创建数据目录
     - name: Create backend data directory
