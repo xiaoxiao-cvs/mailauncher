@@ -666,27 +666,41 @@
                                         3. 查看日志确保所有组件正常运行
                                     </div>
                                 </div>
-                            </div>
-
-                            <!-- 操作按钮 -->
+                            </div>                            <!-- 操作按钮 -->
                             <div class="flex flex-col sm:flex-row gap-3 justify-center">
-                                <button class="btn btn-primary" @click="goToInstances">
+                                <button 
+                                    class="btn btn-primary" 
+                                    @click="goToInstances"
+                                    @mousedown="() => console.log('前往实例管理按钮被按下')"
+                                    @mouseup="() => console.log('前往实例管理按钮被释放')"
+                                >
                                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
                                     </svg>
                                     前往实例管理
                                 </button>
-                                <button class="btn btn-outline" @click="installAnother">
+                                <button 
+                                    class="btn btn-outline" 
+                                    @click="installAnother"
+                                    @mousedown="() => console.log('安装另一个实例按钮被按下')"
+                                    @mouseup="() => console.log('安装另一个实例按钮被释放')"
+                                >
                                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                     </svg>
                                     安装另一个实例
                                 </button>
-                                <button class="btn btn-ghost" @click="viewLogs">
+                                <button 
+                                    class="btn btn-ghost" 
+                                    @click="viewLogs"
+                                    @mousedown="() => console.log('查看日志按钮被按下')"
+                                    @mouseup="() => console.log('查看日志按钮被释放')"
+                                >
                                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                     </svg>
-                                    查看安装日志                                </button>
+                                    {{ showLogsInComplete ? '隐藏安装日志' : '查看安装日志' }}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1135,17 +1149,20 @@ watch(
             nextTick(() => {
                 console.log('安装完成，切换到完成页面');
             });
+            
+            // 注意：不在这里清理 deployStore 状态，让完成页面能正常显示
         }
     }
 );
 
 watch(
     () => deployStore.currentDeployment?.error,
-    (error) => {        if (error) {
+    (error) => {
+        if (error) {
             localInstalling.value = false;
-            installationSnapshot.value = null;
-            installStartTime.value = null;
-            installEndTime.value = null;
+            // 发生错误时才清理状态
+            clearDeploymentState();
+            console.log('部署发生错误，已清理状态');
         }
     }
 );
@@ -1299,35 +1316,71 @@ const copyInstallPath = async () => {
 };
 
 const goToInstances = () => {
-    // 触发页面切换到实例管理
+    console.log('点击前往实例管理按钮');
+    
+    // 使用多种方式确保页面切换成功
+    // 方法1: 使用 window.emitter（如果存在）
     if (window.emitter) {
         window.emitter.emit('navigate-to-tab', 'instances');
+        console.log('已通过 window.emitter 发送页面切换事件到实例管理');
     }
     
-    // 延迟清理状态，确保页面跳转完成
+    // 方法2: 使用全局自定义事件作为备用方案
+    window.dispatchEvent(new CustomEvent('force-navigate', {
+        detail: { tab: 'instances' }
+    }));
+    console.log('已通过 CustomEvent 发送页面切换事件到实例管理');
+    
+    // 延迟清理部署状态，给页面切换留出时间
     setTimeout(() => {
-        resetToInitialState();
-    }, 500);
+        // 只清理部署相关状态，不重置到初始状态
+        clearDeploymentState();
+        console.log('已清理部署状态，保持在完成页面');
+    }, 1000); // 增加延迟时间确保页面切换完成
 };
 
 const installAnother = () => {
-    // 重置到安装模式选择页面
-    resetToInitialState();
+    console.log('点击安装另一个实例按钮');
     
-    toastService.info('请选择新的安装方式');
+    // 先清理部署状态
+    clearDeploymentState();
+    
+    // 强制清理 deployStore 的完成状态，因为要开始新的安装
+    deployStore.clearLogs();
+    if (deployStore.currentDeployment) {
+        // 重置部署状态，但不影响其他功能
+        deployStore.currentDeployment.installComplete = false;
+        deployStore.currentDeployment.installing = false;
+        deployStore.currentDeployment.error = null;
+    }
+    
+    // 然后重置到选择模式页面
+    resetToSelectMode();
+    
+    // 确保状态被正确重置
+    nextTick(() => {
+        console.log('重置完成，当前状态:', {
+            currentStep: currentStep.value,
+            selectedVersion: selectedVersion.value,
+            installComplete: installComplete.value,
+            installing: installing.value
+        });
+        
+        toastService.info('请选择新的安装方式');
+    });
 };
 
 const viewLogs = () => {
+    console.log('点击查看日志按钮，当前状态:', { showLogsInComplete: showLogsInComplete.value });
     showLogsInComplete.value = !showLogsInComplete.value;
+    console.log('日志显示状态已切换为:', showLogsInComplete.value);
 };
 
 const resetToInitialState = () => {
+    console.log('重置到初始状态');
+    
     // 重置所有状态到初始值
-    installationSnapshot.value = null;
-    installStartTime.value = null;
-    installEndTime.value = null;
-    showLogsInComplete.value = false;
-    localInstalling.value = false;
+    clearDeploymentState();
     
     // 重置表单数据
     selectedVersion.value = '';
@@ -1345,9 +1398,81 @@ const resetToInitialState = () => {
     
     // 重置路径相关状态
     resetPathStates();
+};
+
+// 只清理部署相关状态，保留表单数据
+const clearDeploymentState = () => {
+    console.log('清理部署状态');
     
-    // 清理部署相关状态（使用现有的方法）
-    deployStore.clearLogs();
+    // 清理安装相关状态
+    installationSnapshot.value = null;
+    installStartTime.value = null;
+    installEndTime.value = null;
+    showLogsInComplete.value = false;
+    localInstalling.value = false;
+    
+    // 清理活跃部署数据
+    activeDeploymentData.value = null;
+    
+    // 只清理日志，不清理 deployStore 的完成状态
+    // 注意：不调用 deployStore.clearLogs()，因为这可能会清理完成状态
+    
+    // 清理Toast状态
+    if (currentToastId.value) {
+        enhancedToastService.close(currentToastId.value);
+        deployStore.clearPageSwitchToast();
+        currentToastId.value = null;
+    }
+    
+    // 重置路径相关状态
+    resetPathStates();
+    
+    console.log('部署状态已清理，保留完成状态');
+};
+
+// 重置到选择模式页面，但保留一些表单数据
+const resetToSelectMode = () => {
+    console.log('重置到选择模式页面');
+    
+    // 重置步骤到选择模式
+    currentStep.value = 'select-mode';
+    
+    // 重置版本选择和相关数据
+    selectedVersion.value = '';
+    instanceName.value = '';
+    
+    // 重置安装路径到默认值
+    const savedDeploymentPath = getSafeDeploymentPath();
+    installPath.value = generateInstancePath('MaiBot-1');
+    
+    // 重置端口设置
+    maibotPort.value = '8000';
+    
+    // 重置服务选择状态
+    Object.keys(selectedServices).forEach(key => {
+        selectedServices[key] = key === 'napcat-ada'; // 默认选中 napcat-ada
+    });
+    
+    // 重置EULA状态
+    eulaAgreed.value = false;
+    
+    // 重置手动设置标记
+    instanceNameManuallySet.value = false;
+    installPathManuallySet.value = false;
+    
+    // 重置验证状态
+    instanceNameValidation.isChecking = false;
+    instanceNameValidation.isValid = true;
+    instanceNameValidation.isDuplicate = false;
+    instanceNameValidation.message = '';
+    
+    // 重置版本加载状态
+    versionLoadingStage.value = 'dropdown';
+    
+    // 重置路径相关状态
+    resetPathStates();
+    
+    console.log('选择模式重置完成');
 };
 
 // 选择安装模式
@@ -1868,7 +1993,9 @@ onBeforeUnmount(() => {
         
         // 标记事件监听器已清理
         eventListenersAttached.value = false;
-    }    // 如果有活跃的Toast，关闭它
+    }
+    
+    // 如果有活跃的Toast，关闭它
     if (currentToastId.value) {
         console.log('组件卸载，关闭Toast，ID:', currentToastId.value);
         enhancedToastService.close(currentToastId.value);
@@ -1878,7 +2005,8 @@ onBeforeUnmount(() => {
         
         currentToastId.value = null;
     }
-      // 清理定时器
+    
+    // 清理定时器
     if (installPathUpdateTimeout) {
         clearTimeout(installPathUpdateTimeout);
         installPathUpdateTimeout = null;
@@ -1895,6 +2023,10 @@ onBeforeUnmount(() => {
         clearTimeout(validateExistingTimeout);
         validateExistingTimeout = null;
     }
+    
+    // 注意：不在组件卸载时清理 deployStore 的完成状态
+    // 这样当用户再次进入下载页面时，仍能看到之前的完成信息
+    console.log('DownloadCenter 组件卸载完成，保留安装完成状态');
 });
 
 // 组件生命周期
@@ -2348,10 +2480,19 @@ const eventListenersAttached = ref(false);
 
 // 处理从下载页面切换到其他页面时的Toast显示
 const handlePageSwitch = (newPage) => {
-    console.log('页面切换检测:', { from: 'downloads', to: newPage, isDeploying: installing.value });
+    console.log('页面切换检测:', { 
+        from: 'downloads', 
+        to: newPage, 
+        isInstalling: installing.value,
+        isComplete: installComplete.value,
+        localInstalling: localInstalling.value
+    });
     
-    // 如果正在安装且切换到其他页面，显示Toast
-    if (installing.value && newPage !== 'downloads' && activeDeploymentData.value) {        // 检查是否已经有Toast存在，避免重复创建
+    // 只有在真正安装进行中（非完成状态）且切换到其他页面时，才显示Toast
+    const isActuallyInstalling = installing.value && !installComplete.value && localInstalling.value;
+    
+    if (isActuallyInstalling && newPage !== 'downloads' && activeDeploymentData.value) {
+        // 检查是否已经有Toast存在，避免重复创建
         if (!currentToastId.value) {
             console.log('正在安装中，切换到其他页面，显示Toast');
             
@@ -2386,16 +2527,23 @@ const handlePageSwitch = (newPage) => {
             console.log('Toast已存在，不重复创建，当前Toast ID:', currentToastId.value);
         }
         
-        isInDownloadPage.value = false;    } else if (newPage === 'downloads' && currentToastId.value) {
-        // 切换回下载页面，关闭Toast
-        console.log('切换回下载页面，关闭Toast，ID:', currentToastId.value);
-        enhancedToastService.close(currentToastId.value);
-        
-        // 清理deployStore中的Toast注册
-        deployStore.clearPageSwitchToast();
-        
-        currentToastId.value = null;
+        isInDownloadPage.value = false;
+    } else if (newPage === 'downloads') {
+        // 切换回下载页面，清理Toast（如果存在）
+        if (currentToastId.value) {
+            console.log('切换回下载页面，关闭Toast，ID:', currentToastId.value);
+            enhancedToastService.close(currentToastId.value);
+            
+            // 清理deployStore中的Toast注册
+            deployStore.clearPageSwitchToast();
+            
+            currentToastId.value = null;
+        }
         isInDownloadPage.value = true;
+    } else if (newPage !== 'downloads' && installComplete.value) {
+        // 从完成页面切换到其他页面，不需要Toast，只更新页面状态
+        console.log('从完成页面切换到其他页面，无需显示Toast');
+        isInDownloadPage.value = false;
     }
 };
 
@@ -2409,14 +2557,16 @@ const handleDeploymentStarted = (event) => {
 };
 
 // 监听部署完成事件
-watch(installing, (newValue, oldValue) => {
-    console.log('安装状态变化:', { from: oldValue, to: newValue });
+watch(installComplete, (newValue, oldValue) => {
+    console.log('安装完成状态变化:', { from: oldValue, to: newValue });
     
-    if (!newValue && oldValue) {
-        // 安装完成，重置活跃部署数据和Toast状态
-        console.log('安装完成，清理部署数据和Toast状态');
+    if (newValue && !oldValue) {
+        // 安装刚刚完成，清理部署相关状态但保留完成信息
+        console.log('安装刚刚完成，清理活跃部署数据');
+        
+        // 清理活跃部署数据，因为已经完成
         activeDeploymentData.value = null;
-          // 如果有Toast正在显示，关闭它
+          // 如果有Toast正在显示，关闭它（因为安装已完成）
         if (currentToastId.value) {
             console.log('安装完成，关闭Toast，ID:', currentToastId.value);
             enhancedToastService.close(currentToastId.value);

@@ -1,7 +1,6 @@
-<template>
-  <div 
+<template>  <div 
     class="enhanced-toast" 
-    :class="[`toast-${type}`, `toast-${size}`, { 'toast-expanded': isExpanded }]"
+    :class="[`toast-${finalType}`, `toast-${size}`, { 'toast-expanded': isExpanded }]"
     @mouseenter="handleMouseEnter"
     @mouseleave="handleMouseLeave"
   >
@@ -18,14 +17,11 @@
       <div class="toast-main-message">
         <span v-if="localDeploymentData && progressMode === 'deployment'">
           正在安装实例 "{{ localDeploymentData.instanceName }}"... ({{ Math.round(progressPercent) }}%)
+        </span>        <span v-else>
+          {{ finalMessage }}
         </span>
-        <span v-else>
-          {{ message }}
-        </span>
-      </div>
-
-      <!-- 错误详情（仅在错误类型且有详细信息时显示） -->
-      <div v-if="type === 'error' && errorDetails" class="toast-error-details">
+      </div>      <!-- 错误详情（仅在错误类型且有详细信息时显示） -->
+      <div v-if="finalType === 'error' && errorDetails" class="toast-error-details">
         <div class="error-summary">
           <strong>错误详情:</strong>
         </div>
@@ -198,6 +194,9 @@ let countdownTimer = null
 let remainingTime = ref(props.duration)
 
 // 计算属性
+const finalType = ref(props.type)
+const finalMessage = ref(props.message)
+
 const progressColor = computed(() => {
   const colors = {
     success: '#10b981',
@@ -205,7 +204,7 @@ const progressColor = computed(() => {
     warning: '#f59e0b',
     info: '#3b82f6'
   }
-  return colors[props.type] || colors.info
+  return colors[finalType.value] || colors.info
 })
 
 // 方法
@@ -296,11 +295,10 @@ const updateProgress = (progress) => {
     // 切换到部署模式
     switchToDeploymentMode()
   }
-  
-  // 强制触发响应式更新
-  if (props.onProgressUpdate) {
-    props.onProgressUpdate(props.id, progress);
-  }
+    // 强制触发响应式更新 - 移除可能导致递归的回调
+  // if (props.onProgressUpdate) {
+  //   props.onProgressUpdate(props.id, progress);
+  // }
 }
 
 const updateDeploymentData = (data) => {
@@ -314,21 +312,26 @@ const updateDeploymentData = (data) => {
     localDeploymentData.value = { ...data };
   }
   
-  // 如果包含进度信息，同步更新进度
+  // 如果包含进度信息，只更新本地进度，避免递归调用
   if (data.progress !== undefined) {
-    updateProgress(data.progress);
+    deploymentProgress.value = data.progress;
+    if (progressMode.value === 'deployment') {
+      progressPercent.value = data.progress;
+    } else {
+      switchToDeploymentMode();
+    }
   }
   
   console.log(`Toast ${props.id} 部署数据更新后:`, localDeploymentData.value);
 }
 
-const complete = (finalType, finalMessage) => {
+const complete = (newType, newMessage) => {
   progressMode.value = 'deployment'
   progressPercent.value = 100
   
-  // 更新Toast状态
-  props.type = finalType
-  props.message = finalMessage
+  // 更新本地状态而不是尝试修改props
+  finalType.value = newType
+  finalMessage.value = newMessage
 }
 
 // 暴露方法给父组件
@@ -368,6 +371,14 @@ watch(progressPercent, (newValue, oldValue) => {
 watch(localDeploymentData, (newValue) => {
   console.log(`Toast ${props.id} 部署数据变化:`, newValue);
 }, { deep: true })
+
+// 监听props.deploymentData的变化，同步到本地状态
+watch(() => props.deploymentData, (newData) => {
+  if (newData) {
+    console.log(`Toast ${props.id} props.deploymentData 更新:`, newData);
+    localDeploymentData.value = { ...newData };
+  }
+}, { deep: true, immediate: true })
 </script>
 
 <style scoped>

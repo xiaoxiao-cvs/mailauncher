@@ -168,6 +168,7 @@ export const useDeployStore = defineStore("deploy", () => {
       endTime: null,
       error: null,
       lastLogOffset: 0, // 用于跟踪已处理的后端日志数量，避免重复显示
+      statusCheckStarted: false, // 标记是否已开始状态检查，避免重复日志
     };
 
     deployments.set(deploymentId, deployment);
@@ -483,15 +484,16 @@ export const useDeployStore = defineStore("deploy", () => {
       console.log(
         `🔍 [调试] 检查部署 ${deploymentId} 的安装状态，实例ID: ${deployment.instanceId}`
       );
+        // 检查是否首次调用，避免重复的"正在检查安装状态"日志
+      if (!deployment.statusCheckStarted) {
+        const currentTime = new Date().toLocaleTimeString();
+        addLog(deploymentId, `🔍 [${currentTime}] 开始检查安装状态...`, "info");
+        deployment.statusCheckStarted = true;
+      }
       
-      // 添加时间戳，确认轮询在执行
-      const currentTime = new Date().toLocaleTimeString();
-      addLog(deploymentId, `🔍 [${currentTime}] 正在检查安装状态...`, "info");      const response = await deployApi.checkInstallStatus(
+      const response = await deployApi.checkInstallStatus(
         deployment.instanceId
-      );
-
-      console.log(`📥 [调试] 收到安装状态响应:`, response);
-      addLog(deploymentId, `� [调试] API响应: ${JSON.stringify(response)}`, "info");
+      );      console.log(`📥 [调试] 收到安装状态响应:`, response);
 
       // 修复响应解析逻辑 - 处理嵌套的 data 字段
       let statusData = response;
@@ -710,8 +712,21 @@ export const useDeployStore = defineStore("deploy", () => {
               // 即使通知被禁用，仍然显示简单的成功消息
               toastService.success(
                 `MaiBot ${deployment.config.version} 安装成功！`
-              );
+              );            }
+          }
+
+          // 关闭部署Toast（如果存在）
+          try {
+            const { default: enhancedToastService } = await import('../services/enhancedToastService.js');
+            if (downloadPageState.activeToastId && 
+                downloadPageState.activeInstanceName === deployment.config.instance_name) {
+              console.log('安装完成，关闭部署Toast，ID:', downloadPageState.activeToastId);
+              enhancedToastService.completeDeployment(downloadPageState.activeToastId, true, '安装完成！');
+              // 清理Toast状态
+              clearPageSwitchToast();
             }
+          } catch (error) {
+            console.warn('无法导入enhancedToastService关闭Toast:', error);
           }
 
           // 停止轮询
@@ -736,9 +751,22 @@ export const useDeployStore = defineStore("deploy", () => {
           
           if (currentTab !== 'downloads') {
             // 显示详细的错误Toast，持续时间更长
-            toastService.error(`安装失败: ${errorDetails}`, { duration: 10000 });
-          } else {
+            toastService.error(`安装失败: ${errorDetails}`, { duration: 10000 });          } else {
             console.log('当前在下载页面，不显示安装失败Toast');
+          }
+
+          // 关闭部署Toast（如果存在）
+          try {
+            const { default: enhancedToastService } = await import('../services/enhancedToastService.js');
+            if (downloadPageState.activeToastId && 
+                downloadPageState.activeInstanceName === deployment.config.instance_name) {
+              console.log('安装失败，关闭部署Toast，ID:', downloadPageState.activeToastId);
+              enhancedToastService.completeDeployment(downloadPageState.activeToastId, false, errorDetails);
+              // 清理Toast状态
+              clearPageSwitchToast();
+            }
+          } catch (error) {
+            console.warn('无法导入enhancedToastService关闭Toast:', error);
           }
 
           // 停止轮询
@@ -800,6 +828,37 @@ export const useDeployStore = defineStore("deploy", () => {
       `🚀 开始安装 MaiBot ${config.version} 实例: ${config.instance_name}`
     );
     toastService.info(`开始安装 MaiBot ${config.version}`);
+
+    // 准备部署数据用于Toast显示
+    const deploymentData = {
+      instanceName: config.instance_name,
+      version: config.version,
+      image: `maimai:${config.version}`,
+      port: config.port || "8000",
+      napcatPort: "8095", // 默认napcat端口
+      installPath: config.install_path,
+      webPort: config.port || "8000",
+    };
+
+    // 动态导入enhancedToastService来显示部署Toast
+    let deploymentToastId = null;
+    try {
+      const { default: enhancedToastService } = await import('../services/enhancedToastService.js');
+      deploymentToastId = enhancedToastService.showDeploymentToast(deploymentData);
+      console.log('创建部署Toast，ID:', deploymentToastId);
+      
+      // 如果Toast ID有效（不是-1，即不在下载页面），注册到downloadPageState
+      if (deploymentToastId && deploymentToastId !== -1) {
+        downloadPageState.activeToastId = deploymentToastId;
+        downloadPageState.activeInstanceName = config.instance_name;
+        console.log('注册部署Toast到downloadPageState:', { 
+          toastId: deploymentToastId, 
+          instanceName: config.instance_name 
+        });
+      }
+    } catch (error) {
+      console.warn('无法导入enhancedToastService:', error);
+    }
 
     // 如果启用了通知且支持系统通知，请求权限
     const notificationsEnabled =
@@ -910,7 +969,7 @@ export const useDeployStore = defineStore("deploy", () => {
           console.log(`🔄 [调试] 执行轮询回调: ${pollingTaskName}`);
           await checkInstallStatus(deploymentId);
         }, {
-          interval: 2000, // 每2秒检查一次
+          interval: 5000, // 每5秒检查一次，减少重复日志
           enabled: true,
           priority: "high"
         });
@@ -923,14 +982,27 @@ export const useDeployStore = defineStore("deploy", () => {
         deploymentId,
         instanceId: deployment.instanceId,
         message: responseData.message || "部署已启动",
-      };
-    } catch (error) {
+      };    } catch (error) {
       console.error("部署失败:", error);
       deployment.installing = false;
       deployment.error = error.message;
       deployment.endTime = new Date();
 
       addLog(deploymentId, `❌ 部署启动失败: ${error.message}`, "error");
+      
+      // 关闭部署Toast（如果存在）
+      try {
+        const { default: enhancedToastService } = await import('../services/enhancedToastService.js');
+        if (deploymentToastId && deploymentToastId !== -1) {
+          console.log('部署启动失败，关闭部署Toast，ID:', deploymentToastId);
+          enhancedToastService.completeDeployment(deploymentToastId, false, error.message);
+        }
+        // 清理Toast状态
+        clearPageSwitchToast();
+      } catch (toastError) {
+        console.warn('无法导入enhancedToastService关闭Toast:', toastError);
+      }
+      
       throw error;
     }
   };

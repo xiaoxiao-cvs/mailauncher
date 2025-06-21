@@ -203,9 +203,24 @@ provide('activeTab', activeTab);
 
 // 暴露activeTab到全局供Toast服务等使用
 window.currentActiveTab = activeTab.value;
-watch(activeTab, (newTab) => {
+watch(activeTab, (newTab, oldTab) => {
   window.currentActiveTab = newTab;
-  console.log('当前活跃标签页更新为:', newTab);
+  console.log('当前活跃标签页更新为:', newTab, '从:', oldTab);
+  
+  // 如果从下载页面切换到其他页面，通知DownloadCenter组件处理Toast显示
+  if (oldTab === 'downloads' && newTab !== 'downloads') {
+    console.log('检测到从下载页面切换到其他页面，通知DownloadCenter显示Toast');
+    // 发送页面切换事件给DownloadCenter组件
+    window.dispatchEvent(new CustomEvent('force-navigate', {
+      detail: { tab: newTab, fromTab: oldTab }
+    }));
+  } else if (oldTab !== 'downloads' && newTab === 'downloads') {
+    console.log('检测到切换回下载页面，通知DownloadCenter关闭Toast');
+    // 发送页面切换事件给DownloadCenter组件
+    window.dispatchEvent(new CustomEvent('force-navigate', {
+      detail: { tab: newTab, fromTab: oldTab }
+    }));
+  }
 });
 
 // 计算当前组件 - 简化逻辑，移除设置页面

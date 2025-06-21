@@ -62,13 +62,9 @@ class EnhancedToastService {
             toast.expanded = expanded;
           }
           if (onExpand) onExpand(toastId, expanded);
-        },
-        onProgressUpdate: (toastId, progress) => {
-          // 更新进度的回调
-          const toast = this.toasts.get(toastId);
-          if (toast && toast.updateProgress) {
-            toast.updateProgress(progress);
-          }
+        },        onProgressUpdate: (toastId, progress) => {
+          // 这里不需要再次调用updateProgress，避免递归
+          console.log(`Toast ${toastId} 进度更新回调: ${progress}%`);
         }
       });
 
