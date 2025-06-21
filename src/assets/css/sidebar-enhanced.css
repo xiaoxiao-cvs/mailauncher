@@ -174,24 +174,129 @@
 }
 
 .sidebar .menu li a.active {
+  color: oklch(var(--p));
+  position: relative;
+  overflow: hidden;
+  background: var(--glass-bg);
+  border: 1px solid transparent;
+}
+
+.sidebar .menu li a.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: linear-gradient(135deg, 
     oklch(var(--p) / 0.15) 0%, 
     oklch(var(--s) / 0.1) 100%);
-  color: oklch(var(--p));
   border: 1px solid oklch(var(--p) / 0.2);
+  border-radius: inherit;
   box-shadow: var(--shadow-soft);
+  z-index: -1;
+  animation: slide-background-down 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sidebar .menu li a.active.slide-up::after {
+  animation: slide-background-up 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .sidebar .menu li a.active::before {
   content: '';
   position: absolute;
-  left: 0;
+  left: 2px;
   top: 50%;
   transform: translateY(-50%);
   width: 3px;
-  height: 1.5rem;
+  height: 1rem;
   background: linear-gradient(135deg, oklch(var(--p)) 0%, oklch(var(--s)) 100%);
-  border-radius: 0 2px 2px 0;
+  border-radius: 4px;
+  animation: slide-bar-down 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+
+.sidebar .menu li a.active.slide-up::before {
+  animation: slide-bar-up 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+
+/* 向下滑入的背景动画 */
+@keyframes slide-background-down {
+  0% {
+    transform: translateY(-100%) scale(0.95);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(8%) scale(1.02);
+    opacity: 0.9;
+  }
+  80% {
+    transform: translateY(-2%) scale(0.98);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* 向上滑入的背景动画 */
+@keyframes slide-background-up {
+  0% {
+    transform: translateY(100%) scale(0.95);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(-8%) scale(1.02);
+    opacity: 0.9;
+  }
+  80% {
+    transform: translateY(2%) scale(0.98);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* 向下滑入的蓝条动画 */
+@keyframes slide-bar-down {
+  0% {
+    transform: translateY(-150%) scale(0.8, 0.6);
+    opacity: 0;
+  }
+  50% {
+    transform: translateY(-35%) scale(1.1, 1.3);
+    opacity: 0.8;
+  }
+  75% {
+    transform: translateY(-55%) scale(0.95, 0.9);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-50%) scale(1, 1);
+    opacity: 1;
+  }
+}
+
+/* 向上滑入的蓝条动画 */
+@keyframes slide-bar-up {
+  0% {
+    transform: translateY(50%) scale(0.8, 0.6);
+    opacity: 0;
+  }
+  50% {
+    transform: translateY(-65%) scale(1.1, 1.3);
+    opacity: 0.8;
+  }
+  75% {
+    transform: translateY(-45%) scale(0.95, 0.9);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-50%) scale(1, 1);
+    opacity: 1;
+  }
 }
 
 /* Flex-grow 区域 */

@@ -64,6 +64,9 @@ const activeTab = inject('activeTab', ref('home'));
 // 获取事件总线
 const emitter = inject('emitter', null);
 
+// 记录上一个激活的选项卡，用于判断切换方向
+const previousTab = ref('home');
+
 // 过滤掉settings菜单项，因为我们单独处理它
 const filteredMenuItems = computed(() => {
   const filtered = { ...menuItems };
@@ -86,15 +89,49 @@ const getIconName = (key) => {
   return iconMap[key] || 'mdi:circle';
 };
 
+// 获取菜单项的索引位置
+const getMenuIndex = (tab) => {
+  const menuKeys = Object.keys(filteredMenuItems.value);
+  return menuKeys.indexOf(tab);
+};
+
+// 添加动画方向类
+const addDirectionClass = (currentTab, prevTab) => {
+  const currentIndex = getMenuIndex(currentTab);
+  const prevIndex = getMenuIndex(prevTab);
+  
+  // 清除所有方向类
+  document.querySelectorAll('.sidebar .menu li a').forEach(link => {
+    link.classList.remove('slide-up', 'slide-down');
+  });
+  
+  // 等一帧再添加新的方向类，确保动画重新触发
+  requestAnimationFrame(() => {
+    const activeLink = document.querySelector('.sidebar .menu li a.active');
+    if (activeLink) {
+      if (currentIndex > prevIndex) {
+        // 向下切换
+        activeLink.classList.add('slide-down');
+      } else if (currentIndex < prevIndex) {
+        // 向上切换
+        activeLink.classList.add('slide-up');
+      }
+    }
+  });
+};
+
 // 切换侧边栏的方法
 const toggleSidebar = () => {
   emit('toggle');
 };
 
-// 选择选项卡方法 - 修复导航功能
+// 选择选项卡方法 - 添加方向检测
 const selectTab = (tab) => {
   console.log(`尝试导航到: ${tab}`);
 
+  // 记录切换方向
+  const prevTab = activeTab.value;
+  
   // 使用全局强制导航事件
   window.dispatchEvent(new CustomEvent('force-navigate', {
     detail: { tab: tab }
@@ -106,6 +143,11 @@ const selectTab = (tab) => {
     emitter.emit('navigate-to-tab', tab, timestamp);
     console.log(`已发送导航事件: navigate-to-tab ${tab} (${timestamp})`);
   }
+  
+  // 添加方向动画类
+  setTimeout(() => {
+    addDirectionClass(tab, prevTab);
+  }, 50);
 };
 
 // 组件挂载时检查事件总线
