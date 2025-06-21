@@ -35,156 +35,118 @@ jobs:
       run: |
         if (Test-Path "backend") { Remove-Item -Recurse -Force "backend" }
         git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
-        
-    # 直接设置 Python 路径（基于系统实际路径）
+          # 直接设置 Python 路径（基于系统实际路径）
     - name: Set Python path directly
       run: |
-        # 尝试多个可能的 Python 路径，包括不同用户目录
+        # 首先尝试直接使用系统 PATH 中的 Python
+        Write-Host "Trying Python from system PATH..."
+        try {
+          $version = python --version 2>&1
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "✓ Python found in system PATH"
+            Write-Host "Version: $version"
+            echo "PYTHON_EXECUTABLE=python" >> $env:GITHUB_ENV
+            Write-Host "Python path set successfully"
+            exit 0
+          }
+        } catch {
+          Write-Host "Python not found in system PATH"
+        }
+        
+        # 如果 PATH 中没有，尝试系统级安装路径（跳过用户配置文件）
         $pythonPaths = @(
-          "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe",
-          "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\python.exe", 
-          "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\python.exe",
           "C:\Python313\python.exe",
           "C:\Python312\python.exe",
           "C:\Python311\python.exe",
           "C:\Program Files\Python313\python.exe",
           "C:\Program Files\Python312\python.exe",
-          "C:\Program Files\Python311\python.exe"
+          "C:\Program Files\Python311\python.exe",
+          "C:\Program Files (x86)\Python313\python.exe",
+          "C:\Program Files (x86)\Python312\python.exe",
+          "C:\Program Files (x86)\Python311\python.exe"
         )
         
         $pythonFound = $false
         foreach ($pythonPath in $pythonPaths) {
           Write-Host "Checking: $pythonPath"
-          if (Test-Path $pythonPath) {
-            try {
+          try {
+            if (Test-Path $pythonPath) {
               Write-Host "Found Python at: $pythonPath"
               & $pythonPath --version
               echo "PYTHON_EXECUTABLE=$pythonPath" >> $env:GITHUB_ENV
               Write-Host "Python path set successfully"
               $pythonFound = $true
               break
-            } catch {
-              Write-Host "Python found but failed to execute: $pythonPath"
-            }
-          }
-        }
-        
-        if (-not $pythonFound) {
-          Write-Host "Python not found at any expected paths"
-          Write-Host "Will try automatic detection in next step..."
-        }# 检查并设置 Python 环境（自托管 runner）
-    - name: Setup Python environment
-      run: |
-        Write-Host "Searching for Python installation..."
-        
-        # 首先尝试直接查看 PATH 中的所有可执行文件
-        Write-Host "Checking PATH environment variable..."
-        $env:PATH -split ';' | ForEach-Object { 
-          if ($_ -and (Test-Path $_)) {
-            Write-Host "PATH entry: $_"
-            Get-ChildItem $_ -Filter "python*.exe" -ErrorAction SilentlyContinue | ForEach-Object {
-              Write-Host "  Found: $($_.FullName)"
-            }
-          }
-        }
-        
-        # 尝试更广泛的路径搜索
-        $pythonPaths = @(
-          "python",
-          "python3",
-          "py",
-          "C:\Python*\python.exe",
-          "C:\Program Files\Python*\python.exe",
-          "C:\Program Files (x86)\Python*\python.exe",
-          "C:\Users\*\AppData\Local\Programs\Python\Python*\python.exe",
-          "C:\Users\Administrator\AppData\Local\Programs\Python\Python*\python.exe",
-          "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Python*\python.exe",
-          "C:\tools\python*\python.exe"
-        )
-        
-        Write-Host "Trying predefined paths..."
-        $pythonFound = $false
-        foreach ($path in $pythonPaths) {
-          Write-Host "Checking path: $path"
-          try {
-            if ($path -like "*\*") {
-              # 处理通配符路径
-              $resolvedPaths = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
-              if ($resolvedPaths) {
-                foreach ($resolvedPath in $resolvedPaths) {
-                  Write-Host "Found potential Python at: $($resolvedPath.FullName)"
-                  try {
-                    $version = & $resolvedPath.FullName --version 2>&1
-                    if ($LASTEXITCODE -eq 0) {
-                      Write-Host "✓ Working Python found: $($resolvedPath.FullName)"
-                      Write-Host "Version: $version"
-                      echo "PYTHON_EXECUTABLE=$($resolvedPath.FullName)" >> $env:GITHUB_ENV
-                      $pythonFound = $true
-                      break
-                    }
-                  } catch {
-                    Write-Host "✗ Failed to execute: $($resolvedPath.FullName)"
-                  }
-                }
-                if ($pythonFound) { break }
-              }
-            } else {
-              # 直接命令
-              Write-Host "Trying command: $path"
-              try {
-                $version = & $path --version 2>&1
-                if ($LASTEXITCODE -eq 0) {
-                  Write-Host "✓ Working Python command found: $path"
-                  Write-Host "Version: $version"
-                  echo "PYTHON_EXECUTABLE=$path" >> $env:GITHUB_ENV
-                  $pythonFound = $true
-                  break
-                }
-              } catch {
-                Write-Host "✗ Command not found or failed: $path"
-              }
             }
           } catch {
-            Write-Host "✗ Error checking path: $path - $($_.Exception.Message)"
-            continue
+            Write-Host "Cannot access or execute: $pythonPath"
           }
         }
         
-        # 如果还没找到，尝试全盘搜索（只搜索 C: 盘的常见位置）
         if (-not $pythonFound) {
-          Write-Host "Performing broader search on C: drive..."
-          $searchPaths = @(
-            "C:\",
-            "C:\Program Files\",
-            "C:\Program Files (x86)\",
-            "C:\Users\"
-          )
-          
-          foreach ($searchPath in $searchPaths) {
-            if (Test-Path $searchPath) {
-              Write-Host "Searching in: $searchPath"
-              try {
-                $foundPythons = Get-ChildItem -Path $searchPath -Recurse -Filter "python.exe" -ErrorAction SilentlyContinue | Select-Object -First 5
-                foreach ($python in $foundPythons) {
-                  Write-Host "Found Python candidate: $($python.FullName)"
-                  try {
-                    $version = & $python.FullName --version 2>&1
-                    if ($LASTEXITCODE -eq 0) {
-                      Write-Host "✓ Working Python found: $($python.FullName)"
-                      Write-Host "Version: $version"
-                      echo "PYTHON_EXECUTABLE=$($python.FullName)" >> $env:GITHUB_ENV
-                      $pythonFound = $true
-                      break
-                    }
-                  } catch {
-                    Write-Host "✗ Failed to execute: $($python.FullName)"
-                  }
-                }
-                if ($pythonFound) { break }
-              } catch {
-                Write-Host "Search failed in: $searchPath"
-              }
+          Write-Host "Python not found at expected system paths"
+          Write-Host "Will try automatic detection in next step..."
+        }    # 检查并设置 Python 环境（自托管 runner）
+    - name: Setup Python environment
+      run: |
+        # 检查上一步是否已经设置了 Python
+        if ($env:PYTHON_EXECUTABLE) {
+          Write-Host "Python already set from previous step: $env:PYTHON_EXECUTABLE"
+          exit 0
+        }
+        
+        Write-Host "Searching for Python installation..."
+        
+        # 首先尝试 PATH 中的 Python 命令
+        $pythonCommands = @("python", "python3", "py")
+        foreach ($cmd in $pythonCommands) {
+          Write-Host "Trying command: $cmd"
+          try {
+            $version = & $cmd --version 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "✓ Working Python command found: $cmd"
+              Write-Host "Version: $version"
+              echo "PYTHON_EXECUTABLE=$cmd" >> $env:GITHUB_ENV
+              Write-Host "=== Python Setup Complete ==="
+              exit 0
             }
+          } catch {
+            Write-Host "✗ Command not found or failed: $cmd"
+          }
+        }
+        
+        # 如果命令都失败了，尝试系统级路径（避免用户配置文件）
+        $systemPaths = @(
+          "C:\Python*\python.exe",
+          "C:\Program Files\Python*\python.exe",
+          "C:\Program Files (x86)\Python*\python.exe"
+        )
+        
+        $pythonFound = $false
+        foreach ($path in $systemPaths) {
+          Write-Host "Checking system path: $path"
+          try {
+            $resolvedPaths = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+            if ($resolvedPaths) {
+              foreach ($resolvedPath in $resolvedPaths) {
+                Write-Host "Found potential Python at: $($resolvedPath.FullName)"
+                try {
+                  $version = & $resolvedPath.FullName --version 2>&1
+                  if ($LASTEXITCODE -eq 0) {
+                    Write-Host "✓ Working Python found: $($resolvedPath.FullName)"
+                    Write-Host "Version: $version"
+                    echo "PYTHON_EXECUTABLE=$($resolvedPath.FullName)" >> $env:GITHUB_ENV
+                    $pythonFound = $true
+                    break
+                  }
+                } catch {
+                  Write-Host "✗ Failed to execute: $($resolvedPath.FullName)"
+                }
+              }
+              if ($pythonFound) { break }
+            }
+          } catch {
+            Write-Host "✗ Error checking path: $path"
           }
         }
         
@@ -199,7 +161,7 @@ jobs:
         }
         
         Write-Host "=== Python Setup Complete ==="
-        Write-Host "Python executable: $env:PYTHON_EXECUTABLE"    # 清理可能的缓存和临时文件（可选但推荐）
+        Write-Host "Python executable: $env:PYTHON_EXECUTABLE"# 清理可能的缓存和临时文件（可选但推荐）
     - name: Clean Python cache
       run: |
         Write-Host "Cleaning Python cache..."
