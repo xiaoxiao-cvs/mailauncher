@@ -160,12 +160,13 @@ jobs:
         }
         
         Write-Host "=== Python Setup Complete ==="
-        Write-Host "Python executable: $env:PYTHON_EXECUTABLE"
-      # 清理可能的缓存和临时文件（可选但推荐）
+        Write-Host "Python executable: $env:PYTHON_EXECUTABLE"    # 清理可能的缓存和临时文件（可选但推荐）
     - name: Clean Python cache
       run: |
         Write-Host "Cleaning Python cache..."
-        & $env:PYTHON_EXECUTABLE -m pip cache purge        Write-Host "Cache cleaned."
+        Write-Host "Using Python: $env:PYTHON_EXECUTABLE"
+        & $env:PYTHON_EXECUTABLE -m pip cache purge
+        Write-Host "Cache cleaned."
         
     # 缓存 pip 依赖
     - name: Cache pip dependencies
@@ -181,8 +182,7 @@ jobs:
       run: |
         cd backend
         & $env:PYTHON_EXECUTABLE -m pip install --upgrade pip
-        & $env:PYTHON_EXECUTABLE -m pip install -r requirements.txt
-        & $env:PYTHON_EXECUTABLE -m pip install pyinstaller
+        & $env:PYTHON_EXECUTABLE -m pip install -r requirements.txt        & $env:PYTHON_EXECUTABLE -m pip install pyinstaller
         
     # 创建数据目录
     - name: Create backend data directory
@@ -194,7 +194,8 @@ jobs:
     - name: Build Windows backend
       run: |
         cd backend
-        pyinstaller main.spec
+        Write-Host "Using Python: $env:PYTHON_EXECUTABLE"
+        & $env:PYTHON_EXECUTABLE -m PyInstaller main.spec
         
     # 复制后端可执行文件到 Tauri binaries 目录
     - name: Copy backend executable to Tauri binaries
@@ -245,6 +246,21 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
+        
+    # 直接设置 Python 路径（基于系统实际路径）
+    - name: Set Python path directly
+      run: |
+        # 基于您系统的实际 Python 安装路径
+        $pythonPath = "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe"
+        if (Test-Path $pythonPath) {
+          Write-Host "Found Python at: $pythonPath"
+          & $pythonPath --version
+          echo "PYTHON_EXECUTABLE=$pythonPath" >> $env:GITHUB_ENV
+          Write-Host "Python path set successfully"
+        } else {
+          Write-Host "Python not found at expected path: $pythonPath"
+          Write-Host "Falling back to automatic detection..."
+        }
         
     # 缓存 pip 依赖
     - name: Cache pip dependencies
