@@ -174,13 +174,13 @@ jobs:
         key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
-          
-    # 安装后端构建依赖
+            # 安装后端构建依赖
     - name: Install backend dependencies
       run: |
         cd backend
         & $env:PYTHON_EXECUTABLE -m pip install --upgrade pip
-        & $env:PYTHON_EXECUTABLE -m pip install -r requirements.txt        & $env:PYTHON_EXECUTABLE -m pip install pyinstaller
+        & $env:PYTHON_EXECUTABLE -m pip install -r requirements.txt
+        & $env:PYTHON_EXECUTABLE -m pip install pyinstaller
         
     # 创建数据目录
     - name: Create backend data directory
