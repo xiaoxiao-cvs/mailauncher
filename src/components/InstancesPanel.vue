@@ -12,6 +12,14 @@
       <InstancesList v-else :instances="instancesData" @refresh-instances="loadInstances"
         @toggle-instance="handleToggleInstance" @view-instance="openInstanceDetail" />
     </div>
+
+    <!-- Bot配置抽屉 -->
+    <BotConfigDrawer 
+      :is-open="showBotConfigDrawer"
+      :instance-id="botConfigInstanceId"
+      :instance-name="botConfigInstanceName"
+      @close="closeBotConfigDrawer"
+    />
   </div>
 </template>
 
@@ -19,6 +27,7 @@
 import { ref, inject, onMounted, onBeforeUnmount, computed, provide } from 'vue';
 import InstancesList from './instances/InstancesList.vue';
 import InstanceDetailView from './instances/InstanceDetailView.vue';
+import BotConfigDrawer from './instances/BotConfigDrawer.vue';
 import toastService from '@/services/toastService';
 
 // 引入API服务
@@ -37,6 +46,11 @@ const currentInstance = ref({
   status: 'stopped'
 });
 const initialSettingsTab = ref('basic'); // 新增：用于记录实例设置的初始标签页
+
+// Bot配置抽屉状态
+const showBotConfigDrawer = ref(false);
+const botConfigInstanceId = ref('');
+const botConfigInstanceName = ref('');
 
 // 提供showInstanceDetail状态给子组件
 provide('showInstanceDetail', showInstanceDetail);
@@ -97,6 +111,22 @@ const closeInstanceDetail = () => {
   showInstanceDetail.value = false;
   // 保持WebSocket连接活跃，不清理连接
   console.log('关闭实例详情页面，保持WebSocket连接');
+};
+
+// 打开Bot配置抽屉
+const openBotConfigDrawer = (instance) => {
+  botConfigInstanceId.value = instance.id;
+  botConfigInstanceName.value = instance.name;
+  showBotConfigDrawer.value = true;
+  console.log('打开Bot配置抽屉:', instance);
+};
+
+// 关闭Bot配置抽屉
+const closeBotConfigDrawer = () => {
+  showBotConfigDrawer.value = false;
+  botConfigInstanceId.value = '';
+  botConfigInstanceName.value = '';
+  console.log('关闭Bot配置抽屉');
 };
 
 // 处理实例启停
@@ -208,6 +238,12 @@ onMounted(() => {
         }
       }
     });
+
+    // 监听打开Bot配置的请求
+    emitter.on('open-bot-config', (instance) => {
+      console.log('接收到打开Bot配置请求:', instance);
+      openBotConfigDrawer(instance);
+    });
   }
   // 组件卸载时移除事件监听
   onBeforeUnmount(() => {
@@ -217,6 +253,7 @@ onMounted(() => {
     // 移除事件监听
     if (emitter) {
       emitter.off('view-instance-details');
+      emitter.off('open-bot-config');
     }
   });
 });

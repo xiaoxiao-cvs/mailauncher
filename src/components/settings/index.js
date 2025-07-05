@@ -10,6 +10,7 @@ export { default as SettingSwitch } from './base/SettingSwitch.vue'
 export { default as SettingSlider } from './base/SettingSlider.vue'
 export { default as SettingSelect } from './base/SettingSelect.vue'
 export { default as SettingInput } from './base/SettingInput.vue'
+export { default as SettingTextarea } from './base/SettingTextarea.vue'
 export { default as SettingRadioGroup } from './base/SettingRadioGroup.vue'
 
 // 专用表单组件

@@ -525,12 +525,7 @@ onMounted(() => {
     darkMode.value = false;
   });
 
-  // 监听Bot配置事件
-  emitter.on('open-bot-config', (instance) => {
-    console.log('App收到打开Bot配置事件:', instance);
-    // 通知实例面板直接打开Bot配置 - 添加fromDetailView标记
-    emitter.emit('instance-panel-open-bot-config', instance);
-  });  // 主题变更监听处理
+  // 主题变更监听处理
   const handleThemeChange = (event) => {
     console.log('App.vue 接收到主题变更事件:', event.type, new Date().toISOString());
 
