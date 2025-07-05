@@ -1,34 +1,70 @@
 <template>
-    <div class="tab-content">
-        <div class="header">
-            <h3>插件广场</h3>
-            <p class="text">功能正在开发中...</p>
+    <div class="plugins-container">
+        <!-- 搜索栏 -->
+        <div class="search-header">
+            <div class="search-box">
+                <Icon icon="mdi:magnify" class="search-icon" />
+                <input 
+                    type="text" 
+                    placeholder="搜索插件..." 
+                    class="search-input"
+                    v-model="searchQuery"
+                />
+            </div>
+            <div class="view-toggle">
+                <span class="view-label">按名称排序</span>
+                <Icon icon="mdi:menu-down" class="sort-icon" />
+            </div>
         </div>
 
-        <!-- 添加一些占位内容来展示动画效果 -->
-        <div class="grid coming-soon-content">
-            <div class="card feature-card">
-                <div class="card-icon">
-                    <Icon icon="mdi:puzzle" />
-                </div>
-                <h4>插件系统</h4>
-                <p>即将支持第三方插件扩展</p>
+        <!-- 插件列表标题 -->
+        <div class="plugins-list-header">
+            <div class="header-icon">
+                <Icon icon="mdi:grid" />
             </div>
+            <h2 class="list-title">插件列表</h2>
+            <p class="list-subtitle">点击插件卡片的"查看详情"按钮可了解更多信息</p>
+        </div>
 
-            <div class="card feature-card">
-                <div class="card-icon">
-                    <Icon icon="mdi:download" />
+        <!-- 插件网格 -->
+        <div class="plugins-grid">
+            <div 
+                v-for="plugin in filteredPlugins" 
+                :key="plugin.id"
+                class="plugin-card"
+            >
+                <!-- 插件图标 -->
+                <div class="plugin-avatar">
+                    <Icon :icon="plugin.icon" />
                 </div>
-                <h4>插件商店</h4>
-                <p>一键安装各种实用插件</p>
-            </div>
 
-            <div class="card feature-card">
-                <div class="card-icon">
-                    <Icon icon="mdi:cog" />
+                <!-- 插件信息 -->
+                <div class="plugin-info">
+                    <h3 class="plugin-name">{{ plugin.name }}</h3>
+                    <div class="plugin-version">v{{ plugin.version }}</div>
+                    <p class="plugin-description">{{ plugin.description }}</p>
+                    
+                    <!-- 标签 -->
+                    <div class="plugin-tags">
+                        <span 
+                            v-for="tag in plugin.tags" 
+                            :key="tag"
+                            class="plugin-tag"
+                            :class="getTagClass(tag)"
+                        >
+                            {{ tag }}
+                        </span>
+                        <span class="tag-count" v-if="plugin.extraTags">+{{ plugin.extraTags }}</span>
+                    </div>
                 </div>
-                <h4>自定义配置</h4>
-                <p>灵活的插件配置管理</p>
+
+                <!-- 操作按钮 -->
+                <div class="plugin-actions">
+                    <button class="btn-detail">查看详情</button>
+                    <button class="btn-install" :class="{ 'installed': plugin.installed }">
+                        {{ plugin.installed ? '已安装' : '安装' }}
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -36,156 +72,524 @@
 
 <script setup>
 import { Icon } from '@iconify/vue';
+import { ref, computed } from 'vue';
+
+// 搜索查询
+const searchQuery = ref('');
+
+// 模拟插件数据
+const plugins = ref([
+    {
+        id: 1,
+        name: '插件模板',
+        version: '1.0.5',
+        description: '提供了基础的插件开发模板，包含常用的配置，帮助方法集成的便携式插件API',
+        icon: 'mdi:puzzle',
+        tags: ['template', 'automation', 'moderation'],
+        extraTags: 1,
+        installed: false
+    },
+    {
+        id: 2,
+        name: '表情轮盘',
+        version: '1.0.0',
+        description: '在命运的舞台上，勇士们围坐一圈，手中紧握那把只装有一颗子弹的左轮手枪。每一次扣动扳机，都是对勇气与命运的挑战。枪声响起，欢笑与紧张交织，荣耀与沉默只在一瞬之间。谁会成为这场故事的主角？谁会是下一个被命运选中的人',
+        icon: 'mdi:emoticon',
+        tags: ['game', 'russian-roulette', 'moderation'],
+        extraTags: 2,
+        installed: true
+    },
+    {
+        id: 3,
+        name: '豆包搜索插件 (Doubao Search Plugin)',
+        version: '1.0.0',
+        description: '基于火山引擎豆包模型的AI搜索插件，支持智能LLM判定和高效搜索功能。',
+        icon: 'mdi:magnify',
+        tags: ['ai', 'search', 'doubao'],
+        extraTags: 2,
+        installed: false
+    },
+    {
+        id: 4,
+        name: '基基流动生图插件',
+        version: '0.4',
+        description: '发送图片的插件动作，支持通过硅基流动生成图片并发送，兼容base64图片返回方式。',
+        icon: 'mdi:image',
+        tags: ['主题创造插件', 'base64-处理插', 'create-image'],
+        extraTags: 1,
+        installed: false
+    },
+    {
+        id: 5,
+        name: '表情插件生成器',
+        version: '0.0.4',
+        description: '让你的麦麦给你写麦麦v0.1插件！请查看源码readme.md教程！！！',
+        icon: 'mdi:file-document',
+        tags: ['表情插件', 'base64-文档', 'readme'],
+        extraTags: 0,
+        installed: false
+    },
+    {
+        id: 6,
+        name: 'pixiv_setu_plugin',
+        version: '1.0.0',
+        description: '根据关键词获取Pixiv上相应的图片内容',
+        icon: 'mdi:image-multiple',
+        tags: ['pixiv', 'setu', '图片'],
+        extraTags: 1,
+        installed: false
+    }
+]);
+
+// 过滤插件
+const filteredPlugins = computed(() => {
+    if (!searchQuery.value) {
+        return plugins.value;
+    }
+    return plugins.value.filter(plugin => 
+        plugin.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+        plugin.description.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+        plugin.tags.some(tag => tag.toLowerCase().includes(searchQuery.value.toLowerCase()))
+    );
+});
+
+// 标签样式类
+const getTagClass = (tag) => {
+    // 不同类型的标签使用不同颜色
+    const tagColorMap = {
+        'template': 'tag-template',
+        'game': 'tag-game', 
+        'ai': 'tag-ai',
+        'search': 'tag-search',
+        'automation': 'tag-automation',
+        'moderation': 'tag-moderation',
+        'pixiv': 'tag-pixiv',
+        'setu': 'tag-setu',
+        'doubao': 'tag-doubao'
+    };
+    
+    return tagColorMap[tag] || 'tag-default';
+};
 </script>
 
 <style scoped>
-.tab-content {
-    padding: 20px;
-    margin: 20px;
-    background-color: hsl(var(--b1));
-    border-radius: 8px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+.plugins-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, hsl(var(--b1)) 0%, hsl(var(--b2) / 0.3) 100%);
+  color: hsl(var(--bc));
+  padding: 1.5rem;
+  gap: 1.5rem;
 }
 
-/* 特色卡片样式 */
-.coming-soon-content {
-    margin-top: 40px;
+/* 搜索头部 */
+.search-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-.feature-card {
-    text-align: center;
-    padding: 30px 20px;
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
-    border: 1px solid rgba(99, 102, 241, 0.2);
-    position: relative;
-    overflow: hidden;
+.search-box {
+  position: relative;
+  flex: 1;
+  max-width: 28rem;
 }
 
-.feature-card::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: linear-gradient(45deg, transparent, rgba(99, 102, 241, 0.1), transparent);
-    transform: rotate(45deg);
-    transition: all 0.25s ease;
-    opacity: 0;
+.search-input {
+  width: 100%;
+  padding: 0.5rem 1rem 0.5rem 2.5rem;
+  border: 1px solid hsl(var(--b3));
+  border-radius: 0.5rem;
+  background: hsl(var(--b1));
+  color: hsl(var(--bc));
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
 }
 
-.feature-card:hover::before {
-    animation: shimmer 1.5s ease-in-out infinite;
-    opacity: 1;
+.search-input:focus {
+  outline: none;
+  border-color: hsl(var(--p));
+  box-shadow: 0 0 0 2px hsl(var(--p) / 0.2);
 }
 
-@keyframes shimmer {
-    0% {
-        transform: translateX(-100%) translateY(-100%) rotate(45deg);
-    }
-
-    100% {
-        transform: translateX(100%) translateY(100%) rotate(45deg);
-    }
+.search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: hsl(var(--bc) / 0.6);
+  font-size: 1.125rem;
 }
 
-.card-icon {
-    width: 60px;
-    height: 60px;
-    margin: 0 auto 20px;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 24px;
-    transition: all 0.3s ease;
-    position: relative;
-    z-index: 2;
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: hsl(var(--bc) / 0.7);
+  cursor: pointer;
 }
 
-.feature-card:hover .card-icon {
-    transform: scale(1.1) rotateY(360deg);
-    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
+.view-label {
+  font-size: 0.875rem;
 }
 
-.feature-card h4 {
-    margin: 0 0 10px 0;
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: hsl(var(--bc));
-    position: relative;
-    z-index: 2;
-    transition: all 0.3s ease;
+.sort-icon {
+  font-size: 1.125rem;
 }
 
-.feature-card:hover h4 {
-    color: #6366f1;
-    transform: translateY(-2px);
+/* 列表头部 */
+.plugins-list-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
 }
 
-.feature-card p {
-    margin: 0;
-    color: hsl(var(--bc) / 0.7);
-    line-height: 1.6;
-    position: relative;
-    z-index: 2;
-    transition: all 0.3s ease;
+.header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: hsl(var(--p) / 0.2);
+  color: hsl(var(--p));
+  border-radius: 0.5rem;
+  flex-shrink: 0;
+  margin-top: 0.25rem;
 }
 
-.feature-card:hover p {
-    color: hsl(var(--bc));
+.header-icon .iconify {
+  font-size: 1.125rem;
 }
 
-/* 响应式动画优化 */
-@media (prefers-reduced-motion: reduce) {
-
-    .feature-card,
-    .card-icon,
-    .feature-card h4,
-    .feature-card p {
-        transition: none;
-    }
-
-    .feature-card::before {
-        display: none;
-    }
-
-    .feature-card:hover .card-icon {
-        transform: scale(1.05);
-    }
+.list-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: hsl(var(--bc));
+  margin: 0;
 }
 
-/* 移动端优化 */
+.list-subtitle {
+  color: hsl(var(--bc) / 0.6);
+  font-size: 0.875rem;
+  margin: 0.25rem 0 0 0;
+}
+
+/* 插件网格 */
+.plugins-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+}
+
+/* 插件卡片 */
+.plugin-card {
+  background: hsl(var(--b1));
+  border: 1px solid hsl(var(--b3) / 0.2);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 120px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.plugin-card:hover {
+  background: hsl(var(--b2) / 0.3);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.05);
+  border-color: hsl(var(--p) / 0.3);
+  transform: translateY(-2px);
+}
+
+/* 插件头像 */
+.plugin-avatar {
+  width: 3rem;
+  height: 3rem;
+  background: linear-gradient(135deg, hsl(var(--p) / 0.15), hsl(var(--s) / 0.15));
+  color: hsl(var(--p));
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid hsl(var(--p) / 0.1);
+}
+
+.plugin-avatar .iconify {
+  font-size: 1.5rem;
+}
+
+/* 插件信息 */
+.plugin-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.plugin-name {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: hsl(var(--bc));
+  margin: 0 0 0.25rem 0;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.plugin-version {
+  font-size: 0.75rem;
+  color: hsl(var(--p));
+  font-weight: 500;
+  opacity: 0.8;
+  margin: 0 0 0.5rem 0;
+}
+
+.plugin-description {
+  font-size: 0.875rem;
+  color: hsl(var(--bc) / 0.7);
+  margin: 0 0 0.75rem 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+/* 标签 */
+.plugin-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.plugin-tag {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+}
+
+.tag-template {
+  background: rgba(244, 63, 94, 0.1);
+  color: rgb(244, 63, 94);
+}
+
+.tag-game {
+  background: rgba(249, 115, 22, 0.1);
+  color: rgb(249, 115, 22);
+}
+
+.tag-ai {
+  background: rgba(168, 85, 247, 0.1);
+  color: rgb(168, 85, 247);
+}
+
+.tag-search {
+  background: rgba(59, 130, 246, 0.1);
+  color: rgb(59, 130, 246);
+}
+
+.tag-automation {
+  background: rgba(34, 197, 94, 0.1);
+  color: rgb(34, 197, 94);
+}
+
+.tag-moderation {
+  background: rgba(99, 102, 241, 0.1);
+  color: rgb(99, 102, 241);
+}
+
+.tag-pixiv {
+  background: rgba(6, 182, 212, 0.1);
+  color: rgb(6, 182, 212);
+}
+
+.tag-setu {
+  background: rgba(236, 72, 153, 0.1);
+  color: rgb(236, 72, 153);
+}
+
+.tag-doubao {
+  background: rgba(245, 158, 11, 0.1);
+  color: rgb(245, 158, 11);
+}
+
+.tag-default {
+  background: hsl(var(--b2));
+  color: hsl(var(--bc) / 0.7);
+}
+
+.tag-count {
+  font-size: 0.75rem;
+  color: hsl(var(--bc) / 0.5);
+}
+
+/* 操作按钮 */
+.plugin-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.btn-detail {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  border: 1px solid hsl(var(--b3));
+  color: hsl(var(--bc) / 0.7);
+  border-radius: 0.5rem;
+  background: hsl(var(--b1));
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-detail:hover {
+  background: hsl(var(--b2));
+  border-color: hsl(var(--p) / 0.5);
+  color: hsl(var(--p));
+}
+
+.btn-install {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  background: linear-gradient(135deg, hsl(var(--p)), hsl(var(--p) / 0.9));
+  color: hsl(var(--pc));
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px hsl(var(--p) / 0.3);
+}
+
+.btn-install:hover {
+  background: linear-gradient(135deg, hsl(var(--p) / 0.9), hsl(var(--p) / 0.8));
+  box-shadow: 0 4px 8px hsl(var(--p) / 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-install.installed {
+  background: linear-gradient(135deg, hsl(var(--su)), hsl(var(--su) / 0.9));
+  color: hsl(var(--suc));
+  box-shadow: 0 2px 4px hsl(var(--su) / 0.3);
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] .plugins-container {
+  background: linear-gradient(135deg, hsl(var(--b1)) 0%, hsl(var(--b2) / 0.5) 100%);
+}
+
+[data-theme="dark"] .plugin-card {
+  background: hsl(var(--b2) / 0.3);
+  border-color: hsl(var(--b3) / 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .plugin-card:hover {
+  background: hsl(var(--b2) / 0.5);
+  border-color: hsl(var(--p) / 0.5);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .search-input {
+  background: hsl(var(--b2));
+  border-color: hsl(var(--b3) / 0.5);
+}
+
+[data-theme="dark"] .plugin-avatar {
+  background: linear-gradient(135deg, hsl(var(--p) / 0.25), hsl(var(--s) / 0.25));
+  border-color: hsl(var(--p) / 0.2);
+}
+
+[data-theme="dark"] .tag-template {
+  background: rgba(244, 63, 94, 0.2);
+  color: rgb(251, 113, 133);
+}
+
+[data-theme="dark"] .tag-game {
+  background: rgba(249, 115, 22, 0.2);
+  color: rgb(251, 146, 60);
+}
+
+[data-theme="dark"] .tag-ai {
+  background: rgba(168, 85, 247, 0.2);
+  color: rgb(196, 181, 253);
+}
+
+[data-theme="dark"] .tag-search {
+  background: rgba(59, 130, 246, 0.2);
+  color: rgb(147, 197, 253);
+}
+
+[data-theme="dark"] .tag-automation {
+  background: rgba(34, 197, 94, 0.2);
+  color: rgb(134, 239, 172);
+}
+
+[data-theme="dark"] .tag-moderation {
+  background: rgba(99, 102, 241, 0.2);
+  color: rgb(165, 180, 252);
+}
+
+[data-theme="dark"] .tag-pixiv {
+  background: rgba(6, 182, 212, 0.2);
+  color: rgb(103, 232, 249);
+}
+
+[data-theme="dark"] .tag-setu {
+  background: rgba(236, 72, 153, 0.2);
+  color: rgb(244, 114, 182);
+}
+
+[data-theme="dark"] .tag-doubao {
+  background: rgba(245, 158, 11, 0.2);
+  color: rgb(251, 191, 36);
+}
+
+/* 响应式设计 */
 @media (max-width: 768px) {
-    .feature-card {
-        padding: 20px 15px;
-    }
-
-    .card-icon {
-        width: 50px;
-        height: 50px;
-        font-size: 20px;
-        margin-bottom: 15px;
-    }
-
-    .feature-card h4 {
-        font-size: 1.1rem;
-    }
-}
-
-/* 标题和文本样式增强 */
-h3 {
-    margin-top: 0;
-    margin-bottom: 20px;
-    font-size: 1.5rem;
-    font-weight: 500;
-    color: hsl(var(--bc));
-}
-
-.text {
-    color: hsl(var(--bc) / 0.7);
-    margin-bottom: 0;
+  .plugins-container {
+    padding: 1rem;
+    gap: 1rem;
+  }
+  
+  .plugins-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .plugin-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    min-height: auto;
+  }
+  
+  .plugin-avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+  
+  .plugin-actions {
+    flex-direction: row;
+    width: 100%;
+  }
+  
+  .btn-detail,
+  .btn-install {
+    flex: 1;
+  }
+  
+  .search-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  
+  .view-toggle {
+    justify-content: flex-end;
+  }
 }
 </style>
