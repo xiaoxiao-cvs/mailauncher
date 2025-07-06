@@ -11,7 +11,7 @@
         :readonly="readonly"
         :rows="rows"
         :maxlength="maxlength"
-        class="textarea textarea-bordered"
+        class="textarea textarea-bordered enhanced-textarea"
         :class="{ 'textarea-error': error }"
       ></textarea>
       <button 
@@ -125,10 +125,36 @@ const resetToDefault = () => {
   min-height: 4rem;
 }
 
-.textarea:focus {
+/* 增强文本框样式 */
+.enhanced-textarea {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.enhanced-textarea:focus {
   border-color: hsl(var(--p));
   outline: none;
-  box-shadow: 0 0 0 2px hsl(var(--p) / 0.2);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15), 
+              0 0 0 2px hsl(var(--p) / 0.2);
+  transform: translateY(-1px);
+}
+
+.enhanced-textarea:hover:not(:focus):not(:disabled) {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* 深色主题 */
+:root[data-theme="dark"] .enhanced-textarea {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-theme="dark"] .enhanced-textarea:focus {
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25), 
+              0 0 0 2px hsl(var(--p) / 0.3);
+}
+
+:root[data-theme="dark"] .enhanced-textarea:hover:not(:focus):not(:disabled) {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .textarea:disabled {

@@ -52,10 +52,11 @@ const handleChange = (event) => {
 /* 开关切换样式 */
 .toggle-switch {
   position: relative;
-  display: inline-block;
+  display: block;
   width: 3.5rem;
   height: 1.75rem;
   cursor: pointer;
+  transform: translateY(-0.125rem); /* 微调对齐到文本中心 */
 }
 
 .toggle-switch:has(.toggle-input:disabled) {
@@ -87,8 +88,9 @@ const handleChange = (event) => {
   content: "";
   height: 1.125rem;
   width: 1.125rem;
-  left: 0.1875rem;
-  bottom: 0.1875rem;
+  left: 0.125rem;
+  top: 50%;
+  transform: translateY(-50%);
   background-color: #ffffff;
   border-radius: 50%;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -102,7 +104,7 @@ const handleChange = (event) => {
 }
 
 .toggle-input:checked + .toggle-slider:before {
-  transform: translateX(1.625rem);
+  transform: translateX(2rem) translateY(-50%);
   background-color: #ffffff;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
 }
