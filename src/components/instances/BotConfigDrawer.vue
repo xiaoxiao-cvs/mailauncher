@@ -48,9 +48,9 @@
 
                                     <div class="config-section" v-if="botConfig">
                                         <!-- 调试信息 -->
-                                        <div v-if="isDevMode && isDev" class="debug-panel mb-4 p-4 bg-base-200 rounded-lg">
-                                            <h4 class="text-sm font-semibold mb-2">调试信息</h4>
-                                            <div class="text-xs space-y-1">
+                                        <div v-if="isDevMode && isDev" class="debug-panel mb-2 p-2 bg-base-200 rounded-lg">
+                                            <h4 class="text-xs font-semibold mb-1">调试信息</h4>
+                                            <div class="text-xs space-y-0.5">
                                                 <div>配置节数量: {{ configSections.length }}</div>
                                                 <div>配置对象: {{ Object.keys(botConfig || {}).join(', ') }}</div>
                                                 <div v-for="section in configSections.slice(0, 3)" :key="section.key">
@@ -251,184 +251,238 @@
                                         </SettingGroup>
 
                                         <!-- LLM 提供商配置 -->
-                                        <SettingGroup title="LLM 提供商" icon="mdi:server-network">
-                                            <div class="llm-providers-container">
+                                        <SettingGroup title="LLM 提供商" icon="mdi:server-network" icon-class="text-blue-500">
+                                            <div class="model-config-container">
                                                 <div 
                                                     v-for="(provider, index) in lpmmConfig.llm_providers" 
                                                     :key="index"
-                                                    class="provider-item"
+                                                    class="model-item"
                                                 >
-                                                    <div class="provider-header">
-                                                        <h4 class="provider-name">{{ provider.name }}</h4>
-                                                        <button 
-                                                            class="btn btn-error btn-xs"
-                                                            @click="removeLlmProvider(index)"
-                                                            v-if="lpmmConfig.llm_providers.length > 1"
-                                                        >
-                                                            <Icon icon="mdi:delete" class="w-3 h-3" />
-                                                        </button>
+                                                    <div class="model-header">
+                                                        <div class="model-title-section">
+                                                            <div class="model-name">{{ provider.name || `提供商 ${index + 1}` }}</div>
+                                                            <div class="model-key">provider-{{ index }}</div>
+                                                        </div>
+                                                        <div class="model-provider-badge">
+                                                            <Icon icon="mdi:server-network" class="w-3 h-3" />
+                                                            LLM 提供商
+                                                        </div>
                                                     </div>
-                                                    <div class="provider-settings">
-                                                        <div class="setting-item">
-                                                            <label class="setting-label">名称</label>
+                                                    
+                                                    <div class="model-settings">
+                                                        <!-- 提供商名称 -->
+                                                        <div class="model-setting">
+                                                            <label class="model-setting-label">提供商名称</label>
                                                             <input 
                                                                 type="text" 
-                                                                class="input input-bordered input-sm" 
+                                                                class="input input-bordered input-sm flex-1" 
                                                                 v-model="provider.name"
                                                                 @input="markLpmmChanged"
+                                                                placeholder="输入提供商名称"
                                                             />
                                                         </div>
-                                                        <div class="setting-item">
-                                                            <label class="setting-label">基础URL</label>
+
+                                                        <!-- 基础URL -->
+                                                        <div class="model-setting">
+                                                            <label class="model-setting-label">基础URL</label>
                                                             <input 
                                                                 type="text" 
-                                                                class="input input-bordered input-sm" 
+                                                                class="input input-bordered input-sm flex-1" 
                                                                 v-model="provider.base_url"
                                                                 placeholder="http://127.0.0.1:8888/v1/"
                                                                 @input="markLpmmChanged"
                                                             />
                                                         </div>
-                                                        <div class="setting-item">
-                                                            <label class="setting-label">API密钥</label>
+
+                                                        <!-- API密钥 -->
+                                                        <div class="model-setting">
+                                                            <label class="model-setting-label">API密钥</label>
                                                             <input 
                                                                 type="password" 
-                                                                class="input input-bordered input-sm" 
+                                                                class="input input-bordered input-sm flex-1" 
                                                                 v-model="provider.api_key"
                                                                 placeholder="输入API密钥"
                                                                 @input="markLpmmChanged"
                                                             />
                                                         </div>
+
+                                                        <!-- 删除按钮 -->
+                                                        <div class="model-setting" v-if="lpmmConfig.llm_providers.length > 1">
+                                                            <div class="model-switch-container">
+                                                                <label class="model-setting-label">删除提供商</label>
+                                                                <button 
+                                                                    class="btn btn-error btn-sm"
+                                                                    @click="removeLlmProvider(index)"
+                                                                >
+                                                                    <Icon icon="mdi:delete" class="w-4 h-4 mr-2" />
+                                                                    删除
+                                                                </button>
+                                                            </div>
+                                                            <p class="model-setting-description">删除此LLM提供商配置</p>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <button 
-                                                    class="btn btn-outline btn-sm mt-2"
-                                                    @click="addLlmProvider"
-                                                >
-                                                    <Icon icon="mdi:plus" class="w-4 h-4 mr-2" />
-                                                    添加提供商
-                                                </button>
+
+                                                <!-- 添加新提供商按钮 -->
+                                                <div class="mt-4">
+                                                    <button 
+                                                        class="btn btn-outline btn-sm"
+                                                        @click="addLlmProvider"
+                                                    >
+                                                        <Icon icon="mdi:plus" class="w-4 h-4 mr-2" />
+                                                        添加提供商
+                                                    </button>
+                                                </div>
                                             </div>
                                         </SettingGroup>
 
                                         <!-- 实体提取配置 -->
-                                        <SettingGroup title="实体提取" icon="mdi:text-recognition">
-                                            <div class="setting-item">
-                                                <div class="setting-info">
-                                                    <label class="setting-label">LLM 提供商</label>
-                                                    <p class="setting-description">选择用于实体提取的LLM提供商</p>
-                                                </div>
-                                                <div class="setting-control">
-                                                    <select 
-                                                        class="select select-bordered select-sm" 
-                                                        v-model="lpmmConfig.entity_extract.llm.provider"
-                                                        @change="markLpmmChanged"
-                                                    >
-                                                        <option v-for="provider in lpmmConfig.llm_providers" :key="provider.name" :value="provider.name">
-                                                            {{ provider.name }}
-                                                        </option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="setting-item">
-                                                <div class="setting-info">
-                                                    <label class="setting-label">模型</label>
-                                                    <p class="setting-description">指定用于实体提取的模型</p>
-                                                </div>
-                                                <div class="setting-control">
-                                                    <input 
-                                                        type="text" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model="lpmmConfig.entity_extract.llm.model"
-                                                        placeholder="deepseek-ai/DeepSeek-V3"
-                                                        @input="markLpmmChanged"
-                                                    />
+                                        <SettingGroup title="实体提取" icon="mdi:text-recognition" icon-class="text-green-500">
+                                            <div class="model-config-container">
+                                                <div class="model-item">
+                                                    <div class="model-header">
+                                                        <div class="model-title-section">
+                                                            <div class="model-name">实体提取模型</div>
+                                                            <div class="model-key">entity-extract</div>
+                                                        </div>
+                                                        <div class="model-provider-badge">
+                                                            <Icon icon="mdi:text-recognition" class="w-3 h-3" />
+                                                            {{ lpmmConfig.entity_extract.llm.provider }}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="model-settings">
+                                                        <!-- 提供商选择 -->
+                                                        <div class="model-setting">
+                                                            <label class="model-setting-label">LLM 提供商</label>
+                                                            <select 
+                                                                class="select select-bordered select-sm flex-1" 
+                                                                v-model="lpmmConfig.entity_extract.llm.provider"
+                                                                @change="markLpmmChanged"
+                                                            >
+                                                                <option v-for="provider in lpmmConfig.llm_providers" :key="provider.name" :value="provider.name">
+                                                                    {{ provider.name }}
+                                                                </option>
+                                                            </select>
+                                                        </div>
+
+                                                        <!-- 模型名称 -->
+                                                        <div class="model-setting">
+                                                            <label class="model-setting-label">模型名称</label>
+                                                            <input 
+                                                                type="text" 
+                                                                class="input input-bordered input-sm flex-1" 
+                                                                v-model="lpmmConfig.entity_extract.llm.model"
+                                                                placeholder="deepseek-ai/DeepSeek-V3"
+                                                                @input="markLpmmChanged"
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </SettingGroup>
 
                                         <!-- RDF构建配置 -->
-                                        <SettingGroup title="RDF构建" icon="mdi:graph-outline">
-                                            <div class="setting-item">
-                                                <div class="setting-info">
-                                                    <label class="setting-label">LLM 提供商</label>
-                                                    <p class="setting-description">选择用于RDF构建的LLM提供商</p>
-                                                </div>
-                                                <div class="setting-control">
-                                                    <select 
-                                                        class="select select-bordered select-sm" 
-                                                        v-model="lpmmConfig.rdf_build.llm.provider"
-                                                        @change="markLpmmChanged"
-                                                    >
-                                                        <option v-for="provider in lpmmConfig.llm_providers" :key="provider.name" :value="provider.name">
-                                                            {{ provider.name }}
-                                                        </option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="setting-item">
-                                                <div class="setting-info">
-                                                    <label class="setting-label">模型</label>
-                                                    <p class="setting-description">指定用于RDF构建的模型</p>
-                                                </div>
-                                                <div class="setting-control">
-                                                    <input 
-                                                        type="text" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model="lpmmConfig.rdf_build.llm.model"
-                                                        placeholder="deepseek-ai/DeepSeek-V3"
-                                                        @input="markLpmmChanged"
-                                                    />
+                                        <SettingGroup title="RDF构建" icon="mdi:graph-outline" icon-class="text-orange-500">
+                                            <div class="model-config-container">
+                                                <div class="model-item">
+                                                    <div class="model-header">
+                                                        <div class="model-title-section">
+                                                            <div class="model-name">RDF构建模型</div>
+                                                            <div class="model-key">rdf-build</div>
+                                                        </div>
+                                                        <div class="model-provider-badge">
+                                                            <Icon icon="mdi:graph-outline" class="w-3 h-3" />
+                                                            {{ lpmmConfig.rdf_build.llm.provider }}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="model-settings">
+                                                        <!-- 提供商选择 -->
+                                                        <div class="model-setting">
+                                                            <label class="model-setting-label">LLM 提供商</label>
+                                                            <select 
+                                                                class="select select-bordered select-sm flex-1" 
+                                                                v-model="lpmmConfig.rdf_build.llm.provider"
+                                                                @change="markLpmmChanged"
+                                                            >
+                                                                <option v-for="provider in lpmmConfig.llm_providers" :key="provider.name" :value="provider.name">
+                                                                    {{ provider.name }}
+                                                                </option>
+                                                            </select>
+                                                        </div>
+
+                                                        <!-- 模型名称 -->
+                                                        <div class="model-setting">
+                                                            <label class="model-setting-label">模型名称</label>
+                                                            <input 
+                                                                type="text" 
+                                                                class="input input-bordered input-sm flex-1" 
+                                                                v-model="lpmmConfig.rdf_build.llm.model"
+                                                                placeholder="deepseek-ai/DeepSeek-V3"
+                                                                @input="markLpmmChanged"
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </SettingGroup>
 
                                         <!-- 嵌入配置 -->
-                                        <SettingGroup title="嵌入配置" icon="mdi:vector-triangle">
-                                            <div class="setting-item">
-                                                <div class="setting-info">
-                                                    <label class="setting-label">提供商</label>
-                                                    <p class="setting-description">选择用于嵌入的提供商</p>
-                                                </div>
-                                                <div class="setting-control">
-                                                    <select 
-                                                        class="select select-bordered select-sm" 
-                                                        v-model="lpmmConfig.embedding.provider"
-                                                        @change="markLpmmChanged"
-                                                    >
-                                                        <option v-for="provider in lpmmConfig.llm_providers" :key="provider.name" :value="provider.name">
-                                                            {{ provider.name }}
-                                                        </option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="setting-item">
-                                                <div class="setting-info">
-                                                    <label class="setting-label">模型</label>
-                                                    <p class="setting-description">指定用于嵌入的模型</p>
-                                                </div>
-                                                <div class="setting-control">
-                                                    <input 
-                                                        type="text" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model="lpmmConfig.embedding.model"
-                                                        placeholder="Pro/BAAI/bge-m3"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div class="setting-item">
-                                                <div class="setting-info">
-                                                    <label class="setting-label">维度</label>
-                                                    <p class="setting-description">嵌入向量的维度</p>
-                                                </div>
-                                                <div class="setting-control">
-                                                    <input 
-                                                        type="number" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model.number="lpmmConfig.embedding.dimension"
-                                                        placeholder="1024"
-                                                        @input="markLpmmChanged"
-                                                    />
+                                        <SettingGroup title="嵌入配置" icon="mdi:vector-triangle" icon-class="text-purple-500">
+                                            <div class="model-config-container">
+                                                <div class="model-item">
+                                                    <div class="model-header">
+                                                        <div class="model-title-section">
+                                                            <div class="model-name">嵌入模型</div>
+                                                            <div class="model-key">embedding</div>
+                                                        </div>
+                                                        <div class="model-provider-badge">
+                                                            <Icon icon="mdi:vector-triangle" class="w-3 h-3" />
+                                                            {{ lpmmConfig.embedding.provider }}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="model-settings">
+                                                        <!-- 提供商选择 -->
+                                                        <div class="model-setting">
+                                                            <label class="model-setting-label">提供商</label>
+                                                            <select 
+                                                                class="select select-bordered select-sm flex-1" 
+                                                                v-model="lpmmConfig.embedding.provider"
+                                                                @change="markLpmmChanged"
+                                                            >
+                                                                <option v-for="provider in lpmmConfig.llm_providers" :key="provider.name" :value="provider.name">
+                                                                    {{ provider.name }}
+                                                                </option>
+                                                            </select>
+                                                        </div>
+
+                                                        <!-- 模型名称 -->
+                                                        <div class="model-setting">
+                                                            <label class="model-setting-label">模型名称</label>
+                                                            <input 
+                                                                type="text" 
+                                                                class="input input-bordered input-sm flex-1" 
+                                                                v-model="lpmmConfig.embedding.model"
+                                                                placeholder="Pro/BAAI/bge-m3"
+                                                                @input="markLpmmChanged"
+                                                            />
+                                                        </div>
+
+                                                        <!-- 嵌入维度 -->
+                                                        <div class="model-setting">
+                                                            <label class="model-setting-label">嵌入维度</label>
+                                                            <input 
+                                                                type="number" 
+                                                                class="input input-bordered input-sm flex-1" 
+                                                                v-model.number="lpmmConfig.embedding.dimension"
+                                                                placeholder="1024"
+                                                                min="1"
+                                                                @input="markLpmmChanged"
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </SettingGroup>
@@ -470,116 +524,127 @@
                                         </SettingGroup>
 
                                         <!-- 问答配置 -->
-                                        <SettingGroup title="问答配置" icon="mdi:comment-question-outline">
-                                            <div class="setting-item">
-                                                <div class="setting-info">
-                                                    <label class="setting-label">LLM 提供商</label>
-                                                    <p class="setting-description">选择用于问答的LLM提供商</p>
-                                                </div>
-                                                <div class="setting-control">
-                                                    <select 
-                                                        class="select select-bordered select-sm" 
-                                                        v-model="lpmmConfig.qa.llm.provider"
-                                                        @change="markLpmmChanged"
-                                                    >
-                                                        <option v-for="provider in lpmmConfig.llm_providers" :key="provider.name" :value="provider.name">
-                                                            {{ provider.name }}
-                                                        </option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="setting-item">
-                                                <div class="setting-info">
-                                                    <label class="setting-label">模型</label>
-                                                    <p class="setting-description">指定用于问答的模型</p>
-                                                </div>
-                                                <div class="setting-control">
-                                                    <input 
-                                                        type="text" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model="lpmmConfig.qa.llm.model"
-                                                        placeholder="deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <!-- QA参数 -->
-                                            <div class="qa-params-grid">
-                                                <div class="setting-item">
-                                                    <label class="setting-label">关系搜索Top K</label>
-                                                    <input 
-                                                        type="number" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model.number="lpmmConfig.qa.params.relation_search_top_k"
-                                                        min="1"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                                <div class="setting-item">
-                                                    <label class="setting-label">关系阈值</label>
-                                                    <input 
-                                                        type="number" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model.number="lpmmConfig.qa.params.relation_threshold"
-                                                        min="0"
-                                                        max="1"
-                                                        step="0.1"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                                <div class="setting-item">
-                                                    <label class="setting-label">段落搜索Top K</label>
-                                                    <input 
-                                                        type="number" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model.number="lpmmConfig.qa.params.paragraph_search_top_k"
-                                                        min="1"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                                <div class="setting-item">
-                                                    <label class="setting-label">段落节点权重</label>
-                                                    <input 
-                                                        type="number" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model.number="lpmmConfig.qa.params.paragraph_node_weight"
-                                                        min="0"
-                                                        max="1"
-                                                        step="0.01"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                                <div class="setting-item">
-                                                    <label class="setting-label">实体过滤Top K</label>
-                                                    <input 
-                                                        type="number" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model.number="lpmmConfig.qa.params.ent_filter_top_k"
-                                                        min="1"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                                <div class="setting-item">
-                                                    <label class="setting-label">PPR阻尼</label>
-                                                    <input 
-                                                        type="number" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model.number="lpmmConfig.qa.params.ppr_damping"
-                                                        min="0"
-                                                        max="1"
-                                                        step="0.1"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                                <div class="setting-item">
-                                                    <label class="setting-label">结果Top K</label>
-                                                    <input 
-                                                        type="number" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model.number="lpmmConfig.qa.params.res_top_k"
-                                                        min="1"
-                                                        @input="markLpmmChanged"
-                                                    />
+                                        <SettingGroup title="问答配置" icon="mdi:comment-question-outline" icon-class="text-indigo-500">
+                                            <div class="model-config-container">
+                                                <div class="model-item">
+                                                    <div class="model-header">
+                                                        <div class="model-title-section">
+                                                            <div class="model-name">问答模型</div>
+                                                            <div class="model-key">qa-llm</div>
+                                                        </div>
+                                                        <div class="model-provider-badge">
+                                                            <Icon icon="mdi:comment-question-outline" class="w-3 h-3" />
+                                                            {{ lpmmConfig.qa.llm.provider }}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="model-settings">
+                                                        <!-- 提供商选择 -->
+                                                        <div class="model-setting">
+                                                            <label class="model-setting-label">LLM 提供商</label>
+                                                            <select 
+                                                                class="select select-bordered select-sm flex-1" 
+                                                                v-model="lpmmConfig.qa.llm.provider"
+                                                                @change="markLpmmChanged"
+                                                            >
+                                                                <option v-for="provider in lpmmConfig.llm_providers" :key="provider.name" :value="provider.name">
+                                                                    {{ provider.name }}
+                                                                </option>
+                                                            </select>
+                                                        </div>
+
+                                                        <!-- 模型名称 -->
+                                                        <div class="model-setting">
+                                                            <label class="model-setting-label">模型名称</label>
+                                                            <input 
+                                                                type="text" 
+                                                                class="input input-bordered input-sm flex-1" 
+                                                                v-model="lpmmConfig.qa.llm.model"
+                                                                placeholder="deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+                                                                @input="markLpmmChanged"
+                                                            />
+                                                        </div>
+
+                                                        <!-- QA参数网格 -->
+                                                        <div class="model-setting-grid">
+                                                            <div class="model-setting">
+                                                                <label class="model-setting-label">关系搜索Top K</label>
+                                                                <input 
+                                                                    type="number" 
+                                                                    class="input input-bordered input-sm flex-1" 
+                                                                    v-model.number="lpmmConfig.qa.params.relation_search_top_k"
+                                                                    min="1"
+                                                                    @input="markLpmmChanged"
+                                                                />
+                                                            </div>
+                                                            <div class="model-setting">
+                                                                <label class="model-setting-label">关系阈值</label>
+                                                                <input 
+                                                                    type="number" 
+                                                                    class="input input-bordered input-sm flex-1" 
+                                                                    v-model.number="lpmmConfig.qa.params.relation_threshold"
+                                                                    min="0"
+                                                                    max="1"
+                                                                    step="0.1"
+                                                                    @input="markLpmmChanged"
+                                                                />
+                                                            </div>
+                                                            <div class="model-setting">
+                                                                <label class="model-setting-label">段落搜索Top K</label>
+                                                                <input 
+                                                                    type="number" 
+                                                                    class="input input-bordered input-sm flex-1" 
+                                                                    v-model.number="lpmmConfig.qa.params.paragraph_search_top_k"
+                                                                    min="1"
+                                                                    @input="markLpmmChanged"
+                                                                />
+                                                            </div>
+                                                            <div class="model-setting">
+                                                                <label class="model-setting-label">段落节点权重</label>
+                                                                <input 
+                                                                    type="number" 
+                                                                    class="input input-bordered input-sm flex-1" 
+                                                                    v-model.number="lpmmConfig.qa.params.paragraph_node_weight"
+                                                                    min="0"
+                                                                    max="1"
+                                                                    step="0.01"
+                                                                    @input="markLpmmChanged"
+                                                                />
+                                                            </div>
+                                                            <div class="model-setting">
+                                                                <label class="model-setting-label">实体过滤Top K</label>
+                                                                <input 
+                                                                    type="number" 
+                                                                    class="input input-bordered input-sm flex-1" 
+                                                                    v-model.number="lpmmConfig.qa.params.ent_filter_top_k"
+                                                                    min="1"
+                                                                    @input="markLpmmChanged"
+                                                                />
+                                                            </div>
+                                                            <div class="model-setting">
+                                                                <label class="model-setting-label">PPR阻尼</label>
+                                                                <input 
+                                                                    type="number" 
+                                                                    class="input input-bordered input-sm flex-1" 
+                                                                    v-model.number="lpmmConfig.qa.params.ppr_damping"
+                                                                    min="0"
+                                                                    max="1"
+                                                                    step="0.1"
+                                                                    @input="markLpmmChanged"
+                                                                />
+                                                            </div>
+                                                            <div class="model-setting">
+                                                                <label class="model-setting-label">结果Top K</label>
+                                                                <input 
+                                                                    type="number" 
+                                                                    class="input input-bordered input-sm flex-1" 
+                                                                    v-model.number="lpmmConfig.qa.params.res_top_k"
+                                                                    min="1"
+                                                                    @input="markLpmmChanged"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </SettingGroup>
@@ -669,6 +734,212 @@
                                         <button class="btn btn-primary btn-sm" @click="loadLpmmConfig">
                                             <Icon icon="mdi:refresh" class="w-4 h-4 mr-2" />
                                             重新加载
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- 模型配置面板 -->
+                                <div v-else-if="activeTab === 'model'" key="model" class="config-panel">
+                                    <div class="panel-header">
+                                        <h3 class="panel-title">模型配置</h3>
+                                        <p class="panel-description">管理实例的AI模型配置和参数</p>
+                                    </div>
+
+                                    <div class="config-section" v-if="modelConfig">
+                                        <!-- 输出长度限制 -->
+                                        <SettingGroup title="全局配置" icon="mdi:settings" icon-class="text-blue-500">
+                                            <div class="setting-item">
+                                                <div class="setting-info">
+                                                    <label class="setting-label">最大输出长度</label>
+                                                    <p class="setting-description">所有模型的最大输出token数量限制</p>
+                                                </div>
+                                                <div class="setting-control">
+                                                    <input 
+                                                        type="number" 
+                                                        class="input input-bordered input-sm w-32" 
+                                                        v-model.number="modelConfig.model_max_output_length"
+                                                        min="100"
+                                                        max="10000"
+                                                        step="100"
+                                                        @input="markModelChanged"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </SettingGroup>
+
+                                        <!-- 模型配置列表 -->
+                                        <SettingGroup title="模型配置" icon="mdi:brain" icon-class="text-purple-500">
+                                            <div class="model-config-container">
+                                                <!-- 使用计算属性缓存和分页渲染来优化性能 -->
+                                                <div 
+                                                    v-for="(model, modelKey) in paginatedModelConfigs" 
+                                                    :key="modelKey"
+                                                    class="model-item"
+                                                >
+                                                    <div class="model-header">
+                                                        <div class="model-title-section">
+                                                            <div class="model-name">{{ getModelDisplayName(modelKey) }}</div>
+                                                            <div class="model-key">{{ modelKey }}</div>
+                                                        </div>
+                                                        <div class="model-provider-badge">
+                                                            <Icon icon="mdi:server" class="w-3 h-3" />
+                                                            {{ model.provider }}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="model-settings">
+                                                        <!-- 模型名称 -->
+                                                        <div class="model-setting">
+                                                            <label class="model-setting-label">模型名称</label>
+                                                            <input 
+                                                                type="text" 
+                                                                class="input input-bordered input-sm flex-1" 
+                                                                v-model="model.name"
+                                                                @input="markModelChanged"
+                                                                placeholder="输入模型名称"
+                                                            />
+                                                        </div>
+
+                                                        <!-- 提供商 -->
+                                                        <div class="model-setting">
+                                                            <label class="model-setting-label">提供商</label>
+                                                            <select 
+                                                                class="select select-bordered select-sm flex-1" 
+                                                                v-model="model.provider"
+                                                                @change="markModelChanged"
+                                                            >
+                                                                <option value="SILICONFLOW">SiliconFlow</option>
+                                                                <option value="OPENAI">OpenAI</option>
+                                                                <option value="ANTHROPIC">Anthropic</option>
+                                                                <option value="GOOGLE">Google</option>
+                                                                <option value="AZURE">Azure</option>
+                                                                <option value="LOCAL">Local</option>
+                                                                <option value="OTHER">其他</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <!-- 价格配置 -->
+                                                        <div class="model-setting-grid">
+                                                            <div class="model-setting">
+                                                                <label class="model-setting-label">输入价格</label>
+                                                                <div class="input-group">
+                                                                    <input 
+                                                                        type="number" 
+                                                                        class="input input-bordered input-sm flex-1" 
+                                                                        v-model.number="model.pri_in"
+                                                                        min="0"
+                                                                        step="0.01"
+                                                                        @input="markModelChanged"
+                                                                    />
+                                                                    <span class="input-group-text">¥/1M tokens</span>
+                                                                </div>
+                                                            </div>
+                                                            <div class="model-setting">
+                                                                <label class="model-setting-label">输出价格</label>
+                                                                <div class="input-group">
+                                                                    <input 
+                                                                        type="number" 
+                                                                        class="input input-bordered input-sm flex-1" 
+                                                                        v-model.number="model.pri_out"
+                                                                        min="0"
+                                                                        step="0.01"
+                                                                        @input="markModelChanged"
+                                                                    />
+                                                                    <span class="input-group-text">¥/1M tokens</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- 温度参数 -->
+                                                        <div class="model-setting" v-if="model.temp !== undefined">
+                                                            <label class="model-setting-label">
+                                                                温度参数
+                                                                <span class="model-param-value">{{ model.temp }}</span>
+                                                            </label>
+                                                            <div class="range-container">
+                                                                <input 
+                                                                    type="range" 
+                                                                    class="range range-primary range-sm" 
+                                                                    v-model.number="model.temp"
+                                                                    min="0"
+                                                                    max="1"
+                                                                    step="0.1"
+                                                                    @input="markModelChanged"
+                                                                />
+                                                                <div class="range-labels">
+                                                                    <span>保守 (0)</span>
+                                                                    <span>平衡 (0.5)</span>
+                                                                    <span>创造 (1)</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- 思维链开关 -->
+                                                        <div class="model-setting" v-if="model.enable_thinking !== undefined">
+                                                            <div class="model-switch-container">
+                                                                <label class="model-setting-label">启用思维链</label>
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    class="toggle toggle-primary toggle-sm" 
+                                                                    v-model="model.enable_thinking"
+                                                                    @change="markModelChanged"
+                                                                />
+                                                            </div>
+                                                            <p class="model-setting-description">启用后模型会显示推理过程</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- 分页控制 -->
+                                            <div v-if="needsPagination" class="model-pagination">
+                                                <div class="pagination-info">
+                                                    显示 {{ currentModelPage * modelPageSize + 1 }}-{{ Math.min((currentModelPage + 1) * modelPageSize, totalModelConfigs) }} 
+                                                    / 共 {{ totalModelConfigs }} 个模型配置
+                                                </div>
+                                                <div class="pagination-controls">
+                                                    <button 
+                                                        class="btn btn-sm btn-outline"
+                                                        :disabled="currentModelPage === 0"
+                                                        @click="currentModelPage--"
+                                                    >
+                                                        <Icon icon="mdi:chevron-left" class="w-4 h-4" />
+                                                        上一页
+                                                    </button>
+                                                    <span class="pagination-current">
+                                                        {{ currentModelPage + 1 }} / {{ totalModelPages }}
+                                                    </span>
+                                                    <button 
+                                                        class="btn btn-sm btn-outline"
+                                                        :disabled="currentModelPage >= totalModelPages - 1"
+                                                        @click="currentModelPage++"
+                                                    >
+                                                        下一页
+                                                        <Icon icon="mdi:chevron-right" class="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </SettingGroup>
+                                    </div>
+
+                                    <!-- 加载状态 -->
+                                    <div v-else-if="isLoadingModel" class="loading-container">
+                                        <div class="loading loading-spinner loading-lg text-primary"></div>
+                                        <p class="mt-4 text-base-content/70">正在加载模型配置...</p>
+                                    </div>
+
+                                    <!-- 错误状态 -->
+                                    <div v-else-if="modelError" class="error-container">
+                                        <div class="alert alert-error">
+                                            <Icon icon="mdi:alert-circle" class="w-6 h-6" />
+                                            <div>
+                                                <p class="font-medium">加载模型配置失败</p>
+                                                <p class="text-sm">{{ modelError }}</p>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-primary mt-4" @click="loadModelConfig">
+                                            <Icon icon="mdi:refresh" class="w-4 h-4 mr-2" />
+                                            重试
                                         </button>
                                     </div>
                                 </div>
@@ -930,6 +1201,7 @@ const activeTab = ref('bot')
 // 配置标签页定义
 const configTabs = [
     { key: 'bot', title: 'Bot 配置', icon: 'mdi:robot' },
+    { key: 'model', title: '模型配置', icon: 'mdi:chip' },
     { key: 'lpmm', title: 'LPMM 配置', icon: 'mdi:brain' },
     { key: 'env', title: '环境变量', icon: 'mdi:cog-outline' }
 ]
@@ -959,23 +1231,32 @@ const panelTransitionName = computed(() => {
 const botConfig = ref(null)
 const envConfig = ref(null)
 const lpmmConfig = ref(null)
+const modelConfig = ref(null)
 const originalBotConfig = ref(null)
 const originalEnvConfig = ref(null)
 const originalLpmmConfig = ref(null)
+const originalModelConfig = ref(null)
 
 // 加载状态
 const isLoading = ref(false)
 const isLoadingEnv = ref(false)
 const isLoadingLpmm = ref(false)
+const isLoadingModel = ref(false)
 const isSaving = ref(false)
 const error = ref('')
 const envError = ref('')
 const lpmmError = ref('')
+const modelError = ref('')
 
 // 变更追踪
 const hasConfigChanges = ref(false)
 const hasEnvChanges = ref(false)
 const hasLpmmChanges = ref(false)
+const hasModelChanges = ref(false)
+
+// 防抖定时器
+const lpmmChangeTimeout = ref(null)
+const modelChangeTimeout = ref(null)
 
 // 环境变量编辑
 const newEnvKey = ref('')
@@ -1308,7 +1589,33 @@ const removeArrayItem = (path, index) => {
 }
 
 // 计算属性
-const hasChanges = computed(() => hasConfigChanges.value || hasEnvChanges.value || hasLpmmChanges.value)
+const hasChanges = computed(() => hasConfigChanges.value || hasEnvChanges.value || hasLpmmChanges.value || hasModelChanges.value)
+
+// 性能优化：分页渲染模型配置
+const modelPageSize = ref(6) // 每页显示6个模型配置
+const currentModelPage = ref(0)
+
+const paginatedModelConfigs = computed(() => {
+    const allConfigs = getModelConfigs()
+    const configEntries = Object.entries(allConfigs)
+    
+    // 如果配置数量较少，直接返回全部
+    if (configEntries.length <= modelPageSize.value) {
+        return allConfigs
+    }
+    
+    // 分页处理
+    const start = currentModelPage.value * modelPageSize.value
+    const end = start + modelPageSize.value
+    const paginatedEntries = configEntries.slice(start, end)
+    
+    return Object.fromEntries(paginatedEntries)
+})
+
+// 分页相关计算属性
+const totalModelConfigs = computed(() => Object.keys(getModelConfigs()).length)
+const totalModelPages = computed(() => Math.ceil(totalModelConfigs.value / modelPageSize.value))
+const needsPagination = computed(() => totalModelConfigs.value > modelPageSize.value)
 
 // 动态配置节列表
 const configSections = computed(() => {
@@ -1323,6 +1630,8 @@ const switchTab = (tabKey) => {
     // 根据标签页加载对应数据
     if (tabKey === 'bot' && !botConfig.value) {
         loadBotConfig()
+    } else if (tabKey === 'model' && !modelConfig.value) {
+        loadModelConfig()
     } else if (tabKey === 'env' && !envConfig.value) {
         loadEnvConfig()
     } else if (tabKey === 'lpmm' && !lpmmConfig.value) {
@@ -1345,6 +1654,10 @@ const markEnvChanged = () => {
 
 const markLpmmChanged = () => {
     hasLpmmChanges.value = true
+}
+
+const markModelChanged = () => {
+    hasModelChanges.value = true
 }
 
 // LPMM 配置相关方法
@@ -1573,6 +1886,45 @@ const loadLpmmConfig = async () => {
     }
 }
 
+const loadModelConfig = async () => {
+    if (!props.instanceId) return
+    
+    // 防止重复请求
+    if (isLoadingModel.value) {
+        console.log('模型配置正在加载中，跳过重复请求')
+        return
+    }
+    
+    // 如果已经有配置数据，不重复加载
+    if (modelConfig.value) {
+        console.log('模型配置已存在，跳过重复加载')
+        return
+    }
+    
+    isLoadingModel.value = true
+    modelError.value = ''
+    
+    try {
+        console.log('开始加载模型配置:', props.instanceId)
+        const response = await maibotConfigApi.getBotConfig(props.instanceId)
+        // 从bot配置中提取模型配置
+        if (response.data && response.data.model) {
+            modelConfig.value = response.data.model
+            originalModelConfig.value = JSON.parse(JSON.stringify(response.data.model))
+            hasModelChanges.value = false
+            console.log('模型配置加载成功')
+        } else {
+            throw new Error('未找到模型配置数据')
+        }
+    } catch (err) {
+        console.error('加载模型配置失败:', err)
+        modelError.value = err.message || '加载模型配置失败'
+        toastService.error('加载模型配置失败: ' + modelError.value)
+    } finally {
+        isLoadingModel.value = false
+    }
+}
+
 const saveConfig = async () => {
     if (!hasChanges.value) return
     
@@ -1600,6 +1952,14 @@ const saveConfig = async () => {
             hasLpmmChanges.value = false
         }
         
+        // 保存模型配置（作为bot配置的一部分）
+        if (hasModelChanges.value && modelConfig.value && botConfig.value) {
+            botConfig.value.model = modelConfig.value
+            await maibotConfigApi.updateBotConfig(props.instanceId, botConfig.value)
+            originalModelConfig.value = JSON.parse(JSON.stringify(modelConfig.value))
+            hasModelChanges.value = false
+        }
+        
         toastService.success('配置保存成功')
     } catch (err) {
         console.error('保存配置失败:', err)
@@ -1625,6 +1985,11 @@ const resetConfig = async () => {
         hasLpmmChanges.value = false
     }
     
+    if (hasModelChanges.value && originalModelConfig.value) {
+        modelConfig.value = JSON.parse(JSON.stringify(originalModelConfig.value))
+        hasModelChanges.value = false
+    }
+    
     toastService.info('配置已重置')
 }
 
@@ -1636,6 +2001,35 @@ const confirmResetConfig = async () => {
     } else {
         toastService.info('没有需要重置的更改')
     }
+}
+
+// 模型配置相关辅助函数
+const getModelConfigs = () => {
+    if (!modelConfig.value) return {}
+    
+    // 排除非模型配置项
+    const { model_max_output_length, ...modelConfigs } = modelConfig.value
+    return modelConfigs
+}
+
+const getModelDisplayName = (modelKey) => {
+    const nameMap = {
+        'utils': '工具模型',
+        'utils_small': '小型工具模型',
+        'replyer_1': '回复模型 1',
+        'replyer_2': '回复模型 2',
+        'memory_summary': '记忆摘要模型',
+        'vlm': '视觉语言模型',
+        'planner': '规划模型',
+        'relation': '关系模型',
+        'tool_use': '工具使用模型',
+        'embedding': '嵌入模型',
+        'focus_working_memory': '专注工作记忆模型',
+        'lpmm_entity_extract': 'LPMM实体提取模型',
+        'lpmm_rdf_build': 'LPMM RDF构建模型',
+        'lpmm_qa': 'LPMM问答模型'
+    }
+    return nameMap[modelKey] || modelKey
 }
 
 const closeDrawer = () => {
@@ -1754,8 +2148,10 @@ const detectSidebarWidth = () => {
     sidebarWidth.value = detectedWidth
     debugInfo.value.finalWidth = detectedWidth
     
-    // 更新 CSS 变量
-    document.documentElement.style.setProperty('--sidebar-width', `${detectedWidth}px`)
+    // 使用 RAF 优化 CSS 变量更新，避免强制重排
+    requestAnimationFrame(() => {
+        document.documentElement.style.setProperty('--sidebar-width', `${detectedWidth}px`)
+    })
     
     console.log(`最终检测到的侧边栏宽度: ${detectedWidth}px`, debugInfo.value)
 }
@@ -1838,21 +2234,27 @@ watch(() => props.instanceId, (newId, oldId) => {
         botConfig.value = null
         envConfig.value = null
         lpmmConfig.value = null
+        modelConfig.value = null
         originalBotConfig.value = null
         originalEnvConfig.value = null
         originalLpmmConfig.value = null
+        originalModelConfig.value = null
         hasConfigChanges.value = false
         hasEnvChanges.value = false
         hasLpmmChanges.value = false
+        hasModelChanges.value = false
         error.value = ''
         envError.value = ''
         lpmmError.value = ''
+        modelError.value = ''
         
         console.log('实例ID变化，重新加载配置', { newId, oldId, activeTab: activeTab.value })
         
         // 加载当前标签页的数据
         if (activeTab.value === 'bot') {
             loadBotConfig()
+        } else if (activeTab.value === 'model') {
+            loadModelConfig()
         } else if (activeTab.value === 'env') {
             loadEnvConfig()
         } else if (activeTab.value === 'lpmm') {
@@ -1869,6 +2271,8 @@ watch(() => props.isOpen, (isOpen, wasOpen) => {
         // 只有当抽屉从关闭变为打开时才加载数据
         if (activeTab.value === 'bot' && !botConfig.value) {
             loadBotConfig()
+        } else if (activeTab.value === 'model' && !modelConfig.value) {
+            loadModelConfig()
         } else if (activeTab.value === 'env' && !envConfig.value) {
             loadEnvConfig()
         } else if (activeTab.value === 'lpmm' && !lpmmConfig.value) {
@@ -1877,13 +2281,29 @@ watch(() => props.isOpen, (isOpen, wasOpen) => {
     }
 })
 
-// 监听LPMM配置变化
+// 监听LPMM配置变化 - 优化性能
 watch(lpmmConfig, (newConfig, oldConfig) => {
     if (newConfig && oldConfig && originalLpmmConfig.value) {
-        const hasChanges = JSON.stringify(newConfig) !== JSON.stringify(originalLpmmConfig.value)
-        hasLpmmChanges.value = hasChanges
+        // 使用防抖来减少频繁检查
+        clearTimeout(lpmmChangeTimeout.value)
+        lpmmChangeTimeout.value = setTimeout(() => {
+            const hasChanges = JSON.stringify(newConfig) !== JSON.stringify(originalLpmmConfig.value)
+            hasLpmmChanges.value = hasChanges
+        }, 300)
     }
-}, { deep: true })
+}, { deep: true, flush: 'post' })
+
+// 监听模型配置变化 - 优化性能
+watch(modelConfig, (newConfig, oldConfig) => {
+    if (newConfig && oldConfig && originalModelConfig.value) {
+        // 使用防抖来减少频繁检查
+        clearTimeout(modelChangeTimeout.value)
+        modelChangeTimeout.value = setTimeout(() => {
+            const hasChanges = JSON.stringify(newConfig) !== JSON.stringify(originalModelConfig.value)
+            hasModelChanges.value = hasChanges
+        }, 300)
+    }
+}, { deep: true, flush: 'post' })
 
 // 组件挂载时的初始化
 onMounted(() => {
@@ -1950,10 +2370,10 @@ onMounted(() => {
 
 /* 主容器 */
 .bot-config-drawer-container {
-    width: 90%;
-    max-width: 1100px;
-    height: 88%;
-    max-height: 750px;
+    width: 80%;
+    max-width: 900px;
+    height: 80%;
+    max-height: 650px;
     background-color: #ffffff;
     border-radius: 16px;
     box-shadow: 0 32px 64px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.1);
@@ -2022,10 +2442,10 @@ onMounted(() => {
 
 /* 侧边栏 */
 .bot-config-sidebar {
-    width: 260px;
+    width: 220px;
     background: #ffffff;
     border-right: 1px solid rgba(0, 0, 0, 0.1);
-    padding: 1.5rem 0;
+    padding: 1.25rem 0;
     overflow-y: auto;
     flex-shrink: 0;
 }
@@ -2040,16 +2460,16 @@ onMounted(() => {
 .nav-item {
     display: flex;
     align-items: center;
-    padding: 0.875rem 1.5rem;
-    margin: 0 1rem 0.5rem 1rem;
-    border-radius: 12px;
+    padding: 0.75rem 1.25rem;
+    margin: 0 0.75rem 0.375rem 0.75rem;
+    border-radius: 10px;
     color: rgba(0, 0, 0, 0.7);
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     text-decoration: none;
     border: none;
     background: none;
-    width: calc(100% - 2rem);
+    width: calc(100% - 1.5rem);
     text-align: left;
     font-weight: 500;
     position: relative;
@@ -2111,8 +2531,8 @@ onMounted(() => {
 }
 
 .panel-header {
-    margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
@@ -2121,16 +2541,16 @@ onMounted(() => {
 }
 
 .panel-title {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 600;
     color: rgba(0, 0, 0, 0.9);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.375rem;
 }
 
 .panel-description {
     color: rgba(0, 0, 0, 0.7);
-    font-size: 0.95rem;
-    line-height: 1.5;
+    font-size: 0.875rem;
+    line-height: 1.4;
 }
 
 .config-section {
@@ -2147,7 +2567,7 @@ onMounted(() => {
 
 /* 统一的字段排版样式 */
 .setting-item {
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.75rem;
     width: 100%;
     box-sizing: border-box;
     position: relative;
@@ -2157,16 +2577,16 @@ onMounted(() => {
     font-weight: 500;
     color: rgba(0, 0, 0, 0.9);
     display: block;
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
-    line-height: 1.4;
+    margin-bottom: 0.25rem;
+    font-size: 0.8rem;
+    line-height: 1.3;
 }
 
 .setting-description {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     color: rgba(0, 0, 0, 0.7);
-    margin-bottom: 0.75rem;
-    line-height: 1.4;
+    margin-bottom: 0.5rem;
+    line-height: 1.3;
 }
 
 :root[data-theme="dark"] .setting-label {
@@ -2186,17 +2606,17 @@ onMounted(() => {
 .dynamic-list {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
     width: 100%;
 }
 
 .dynamic-item {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.875rem;
+    gap: 0.5rem;
+    padding: 0.5rem;
     background-color: rgba(0, 0, 0, 0.03);
-    border-radius: 8px;
+    border-radius: 6px;
     border: 1px solid rgba(0, 0, 0, 0.1);
     width: 100%;
     box-sizing: border-box;
@@ -2270,15 +2690,15 @@ onMounted(() => {
 .tag-list-container {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
     width: 100%;
 }
 
 .tag-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    min-height: 2rem;
+    gap: 0.375rem;
+    min-height: 1.5rem;
     align-items: flex-start;
 }
 
@@ -2287,12 +2707,12 @@ onMounted(() => {
     align-items: center;
     background-color: hsl(var(--p) / 0.1);
     border: 1px solid hsl(var(--p) / 0.2);
-    border-radius: 1rem;
-    padding: 0.25rem 0.75rem;
-    font-size: 0.875rem;
+    border-radius: 0.75rem;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.8rem;
     color: hsl(var(--p));
     transition: all 0.2s ease;
-    max-width: 200px;
+    max-width: 180px;
 }
 
 .tag-item:hover {
@@ -2313,8 +2733,8 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-left: 0.375rem;
-    padding: 0.125rem;
+    margin-left: 0.25rem;
+    padding: 0.1rem;
     border: none;
     background: none;
     color: hsl(var(--p) / 0.7);
@@ -2332,20 +2752,20 @@ onMounted(() => {
 .tag-input-container {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.375rem;
 }
 
 .tag-input {
     flex: 1;
     min-width: 0;
-    padding: 0.625rem 0.75rem;
+    padding: 0.375rem 0.5rem;
     border: 1px solid hsl(var(--b2));
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
+    border-radius: 0.375rem;
+    font-size: 0.8rem;
     background-color: hsl(var(--b1));
     color: hsl(var(--bc));
     transition: all 0.2s ease;
-    height: 2.5rem;
+    height: 2rem;
 }
 
 .tag-input:focus {
@@ -2362,13 +2782,13 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2rem;
+    height: 2rem;
     padding: 0;
     border: 1px solid hsl(var(--p) / 0.3);
     background-color: hsl(var(--p) / 0.1);
     color: hsl(var(--p));
-    border-radius: 0.5rem;
+    border-radius: 0.375rem;
     cursor: pointer;
     transition: all 0.2s ease;
     flex-shrink: 0;
@@ -2415,7 +2835,7 @@ onMounted(() => {
 /* 确保与其他设置项的布局和字重一致 */
 .setting-item .setting-info {
     flex: 0 0 35%;
-    padding-right: 1.5rem;
+    padding-right: 1rem;
 }
 
 .setting-item .setting-control {
@@ -2426,16 +2846,16 @@ onMounted(() => {
 /* 统一字重和对齐 */
 .setting-label {
     font-weight: 600 !important;
-    font-size: 0.875rem !important;
+    font-size: 0.8rem !important;
     color: hsl(var(--bc)) !important;
-    margin-bottom: 0.25rem !important;
+    margin-bottom: 0.2rem !important;
     display: block !important;
 }
 
 .setting-description {
-    font-size: 0.75rem !important;
+    font-size: 0.7rem !important;
     color: hsl(var(--bc) / 0.7) !important;
-    line-height: 1.4 !important;
+    line-height: 1.3 !important;
     margin: 0 !important;
 }
 
@@ -2893,6 +3313,254 @@ onMounted(() => {
 
 :root[data-theme="dark"] .provider-name {
     color: var(--color-text-primary);
+}
+
+/* 模型配置样式 */
+.model-config-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.model-item {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.02);
+    transition: all 0.2s ease;
+}
+
+.model-item:hover {
+    border-color: rgba(59, 130, 246, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.model-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: rgba(0, 0, 0, 0.03);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.model-title-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.model-name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-text-primary);
+}
+
+.model-key {
+    font-family: 'SF Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    background: rgba(59, 130, 246, 0.1);
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+    width: fit-content;
+}
+
+.model-provider-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.model-settings {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.model-setting {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.model-setting-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.model-setting-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.model-param-value {
+    font-family: 'SF Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.75rem;
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+.input-group .input {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: none;
+}
+
+.input-group-text {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid #d1d5db;
+    border-left: none;
+    border-top-right-radius: 0.375rem;
+    border-bottom-right-radius: 0.375rem;
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+.range-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.range-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: var(--color-text-secondary);
+    margin-top: 0.25rem;
+}
+
+.model-switch-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+}
+
+.model-setting-description {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+}
+
+/* 暗色主题适配 */
+:root[data-theme="dark"] .model-item {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+:root[data-theme="dark"] .model-item:hover {
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+:root[data-theme="dark"] .model-header {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+:root[data-theme="dark"] .input-group-text {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--color-text-secondary);
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+    .model-setting-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .model-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+    
+    .model-provider-badge {
+        align-self: flex-start;
+    }
+}
+
+/* 模型配置分页样式 */
+.model-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.pagination-info {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.pagination-current {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    min-width: 4rem;
+    text-align: center;
+}
+
+/* 暗色主题适配 - 分页 */
+:root[data-theme="dark"] .model-pagination {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 响应式分页 */
+@media (max-width: 640px) {
+    .model-pagination {
+        flex-direction: column;
+        gap: 0.75rem;
+        text-align: center;
+    }
+    
+    .pagination-info {
+        order: 2;
+    }
+    
+    .pagination-controls {
+        order: 1;
+    }
 }
 </style>
 

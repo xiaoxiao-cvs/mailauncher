@@ -53,10 +53,10 @@ const handleChange = (event) => {
 .toggle-switch {
   position: relative;
   display: block;
-  width: 3.5rem;
-  height: 1.75rem;
+  width: 2.75rem;
+  height: 1.5rem;
   cursor: pointer;
-  transform: translateY(-0.125rem); /* 微调对齐到文本中心 */
+  transform: translateY(-0.1rem); /* 微调对齐到文本中心 */
 }
 
 .toggle-switch:has(.toggle-input:disabled) {
@@ -78,7 +78,7 @@ const handleChange = (event) => {
   right: 0;
   bottom: 0;
   background-color: hsl(var(--b3));
-  border-radius: 1.75rem;
+  border-radius: 1.5rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: 2px solid hsl(var(--b3));
 }
@@ -86,27 +86,27 @@ const handleChange = (event) => {
 .toggle-slider:before {
   position: absolute;
   content: "";
-  height: 1.125rem;
-  width: 1.125rem;
+  height: 0.875rem;
+  width: 0.875rem;
   left: 0.125rem;
   top: 50%;
   transform: translateY(-50%);
   background-color: #ffffff;
   border-radius: 50%;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .toggle-input:checked + .toggle-slider {
   background-color: hsl(var(--p));
   border-color: hsl(var(--p));
-  box-shadow: inset 0 2px 4px hsl(var(--p) / 0.3), 0 0 0 1px hsl(var(--p) / 0.2);
+  box-shadow: inset 0 1px 3px hsl(var(--p) / 0.3), 0 0 0 1px hsl(var(--p) / 0.2);
 }
 
 .toggle-input:checked + .toggle-slider:before {
-  transform: translateX(2rem) translateY(-50%);
+  transform: translateX(1.25rem) translateY(-50%);
   background-color: #ffffff;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 /* 开关悬停效果 */

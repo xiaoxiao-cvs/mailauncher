@@ -32,10 +32,10 @@ defineProps({
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.25rem 0;
+  padding: 0.75rem 0;
   border-bottom: 1px solid hsl(var(--b3) / 0.1);
-  gap: 1.5rem;
-  min-height: 3rem;
+  gap: 1rem;
+  min-height: 2rem;
 }
 
 .setting-item:last-child {
@@ -47,7 +47,7 @@ defineProps({
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
   justify-content: center;
 }
 
@@ -55,13 +55,13 @@ defineProps({
   font-weight: 600;
   color: hsl(var(--bc) / 0.9);
   margin-bottom: 0;
-  font-size: 0.95rem;
+  font-size: 0.8rem;
 }
 
 .setting-desc {
-  font-size: 0.875rem;
+  font-size: 0.7rem;
   color: hsl(var(--bc) / 0.6);
-  line-height: 1.5;
+  line-height: 1.4;
   margin: 0;
 }
 
@@ -70,7 +70,7 @@ defineProps({
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 2rem;
+  min-height: 1.5rem;
 }
 
 /* 响应式调整 */
@@ -78,7 +78,7 @@ defineProps({
   .setting-item {
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 0.75rem;
   }
   
   .setting-control {

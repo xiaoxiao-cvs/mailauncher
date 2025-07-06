@@ -135,8 +135,8 @@ const resetToDefault = () => {
 .input-control {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  min-width: 200px;
+  gap: 0.375rem;
+  min-width: 120px;
 }
 
 .input {
@@ -145,38 +145,42 @@ const resetToDefault = () => {
   border: 1px solid hsl(var(--b3));
   color: hsl(var(--bc));
   transition: all 0.2s ease;
+  font-size: 0.8rem;
+  padding: 0.375rem 0.5rem;
+  height: 2rem;
 }
 
 /* 增强输入框样式 */
 .enhanced-input {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease;
+  border-radius: 0.375rem;
 }
 
 .enhanced-input:focus {
   border-color: hsl(var(--p));
   outline: none;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15), 
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.1), 
               0 0 0 2px hsl(var(--p) / 0.2);
   transform: translateY(-1px);
 }
 
 .enhanced-input:hover:not(:focus):not(:disabled) {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* 深色主题 */
 :root[data-theme="dark"] .enhanced-input {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 :root[data-theme="dark"] .enhanced-input:focus {
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25), 
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2), 
               0 0 0 2px hsl(var(--p) / 0.3);
 }
 
 :root[data-theme="dark"] .enhanced-input:hover:not(:focus):not(:disabled) {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .input:disabled {
@@ -201,31 +205,31 @@ const resetToDefault = () => {
 
 .error-message {
   color: hsl(var(--er));
-  font-size: 0.75rem;
-  margin-top: 0.25rem;
+  font-size: 0.65rem;
+  margin-top: 0.125rem;
 }
 
 .hint-message {
   color: hsl(var(--bc) / 0.6);
-  font-size: 0.75rem;
-  margin-top: 0.25rem;
+  font-size: 0.65rem;
+  margin-top: 0.125rem;
 }
 
 .btn-square {
-  width: 2rem;
-  height: 2rem;
-  min-height: 2rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  min-height: 1.75rem;
   padding: 0;
 }
 
 /* 响应式调整 */
 @media (max-width: 768px) {
   .input-control {
-    min-width: 150px;
+    min-width: 100px;
   }
   
   .input {
-    font-size: 0.875rem;
+    font-size: 0.7rem;
   }
 }
 </style>

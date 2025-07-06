@@ -70,11 +70,15 @@ const handleChange = (event) => {
 
 <style scoped>
 .select {
-  min-width: 150px;
+  min-width: 120px;
   background: hsl(var(--b1));
   border: 1px solid hsl(var(--b3));
   color: hsl(var(--bc));
   transition: all 0.2s ease;
+  font-size: 0.8rem;
+  padding: 0.375rem 0.5rem;
+  height: 2rem;
+  border-radius: 0.375rem;
 }
 
 .select:focus {
@@ -92,8 +96,8 @@ const handleChange = (event) => {
 /* 响应式调整 */
 @media (max-width: 768px) {
   .select {
-    min-width: 120px;
-    font-size: 0.875rem;
+    min-width: 100px;
+    font-size: 0.7rem;
   }
 }
 </style>

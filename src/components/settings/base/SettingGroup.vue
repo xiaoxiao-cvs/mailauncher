@@ -2,9 +2,9 @@
   <div class="setting-group">
     <div v-if="title || $slots.header" class="group-header">
       <slot name="header">
-        <div class="flex items-center gap-3 mb-4">
+        <div class="flex items-center gap-2 mb-2">
           <div v-if="icon" class="group-icon">
-            <IconifyIcon :icon="icon" class="w-5 h-5" :class="iconClass" />
+            <IconifyIcon :icon="icon" class="w-4 h-4" :class="iconClass" />
           </div>
           <div class="flex flex-col justify-center">
             <h4 class="group-title">{{ title }}</h4>
@@ -49,23 +49,23 @@ defineProps({
 
 <style scoped>
 .setting-group {
-  margin-bottom: 2.5rem;
+  margin-bottom: 1.25rem;
   background: hsl(var(--b2) / 0.3);
-  border-radius: 16px;
-  padding: 1.75rem;
+  border-radius: 12px;
+  padding: 1rem;
   border: 1px solid hsl(var(--b3) / 0.2);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
 
 .group-header {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .group-icon {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -74,17 +74,17 @@ defineProps({
 }
 
 .group-title {
-  font-size: 1.125rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: hsl(var(--bc) / 0.9);
   margin: 0;
 }
 
 .group-subtitle {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   color: hsl(var(--bc) / 0.7);
   margin: 0;
-  margin-top: 0.25rem;
+  margin-top: 0.125rem;
 }
 
 .group-content {
@@ -104,12 +104,12 @@ defineProps({
 /* 响应式调整 */
 @media (max-width: 768px) {
   .setting-group {
-    padding: 1.25rem;
-    margin-bottom: 1.5rem;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
   }
   
   .group-title {
-    font-size: 1rem;
+    font-size: 0.8rem;
   }
 }
 </style>
