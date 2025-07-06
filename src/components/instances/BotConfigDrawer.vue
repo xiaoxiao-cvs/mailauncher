@@ -18,7 +18,7 @@
                                 class="search-input" 
                                 placeholder="搜索配置项..."
                                 v-model="searchQuery"
-                                @input="handleSearch"
+                                @input="handleSearch(configSections, getFieldLabel, getFieldDescription)"
                                 @keydown.esc="clearSearch"
                             />
                             <button 
@@ -84,28 +84,15 @@
                                         <!-- 搜索结果提示 -->
                                         <div v-if="searchQuery && hasSearchResults" class="search-results-info">
                                             <Icon icon="mdi:filter-variant" class="search-filter-icon" />
-                                            <span>已过滤显示 {{ filteredSections.length }} 个配置组，共 {{ searchResults.length }} 个匹配项</span>
+                                            <span>已过滤显示 {{ displaySections(configSections).length }} 个配置组，共 {{ searchResults.length }} 个匹配项</span>
                                             <button class="search-clear-btn" @click="clearSearch">
                                                 <Icon icon="mdi:close" class="w-4 h-4" />
                                                 清除过滤
                                             </button>
                                         </div>
 
-                                        <!-- 调试信息 -->
-                                        <div v-if="isDevMode && isDev" class="debug-panel mb-2 p-2 bg-base-200 rounded-lg">
-                                            <h4 class="text-xs font-semibold mb-1">调试信息</h4>
-                                            <div class="text-xs space-y-0.5">
-                                                <div>配置节数量: {{ displaySections.length }}</div>
-                                                <div>搜索状态: {{ searchQuery ? '已过滤' : '显示全部' }}</div>
-                                                <div>配置对象: {{ Object.keys(botConfig || {}).join(', ') }}</div>
-                                                <div v-for="section in displaySections.slice(0, 3)" :key="section.key">
-                                                    {{ section.key }}: {{ Object.keys(section.data || {}).length }} 字段
-                                                </div>
-                                            </div>
-                                        </div>
-
                                         <!-- 动态生成配置节 -->
-                                        <template v-for="section in displaySections" :key="section.key">
+                                        <template v-for="section in displaySections(configSections)" :key="section.key">
                                             <SettingGroup 
                                                 :title="section.title" 
                                                 :icon="section.icon" 
@@ -113,256 +100,20 @@
                                                 :class="{ 'search-matched-section': section.titleMatched }"
                                             >
                                                 <!-- 渲染匹配的配置项（搜索模式）或所有配置项（正常模式） -->
-                                                <template v-for="field in (searchQuery ? section.matchedFields : Object.entries(section.data || {}).map(([key, value]) => ({ key, value })))" :key="field.key">
-                                                    <!-- 字符串数组类型 - 标签式布局 -->
-                                                    <div 
-                                                        v-if="Array.isArray(field.value) && (field.value.length === 0 || typeof field.value[0] === 'string')"
-                                                        class="setting-item"
-                                                        :class="{ 'search-matched-item': searchQuery && field.matchType }"
-                                                    >
-                                                        <div class="setting-info">
-                                                            <label class="setting-label">
-                                                                <div class="setting-label-wrapper">
-                                                                    <div class="label-content">
-                                                                        <span class="label-text" v-html="highlightText(field.label || getFieldLabel(field.key), searchQuery)"></span>
-                                                                        <span 
-                                                                            class="search-match-badge transition-all duration-200" 
-                                                                            :class="{ 'opacity-0 scale-75': !searchQuery || !field.matchType }"
-                                                                        >
-                                                                            {{ searchQuery && field.matchType ? getMatchTypeName(field.matchType) : '匹配' }}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div 
-                                                                        class="field-key-hint transition-all duration-200 overflow-hidden" 
-                                                                        :class="{ 'opacity-0 -translate-y-1 max-h-0': !searchQuery, 'opacity-100 translate-y-0 max-h-8': searchQuery }"
-                                                                    >
-                                                                        {{ field.key }}
-                                                                    </div>
-                                                                </div>
-                                                            </label>
-                                                            <p class="setting-description" v-html="highlightText(field.description || getFieldDescription(field.key, section.key), searchQuery)"></p>
-                                                        </div>
-                                                        <div class="setting-control">
-                                                            <!-- 标签式显示和编辑 -->
-                                                            <div class="tag-list-container">
-                                                                <!-- 已有的标签 -->
-                                                                <div class="tag-list">
-                                                                    <div 
-                                                                        v-for="(item, index) in field.value" 
-                                                                        :key="index" 
-                                                                        class="tag-item"
-                                                                    >
-                                                                        <span class="tag-text" v-html="highlightText(item, searchQuery)"></span>
-                                                                        <button 
-                                                                            class="tag-remove"
-                                                                            @click="removeArrayItem(`${section.key}.${field.key}`, index)"
-                                                                            title="删除"
-                                                                        >
-                                                                            <Icon icon="mdi:close" class="w-3 h-3" />
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                                <!-- 添加新标签 -->
-                                                                <div class="tag-input-container">
-                                                                    <input 
-                                                                        type="text" 
-                                                                        v-model="newItemValues[`${section.key}.${field.key}`]"
-                                                                        class="tag-input"
-                                                                        :placeholder="`输入${field.label || getFieldLabel(field.key)}`"
-                                                                        @keyup.enter="addArrayItem(`${section.key}.${field.key}`, newItemValues[`${section.key}.${field.key}`] || '')"
-                                                                        @blur="addArrayItem(`${section.key}.${field.key}`, newItemValues[`${section.key}.${field.key}`] || '')"
-                                                                    />
-                                                                    <button 
-                                                                        class="tag-add-btn"
-                                                                        @click="addArrayItem(`${section.key}.${field.key}`, newItemValues[`${section.key}.${field.key}`] || '')"
-                                                                        :title="`添加${field.label || getFieldLabel(field.key)}`"
-                                                                    >
-                                                                        <Icon icon="mdi:plus" class="w-5 h-5" />
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <!-- 布尔类型 -->
-                                                    <div v-else-if="typeof field.value === 'boolean'" class="setting-item" :class="{ 'search-matched-item': searchQuery && field.matchType }">
-                                                        <div class="setting-info">
-                                                            <label class="setting-label">
-                                                                <div class="setting-label-wrapper">
-                                                                    <div class="label-content">
-                                                                        <span class="label-text" v-html="highlightText(field.label || getFieldLabel(field.key), searchQuery)"></span>
-                                                                        <span 
-                                                                            class="search-match-badge transition-all duration-200" 
-                                                                            :class="{ 'opacity-0 scale-75': !searchQuery || !field.matchType }"
-                                                                        >
-                                                                            {{ searchQuery && field.matchType ? getMatchTypeName(field.matchType) : '匹配' }}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div 
-                                                                        class="field-key-hint transition-all duration-200 overflow-hidden" 
-                                                                        :class="{ 'opacity-0 -translate-y-1 max-h-0': !searchQuery, 'opacity-100 translate-y-0 max-h-8': searchQuery }"
-                                                                    >
-                                                                        {{ field.key }}
-                                                                    </div>
-                                                                </div>
-                                                            </label>
-                                                            <p class="setting-description" v-html="highlightText(field.description || getFieldDescription(field.key, section.key), searchQuery)"></p>
-                                                        </div>
-                                                        <div class="setting-control">
-                                                            <input 
-                                                                type="checkbox" 
-                                                                class="toggle toggle-primary toggle-sm" 
-                                                                :checked="getNestedValue(botConfig, `${section.key}.${field.key}`)"
-                                                                @change="setNestedValue(botConfig, `${section.key}.${field.key}`, $event.target.checked); markConfigChanged()"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <!-- 选择类型 -->
-                                                    <div v-else-if="getDynamicOptions(`${section.key}.${field.key}`).length > 0" class="setting-item" :class="{ 'search-matched-item': searchQuery && field.matchType }">
-                                                        <div class="setting-info">
-                                                            <label class="setting-label">
-                                                                <div class="setting-label-wrapper">
-                                                                    <div class="label-content">
-                                                                        <span class="label-text" v-html="highlightText(field.label || getFieldLabel(field.key), searchQuery)"></span>
-                                                                        <span 
-                                                                            class="search-match-badge transition-all duration-200" 
-                                                                            :class="{ 'opacity-0 scale-75': !searchQuery || !field.matchType }"
-                                                                        >
-                                                                            {{ searchQuery && field.matchType ? getMatchTypeName(field.matchType) : '匹配' }}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div 
-                                                                        class="field-key-hint transition-all duration-200 overflow-hidden" 
-                                                                        :class="{ 'opacity-0 -translate-y-1 max-h-0': !searchQuery, 'opacity-100 translate-y-0 max-h-8': searchQuery }"
-                                                                    >
-                                                                        {{ field.key }}
-                                                                    </div>
-                                                                </div>
-                                                            </label>
-                                                            <p class="setting-description" v-html="highlightText(field.description || getFieldDescription(field.key, section.key), searchQuery)"></p>
-                                                        </div>
-                                                        <div class="setting-control">
-                                                            <select 
-                                                                class="select select-bordered select-sm" 
-                                                                :value="getNestedValue(botConfig, `${section.key}.${field.key}`)"
-                                                                @change="setNestedValue(botConfig, `${section.key}.${field.key}`, $event.target.value); markConfigChanged()"
-                                                            >
-                                                                <option v-for="option in getDynamicOptions(`${section.key}.${field.key}`)" :key="option.value" :value="option.value">
-                                                                    {{ option.label }}
-                                                                </option>
-                                                            </select>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <!-- 文本域类型 -->
-                                                    <div v-else-if="typeof field.value === 'string' && (field.key.includes('style') || field.key.includes('prompt') || field.key === 'personality_core')" class="setting-item" :class="{ 'search-matched-item': searchQuery && field.matchType }">
-                                                        <div class="setting-info">
-                                                            <label class="setting-label">
-                                                                <div class="setting-label-wrapper">
-                                                                    <div class="label-content">
-                                                                        <span class="label-text" v-html="highlightText(field.label || getFieldLabel(field.key), searchQuery)"></span>
-                                                                        <span 
-                                                                            class="search-match-badge transition-all duration-200" 
-                                                                            :class="{ 'opacity-0 scale-75': !searchQuery || !field.matchType }"
-                                                                        >
-                                                                            {{ searchQuery && field.matchType ? getMatchTypeName(field.matchType) : '匹配' }}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div 
-                                                                        class="field-key-hint transition-all duration-200 overflow-hidden" 
-                                                                        :class="{ 'opacity-0 -translate-y-1 max-h-0': !searchQuery, 'opacity-100 translate-y-0 max-h-8': searchQuery }"
-                                                                    >
-                                                                        {{ field.key }}
-                                                                    </div>
-                                                                </div>
-                                                            </label>
-                                                            <p class="setting-description" v-html="highlightText(field.description || getFieldDescription(field.key, section.key), searchQuery)"></p>
-                                                        </div>
-                                                        <div class="setting-control">
-                                                            <textarea 
-                                                                class="textarea textarea-bordered textarea-sm" 
-                                                                rows="3"
-                                                                :value="getNestedValue(botConfig, `${section.key}.${field.key}`)"
-                                                                @input="setNestedValue(botConfig, `${section.key}.${field.key}`, $event.target.value); markConfigChanged()"
-                                                            ></textarea>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <!-- 数字类型 -->
-                                                    <div v-else-if="typeof field.value === 'number'" class="setting-item" :class="{ 'search-matched-item': searchQuery && field.matchType }">
-                                                        <div class="setting-info">
-                                                            <label class="setting-label">
-                                                                <div class="setting-label-wrapper">
-                                                                    <div class="label-content">
-                                                                        <span class="label-text" v-html="highlightText(field.label || getFieldLabel(field.key), searchQuery)"></span>
-                                                                        <span 
-                                                                            class="search-match-badge transition-all duration-200" 
-                                                                            :class="{ 'opacity-0 scale-75': !searchQuery || !field.matchType }"
-                                                                        >
-                                                                            {{ searchQuery && field.matchType ? getMatchTypeName(field.matchType) : '匹配' }}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div 
-                                                                        class="field-key-hint transition-all duration-200 overflow-hidden" 
-                                                                        :class="{ 'opacity-0 -translate-y-1 max-h-0': !searchQuery, 'opacity-100 translate-y-0 max-h-8': searchQuery }"
-                                                                    >
-                                                                        {{ field.key }}
-                                                                    </div>
-                                                                </div>
-                                                            </label>
-                                                            <p class="setting-description" v-html="highlightText(field.description || getFieldDescription(field.key, section.key), searchQuery)"></p>
-                                                        </div>
-                                                        <div class="setting-control">
-                                                            <input 
-                                                                type="number" 
-                                                                class="input input-bordered input-sm" 
-                                                                :step="field.key.includes('rate') || field.key.includes('probability') || field.key.includes('threshold') ? 0.01 : 1"
-                                                                :min="field.key.includes('rate') || field.key.includes('probability') || field.key.includes('threshold') ? 0 : undefined"
-                                                                :max="field.key.includes('rate') || field.key.includes('probability') || field.key.includes('threshold') ? 1 : undefined"
-                                                                :value="getNestedValue(botConfig, `${section.key}.${field.key}`)"
-                                                                @input="setNestedValue(botConfig, `${section.key}.${field.key}`, parseFloat($event.target.value) || 0); markConfigChanged()"
-                                                                :readonly="field.key === 'version'"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <!-- 字符串类型 -->
-                                                    <div v-else-if="typeof field.value === 'string'" class="setting-item" :class="{ 'search-matched-item': searchQuery && field.matchType }">
-                                                        <div class="setting-info">
-                                                            <label class="setting-label">
-                                                                <div class="setting-label-wrapper">
-                                                                    <div class="label-content">
-                                                                        <span class="label-text" v-html="highlightText(field.label || getFieldLabel(field.key), searchQuery)"></span>
-                                                                        <span 
-                                                                            class="search-match-badge transition-all duration-200" 
-                                                                            :class="{ 'opacity-0 scale-75': !searchQuery || !field.matchType }"
-                                                                        >
-                                                                            {{ searchQuery && field.matchType ? getMatchTypeName(field.matchType) : '匹配' }}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div 
-                                                                        class="field-key-hint transition-all duration-200 overflow-hidden" 
-                                                                        :class="{ 'opacity-0 -translate-y-1 max-h-0': !searchQuery, 'opacity-100 translate-y-0 max-h-8': searchQuery }"
-                                                                    >
-                                                                        {{ field.key }}
-                                                                    </div>
-                                                                </div>
-                                                            </label>
-                                                            <p class="setting-description" v-html="highlightText(field.description || getFieldDescription(field.key, section.key), searchQuery)"></p>
-                                                        </div>
-                                                        <div class="setting-control">
-                                                            <input 
-                                                                type="text" 
-                                                                class="input input-bordered input-sm" 
-                                                                :value="getNestedValue(botConfig, `${section.key}.${field.key}`)"
-                                                                @input="setNestedValue(botConfig, `${section.key}.${field.key}`, $event.target.value); markConfigChanged()"
-                                                                :readonly="field.key === 'version'"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <!-- 跳过复杂对象和其他数组类型 -->
+                                                <template v-for="field in (searchQuery ? section.matchedFields : Object.entries(section.data || {}).map(([key, value]) => ({ key, value, label: getFieldLabel(key), description: getFieldDescription(key, section.key) })))" :key="field.key">
+                                                    <FieldRenderer
+                                                        :field-key="field.key"
+                                                        :label="field.label || getFieldLabel(field.key)"
+                                                        :description="field.description || getFieldDescription(field.key, section.key)"
+                                                        :value="getNestedValue(botConfig, `${section.key}.${field.key}`)"
+                                                        :config="getFieldConfig(field.key, field.value, section.key)"
+                                                        :search-query="searchQuery"
+                                                        :match-type="searchQuery && field.matchType"
+                                                        :readonly="field.key === 'version'"
+                                                        @update:value="setNestedValue(botConfig, `${section.key}.${field.key}`, $event); markConfigChanged()"
+                                                        @add-array-item="addArrayItem(`${section.key}.${field.key}`, $event)"
+                                                        @remove-array-item="removeArrayItem(`${section.key}.${field.key}`, $event)"
+                                                    />
                                                 </template>
                                             </SettingGroup>
                                         </template>
@@ -383,7 +134,7 @@
                                                 <p class="text-sm">{{ error }}</p>
                                             </div>
                                         </div>
-                                        <button class="btn btn-primary mt-4" @click="loadBotConfig">
+                                        <button class="btn btn-primary mt-4" @click="loadBotConfig(props.instanceId)">
                                             <Icon icon="mdi:refresh" class="w-4 h-4 mr-2" />
                                             重试
                                         </button>
@@ -1139,124 +890,11 @@
 
                                     <div class="config-section" v-if="envConfig">
                                         <SettingGroup title="环境变量" icon="mdi:cog-outline" icon-class="text-orange-500">
-                                            <div class="env-variables">
-                                                <div 
-                                                    v-for="(value, key) in envConfig" 
-                                                    :key="key" 
-                                                    class="env-item"
-                                                    @mouseenter="onEnvItemHover(key, true)"
-                                                    @mouseleave="onEnvItemHover(key, false)"
-                                                >
-                                                    <div class="env-key">
-                                                        <!-- 编辑模式下显示输入框，否则显示标签 -->
-                                                        <input 
-                                                            v-if="editingEnvKey === key"
-                                                            type="text" 
-                                                            v-model="tempEnvKey"
-                                                            class="input input-bordered input-sm w-full"
-                                                            @blur="saveEnvKeyEdit(key)"
-                                                            @keyup.enter="saveEnvKeyEdit(key)"
-                                                            @keyup.esc="cancelEnvKeyEdit"
-                                                            @vue:mounted="($el) => { $el.focus(); $el.select() }"
-                                                        />
-                                                        <label 
-                                                            v-else
-                                                            class="env-label"
-                                                            @dblclick="startEditEnvKey(key)"
-                                                            :title="isEnvItemHovered(key) ? '双击编辑变量名' : ''"
-                                                        >
-                                                            {{ key }}
-                                                        </label>
-                                                    </div>
-                                                    <div class="env-value">
-                                                        <!-- 编辑模式下显示输入框，否则显示只读输入框 -->
-                                                        <input 
-                                                            v-if="editingEnvValue === key"
-                                                            type="text" 
-                                                            v-model="tempEnvValue"
-                                                            class="input input-bordered input-sm w-full"
-                                                            @blur="saveEnvValueEdit(key)"
-                                                            @keyup.enter="saveEnvValueEdit(key)"
-                                                            @keyup.esc="cancelEnvValueEdit"
-                                                            @vue:mounted="($el) => { $el.focus(); $el.select() }"
-                                                        />
-                                                        <input 
-                                                            v-else
-                                                            type="text" 
-                                                            :value="envConfig[key]"
-                                                            class="input input-bordered input-sm w-full env-value-display"
-                                                            :class="{ 'env-value-hover': isEnvItemHovered(key) }"
-                                                            @click="startEditEnvValue(key)"
-                                                            :title="isEnvItemHovered(key) ? '点击编辑变量值' : ''"
-                                                            readonly
-                                                        />
-                                                    </div>
-                                                    <div class="env-actions">
-                                                        <!-- 编辑时显示确认和取消按钮 -->
-                                                        <template v-if="editingEnvKey === key || editingEnvValue === key">
-                                                            <button 
-                                                                class="btn btn-ghost btn-xs text-success"
-                                                                @click="editingEnvKey === key ? saveEnvKeyEdit(key) : saveEnvValueEdit(key)"
-                                                                title="保存"
-                                                            >
-                                                                <Icon icon="mdi:check" class="w-4 h-4" />
-                                                            </button>
-                                                            <button 
-                                                                class="btn btn-ghost btn-xs text-warning"
-                                                                @click="editingEnvKey === key ? cancelEnvKeyEdit() : cancelEnvValueEdit()"
-                                                                title="取消"
-                                                            >
-                                                                <Icon icon="mdi:close" class="w-4 h-4" />
-                                                            </button>
-                                                        </template>
-                                                        <!-- 正常状态显示删除按钮 -->
-                                                        <template v-else>
-                                                            <button 
-                                                                class="btn btn-ghost btn-xs"
-                                                                :class="{ 
-                                                                    'text-error': isEnvItemHovered(key),
-                                                                    'text-base-content/50': !isEnvItemHovered(key)
-                                                                }"
-                                                                @click="removeEnvVariable(key)"
-                                                                :title="isEnvItemHovered(key) ? '删除环境变量' : ''"
-                                                            >
-                                                                <Icon icon="mdi:delete" class="w-4 h-4" />
-                                                            </button>
-                                                        </template>
-                                                    </div>
-                                                </div>
-
-                                                <!-- 添加新环境变量 -->
-                                                <div class="add-env-item">
-                                                    <div class="env-key">
-                                                        <input 
-                                                            type="text" 
-                                                            v-model="newEnvKey"
-                                                            placeholder="变量名"
-                                                            class="input input-bordered input-sm w-full"
-                                                            @keyup.enter="addEnvVariable"
-                                                        />
-                                                    </div>
-                                                    <div class="env-value">
-                                                        <input 
-                                                            type="text" 
-                                                            v-model="newEnvValue"
-                                                            placeholder="变量值"
-                                                            class="input input-bordered input-sm w-full"
-                                                            @keyup.enter="addEnvVariable"
-                                                        />
-                                                    </div>
-                                                    <div class="env-actions">
-                                                        <button 
-                                                            class="btn btn-primary btn-xs"
-                                                            @click="addEnvVariable"
-                                                            :disabled="!newEnvKey.trim() || !newEnvValue.trim()"
-                                                        >
-                                                            <Icon icon="mdi:plus" class="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            <EnvVariableEditor 
+                                                :env-config="envConfig"
+                                                @update:env-config="envConfig = $event"
+                                                @mark-changed="markEnvChanged"
+                                            />
                                         </SettingGroup>
                                     </div>
 
@@ -1275,7 +913,7 @@
                                                 <p class="text-sm">{{ envError }}</p>
                                             </div>
                                         </div>
-                                        <button class="btn btn-primary mt-4" @click="loadEnvConfig">
+                                        <button class="btn btn-primary mt-4" @click="loadEnvConfig(props.instanceId)">
                                             <Icon icon="mdi:refresh" class="w-4 h-4 mr-2" />
                                             重试
                                         </button>
@@ -1349,15 +987,21 @@ import { Icon } from '@iconify/vue'
 import toastService from '@/services/toastService'
 import { maibotConfigApi } from '@/services/maibotConfigApi'
 
-// 导入设置组件库
-import {
-    SettingGroup,
-    SettingSwitch,
-    SettingSelect,
-    SettingInput,
-    SettingTextarea,
-    PortConfig
-} from '../settings'
+// 导入组件
+import { SettingGroup } from '../settings'
+import FieldRenderer from './FieldRenderer.vue'
+import EnvVariableEditor from './EnvVariableEditor.vue'
+
+// 导入工具函数和常量
+import { useConfigLoader } from '@/composables/useConfigLoader'
+import { useConfigSearch } from '@/composables/useConfigSearch'
+import { 
+  getFieldLabel, 
+  getFieldDescription, 
+  getFieldConfig, 
+  generateConfigSections,
+  MODEL_DISPLAY_NAMES
+} from '@/utils/configConstants'
 
 // 注入依赖
 const emitter = inject('emitter', null)
@@ -1381,8 +1025,9 @@ const props = defineProps({
 // 事件定义
 const emit = defineEmits(['close'])
 
-// 配置标签页
+// 标签页管理
 const activeTab = ref('bot')
+const previousTab = ref('bot')
 
 // 配置标签页定义
 const configTabs = [
@@ -1392,8 +1037,52 @@ const configTabs = [
     { key: 'env', title: '环境变量', icon: 'mdi:cog-outline' }
 ]
 
-// 前一个标签页（用于动画方向判断）
-const previousTab = ref('bot')
+// 计算当前标签页信息
+const currentTabInfo = computed(() => {
+    const tab = configTabs.find(t => t.key === activeTab.value)
+    return {
+        title: tab?.title || 'Bot 配置',
+        config: getTabConfig(activeTab.value),
+        hasData: getTabHasData(activeTab.value),
+        isLoading: getTabIsLoading(activeTab.value),
+        error: getTabError(activeTab.value)
+    }
+})
+
+// 获取标签页配置的辅助函数
+const getTabConfig = (tabKey) => {
+    switch(tabKey) {
+        case 'bot': return botConfig.value
+        case 'model': return modelConfig.value  
+        case 'env': return envConfig.value
+        case 'lpmm': return lpmmConfig.value
+        default: return null
+    }
+}
+
+const getTabHasData = (tabKey) => {
+    return !!getTabConfig(tabKey)
+}
+
+const getTabIsLoading = (tabKey) => {
+    switch(tabKey) {
+        case 'bot': return isLoading.value
+        case 'model': return isLoadingModel.value
+        case 'env': return isLoadingEnv.value  
+        case 'lpmm': return isLoadingLpmm.value
+        default: return false
+    }
+}
+
+const getTabError = (tabKey) => {
+    switch(tabKey) {
+        case 'bot': return error.value
+        case 'model': return modelError.value
+        case 'env': return envError.value
+        case 'lpmm': return lpmmError.value
+        default: ''
+    }
+}
 
 // 计算动画方向的transition名称
 const panelTransitionName = computed(() => {
@@ -1440,438 +1129,84 @@ const hasEnvChanges = ref(false)
 const hasLpmmChanges = ref(false)
 const hasModelChanges = ref(false)
 
-// 搜索功能
-const searchQuery = ref('')
-const searchResults = ref([])
-const filteredSections = ref([])
-
-// 模糊搜索配置项
-const handleSearch = () => {
-    if (!searchQuery.value.trim()) {
-        filteredSections.value = []
-        searchResults.value = []
-        return
+// 创建所有配置加载器
+const { loadBotConfig, loadEnvConfig, loadLpmmConfig } = (() => {
+    const { createConfigLoader } = useConfigLoader()
+    return {
+        loadBotConfig: createConfigLoader('Bot', maibotConfigApi.getBotConfig, botConfig, originalBotConfig, error, isLoading, hasConfigChanges),
+        loadEnvConfig: createConfigLoader('环境变量', maibotConfigApi.getEnvConfig, envConfig, originalEnvConfig, envError, isLoadingEnv, hasEnvChanges),
+        loadLpmmConfig: createConfigLoader('LPMM', maibotConfigApi.getLpmmConfig, lpmmConfig, originalLpmmConfig, lpmmError, isLoadingLpmm, hasLpmmChanges)
     }
-    
-    const query = searchQuery.value.toLowerCase()
-    const results = []
-    const filtered = []
-    
-    // 搜索当前页面的所有配置项
-    if (activeTab.value === 'bot' && botConfig.value) {
-        searchInSections(query, results, filtered)
-    }
-    
-    searchResults.value = results
-    filteredSections.value = filtered
-}
+})()
 
-// 搜索配置节
-const searchInSections = (query, results, filtered) => {
-    configSections.value.forEach(section => {
-        const matchedFields = []
-        
-        // 检查节标题是否匹配
-        const sectionTitleMatch = section.title.toLowerCase().includes(query)
-        
-        // 搜索节中的字段
-        if (section.data) {
-            for (const [key, value] of Object.entries(section.data)) {
-                const fieldLabel = getFieldLabel(key).toLowerCase()
-                const fieldDescription = getFieldDescription(key, section.key).toLowerCase()
-                
-                // 模糊匹配：字段名、标签、描述、值
-                const keyMatch = key.toLowerCase().includes(query)
-                const labelMatch = fieldLabel.includes(query)
-                const descMatch = fieldDescription.includes(query)
-                const valueMatch = searchInValue(value, query)
-                
-                if (keyMatch || labelMatch || descMatch || valueMatch) {
-                    matchedFields.push({
-                        key,
-                        value,
-                        label: getFieldLabel(key),
-                        description: getFieldDescription(key, section.key),
-                        matchType: keyMatch ? 'key' : labelMatch ? 'label' : descMatch ? 'description' : 'value'
-                    })
-                    
-                    results.push({
-                        section: section.title,
-                        field: getFieldLabel(key),
-                        key: key,
-                        value: value,
-                        path: `${section.key}.${key}`,
-                        matchType: keyMatch ? 'key' : labelMatch ? 'label' : descMatch ? 'description' : 'value'
-                    })
-                }
-            }
-        }
-        
-        // 如果节标题匹配或有字段匹配，则添加到过滤结果中
-        if (sectionTitleMatch || matchedFields.length > 0) {
-            filtered.push({
-                ...section,
-                matchedFields: sectionTitleMatch ? Object.entries(section.data || {}).map(([key, value]) => ({
-                    key,
-                    value,
-                    label: getFieldLabel(key),
-                    description: getFieldDescription(key, section.key),
-                    matchType: 'section'
-                })) : matchedFields,
-                titleMatched: sectionTitleMatch
-            })
-        }
-    })
-}
-
-// 搜索值中的内容
-const searchInValue = (value, query) => {
-    if (typeof value === 'string') {
-        return value.toLowerCase().includes(query)
-    } else if (typeof value === 'number') {
-        return value.toString().includes(query)
-    } else if (Array.isArray(value)) {
-        return value.some(item => 
-            typeof item === 'string' && item.toLowerCase().includes(query)
-        )
-    } else if (typeof value === 'boolean') {
-        return query === 'true' || query === 'false' || query === '真' || query === '假'
-    }
-    return false
-}
-
-// 清除搜索
-const clearSearch = () => {
-    searchQuery.value = ''
-    searchResults.value = []
-    filteredSections.value = []
-}
-
-// 检查是否有搜索结果
-const hasSearchResults = computed(() => {
-    return searchQuery.value.trim() && filteredSections.value.length > 0
-})
-
-// 获取要显示的配置节（搜索结果或全部）
-const displaySections = computed(() => {
-    return searchQuery.value.trim() ? filteredSections.value : configSections.value
-})
-
-// 高亮文本中的搜索词
-const highlightText = (text, query) => {
-    if (!text || !query) return text
-    
-    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
-    return text.replace(regex, '<mark class="search-highlight">$1</mark>')
-}
-
-// 获取匹配类型的中文名称
-const getMatchTypeName = (matchType) => {
-    const typeNames = {
-        'key': '字段名',
-        'label': '标签',
-        'description': '描述',
-        'value': '值',
-        'section': '组名'
-    }
-    return typeNames[matchType] || '匹配'
-}
-
-// 防抖定时器
-const lpmmChangeTimeout = ref(null)
-const modelChangeTimeout = ref(null)
-
-// 环境变量编辑
-const newEnvKey = ref('')
-const newEnvValue = ref('')
-
-// 环境变量编辑状态
-const editingEnvKey = ref('')
-const editingEnvValue = ref('')
-const tempEnvKey = ref('')
-const tempEnvValue = ref('')
-const hoveredEnvItems = ref(new Set())
-
-// 动态列表新项目值管理
-const newItemValues = ref({})
-
-// 开发模式和调试信息
-const isDev = ref(false)
-const isDevMode = ref(import.meta.env.DEV || import.meta.env.MODE === 'development')
-const sidebarWidth = ref(0)
-const debugInfo = ref({
-    detectedSelectors: [],
-    cssVariables: [],
-    finalWidth: 0
-})
-
-// 动态选项配置
-const getDynamicOptions = (fieldPath) => {
-    // 根据字段路径返回对应的选项
-    switch (fieldPath) {
-        case 'chat.chat_mode':
-            return [
-                { value: 'normal', label: '普通模式' },
-                { value: 'auto', label: '自动模式' },
-                { value: 'manual', label: '手动模式' },
-                { value: 'hybrid', label: '混合模式' },
-                { value: 'silent', label: '静默模式' }
-            ]
-        case 'safety.filter_strength':
-            return [
-                { value: 'low', label: '低 - 基础过滤' },
-                { value: 'medium', label: '中 - 标准过滤' },
-                { value: 'high', label: '高 - 严格过滤' },
-                { value: 'strict', label: '极严格 - 最高级过滤' }
-            ]
-        case 'log.log_level':
-        case 'log.console_log_level':
-        case 'log.file_log_level':
-            return [
-                { value: 'DEBUG', label: 'DEBUG - 详细调试信息' },
-                { value: 'INFO', label: 'INFO - 一般信息' },
-                { value: 'WARNING', label: 'WARNING - 警告信息' },
-                { value: 'ERROR', label: 'ERROR - 错误信息' },
-                { value: 'CRITICAL', label: 'CRITICAL - 严重错误' }
-            ]
-        default:
-            return []
-    }
-}
-
-// 字段类型映射和配置
-const getFieldConfig = (key, value, parentPath = '') => {
-    const fullPath = parentPath ? `${parentPath}.${key}` : key
-    
-    // 基础类型判断
-    if (typeof value === 'boolean') {
-        return { type: 'switch', path: fullPath }
-    } else if (typeof value === 'number') {
-        // 特殊数字字段处理
-        if (key.includes('rate') || key.includes('probability') || key.includes('threshold')) {
-            return { type: 'number', step: 0.01, min: 0, max: 1, path: fullPath }
-        } else if (key.includes('interval') || key.includes('timeout')) {
-            return { type: 'number', step: 1, min: 0, path: fullPath }
-        } else {
-            return { type: 'number', path: fullPath }
-        }
-    } else if (typeof value === 'string') {
-        // 特殊字符串字段处理
-        if (key.includes('style') || key.includes('prompt') || key === 'personality_core') {
-            return { type: 'textarea', rows: 3, path: fullPath }
-        } else if (getDynamicOptions(fullPath).length > 0) {
-            return { type: 'select', options: getDynamicOptions(fullPath), path: fullPath }
-        } else {
-            return { type: 'input', path: fullPath }
-        }
-    } else if (Array.isArray(value)) {
-        // 数组类型处理
-        if (value.length > 0 && typeof value[0] === 'string') {
-            return { type: 'string-array', path: fullPath }
-        } else if (value.length > 0 && typeof value[0] === 'number') {
-            return { type: 'number-array', path: fullPath }
-        } else {
-            return { type: 'array', path: fullPath }
-        }
-    } else if (typeof value === 'object' && value !== null) {
-        return { type: 'object', path: fullPath }
-    }
-    
-    return { type: 'input', path: fullPath }
-}
-
-// 字段显示名称映射
-const getFieldLabel = (key) => {
-    const labelMap = {
-        // Bot 基本信息
-        'qq_account': 'QQ账号',
-        'nickname': '昵称',
-        'alias_names': '别名',
-        'version': '版本',
-        
-        // 人格设置
-        'personality_core': '核心人格',
-        'personality_sides': '人格侧面',
-        'compress_personality': '压缩人格',
-        
-        // 身份设置
-        'identity_detail': '身份详情',
-        'compress_indentity': '压缩身份',
-        
-        // 表达风格
-        'enable_expression': '启用表达风格',
-        'expression_style': '表达风格',
-        'enable_expression_learning': '表达学习',
-        'learning_interval': '学习间隔',
-        'expression_groups': '表达分组',
-        
-        // 关系管理
-        'enable_relationship': '启用关系管理',
-        'relation_frequency': '关系频率',
-        
-        // 聊天设置
-        'chat_mode': '聊天模式',
-        'max_context_size': '最大上下文长度',
-        'replyer_random_probability': '回复随机概率',
-        'talk_frequency': '聊天频率',
-        'time_based_talk_frequency': '时间聊天频率',
-        'talk_frequency_adjust': '聊天频率调整',
-        'auto_focus_threshold': '自动聚焦阈值',
-        'exit_focus_threshold': '退出聚焦阈值',
-        
-        // 内存管理
-        'enable_memory': '启用内存管理',
-        'memory_build_interval': '内存构建间隔',
-        'memory_build_distribution': '内存构建分布',
-        'memory_build_sample_num': '内存采样数量',
-        'memory_build_sample_length': '内存采样长度',
-        'memory_compress_rate': '内存压缩率',
-        'forget_memory_interval': '遗忘间隔',
-        'memory_forget_time': '遗忘时间',
-        'memory_forget_percentage': '遗忘百分比',
-        'consolidate_memory_interval': '整合间隔',
-        'consolidation_similarity_threshold': '整合相似度阈值',
-        'consolidation_check_percentage': '整合检查百分比',
-        'memory_ban_words': '内存禁用词',
-        
-        // 心情管理
-        'enable_mood': '启用心情系统',
-        'mood_update_interval': '心情更新间隔',
-        'mood_decay_rate': '心情衰减率',
-        'mood_intensity_factor': '心情强度因子',
-        
-        // LPMM 知识库
-        'enable': '启用知识库',
-        'rag_synonym_search_top_k': 'RAG同义词搜索Top K',
-        'rag_synonym_threshold': 'RAG同义词阈值',
-        'info_extraction_workers': '信息提取工作者数',
-        'qa_relation_search_top_k': 'QA关系搜索Top K',
-        'qa_relation_threshold': 'QA关系阈值',
-        'qa_paragraph_search_top_k': 'QA段落搜索Top K',
-        'qa_paragraph_node_weight': 'QA段落节点权重',
-        'qa_ent_filter_top_k': 'QA实体过滤Top K',
-        'qa_ppr_damping': 'QA PPR阻尼',
-        'qa_res_top_k': 'QA结果Top K',
-        
-        // 日志设置
-        'date_style': '日期格式',
-        'log_level_style': '日志级别样式',
-        'color_text': '彩色文本',
-        'log_level': '日志级别',
-        'console_log_level': '控制台日志级别',
-        'file_log_level': '文件日志级别',
-        'suppress_libraries': '抑制库日志',
-        'library_log_levels': '库日志级别'
-    }
-    
-    return labelMap[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-}
-
-// 字段描述映射
-const getFieldDescription = (key, parentSection = '') => {
-    const descriptionMap = {
-        'qq_account': '机器人的QQ账号',
-        'nickname': '机器人的显示昵称',
-        'alias_names': '机器人的别名列表，用于识别呼叫',
-        'version': '机器人内核版本',
-        'personality_core': '描述机器人的核心人格特征',
-        'personality_sides': '描述人格的不同侧面特征',
-        'compress_personality': '启用人格信息压缩处理',
-        'identity_detail': '机器人的身份背景信息',
-        'compress_indentity': '启用身份信息压缩处理',
-        'enable_expression': '启用个性化的表达风格',
-        'expression_style': '描述机器人的说话风格和表达习惯',
-        'enable_expression_learning': '启用表达风格学习功能',
-        'learning_interval': '表达学习的时间间隔（秒）',
-        'enable_relationship': '启用用户关系管理功能',
-        'relation_frequency': '关系更新的频率设置',
-        'chat_mode': '选择聊天的工作模式',
-        'max_context_size': '聊天上下文的最大保留长度',
-        'replyer_random_probability': '主动回复的随机概率（0-1）',
-        'talk_frequency': '基础聊天频率设置',
-        'auto_focus_threshold': '触发自动聚焦的消息数量',
-        'exit_focus_threshold': '退出聚焦模式的阈值',
-        'enable_memory': '启用智能内存管理功能',
-        'enable_mood': '启用动态心情变化系统',
-        'mood_decay_rate': '心情值的自然衰减速率',
-        'enable': parentSection === 'lpmm_knowledge' ? '启用 LPMM 知识库功能' : '启用功能'
-    }
-    
-    return descriptionMap[key] || `配置${getFieldLabel(key)}的相关设置`
-}
+// 使用搜索功能
+const { 
+    searchQuery, 
+    searchResults, 
+    filteredSections, 
+    hasSearchResults, 
+    displaySections, 
+    clearSearch, 
+    highlightText, 
+    getMatchTypeName, 
+    handleSearch 
+} = useConfigSearch()
 
 // 动态生成配置节
-const generateConfigSections = (config) => {
-    if (!config) return []
+const configSections = computed(() => generateConfigSections(botConfig.value))
+
+// 分页渲染模型配置
+const modelPageSize = ref(6)
+const currentModelPage = ref(0)
+const paginatedModelConfigs = computed(() => {
+    const allConfigs = getModelConfigs()
+    const configEntries = Object.entries(allConfigs)
+    if (configEntries.length <= modelPageSize.value) return allConfigs
     
-    const sections = []
-    const sectionConfig = {
-        'bot': { title: '基本信息', icon: 'mdi:robot', iconClass: 'text-blue-500' },
-        'personality': { title: '人格设置', icon: 'mdi:account-heart', iconClass: 'text-pink-500' },
-        'identity': { title: '身份设置', icon: 'mdi:account-details', iconClass: 'text-indigo-500' },
-        'expression': { title: '表达风格', icon: 'mdi:message-text', iconClass: 'text-green-500' },
-        'relationship': { title: '关系管理', icon: 'mdi:account-group', iconClass: 'text-purple-500' },
-        'chat': { title: '聊天设置', icon: 'mdi:chat', iconClass: 'text-orange-500' },
-        'normal_chat': { title: '普通聊天', icon: 'mdi:chat-outline', iconClass: 'text-blue-400' },
-        'focus_chat': { title: '聚焦聊天', icon: 'mdi:target', iconClass: 'text-red-500' },
-        'tool': { title: '工具设置', icon: 'mdi:tools', iconClass: 'text-gray-500' },
-        'emoji': { title: '表情设置', icon: 'mdi:emoticon', iconClass: 'text-yellow-500' },
-        'memory': { title: '内存管理', icon: 'mdi:memory', iconClass: 'text-cyan-500' },
-        'mood': { title: '心情管理', icon: 'mdi:emoticon-happy', iconClass: 'text-yellow-500' },
-        'lpmm_knowledge': { title: 'LPMM 知识库', icon: 'mdi:book-open-page-variant', iconClass: 'text-teal-500' },
-        'keyword_reaction': { title: '关键词反应', icon: 'mdi:key-variant', iconClass: 'text-red-500' },
-        'response_post_process': { title: '响应后处理', icon: 'mdi:cog-refresh', iconClass: 'text-indigo-400' },
-        'chinese_typo': { title: '中文错字', icon: 'mdi:spell-check', iconClass: 'text-orange-400' },
-        'response_splitter': { title: '响应分割', icon: 'mdi:content-cut', iconClass: 'text-purple-400' },
-        'log': { title: '日志设置', icon: 'mdi:file-document-outline', iconClass: 'text-gray-600' },
-        'model': { title: '模型配置', icon: 'mdi:brain', iconClass: 'text-pink-600' },
-        'maim_message': { title: '消息服务', icon: 'mdi:message-processing', iconClass: 'text-blue-600' },
-        'telemetry': { title: '遥测数据', icon: 'mdi:chart-line', iconClass: 'text-green-600' },
-        'experimental': { title: '实验功能', icon: 'mdi:flask', iconClass: 'text-yellow-600' },
-        'message_receive': { title: '消息接收', icon: 'mdi:message-reply', iconClass: 'text-teal-400' },
-        'learning': { title: '学习与进化', icon: 'mdi:brain', iconClass: 'text-pink-500' },
-        'safety': { title: '安全与过滤', icon: 'mdi:shield-check', iconClass: 'text-emerald-500' }
+    const start = currentModelPage.value * modelPageSize.value
+    const end = start + modelPageSize.value
+    return Object.fromEntries(configEntries.slice(start, end))
+})
+
+const totalModelConfigs = computed(() => Object.keys(getModelConfigs()).length)
+const totalModelPages = computed(() => Math.ceil(totalModelConfigs.value / modelPageSize.value))
+const needsPagination = computed(() => totalModelConfigs.value > modelPageSize.value)
+
+// 方法
+// 简化的方法
+const switchTab = (tabKey) => {
+    previousTab.value = activeTab.value
+    activeTab.value = tabKey
+    
+    if (searchQuery.value) clearSearch()
+    
+    // 加载对应数据
+    const loaders = { bot: loadBotConfig, model: loadModelConfig, env: loadEnvConfig, lpmm: loadLpmmConfig }
+    const hasData = { bot: botConfig.value, model: modelConfig.value, env: envConfig.value, lpmm: lpmmConfig.value }
+    
+    if (!hasData[tabKey] && loaders[tabKey]) {
+        loaders[tabKey](props.instanceId)
     }
-    
-    // 跳过的内部字段
-    const skipSections = ['inner']
-    
-    Object.keys(config).forEach(sectionKey => {
-        if (skipSections.includes(sectionKey)) return
-        
-        const sectionData = config[sectionKey]
-        if (typeof sectionData !== 'object' || sectionData === null) return
-        
-        const sectionInfo = sectionConfig[sectionKey] || {
-            title: getFieldLabel(sectionKey),
-            icon: 'mdi:cog',
-            iconClass: 'text-gray-500'
-        }
-        
-        sections.push({
-            key: sectionKey,
-            ...sectionInfo,
-            data: sectionData
-        })
-    })
-    
-    return sections
 }
 
-// 渲染动态字段组件
-const renderField = (key, value, parentPath = '', parentSection = '') => {
-    const config = getFieldConfig(key, value, parentPath)
-    const fullPath = config.path
-    
-    return {
-        key,
-        label: getFieldLabel(key),
-        description: getFieldDescription(key, parentSection),
-        config,
-        value,
-        fullPath
+const getCurrentTabTitle = () => currentTabInfo.value.title
+
+// 统一的变更标记函数
+const markChanged = (type = 'config') => {
+    const changeMap = {
+        config: () => hasConfigChanges.value = true,
+        env: () => hasEnvChanges.value = true, 
+        lpmm: () => hasLpmmChanges.value = true,
+        model: () => hasModelChanges.value = true
     }
+    changeMap[type]?.()
 }
+
+// 向后兼容的别名
+const markConfigChanged = () => markChanged('config')
+const markEnvChanged = () => markChanged('env')
+const markLpmmChanged = () => markChanged('lpmm')
+const markModelChanged = () => markChanged('model')
 
 // 获取嵌套对象的值
 const getNestedValue = (obj, path) => {
@@ -1889,17 +1224,12 @@ const setNestedValue = (obj, path, value) => {
     target[lastKey] = value
 }
 
-// 动态数组操作方法
-const addArrayItem = (path, defaultValue = '') => {
-    if (!defaultValue.trim()) return // 不添加空值
-    
+// 简化的数组操作方法
+const addArrayItem = (path, value = '') => {
+    if (!value.trim()) return
     const current = getNestedValue(botConfig.value, path) || []
-    current.push(defaultValue)
+    current.push(value)
     setNestedValue(botConfig.value, path, current)
-    
-    // 清空对应的输入框
-    newItemValues.value[path] = ''
-    
     markConfigChanged()
 }
 
@@ -1913,80 +1243,6 @@ const removeArrayItem = (path, index) => {
 
 // 计算属性
 const hasChanges = computed(() => hasConfigChanges.value || hasEnvChanges.value || hasLpmmChanges.value || hasModelChanges.value)
-
-// 性能优化：分页渲染模型配置
-const modelPageSize = ref(6) // 每页显示6个模型配置
-const currentModelPage = ref(0)
-
-const paginatedModelConfigs = computed(() => {
-    const allConfigs = getModelConfigs()
-    const configEntries = Object.entries(allConfigs)
-    
-    // 如果配置数量较少，直接返回全部
-    if (configEntries.length <= modelPageSize.value) {
-        return allConfigs
-    }
-    
-    // 分页处理
-    const start = currentModelPage.value * modelPageSize.value
-    const end = start + modelPageSize.value
-    const paginatedEntries = configEntries.slice(start, end)
-    
-    return Object.fromEntries(paginatedEntries)
-})
-
-// 分页相关计算属性
-const totalModelConfigs = computed(() => Object.keys(getModelConfigs()).length)
-const totalModelPages = computed(() => Math.ceil(totalModelConfigs.value / modelPageSize.value))
-const needsPagination = computed(() => totalModelConfigs.value > modelPageSize.value)
-
-// 动态配置节列表
-const configSections = computed(() => {
-    return generateConfigSections(botConfig.value)
-})
-
-// 方法
-const switchTab = (tabKey) => {
-    previousTab.value = activeTab.value
-    activeTab.value = tabKey
-    
-    // 切换标签页时清除搜索状态
-    if (searchQuery.value) {
-        clearSearch()
-    }
-    
-    // 根据标签页加载对应数据
-    if (tabKey === 'bot' && !botConfig.value) {
-        loadBotConfig()
-    } else if (tabKey === 'model' && !modelConfig.value) {
-        loadModelConfig()
-    } else if (tabKey === 'env' && !envConfig.value) {
-        loadEnvConfig()
-    } else if (tabKey === 'lpmm' && !lpmmConfig.value) {
-        loadLpmmConfig()
-    }
-}
-
-const getCurrentTabTitle = () => {
-    const tab = configTabs.find(t => t.key === activeTab.value)
-    return tab ? tab.title : 'Bot 配置'
-}
-
-const markConfigChanged = () => {
-    hasConfigChanges.value = true
-}
-
-const markEnvChanged = () => {
-    hasEnvChanges.value = true
-}
-
-const markLpmmChanged = () => {
-    hasLpmmChanges.value = true
-}
-
-const markModelChanged = () => {
-    hasModelChanges.value = true
-}
 
 // LPMM 配置相关方法
 const addLlmProvider = () => {
@@ -2010,212 +1266,9 @@ const removeLlmProvider = (index) => {
     }
 }
 
-const addEnvVariable = () => {
-    if (!newEnvKey.value.trim() || !newEnvValue.value.trim()) return
-    
-    if (!envConfig.value) {
-        envConfig.value = {}
-    }
-    
-    envConfig.value[newEnvKey.value.trim()] = newEnvValue.value.trim()
-    newEnvKey.value = ''
-    newEnvValue.value = ''
-    markEnvChanged()
-}
-
-const removeEnvVariable = (key) => {
-    if (envConfig.value && envConfig.value[key] !== undefined) {
-        delete envConfig.value[key]
-        markEnvChanged()
-    }
-}
-
-// 环境变量悬停状态管理
-const onEnvItemHover = (key, isHovered) => {
-    if (isHovered) {
-        hoveredEnvItems.value.add(key)
-    } else {
-        hoveredEnvItems.value.delete(key)
-    }
-}
-
-const isEnvItemHovered = (key) => {
-    return hoveredEnvItems.value.has(key)
-}
-
-// 环境变量编辑功能
-const startEditEnvKey = (key) => {
-    editingEnvKey.value = key
-    tempEnvKey.value = key
-    // 使用nextTick确保DOM已更新，然后聚焦
-    nextTick(() => {
-        // 由于使用了动态ref，输入框会自动聚焦
-    })
-}
-
-const startEditEnvValue = (key) => {
-    editingEnvValue.value = key
-    tempEnvValue.value = envConfig.value[key] || ''
-    // 使用nextTick确保DOM已更新，然后聚焦
-    nextTick(() => {
-        // 由于使用了动态ref，输入框会自动聚焦
-    })
-}
-
-const saveEnvKeyEdit = (oldKey) => {
-    if (!tempEnvKey.value.trim()) {
-        cancelEnvKeyEdit()
-        return
-    }
-    
-    const newKey = tempEnvKey.value.trim()
-    if (newKey !== oldKey) {
-        // 检查新键名是否已存在
-        if (envConfig.value[newKey] !== undefined) {
-            toastService.error('环境变量名已存在')
-            cancelEnvKeyEdit()
-            return
-        }
-        
-        // 更新键名
-        const value = envConfig.value[oldKey]
-        delete envConfig.value[oldKey]
-        envConfig.value[newKey] = value
-        markEnvChanged()
-    }
-    
-    editingEnvKey.value = ''
-    tempEnvKey.value = ''
-}
-
-const saveEnvValueEdit = (key) => {
-    if (envConfig.value[key] !== tempEnvValue.value) {
-        envConfig.value[key] = tempEnvValue.value
-        markEnvChanged()
-    }
-    
-    editingEnvValue.value = ''
-    tempEnvValue.value = ''
-}
-
-const cancelEnvKeyEdit = () => {
-    editingEnvKey.value = ''
-    tempEnvKey.value = ''
-}
-
-const cancelEnvValueEdit = () => {
-    editingEnvValue.value = ''
-    tempEnvValue.value = ''
-}
-
-const loadBotConfig = async () => {
-    if (!props.instanceId) return
-    
-    // 防止重复请求
-    if (isLoading.value) {
-        console.log('Bot配置正在加载中，跳过重复请求')
-        return
-    }
-    
-    // 如果已经有配置数据，不重复加载
-    if (botConfig.value) {
-        console.log('Bot配置已存在，跳过重复加载')
-        return
-    }
-    
-    isLoading.value = true
-    error.value = ''
-    
-    try {
-        console.log('开始加载Bot配置:', props.instanceId)
-        const response = await maibotConfigApi.getBotConfig(props.instanceId)
-        botConfig.value = response.data
-        originalBotConfig.value = JSON.parse(JSON.stringify(response.data))
-        hasConfigChanges.value = false
-        console.log('Bot配置加载成功', {
-            data: response.data,
-            sections: generateConfigSections(response.data),
-            configSections: configSections.value
-        })
-    } catch (err) {
-        console.error('加载Bot配置失败:', err)
-        error.value = err.message || '加载配置失败'
-        toastService.error('加载Bot配置失败: ' + error.value)
-    } finally {
-        isLoading.value = false
-    }
-}
-
-const loadEnvConfig = async () => {
-    if (!props.instanceId) return
-    
-    // 防止重复请求
-    if (isLoadingEnv.value) {
-        console.log('环境变量正在加载中，跳过重复请求')
-        return
-    }
-    
-    // 如果已经有配置数据，不重复加载
-    if (envConfig.value) {
-        console.log('环境变量已存在，跳过重复加载')
-        return
-    }
-    
-    isLoadingEnv.value = true
-    envError.value = ''
-    
-    try {
-        console.log('开始加载环境变量:', props.instanceId)
-        const response = await maibotConfigApi.getEnvConfig(props.instanceId)
-        envConfig.value = response.data
-        originalEnvConfig.value = JSON.parse(JSON.stringify(response.data))
-        hasEnvChanges.value = false
-        console.log('环境变量加载成功')
-    } catch (err) {
-        console.error('加载环境变量失败:', err)
-        envError.value = err.message || '加载环境变量失败'
-        toastService.error('加载环境变量失败: ' + envError.value)
-    } finally {
-        isLoadingEnv.value = false
-    }
-}
-
-const loadLpmmConfig = async () => {
-    if (!props.instanceId) return
-    
-    // 防止重复请求
-    if (isLoadingLpmm.value) {
-        console.log('LPMM配置正在加载中，跳过重复请求')
-        return
-    }
-    
-    // 如果已经有配置数据，不重复加载
-    if (lpmmConfig.value) {
-        console.log('LPMM配置已存在，跳过重复加载')
-        return
-    }
-    
-    isLoadingLpmm.value = true
-    lpmmError.value = ''
-    
-    try {
-        console.log('开始加载LPMM配置:', props.instanceId)
-        const response = await maibotConfigApi.getLpmmConfig(props.instanceId)
-        lpmmConfig.value = response.data
-        originalLpmmConfig.value = JSON.parse(JSON.stringify(response.data))
-        hasLpmmChanges.value = false
-        console.log('LPMM配置加载成功')
-    } catch (err) {
-        console.error('加载LPMM配置失败:', err)
-        lpmmError.value = err.message || '加载LPMM配置失败'
-        toastService.error('加载LPMM配置失败: ' + lpmmError.value)
-    } finally {
-        isLoadingLpmm.value = false
-    }
-}
-
-const loadModelConfig = async () => {
-    if (!props.instanceId) return
+// 创建模型配置加载器
+const loadModelConfig = async (instanceId) => {
+    if (!instanceId) return
     
     // 防止重复请求
     if (isLoadingModel.value) {
@@ -2233,8 +1286,8 @@ const loadModelConfig = async () => {
     modelError.value = ''
     
     try {
-        console.log('开始加载模型配置:', props.instanceId)
-        const response = await maibotConfigApi.getBotConfig(props.instanceId)
+        console.log('开始加载模型配置:', instanceId)
+        const response = await maibotConfigApi.getBotConfig(instanceId)
         // 从bot配置中提取模型配置
         if (response.data && response.data.model) {
             modelConfig.value = response.data.model
@@ -2341,23 +1394,7 @@ const getModelConfigs = () => {
 }
 
 const getModelDisplayName = (modelKey) => {
-    const nameMap = {
-        'utils': '工具模型',
-        'utils_small': '小型工具模型',
-        'replyer_1': '回复模型 1',
-        'replyer_2': '回复模型 2',
-        'memory_summary': '记忆摘要模型',
-        'vlm': '视觉语言模型',
-        'planner': '规划模型',
-        'relation': '关系模型',
-        'tool_use': '工具使用模型',
-        'embedding': '嵌入模型',
-        'focus_working_memory': '专注工作记忆模型',
-        'lpmm_entity_extract': 'LPMM实体提取模型',
-        'lpmm_rdf_build': 'LPMM RDF构建模型',
-        'lpmm_qa': 'LPMM问答模型'
-    }
-    return nameMap[modelKey] || modelKey
+    return MODEL_DISPLAY_NAMES[modelKey] || modelKey
 }
 
 const closeDrawer = () => {
@@ -2379,317 +1416,77 @@ const handleBackdropClick = () => {
     closeDrawer()
 }
 
-// 检测侧边栏宽度
-const detectSidebarWidth = () => {
-    // 重置调试信息
-    debugInfo.value = {
-        detectedSelectors: [],
-        cssVariables: [],
-        finalWidth: 0
-    }
-    
-    // 尝试多种方式检测侧边栏宽度
-    const sidebarSelectors = [
-        '.sidebar',
-        '.main-sidebar', 
-        '.app-sidebar',
-        '.navigation-sidebar',
-        '.side-navigation',
-        '.nav-sidebar',
-        '[data-sidebar]',
-        '.drawer-side',
-        '.layout-sidebar',
-        '.primary-sidebar',
-        '.left-sidebar',
-        '.menu-sidebar',
-        '.side-menu',
-        '.sidebar-nav',
-        // Tauri 应用常见的选择器
-        '.titlebar-sidebar',
-        '.app-navigation'
+// 统一的实例变化处理
+const resetAllConfig = () => {
+    const configs = [
+        { config: botConfig, original: originalBotConfig, hasChanges: hasConfigChanges },
+        { config: envConfig, original: originalEnvConfig, hasChanges: hasEnvChanges },
+        { config: lpmmConfig, original: originalLpmmConfig, hasChanges: hasLpmmChanges },
+        { config: modelConfig, original: originalModelConfig, hasChanges: hasModelChanges }
     ]
     
-    let detectedWidth = 0
-    
-    // 遍历所有可能的侧边栏选择器
-    for (const selector of sidebarSelectors) {
-        const sidebar = document.querySelector(selector)
-        if (sidebar) {
-            const rect = sidebar.getBoundingClientRect()
-            const computedStyle = getComputedStyle(sidebar)
-            
-            // 检查元素是否可见
-            if (computedStyle.display !== 'none' && 
-                computedStyle.visibility !== 'hidden' && 
-                rect.width > 0) {
-                detectedWidth = Math.max(detectedWidth, rect.width)
-                debugInfo.value.detectedSelectors.push({
-                    selector,
-                    width: rect.width,
-                    display: computedStyle.display,
-                    visibility: computedStyle.visibility
-                })
-                console.log(`检测到侧边栏: ${selector}, 宽度: ${rect.width}px`)
-            }
-        }
-    }
-    
-    // 如果没有检测到侧边栏元素，尝试从 CSS 变量获取
-    if (detectedWidth === 0) {
-        const computedStyle = getComputedStyle(document.documentElement)
-        const cssVars = [
-            '--sidebar-width',
-            '--drawer-width',
-            '--nav-width',
-            '--navigation-width',
-            '--menu-width',
-            '--side-panel-width',
-            '--left-panel-width'
-        ]
-        
-        for (const varName of cssVars) {
-            const cssVar = computedStyle.getPropertyValue(varName)
-            if (cssVar) {
-                const parsedWidth = parseInt(cssVar) || 0
-                debugInfo.value.cssVariables.push({
-                    variable: varName,
-                    value: cssVar,
-                    parsedWidth
-                })
-                if (parsedWidth > 0) {
-                    detectedWidth = Math.max(detectedWidth, parsedWidth)
-                    console.log(`从 CSS 变量检测到侧边栏宽度: ${varName}=${parsedWidth}px`)
-                    break
-                }
-            }
-        }
-    }
-    
-    // 如果仍然没有检测到，尝试检查是否有折叠状态的侧边栏
-    if (detectedWidth === 0) {
-        // 检查是否有 body 或 html 的 class 表明侧边栏状态
-        const bodyClasses = document.body.className
-        const htmlClasses = document.documentElement.className
-        
-        if (bodyClasses.includes('sidebar-expanded') || htmlClasses.includes('sidebar-expanded')) {
-            detectedWidth = 250 // 默认展开宽度
-        } else if (bodyClasses.includes('sidebar-collapsed') || htmlClasses.includes('sidebar-collapsed')) {
-            detectedWidth = 60 // 默认折叠宽度
-        }
-    }
-    
-    sidebarWidth.value = detectedWidth
-    debugInfo.value.finalWidth = detectedWidth
-    
-    // 使用 RAF 优化 CSS 变量更新，避免强制重排
-    requestAnimationFrame(() => {
-        document.documentElement.style.setProperty('--sidebar-width', `${detectedWidth}px`)
+    configs.forEach(({ config, original, hasChanges }) => {
+        config.value = null
+        original.value = null  
+        hasChanges.value = false
     })
     
-    console.log(`最终检测到的侧边栏宽度: ${detectedWidth}px`, debugInfo.value)
+    const errors = [error, envError, lpmmError, modelError]
+    errors.forEach(err => err.value = '')
 }
 
-// 监听侧边栏变化
-const observeSidebarChanges = () => {
-    // 创建 MutationObserver 监听 DOM 变化
-    const mutationObserver = new MutationObserver(() => {
-        // 延迟检测，确保 DOM 更新完成
-        setTimeout(detectSidebarWidth, 100)
-    })
-    
-    // 监听 body 和 html 的 class 变化（可能影响侧边栏状态）
-    mutationObserver.observe(document.body, {
-        attributes: true,
-        attributeFilter: ['class', 'style']
-    })
-    
-    mutationObserver.observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ['class', 'style']
-    })
-    
-    // 创建 ResizeObserver 监听侧边栏大小变化
-    if (typeof ResizeObserver !== 'undefined') {
-        const sidebarSelectors = [
-            '.sidebar', '.main-sidebar', '.app-sidebar', '.navigation-sidebar',
-            '.side-navigation', '.nav-sidebar', '[data-sidebar]', '.drawer-side',
-            '.layout-sidebar', '.primary-sidebar', '.left-sidebar'
-        ]
-        
-        const resizeObserver = new ResizeObserver(() => {
-            detectSidebarWidth()
-        })
-        
-        // 为找到的侧边栏元素添加观察
-        sidebarSelectors.forEach(selector => {
-            const sidebar = document.querySelector(selector)
-            if (sidebar) {
-                resizeObserver.observe(sidebar)
-            }
-        })
-        
-        // 组件卸载时清理
-        onBeforeUnmount(() => {
-            resizeObserver.disconnect()
-            mutationObserver.disconnect()
-        })
-    }
-    
-    // 监听窗口大小变化
-    const handleResize = () => {
-        setTimeout(detectSidebarWidth, 50)
-    }
-    window.addEventListener('resize', handleResize)
-    
-    // 监听可能的侧边栏切换事件
-    const handleSidebarToggle = () => {
-        setTimeout(detectSidebarWidth, 150)
-    }
-    
-    // 监听常见的侧边栏事件
-    document.addEventListener('sidebar-toggle', handleSidebarToggle)
-    document.addEventListener('drawer-toggle', handleSidebarToggle)
-    document.addEventListener('menu-toggle', handleSidebarToggle)
-    
-    // 额外监听可能的侧边栏状态变化
-    const handleClassChange = () => {
-        setTimeout(detectSidebarWidth, 100)
-    }
-    
-    // 监听 body 和 html 类名变化（可能包含侧边栏状态）
-    const bodyObserver = new MutationObserver(handleClassChange)
-    bodyObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] })
-    
-    const htmlObserver = new MutationObserver(handleClassChange)
-    htmlObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
-    
-    // 监听 CSS 变量变化
-    const cssObserver = new MutationObserver(() => {
-        const currentWidth = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width')
-        if (currentWidth && parseInt(currentWidth) !== sidebarWidth.value) {
-            setTimeout(detectSidebarWidth, 50)
-        }
-    })
-    cssObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] })
-    
-    onBeforeUnmount(() => {
-        window.removeEventListener('resize', handleResize)
-        document.removeEventListener('sidebar-toggle', handleSidebarToggle)
-        document.removeEventListener('drawer-toggle', handleSidebarToggle)
-        document.removeEventListener('menu-toggle', handleSidebarToggle)
-        mutationObserver.disconnect()
-        bodyObserver.disconnect()
-        htmlObserver.disconnect()
-        cssObserver.disconnect()
-    })
-}
-
-// 监听实例变化
+// 监听器优化
 watch(() => props.instanceId, (newId, oldId) => {
     if (newId && newId !== oldId && props.isOpen) {
-        // 重置状态
-        botConfig.value = null
-        envConfig.value = null
-        lpmmConfig.value = null
-        modelConfig.value = null
-        originalBotConfig.value = null
-        originalEnvConfig.value = null
-        originalLpmmConfig.value = null
-        originalModelConfig.value = null
-        hasConfigChanges.value = false
-        hasEnvChanges.value = false
-        hasLpmmChanges.value = false
-        hasModelChanges.value = false
-        error.value = ''
-        envError.value = ''
-        lpmmError.value = ''
-        modelError.value = ''
-        
+        resetAllConfig()
         console.log('实例ID变化，重新加载配置', { newId, oldId, activeTab: activeTab.value })
         
-        // 加载当前标签页的数据
-        if (activeTab.value === 'bot') {
-            loadBotConfig()
-        } else if (activeTab.value === 'model') {
-            loadModelConfig()
-        } else if (activeTab.value === 'env') {
-            loadEnvConfig()
-        } else if (activeTab.value === 'lpmm') {
-            loadLpmmConfig()
-        }
+        const loaders = { bot: loadBotConfig, model: loadModelConfig, env: loadEnvConfig, lpmm: loadLpmmConfig }
+        loaders[activeTab.value]?.(newId)
     }
 })
 
-// 监听打开状态
 watch(() => props.isOpen, (isOpen, wasOpen) => {
     if (isOpen && !wasOpen && props.instanceId) {
         console.log('抽屉打开，开始加载配置', { instanceId: props.instanceId, activeTab: activeTab.value })
         
-        // 检测侧边栏宽度，确保配置窗口大小正确
-        setTimeout(() => {
-            detectSidebarWidth()
-        }, 50)
+        const hasData = { bot: botConfig.value, model: modelConfig.value, env: envConfig.value, lpmm: lpmmConfig.value }
+        const loaders = { bot: loadBotConfig, model: loadModelConfig, env: loadEnvConfig, lpmm: loadLpmmConfig }
         
-        // 只有当抽屉从关闭变为打开时才加载数据
-        if (activeTab.value === 'bot' && !botConfig.value) {
-            loadBotConfig()
-        } else if (activeTab.value === 'model' && !modelConfig.value) {
-            loadModelConfig()
-        } else if (activeTab.value === 'env' && !envConfig.value) {
-            loadEnvConfig()
-        } else if (activeTab.value === 'lpmm' && !lpmmConfig.value) {
-            loadLpmmConfig()
+        if (!hasData[activeTab.value] && loaders[activeTab.value]) {
+            loaders[activeTab.value](props.instanceId)
         }
     }
 })
 
-// 监听LPMM配置变化 - 优化性能
-watch(lpmmConfig, (newConfig, oldConfig) => {
-    if (newConfig && oldConfig && originalLpmmConfig.value) {
-        // 使用防抖来减少频繁检查
-        clearTimeout(lpmmChangeTimeout.value)
-        lpmmChangeTimeout.value = setTimeout(() => {
-            const hasChanges = JSON.stringify(newConfig) !== JSON.stringify(originalLpmmConfig.value)
-            hasLpmmChanges.value = hasChanges
-        }, 300)
-    }
-}, { deep: true, flush: 'post' })
+// 监听配置变化 - 使用统一的防抖逻辑
+const createDebounceWatcher = (config, originalConfig, hasChanges) => {
+    let timeout = null
+    return watch(config, (newConfig, oldConfig) => {
+        if (newConfig && oldConfig && originalConfig.value) {
+            clearTimeout(timeout)
+            timeout = setTimeout(() => {
+                hasChanges.value = JSON.stringify(newConfig) !== JSON.stringify(originalConfig.value)
+            }, 300)
+        }
+    }, { deep: true, flush: 'post' })
+}
 
-// 监听模型配置变化 - 优化性能
-watch(modelConfig, (newConfig, oldConfig) => {
-    if (newConfig && oldConfig && originalModelConfig.value) {
-        // 使用防抖来减少频繁检查
-        clearTimeout(modelChangeTimeout.value)
-        modelChangeTimeout.value = setTimeout(() => {
-            const hasChanges = JSON.stringify(newConfig) !== JSON.stringify(originalModelConfig.value)
-            hasModelChanges.value = hasChanges
-        }, 300)
-    }
-}, { deep: true, flush: 'post' })
+createDebounceWatcher(lpmmConfig, originalLpmmConfig, hasLpmmChanges)
+createDebounceWatcher(modelConfig, originalModelConfig, hasModelChanges)
 
-// 组件挂载时的初始化
+// 组件挂载优化
 onMounted(() => {
-    // 检查开发模式
-    isDev.value = import.meta.env.DEV || import.meta.env.MODE === 'development' || false
-    
-    console.log('BotConfigDrawer mounted', {
-        isOpen: props.isOpen,
-        instanceId: props.instanceId,
-        isDev: isDev.value
-    })
+    console.log('BotConfigDrawer mounted', { isOpen: props.isOpen, instanceId: props.instanceId })
     
     // 如果抽屉已经打开，立即加载配置
     if (props.isOpen && props.instanceId && activeTab.value === 'bot') {
-        loadBotConfig()
+        loadBotConfig(props.instanceId)
     }
-})
-
-// 监听ESC键关闭
-onMounted(() => {
+    
+    // ESC键监听
     const handleEscape = (e) => {
-        if (e.key === 'Escape' && props.isOpen) {
-            closeDrawer()
-        }
+        if (e.key === 'Escape' && props.isOpen) closeDrawer()
     }
     document.addEventListener('keydown', handleEscape)
     
