@@ -822,31 +822,27 @@
                                                         <div class="model-setting-grid">
                                                             <div class="model-setting">
                                                                 <label class="model-setting-label">输入价格</label>
-                                                                <div class="input-group">
-                                                                    <input 
-                                                                        type="number" 
-                                                                        class="input input-bordered input-sm flex-1" 
-                                                                        v-model.number="model.pri_in"
-                                                                        min="0"
-                                                                        step="0.01"
-                                                                        @input="markModelChanged"
-                                                                    />
-                                                                    <span class="input-group-text">¥/1M tokens</span>
-                                                                </div>
+                                                                <input 
+                                                                    type="number" 
+                                                                    class="input input-bordered input-sm flex-1" 
+                                                                    v-model.number="model.pri_in"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    placeholder="¥/1M tokens"
+                                                                    @input="markModelChanged"
+                                                                />
                                                             </div>
                                                             <div class="model-setting">
                                                                 <label class="model-setting-label">输出价格</label>
-                                                                <div class="input-group">
-                                                                    <input 
-                                                                        type="number" 
-                                                                        class="input input-bordered input-sm flex-1" 
-                                                                        v-model.number="model.pri_out"
-                                                                        min="0"
-                                                                        step="0.01"
-                                                                        @input="markModelChanged"
-                                                                    />
-                                                                    <span class="input-group-text">¥/1M tokens</span>
-                                                                </div>
+                                                                <input 
+                                                                    type="number" 
+                                                                    class="input input-bordered input-sm flex-1" 
+                                                                    v-model.number="model.pri_out"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    placeholder="¥/1M tokens"
+                                                                    @input="markModelChanged"
+                                                                />
                                                             </div>
                                                         </div>
 
@@ -2218,12 +2214,36 @@ const observeSidebarChanges = () => {
     document.addEventListener('drawer-toggle', handleSidebarToggle)
     document.addEventListener('menu-toggle', handleSidebarToggle)
     
+    // 额外监听可能的侧边栏状态变化
+    const handleClassChange = () => {
+        setTimeout(detectSidebarWidth, 100)
+    }
+    
+    // 监听 body 和 html 类名变化（可能包含侧边栏状态）
+    const bodyObserver = new MutationObserver(handleClassChange)
+    bodyObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+    
+    const htmlObserver = new MutationObserver(handleClassChange)
+    htmlObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    
+    // 监听 CSS 变量变化
+    const cssObserver = new MutationObserver(() => {
+        const currentWidth = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width')
+        if (currentWidth && parseInt(currentWidth) !== sidebarWidth.value) {
+            setTimeout(detectSidebarWidth, 50)
+        }
+    })
+    cssObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] })
+    
     onBeforeUnmount(() => {
         window.removeEventListener('resize', handleResize)
         document.removeEventListener('sidebar-toggle', handleSidebarToggle)
         document.removeEventListener('drawer-toggle', handleSidebarToggle)
         document.removeEventListener('menu-toggle', handleSidebarToggle)
         mutationObserver.disconnect()
+        bodyObserver.disconnect()
+        htmlObserver.disconnect()
+        cssObserver.disconnect()
     })
 }
 
@@ -2267,6 +2287,11 @@ watch(() => props.instanceId, (newId, oldId) => {
 watch(() => props.isOpen, (isOpen, wasOpen) => {
     if (isOpen && !wasOpen && props.instanceId) {
         console.log('抽屉打开，开始加载配置', { instanceId: props.instanceId, activeTab: activeTab.value })
+        
+        // 检测侧边栏宽度，确保配置窗口大小正确
+        setTimeout(() => {
+            detectSidebarWidth()
+        }, 50)
         
         // 只有当抽屉从关闭变为打开时才加载数据
         if (activeTab.value === 'bot' && !botConfig.value) {
@@ -2370,10 +2395,13 @@ onMounted(() => {
 
 /* 主容器 */
 .bot-config-drawer-container {
-    width: 80%;
-    max-width: 900px;
-    height: 80%;
-    max-height: 650px;
+    /* 动态计算宽度：可用宽度的85%，确保两侧有留白 */
+    width: calc((100vw - var(--sidebar-width, 64px)) * 0.85);
+    min-width: 600px; /* 最小宽度确保可用性 */
+    max-width: 1200px; /* 最大宽度避免过大 */
+    height: 85vh; /* 使用视口高度的85% */
+    min-height: 500px; /* 最小高度 */
+    max-height: 800px; /* 最大高度 */
     background-color: #ffffff;
     border-radius: 16px;
     box-shadow: 0 32px 64px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.1);
@@ -2383,6 +2411,22 @@ onMounted(() => {
     position: relative;
     border: 1px solid rgba(0, 0, 0, 0.1);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 响应式调整：当可用宽度较小时，调整最小宽度 */
+@media (max-width: 1024px) {
+    .bot-config-drawer-container {
+        width: calc((100vw - var(--sidebar-width, 64px)) * 0.9);
+        min-width: 500px;
+    }
+}
+
+@media (max-width: 768px) {
+    .bot-config-drawer-container {
+        width: calc((100vw - var(--sidebar-width, 64px)) * 0.95);
+        min-width: 400px;
+        height: 90vh;
+    }
 }
 
 /* 深色模式优化 */
@@ -3546,7 +3590,7 @@ onMounted(() => {
     border-color: rgba(255, 255, 255, 0.1);
 }
 
-/* 响应式分页 */
+/* 响应式分页 暂时弃用 */
 @media (max-width: 640px) {
     .model-pagination {
         flex-direction: column;
