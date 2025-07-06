@@ -8,6 +8,33 @@
                         <h2 class="bot-config-title">Bot 配置</h2>
                         <p class="instance-info">{{ instanceName }} ({{ instanceId }})</p>
                     </div>
+                    
+                    <!-- 搜索框 -->
+                    <div class="header-search" v-if="activeTab === 'bot'">
+                        <div class="search-container">
+                            <Icon icon="mdi:magnify" class="search-icon" />
+                            <input 
+                                type="text" 
+                                class="search-input" 
+                                placeholder="搜索配置项..."
+                                v-model="searchQuery"
+                                @input="handleSearch"
+                                @keydown.esc="clearSearch"
+                            />
+                            <button 
+                                v-if="searchQuery" 
+                                class="search-clear" 
+                                @click="clearSearch"
+                                title="清除搜索"
+                            >
+                                <Icon icon="mdi:close" class="w-4 h-4" />
+                            </button>
+                        </div>
+                        <div v-if="searchResults.length > 0 && searchQuery" class="search-stats">
+                            找到 {{ searchResults.length }} 个匹配项
+                        </div>
+                    </div>
+                    
                     <button class="btn btn-ghost btn-sm btn-circle" @click="closeDrawer" title="关闭">
                         <Icon icon="mdi:close" size="lg" />
                     </button>
@@ -47,35 +74,73 @@
                                     </div>
 
                                     <div class="config-section" v-if="botConfig">
+                                        <!-- 搜索提示 -->
+                                        <div v-if="searchQuery && !hasSearchResults" class="search-no-results">
+                                            <Icon icon="mdi:magnify-close" class="search-no-results-icon" />
+                                            <p class="search-no-results-text">没有找到匹配的配置项</p>
+                                            <p class="search-no-results-hint">尝试使用其他关键词搜索</p>
+                                        </div>
+                                        
+                                        <!-- 搜索结果提示 -->
+                                        <div v-if="searchQuery && hasSearchResults" class="search-results-info">
+                                            <Icon icon="mdi:filter-variant" class="search-filter-icon" />
+                                            <span>已过滤显示 {{ filteredSections.length }} 个配置组，共 {{ searchResults.length }} 个匹配项</span>
+                                            <button class="search-clear-btn" @click="clearSearch">
+                                                <Icon icon="mdi:close" class="w-4 h-4" />
+                                                清除过滤
+                                            </button>
+                                        </div>
+
                                         <!-- 调试信息 -->
                                         <div v-if="isDevMode && isDev" class="debug-panel mb-2 p-2 bg-base-200 rounded-lg">
                                             <h4 class="text-xs font-semibold mb-1">调试信息</h4>
                                             <div class="text-xs space-y-0.5">
-                                                <div>配置节数量: {{ configSections.length }}</div>
+                                                <div>配置节数量: {{ displaySections.length }}</div>
+                                                <div>搜索状态: {{ searchQuery ? '已过滤' : '显示全部' }}</div>
                                                 <div>配置对象: {{ Object.keys(botConfig || {}).join(', ') }}</div>
-                                                <div v-for="section in configSections.slice(0, 3)" :key="section.key">
+                                                <div v-for="section in displaySections.slice(0, 3)" :key="section.key">
                                                     {{ section.key }}: {{ Object.keys(section.data || {}).length }} 字段
                                                 </div>
                                             </div>
                                         </div>
 
                                         <!-- 动态生成配置节 -->
-                                        <template v-for="section in configSections" :key="section.key">
+                                        <template v-for="section in displaySections" :key="section.key">
                                             <SettingGroup 
                                                 :title="section.title" 
                                                 :icon="section.icon" 
                                                 :icon-class="section.iconClass"
+                                                :class="{ 'search-matched-section': section.titleMatched }"
                                             >
-                                                <!-- 渲染每个配置项 -->
-                                                <template v-for="(value, key) in section.data" :key="key">
+                                                <!-- 渲染匹配的配置项（搜索模式）或所有配置项（正常模式） -->
+                                                <template v-for="field in (searchQuery ? section.matchedFields : Object.entries(section.data || {}).map(([key, value]) => ({ key, value })))" :key="field.key">
                                                     <!-- 字符串数组类型 - 标签式布局 -->
                                                     <div 
-                                                        v-if="Array.isArray(value) && (value.length === 0 || typeof value[0] === 'string')"
+                                                        v-if="Array.isArray(field.value) && (field.value.length === 0 || typeof field.value[0] === 'string')"
                                                         class="setting-item"
+                                                        :class="{ 'search-matched-item': searchQuery && field.matchType }"
                                                     >
                                                         <div class="setting-info">
-                                                            <label class="setting-label">{{ getFieldLabel(key) }}</label>
-                                                            <p class="setting-description">{{ getFieldDescription(key, section.key) }}</p>
+                                                            <label class="setting-label">
+                                                                <div class="setting-label-wrapper">
+                                                                    <div class="label-content">
+                                                                        <span class="label-text" v-html="highlightText(field.label || getFieldLabel(field.key), searchQuery)"></span>
+                                                                        <span 
+                                                                            class="search-match-badge transition-all duration-200" 
+                                                                            :class="{ 'opacity-0 scale-75': !searchQuery || !field.matchType }"
+                                                                        >
+                                                                            {{ searchQuery && field.matchType ? getMatchTypeName(field.matchType) : '匹配' }}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div 
+                                                                        class="field-key-hint transition-all duration-200 overflow-hidden" 
+                                                                        :class="{ 'opacity-0 -translate-y-1 max-h-0': !searchQuery, 'opacity-100 translate-y-0 max-h-8': searchQuery }"
+                                                                    >
+                                                                        {{ field.key }}
+                                                                    </div>
+                                                                </div>
+                                                            </label>
+                                                            <p class="setting-description" v-html="highlightText(field.description || getFieldDescription(field.key, section.key), searchQuery)"></p>
                                                         </div>
                                                         <div class="setting-control">
                                                             <!-- 标签式显示和编辑 -->
@@ -83,14 +148,14 @@
                                                                 <!-- 已有的标签 -->
                                                                 <div class="tag-list">
                                                                     <div 
-                                                                        v-for="(item, index) in value" 
+                                                                        v-for="(item, index) in field.value" 
                                                                         :key="index" 
                                                                         class="tag-item"
                                                                     >
-                                                                        <span class="tag-text">{{ item }}</span>
+                                                                        <span class="tag-text" v-html="highlightText(item, searchQuery)"></span>
                                                                         <button 
                                                                             class="tag-remove"
-                                                                            @click="removeArrayItem(`${section.key}.${key}`, index)"
+                                                                            @click="removeArrayItem(`${section.key}.${field.key}`, index)"
                                                                             title="删除"
                                                                         >
                                                                             <Icon icon="mdi:close" class="w-3 h-3" />
@@ -101,16 +166,16 @@
                                                                 <div class="tag-input-container">
                                                                     <input 
                                                                         type="text" 
-                                                                        v-model="newItemValues[`${section.key}.${key}`]"
+                                                                        v-model="newItemValues[`${section.key}.${field.key}`]"
                                                                         class="tag-input"
-                                                                        :placeholder="`输入${getFieldLabel(key)}`"
-                                                                        @keyup.enter="addArrayItem(`${section.key}.${key}`, newItemValues[`${section.key}.${key}`] || '')"
-                                                                        @blur="addArrayItem(`${section.key}.${key}`, newItemValues[`${section.key}.${key}`] || '')"
+                                                                        :placeholder="`输入${field.label || getFieldLabel(field.key)}`"
+                                                                        @keyup.enter="addArrayItem(`${section.key}.${field.key}`, newItemValues[`${section.key}.${field.key}`] || '')"
+                                                                        @blur="addArrayItem(`${section.key}.${field.key}`, newItemValues[`${section.key}.${field.key}`] || '')"
                                                                     />
                                                                     <button 
                                                                         class="tag-add-btn"
-                                                                        @click="addArrayItem(`${section.key}.${key}`, newItemValues[`${section.key}.${key}`] || '')"
-                                                                        :title="`添加${getFieldLabel(key)}`"
+                                                                        @click="addArrayItem(`${section.key}.${field.key}`, newItemValues[`${section.key}.${field.key}`] || '')"
+                                                                        :title="`添加${field.label || getFieldLabel(field.key)}`"
                                                                     >
                                                                         <Icon icon="mdi:plus" class="w-5 h-5" />
                                                                     </button>
@@ -120,57 +185,182 @@
                                                     </div>
                                                     
                                                     <!-- 布尔类型 -->
-                                                    <SettingSwitch
-                                                        v-else-if="typeof value === 'boolean'"
-                                                        :label="getFieldLabel(key)"
-                                                        :description="getFieldDescription(key, section.key)"
-                                                        :model-value="getNestedValue(botConfig, `${section.key}.${key}`)"
-                                                        @update:model-value="setNestedValue(botConfig, `${section.key}.${key}`, $event); markConfigChanged()"
-                                                    />
+                                                    <div v-else-if="typeof field.value === 'boolean'" class="setting-item" :class="{ 'search-matched-item': searchQuery && field.matchType }">
+                                                        <div class="setting-info">
+                                                            <label class="setting-label">
+                                                                <div class="setting-label-wrapper">
+                                                                    <div class="label-content">
+                                                                        <span class="label-text" v-html="highlightText(field.label || getFieldLabel(field.key), searchQuery)"></span>
+                                                                        <span 
+                                                                            class="search-match-badge transition-all duration-200" 
+                                                                            :class="{ 'opacity-0 scale-75': !searchQuery || !field.matchType }"
+                                                                        >
+                                                                            {{ searchQuery && field.matchType ? getMatchTypeName(field.matchType) : '匹配' }}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div 
+                                                                        class="field-key-hint transition-all duration-200 overflow-hidden" 
+                                                                        :class="{ 'opacity-0 -translate-y-1 max-h-0': !searchQuery, 'opacity-100 translate-y-0 max-h-8': searchQuery }"
+                                                                    >
+                                                                        {{ field.key }}
+                                                                    </div>
+                                                                </div>
+                                                            </label>
+                                                            <p class="setting-description" v-html="highlightText(field.description || getFieldDescription(field.key, section.key), searchQuery)"></p>
+                                                        </div>
+                                                        <div class="setting-control">
+                                                            <input 
+                                                                type="checkbox" 
+                                                                class="toggle toggle-primary toggle-sm" 
+                                                                :checked="getNestedValue(botConfig, `${section.key}.${field.key}`)"
+                                                                @change="setNestedValue(botConfig, `${section.key}.${field.key}`, $event.target.checked); markConfigChanged()"
+                                                            />
+                                                        </div>
+                                                    </div>
                                                     
                                                     <!-- 选择类型 -->
-                                                    <SettingSelect
-                                                        v-else-if="getDynamicOptions(`${section.key}.${key}`).length > 0"
-                                                        :label="getFieldLabel(key)"
-                                                        :description="getFieldDescription(key, section.key)"
-                                                        :options="getDynamicOptions(`${section.key}.${key}`)"
-                                                        :model-value="getNestedValue(botConfig, `${section.key}.${key}`)"
-                                                        @update:model-value="setNestedValue(botConfig, `${section.key}.${key}`, $event); markConfigChanged()"
-                                                    />
+                                                    <div v-else-if="getDynamicOptions(`${section.key}.${field.key}`).length > 0" class="setting-item" :class="{ 'search-matched-item': searchQuery && field.matchType }">
+                                                        <div class="setting-info">
+                                                            <label class="setting-label">
+                                                                <div class="setting-label-wrapper">
+                                                                    <div class="label-content">
+                                                                        <span class="label-text" v-html="highlightText(field.label || getFieldLabel(field.key), searchQuery)"></span>
+                                                                        <span 
+                                                                            class="search-match-badge transition-all duration-200" 
+                                                                            :class="{ 'opacity-0 scale-75': !searchQuery || !field.matchType }"
+                                                                        >
+                                                                            {{ searchQuery && field.matchType ? getMatchTypeName(field.matchType) : '匹配' }}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div 
+                                                                        class="field-key-hint transition-all duration-200 overflow-hidden" 
+                                                                        :class="{ 'opacity-0 -translate-y-1 max-h-0': !searchQuery, 'opacity-100 translate-y-0 max-h-8': searchQuery }"
+                                                                    >
+                                                                        {{ field.key }}
+                                                                    </div>
+                                                                </div>
+                                                            </label>
+                                                            <p class="setting-description" v-html="highlightText(field.description || getFieldDescription(field.key, section.key), searchQuery)"></p>
+                                                        </div>
+                                                        <div class="setting-control">
+                                                            <select 
+                                                                class="select select-bordered select-sm" 
+                                                                :value="getNestedValue(botConfig, `${section.key}.${field.key}`)"
+                                                                @change="setNestedValue(botConfig, `${section.key}.${field.key}`, $event.target.value); markConfigChanged()"
+                                                            >
+                                                                <option v-for="option in getDynamicOptions(`${section.key}.${field.key}`)" :key="option.value" :value="option.value">
+                                                                    {{ option.label }}
+                                                                </option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
                                                     
                                                     <!-- 文本域类型 -->
-                                                    <SettingTextarea
-                                                        v-else-if="typeof value === 'string' && (key.includes('style') || key.includes('prompt') || key === 'personality_core')"
-                                                        :label="getFieldLabel(key)"
-                                                        :description="getFieldDescription(key, section.key)"
-                                                        :rows="3"
-                                                        :model-value="getNestedValue(botConfig, `${section.key}.${key}`)"
-                                                        @update:model-value="setNestedValue(botConfig, `${section.key}.${key}`, $event); markConfigChanged()"
-                                                    />
+                                                    <div v-else-if="typeof field.value === 'string' && (field.key.includes('style') || field.key.includes('prompt') || field.key === 'personality_core')" class="setting-item" :class="{ 'search-matched-item': searchQuery && field.matchType }">
+                                                        <div class="setting-info">
+                                                            <label class="setting-label">
+                                                                <div class="setting-label-wrapper">
+                                                                    <div class="label-content">
+                                                                        <span class="label-text" v-html="highlightText(field.label || getFieldLabel(field.key), searchQuery)"></span>
+                                                                        <span 
+                                                                            class="search-match-badge transition-all duration-200" 
+                                                                            :class="{ 'opacity-0 scale-75': !searchQuery || !field.matchType }"
+                                                                        >
+                                                                            {{ searchQuery && field.matchType ? getMatchTypeName(field.matchType) : '匹配' }}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div 
+                                                                        class="field-key-hint transition-all duration-200 overflow-hidden" 
+                                                                        :class="{ 'opacity-0 -translate-y-1 max-h-0': !searchQuery, 'opacity-100 translate-y-0 max-h-8': searchQuery }"
+                                                                    >
+                                                                        {{ field.key }}
+                                                                    </div>
+                                                                </div>
+                                                            </label>
+                                                            <p class="setting-description" v-html="highlightText(field.description || getFieldDescription(field.key, section.key), searchQuery)"></p>
+                                                        </div>
+                                                        <div class="setting-control">
+                                                            <textarea 
+                                                                class="textarea textarea-bordered textarea-sm" 
+                                                                rows="3"
+                                                                :value="getNestedValue(botConfig, `${section.key}.${field.key}`)"
+                                                                @input="setNestedValue(botConfig, `${section.key}.${field.key}`, $event.target.value); markConfigChanged()"
+                                                            ></textarea>
+                                                        </div>
+                                                    </div>
                                                     
                                                     <!-- 数字类型 -->
-                                                    <SettingInput
-                                                        v-else-if="typeof value === 'number'"
-                                                        :label="getFieldLabel(key)"
-                                                        :description="getFieldDescription(key, section.key)"
-                                                        type="number"
-                                                        :step="key.includes('rate') || key.includes('probability') || key.includes('threshold') ? 0.01 : 1"
-                                                        :min="key.includes('rate') || key.includes('probability') || key.includes('threshold') ? 0 : undefined"
-                                                        :max="key.includes('rate') || key.includes('probability') || key.includes('threshold') ? 1 : undefined"
-                                                        :model-value="getNestedValue(botConfig, `${section.key}.${key}`)"
-                                                        @update:model-value="setNestedValue(botConfig, `${section.key}.${key}`, $event); markConfigChanged()"
-                                                        :readonly="key === 'version'"
-                                                    />
+                                                    <div v-else-if="typeof field.value === 'number'" class="setting-item" :class="{ 'search-matched-item': searchQuery && field.matchType }">
+                                                        <div class="setting-info">
+                                                            <label class="setting-label">
+                                                                <div class="setting-label-wrapper">
+                                                                    <div class="label-content">
+                                                                        <span class="label-text" v-html="highlightText(field.label || getFieldLabel(field.key), searchQuery)"></span>
+                                                                        <span 
+                                                                            class="search-match-badge transition-all duration-200" 
+                                                                            :class="{ 'opacity-0 scale-75': !searchQuery || !field.matchType }"
+                                                                        >
+                                                                            {{ searchQuery && field.matchType ? getMatchTypeName(field.matchType) : '匹配' }}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div 
+                                                                        class="field-key-hint transition-all duration-200 overflow-hidden" 
+                                                                        :class="{ 'opacity-0 -translate-y-1 max-h-0': !searchQuery, 'opacity-100 translate-y-0 max-h-8': searchQuery }"
+                                                                    >
+                                                                        {{ field.key }}
+                                                                    </div>
+                                                                </div>
+                                                            </label>
+                                                            <p class="setting-description" v-html="highlightText(field.description || getFieldDescription(field.key, section.key), searchQuery)"></p>
+                                                        </div>
+                                                        <div class="setting-control">
+                                                            <input 
+                                                                type="number" 
+                                                                class="input input-bordered input-sm" 
+                                                                :step="field.key.includes('rate') || field.key.includes('probability') || field.key.includes('threshold') ? 0.01 : 1"
+                                                                :min="field.key.includes('rate') || field.key.includes('probability') || field.key.includes('threshold') ? 0 : undefined"
+                                                                :max="field.key.includes('rate') || field.key.includes('probability') || field.key.includes('threshold') ? 1 : undefined"
+                                                                :value="getNestedValue(botConfig, `${section.key}.${field.key}`)"
+                                                                @input="setNestedValue(botConfig, `${section.key}.${field.key}`, parseFloat($event.target.value) || 0); markConfigChanged()"
+                                                                :readonly="field.key === 'version'"
+                                                            />
+                                                        </div>
+                                                    </div>
                                                     
                                                     <!-- 字符串类型 -->
-                                                    <SettingInput
-                                                        v-else-if="typeof value === 'string'"
-                                                        :label="getFieldLabel(key)"
-                                                        :description="getFieldDescription(key, section.key)"
-                                                        :model-value="getNestedValue(botConfig, `${section.key}.${key}`)"
-                                                        @update:model-value="setNestedValue(botConfig, `${section.key}.${key}`, $event); markConfigChanged()"
-                                                        :readonly="key === 'version'"
-                                                    />
+                                                    <div v-else-if="typeof field.value === 'string'" class="setting-item" :class="{ 'search-matched-item': searchQuery && field.matchType }">
+                                                        <div class="setting-info">
+                                                            <label class="setting-label">
+                                                                <div class="setting-label-wrapper">
+                                                                    <div class="label-content">
+                                                                        <span class="label-text" v-html="highlightText(field.label || getFieldLabel(field.key), searchQuery)"></span>
+                                                                        <span 
+                                                                            class="search-match-badge transition-all duration-200" 
+                                                                            :class="{ 'opacity-0 scale-75': !searchQuery || !field.matchType }"
+                                                                        >
+                                                                            {{ searchQuery && field.matchType ? getMatchTypeName(field.matchType) : '匹配' }}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div 
+                                                                        class="field-key-hint transition-all duration-200 overflow-hidden" 
+                                                                        :class="{ 'opacity-0 -translate-y-1 max-h-0': !searchQuery, 'opacity-100 translate-y-0 max-h-8': searchQuery }"
+                                                                    >
+                                                                        {{ field.key }}
+                                                                    </div>
+                                                                </div>
+                                                            </label>
+                                                            <p class="setting-description" v-html="highlightText(field.description || getFieldDescription(field.key, section.key), searchQuery)"></p>
+                                                        </div>
+                                                        <div class="setting-control">
+                                                            <input 
+                                                                type="text" 
+                                                                class="input input-bordered input-sm" 
+                                                                :value="getNestedValue(botConfig, `${section.key}.${field.key}`)"
+                                                                @input="setNestedValue(botConfig, `${section.key}.${field.key}`, $event.target.value); markConfigChanged()"
+                                                                :readonly="field.key === 'version'"
+                                                            />
+                                                        </div>
+                                                    </div>
                                                     
                                                     <!-- 跳过复杂对象和其他数组类型 -->
                                                 </template>
@@ -1250,6 +1440,143 @@ const hasEnvChanges = ref(false)
 const hasLpmmChanges = ref(false)
 const hasModelChanges = ref(false)
 
+// 搜索功能
+const searchQuery = ref('')
+const searchResults = ref([])
+const filteredSections = ref([])
+
+// 模糊搜索配置项
+const handleSearch = () => {
+    if (!searchQuery.value.trim()) {
+        filteredSections.value = []
+        searchResults.value = []
+        return
+    }
+    
+    const query = searchQuery.value.toLowerCase()
+    const results = []
+    const filtered = []
+    
+    // 搜索当前页面的所有配置项
+    if (activeTab.value === 'bot' && botConfig.value) {
+        searchInSections(query, results, filtered)
+    }
+    
+    searchResults.value = results
+    filteredSections.value = filtered
+}
+
+// 搜索配置节
+const searchInSections = (query, results, filtered) => {
+    configSections.value.forEach(section => {
+        const matchedFields = []
+        
+        // 检查节标题是否匹配
+        const sectionTitleMatch = section.title.toLowerCase().includes(query)
+        
+        // 搜索节中的字段
+        if (section.data) {
+            for (const [key, value] of Object.entries(section.data)) {
+                const fieldLabel = getFieldLabel(key).toLowerCase()
+                const fieldDescription = getFieldDescription(key, section.key).toLowerCase()
+                
+                // 模糊匹配：字段名、标签、描述、值
+                const keyMatch = key.toLowerCase().includes(query)
+                const labelMatch = fieldLabel.includes(query)
+                const descMatch = fieldDescription.includes(query)
+                const valueMatch = searchInValue(value, query)
+                
+                if (keyMatch || labelMatch || descMatch || valueMatch) {
+                    matchedFields.push({
+                        key,
+                        value,
+                        label: getFieldLabel(key),
+                        description: getFieldDescription(key, section.key),
+                        matchType: keyMatch ? 'key' : labelMatch ? 'label' : descMatch ? 'description' : 'value'
+                    })
+                    
+                    results.push({
+                        section: section.title,
+                        field: getFieldLabel(key),
+                        key: key,
+                        value: value,
+                        path: `${section.key}.${key}`,
+                        matchType: keyMatch ? 'key' : labelMatch ? 'label' : descMatch ? 'description' : 'value'
+                    })
+                }
+            }
+        }
+        
+        // 如果节标题匹配或有字段匹配，则添加到过滤结果中
+        if (sectionTitleMatch || matchedFields.length > 0) {
+            filtered.push({
+                ...section,
+                matchedFields: sectionTitleMatch ? Object.entries(section.data || {}).map(([key, value]) => ({
+                    key,
+                    value,
+                    label: getFieldLabel(key),
+                    description: getFieldDescription(key, section.key),
+                    matchType: 'section'
+                })) : matchedFields,
+                titleMatched: sectionTitleMatch
+            })
+        }
+    })
+}
+
+// 搜索值中的内容
+const searchInValue = (value, query) => {
+    if (typeof value === 'string') {
+        return value.toLowerCase().includes(query)
+    } else if (typeof value === 'number') {
+        return value.toString().includes(query)
+    } else if (Array.isArray(value)) {
+        return value.some(item => 
+            typeof item === 'string' && item.toLowerCase().includes(query)
+        )
+    } else if (typeof value === 'boolean') {
+        return query === 'true' || query === 'false' || query === '真' || query === '假'
+    }
+    return false
+}
+
+// 清除搜索
+const clearSearch = () => {
+    searchQuery.value = ''
+    searchResults.value = []
+    filteredSections.value = []
+}
+
+// 检查是否有搜索结果
+const hasSearchResults = computed(() => {
+    return searchQuery.value.trim() && filteredSections.value.length > 0
+})
+
+// 获取要显示的配置节（搜索结果或全部）
+const displaySections = computed(() => {
+    return searchQuery.value.trim() ? filteredSections.value : configSections.value
+})
+
+// 高亮文本中的搜索词
+const highlightText = (text, query) => {
+    if (!text || !query) return text
+    
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+    return text.replace(regex, '<mark class="search-highlight">$1</mark>')
+}
+
+// 获取匹配类型的中文名称
+const getMatchTypeName = (matchType) => {
+    const typeNames = {
+        'key': '字段名',
+        'label': '标签',
+        'description': '描述',
+        'value': '值',
+        'section': '组名'
+    }
+    return typeNames[matchType] || '匹配'
+}
+
 // 防抖定时器
 const lpmmChangeTimeout = ref(null)
 const modelChangeTimeout = ref(null)
@@ -1622,6 +1949,11 @@ const configSections = computed(() => {
 const switchTab = (tabKey) => {
     previousTab.value = activeTab.value
     activeTab.value = tabKey
+    
+    // 切换标签页时清除搜索状态
+    if (searchQuery.value) {
+        clearSearch()
+    }
     
     // 根据标签页加载对应数据
     if (tabKey === 'bot' && !botConfig.value) {
@@ -2029,6 +2361,11 @@ const getModelDisplayName = (modelKey) => {
 }
 
 const closeDrawer = () => {
+    // 清除搜索状态
+    if (searchQuery.value) {
+        clearSearch()
+    }
+    
     if (hasChanges.value) {
         if (confirm('有未保存的更改，确定要关闭吗？')) {
             emit('close')
@@ -2447,12 +2784,17 @@ onMounted(() => {
     align-items: center;
     flex-shrink: 0;
     position: relative;
+    gap: 1rem;
 }
 
 :root[data-theme="dark"] .bot-config-header {
     background: rgba(22, 25, 30, 0.98);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.9);
+}
+
+.header-info {
+    flex-shrink: 0;
 }
 
 .bot-config-title {
@@ -2468,8 +2810,311 @@ onMounted(() => {
     margin: 0.25rem 0 0 0;
 }
 
+/* 搜索框样式 */
+.header-search {
+    flex: 1;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.search-container {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.search-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background: #ffffff;
+}
+
+.search-input::placeholder {
+    color: rgba(0, 0, 0, 0.5);
+}
+
+.search-icon {
+    position: absolute;
+    left: 0.75rem;
+    color: rgba(0, 0, 0, 0.5);
+    z-index: 1;
+}
+
+.search-clear {
+    position: absolute;
+    right: 0.5rem;
+    background: none;
+    border: none;
+    color: rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 0.25rem;
+    transition: all 0.2s ease;
+}
+
+.search-clear:hover {
+    color: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.search-stats {
+    font-size: 0.75rem;
+    color: rgba(0, 0, 0, 0.6);
+    font-weight: 500;
+}
+
+/* 深色模式搜索框 */
+:root[data-theme="dark"] .search-input {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="dark"] .search-input:focus {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+}
+
+:root[data-theme="dark"] .search-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+:root[data-theme="dark"] .search-icon {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+:root[data-theme="dark"] .search-clear {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+:root[data-theme="dark"] .search-clear:hover {
+    color: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="dark"] .search-stats {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* 搜索高亮样式 */
+.search-highlight {
+    background: #fbbf24;
+    color: #000;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-weight: 500;
+}
+
+:root[data-theme="dark"] .search-highlight {
+    background: #f59e0b;
+    color: #000;
+}
+
+/* 搜索结果样式 */
+.search-no-results {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: rgba(0, 0, 0, 0.6);
+}
+
+.search-no-results-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: rgba(0, 0, 0, 0.4);
+}
+
+.search-no-results-text {
+    font-size: 1.125rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.search-no-results-hint {
+    font-size: 0.875rem;
+    color: rgba(0, 0, 0, 0.5);
+}
+
+.search-results-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    color: #1e40af;
+}
+
+.search-filter-icon {
+    color: #3b82f6;
+    flex-shrink: 0;
+}
+
+.search-clear-btn {
+    background: none;
+    border: none;
+    color: #3b82f6;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 0.25rem;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    margin-left: auto;
+}
+
+.search-clear-btn:hover {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1e40af;
+}
+
+.search-matched-section {
+    border-left: 3px solid #3b82f6;
+    background: rgba(59, 130, 246, 0.02);
+}
+
+.search-matched-item {
+    background: rgba(59, 130, 246, 0.05);
+    border-radius: 0.5rem;
+    padding: 0.25rem;
+    margin: 0.25rem 0;
+    position: relative;
+}
+
+.search-match-badge {
+    display: inline-block;
+    background: #3b82f6;
+    color: white;
+    font-size: 0.6875rem;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.75rem;
+    margin-left: 0.5rem;
+    font-weight: 500;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.field-key-hint {
+    font-size: 0.75rem;
+    color: rgba(0, 0, 0, 0.5);
+    font-weight: 400;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    margin-top: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 0.25rem;
+    border-left: 2px solid #e5e7eb;
+    transition: opacity 0.2s ease, transform 0.2s ease, max-height 0.2s ease;
+}
+
+.label-text {
+    display: block;
+    margin-bottom: 0.125rem;
+}
+
+.setting-label-wrapper {
+    display: block;
+}
+
+.label-content {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.label-content .label-text {
+    display: inline-block;
+    margin-bottom: 0;
+    margin-right: 0;
+}
+
+.label-content .search-match-badge {
+    margin-left: 0;
+    margin-right: 0;
+    vertical-align: middle;
+}
+
+.setting-label-wrapper .field-key-hint {
+    margin-top: 0.375rem;
+}
+
+/* 深色模式搜索结果样式 */
+:root[data-theme="dark"] .search-no-results {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+:root[data-theme="dark"] .search-no-results-icon {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+:root[data-theme="dark"] .search-no-results-hint {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+:root[data-theme="dark"] .search-results-info {
+    background: rgba(96, 165, 250, 0.1);
+    border-color: rgba(96, 165, 250, 0.2);
+    color: #93c5fd;
+}
+
+:root[data-theme="dark"] .search-filter-icon {
+    color: #60a5fa;
+}
+
+:root[data-theme="dark"] .search-clear-btn {
+    color: #60a5fa;
+}
+
+:root[data-theme="dark"] .search-clear-btn:hover {
+    background: rgba(96, 165, 250, 0.1);
+    color: #93c5fd;
+}
+
+:root[data-theme="dark"] .search-matched-section {
+    border-left-color: #60a5fa;
+    background: rgba(96, 165, 250, 0.02);
+}
+
+:root[data-theme="dark"] .search-matched-item {
+    background: rgba(96, 165, 250, 0.05);
+}
+
+:root[data-theme="dark"] .search-match-badge {
+    background: #60a5fa;
+    color: #1e293b;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+:root[data-theme="dark"] .field-key-hint {
+    color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.05);
+    border-left-color: #374151;
+    transition: opacity 0.2s ease, transform 0.2s ease, max-height 0.2s ease;
+}
+
 .bot-config-header .btn {
     color: rgba(0, 0, 0, 0.7);
+    flex-shrink: 0;
 }
 
 .bot-config-header .btn:hover {
@@ -2646,89 +3291,7 @@ onMounted(() => {
     margin-bottom: 0;
 }
 
-/* 动态列表样式优化 */
-.dynamic-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    width: 100%;
-}
-
-.dynamic-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    background-color: rgba(0, 0, 0, 0.03);
-    border-radius: 6px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    width: 100%;
-    box-sizing: border-box;
-    transition: all 0.2s ease;
-}
-
-.dynamic-item:hover {
-    background-color: rgba(0, 0, 0, 0.05);
-    border-color: rgba(0, 0, 0, 0.15);
-}
-
-:root[data-theme="dark"] .dynamic-item {
-    background-color: rgba(26, 29, 35, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-:root[data-theme="dark"] .dynamic-item:hover {
-    background-color: rgba(26, 29, 35, 0.95);
-    border-color: rgba(255, 255, 255, 0.15);
-}
-
-.dynamic-item input,
-.dynamic-item textarea {
-    flex: 1;
-    min-width: 0;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    transition: all 0.2s ease;
-}
-
-.dynamic-item input:focus,
-.dynamic-item textarea:focus {
-    border-color: hsl(var(--p));
-    box-shadow: 0 0 0 2px hsl(var(--p) / 0.2);
-    outline: none;
-}
-
-.dynamic-item .btn-square {
-    flex-shrink: 0;
-    width: 2.25rem;
-    height: 2.25rem;
-}
-
-/* 添加按钮样式 */
-.dynamic-list .btn-outline {
-    border: 1px dashed rgba(0, 0, 0, 0.2);
-    background-color: rgba(0, 0, 0, 0.02);
-    color: rgba(0, 0, 0, 0.7);
-    transition: all 0.2s ease;
-}
-
-.dynamic-list .btn-outline:hover {
-    border-style: solid;
-    border-color: hsl(var(--p));
-    background-color: hsl(var(--p) / 0.1);
-    color: hsl(var(--p));
-}
-
-:root[data-theme="dark"] .dynamic-list .btn-outline {
-    border-color: rgba(255, 255, 255, 0.2);
-    background-color: rgba(255, 255, 255, 0.02);
-    color: rgba(255, 255, 255, 0.7);
-}
-
-:root[data-theme="dark"] .dynamic-list .btn-outline:hover {
-    border-color: hsl(var(--p));
-    background-color: hsl(var(--p) / 0.1);
-    color: hsl(var(--p));
-}
+/* 动态列表样式优化 - 已移除未使用样式 */
 
 /* 标签式数组字段布局样式 */
 .tag-list-container {
