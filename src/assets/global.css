@@ -1,3 +1,6 @@
+/* 引入 HyperOS 2 主题样式 */
+@import './css/hyperos2-theme.css';
+
 /* 全局禁用所有动画和过渡效果 */
 * {
   animation: none !important;

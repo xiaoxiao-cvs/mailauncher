@@ -32,7 +32,7 @@ export const useDarkMode = (emitter = null) => {
   };
 };
 
-// 简化的主题设置函数，完全兼容DaisyUI
+// 简化的主题设置函数，完全兼容DaisyUI，确保CSS变量立即生效
 export function setTheme(themeName) {
   if (!themeName || !["light", "dark"].includes(themeName)) {
     themeName = "light";
@@ -47,43 +47,107 @@ export function setTheme(themeName) {
 
   console.log("设置主题:", themeName);
 
-  // 更新全局状态
+  // 立即更新全局状态
   globalThemeState.value = themeName;
 
-  // 设置DaisyUI主题属性
-  document.documentElement.setAttribute("data-theme", themeName);
-  document.body.setAttribute("data-theme", themeName);
+  // 批量更新DOM属性，减少重绘次数
+  const updates = () => {
+    // 设置DaisyUI主题属性
+    document.documentElement.setAttribute("data-theme", themeName);
+    document.body.setAttribute("data-theme", themeName);
+
+    // 设置暗色模式类（为了兼容现有CSS）
+    if (themeName === "dark") {
+      document.documentElement.classList.add("dark-mode");
+      document.body.classList.add("dark-mode");
+    } else {
+      document.documentElement.classList.remove("dark-mode");
+      document.body.classList.remove("dark-mode");
+    }
+
+    // 强制刷新样式
+    document.documentElement.style.colorScheme = themeName === "dark" ? "dark" : "light";
+    
+    // 手动更新CSS变量以确保立即生效
+    forceCSSVariablesUpdate(themeName);
+  };
+
+  // 立即执行更新
+  updates();
 
   // 更新存储
-  localStorage.setItem("theme", themeName); 
-  
-  // 设置暗色模式类（为了兼容现有CSS）
-  if (themeName === "dark") {
-    document.documentElement.classList.add("dark-mode");
-    document.body.classList.add("dark-mode");
-  } else {
-    document.documentElement.classList.remove("dark-mode");
-    document.body.classList.remove("dark-mode");
-  }
+  localStorage.setItem("theme", themeName);
 
-  // 强制刷新样式
-  document.documentElement.style.colorScheme =
-    themeName === "dark" ? "dark" : "light";
+  // 强制样式重新计算和重绘
+  forceStyleRecalculation();
 
-  // 触发重绘
-  setTimeout(() => {
-    document.body.style.transform = "translateZ(0)";
-    requestAnimationFrame(() => {
-      document.body.style.transform = "";
-    });
-  }, 0);
-
-  // 只触发一个主题变更事件，避免重复
+  // 触发主题变更事件
   window.dispatchEvent(
     new CustomEvent("theme-changed", { detail: { theme: themeName } })
   );
 
-  console.log("主题已设置:", themeName);
+  console.log("主题已设置并强制刷新:", themeName);
+}
+
+// 强制CSS变量更新函数
+function forceCSSVariablesUpdate(themeName) {
+  try {
+    const root = document.documentElement;
+    
+    // 临时移除然后重新添加data-theme属性，强制CSS变量重新计算
+    const currentTheme = root.getAttribute("data-theme");
+    root.removeAttribute("data-theme");
+    
+    // 强制浏览器重新计算样式
+    root.offsetHeight; // 触发重绘
+    
+    // 重新设置主题
+    root.setAttribute("data-theme", themeName);
+    
+    // 对body也执行相同操作
+    document.body.removeAttribute("data-theme");
+    document.body.offsetHeight; // 触发重绘
+    document.body.setAttribute("data-theme", themeName);
+    
+    console.log("强制更新CSS变量完成:", themeName);
+  } catch (error) {
+    console.warn("强制更新CSS变量时出错:", error);
+  }
+}
+
+// 强制样式重新计算函数
+function forceStyleRecalculation() {
+  try {
+    // 方法1: 强制重新计算样式
+    const computedStyle = window.getComputedStyle(document.documentElement);
+    computedStyle.getPropertyValue('color'); // 触发样式计算
+
+    // 方法2: 使用多个requestAnimationFrame确保渲染完成
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // 触发所有元素的样式重新计算
+        const allElements = document.querySelectorAll('*');
+        allElements.forEach(el => {
+          if (el.offsetParent !== null) { // 只处理可见元素
+            el.offsetHeight; // 触发重绘
+          }
+        });
+        
+        console.log("样式重新计算完成");
+      });
+    });
+
+    // 方法3: 强制重绘整个页面
+    setTimeout(() => {
+      document.body.style.transform = "translateZ(0)";
+      requestAnimationFrame(() => {
+        document.body.style.transform = "";
+      });
+    }, 10);
+    
+  } catch (error) {
+    console.warn("强制样式重新计算时出错:", error);
+  }
 }
 
 // 初始化主题

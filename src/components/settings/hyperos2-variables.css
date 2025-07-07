@@ -1,0 +1,214 @@
+/**
+ * HyperOS 2 主题样式变量
+ * 定义 HyperOS 2 组件库的 CSS 变量
+ */
+
+:root {
+  /* HyperOS 2 色彩系统 */
+  --hyperos-primary: #007AFF;
+  --hyperos-primary-light: #4DA3FF;
+  --hyperos-primary-dark: #0056CC;
+  --hyperos-primary-rgb: 0, 122, 255;
+  
+  --hyperos-secondary: #FF6B35;
+  --hyperos-secondary-light: #FF8D6B;
+  --hyperos-secondary-dark: #E55A2B;
+  
+  --hyperos-success: #28CD41;
+  --hyperos-success-light: #5DD46F;
+  --hyperos-success-dark: #22B83A;
+  
+  --hyperos-warning: #FF9500;
+  --hyperos-warning-light: #FFB84D;
+  --hyperos-warning-dark: #CC7700;
+  
+  --hyperos-error: #FF3B30;
+  --hyperos-error-light: #FF6B63;
+  --hyperos-error-dark: #D32F2F;
+  
+  /* HyperOS 2 背景色 */
+  --hyperos-bg-primary: #FFFFFF;
+  --hyperos-bg-secondary: #F5F5F7;
+  --hyperos-bg-tertiary: #EFEFF4;
+  --hyperos-bg-card: rgba(255, 255, 255, 0.8);
+  --hyperos-bg-tooltip: rgba(0, 0, 0, 0.8);
+  
+  /* HyperOS 2 文本颜色 */
+  --hyperos-text-primary: #1D1D1F;
+  --hyperos-text-secondary: #86868B;
+  --hyperos-text-tertiary: #C7C7CC;
+  --hyperos-text-tooltip: #FFFFFF;
+  
+  /* HyperOS 2 边框颜色 */
+  --hyperos-border-primary: #D1D1D6;
+  --hyperos-border-secondary: rgba(209, 209, 214, 0.6);
+  --hyperos-border-hover: #007AFF;
+  --hyperos-divider: rgba(60, 60, 67, 0.12);
+  
+  /* HyperOS 2 圆角 */
+  --hyperos-radius-xs: 4px;
+  --hyperos-radius-sm: 6px;
+  --hyperos-radius-md: 8px;
+  --hyperos-radius-lg: 12px;
+  --hyperos-radius-xl: 16px;
+  --hyperos-radius-2xl: 20px;
+  --hyperos-radius-full: 9999px;
+  
+  /* HyperOS 2 间距 */
+  --hyperos-space-xs: 4px;
+  --hyperos-space-sm: 6px;
+  --hyperos-space-md: 8px;
+  --hyperos-space-lg: 12px;
+  --hyperos-space-xl: 16px;
+  --hyperos-space-2xl: 24px;
+  --hyperos-space-3xl: 32px;
+  --hyperos-space-4xl: 48px;
+  
+  /* HyperOS 2 阴影 */
+  --hyperos-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --hyperos-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --hyperos-shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.15);
+  --hyperos-shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.2);
+  
+  /* HyperOS 2 动画 */
+  --hyperos-transition-fast: 0.15s ease-out;
+  --hyperos-transition-base: 0.2s ease-out;
+  --hyperos-transition-slow: 0.3s ease-out;
+  --hyperos-transition-spring: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  
+  /* HyperOS 2 模糊效果 */
+  --hyperos-blur-sm: 8px;
+  --hyperos-blur-md: 12px;
+  --hyperos-blur-lg: 20px;
+  --hyperos-blur-xl: 40px;
+}
+
+/* HyperOS 2 暗色主题 */
+[data-theme="dark"] {
+  /* 暗色背景 */
+  --hyperos-bg-primary: #000000;
+  --hyperos-bg-secondary: #1C1C1E;
+  --hyperos-bg-tertiary: #2C2C2E;
+  --hyperos-bg-card: rgba(28, 28, 30, 0.8);
+  --hyperos-bg-tooltip: rgba(255, 255, 255, 0.9);
+  
+  /* 暗色文本 */
+  --hyperos-text-primary: #FFFFFF;
+  --hyperos-text-secondary: #98989D;
+  --hyperos-text-tertiary: #48484A;
+  --hyperos-text-tooltip: #000000;
+  
+  /* 暗色边框 */
+  --hyperos-border-primary: #38383A;
+  --hyperos-border-secondary: rgba(84, 84, 88, 0.6);
+  --hyperos-border-dark: #38383A;
+  --hyperos-border-dark-hover: #007AFF;
+  --hyperos-divider: rgba(84, 84, 88, 0.6);
+  
+  /* 暗色特定变量 */
+  --hyperos-bg-primary-dark: #000000;
+  --hyperos-bg-tertiary-dark: #2C2C2E;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 暗色背景 */
+    --hyperos-bg-primary: #000000;
+    --hyperos-bg-secondary: #1C1C1E;
+    --hyperos-bg-tertiary: #2C2C2E;
+    --hyperos-bg-card: rgba(28, 28, 30, 0.8);
+    --hyperos-bg-tooltip: rgba(255, 255, 255, 0.9);
+    
+    /* 暗色文本 */
+    --hyperos-text-primary: #FFFFFF;
+    --hyperos-text-secondary: #98989D;
+    --hyperos-text-tertiary: #48484A;
+    --hyperos-text-tooltip: #000000;
+    
+    /* 暗色边框 */
+    --hyperos-border-primary: #38383A;
+    --hyperos-border-secondary: rgba(84, 84, 88, 0.6);
+    --hyperos-border-dark: #38383A;
+    --hyperos-border-dark-hover: #007AFF;
+    --hyperos-divider: rgba(84, 84, 88, 0.6);
+    
+    /* 暗色特定变量 */
+    --hyperos-bg-primary-dark: #000000;
+    --hyperos-bg-tertiary-dark: #2C2C2E;
+  }
+}
+
+/* HyperOS 2 组件通用样式 */
+.hyperos2-component {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* HyperOS 2 毛玻璃效果 */
+.hyperos2-glass {
+  backdrop-filter: blur(var(--hyperos-blur-lg));
+  -webkit-backdrop-filter: blur(var(--hyperos-blur-lg));
+}
+
+/* HyperOS 2 渐变边框 */
+.hyperos2-gradient-border {
+  position: relative;
+}
+
+.hyperos2-gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--hyperos-primary), var(--hyperos-secondary));
+  border-radius: inherit;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: xor;
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+}
+
+/* HyperOS 2 动画效果 */
+@keyframes hyperos2-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hyperos2-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes hyperos2-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* HyperOS 2 响应式断点 */
+@media (max-width: 480px) {
+  :root {
+    --hyperos-space-xl: 12px;
+    --hyperos-space-2xl: 16px;
+    --hyperos-space-3xl: 24px;
+    --hyperos-space-4xl: 32px;
+  }
+}

@@ -161,6 +161,76 @@ const resetSettings = () => {
   return true;
 };
 
+/**
+ * 设置配置项
+ * @param {String} key 配置键
+ * @param {*} value 配置值
+ */
+const setSetting = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    console.log(`设置已保存: ${key} = ${value}`);
+  } catch (error) {
+    console.error(`保存设置失败: ${key}`, error);
+  }
+};
+
+/**
+ * 获取配置项
+ * @param {String} key 配置键
+ * @param {*} defaultValue 默认值
+ * @returns {*} 配置值
+ */
+const getSetting = (key, defaultValue = null) => {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : defaultValue;
+  } catch (error) {
+    console.error(`获取设置失败: ${key}`, error);
+    return defaultValue;
+  }
+};
+
+/**
+ * 获取所有设置
+ * @returns {Object} 所有设置的对象
+ */
+const getSettings = () => {
+  const settings = {};
+  
+  // 预定义的设置键
+  const settingKeys = [
+    'theme.mode',
+    'appearance.glassEffect',
+    'appearance.reduceAnimations', 
+    'appearance.dynamicWallpaper',
+    'appearance.fontSize',
+    'system.autoStart',
+    'system.minimizeToTray',
+    'system.gpuAcceleration',
+    'network.serverUrl',
+    'network.connectionTimeout'
+  ];
+  
+  settingKeys.forEach(key => {
+    const value = getSetting(key);
+    if (value !== null) {
+      // 将点分割的键转换为嵌套对象
+      const keys = key.split('.');
+      let current = settings;
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (!current[keys[i]]) {
+          current[keys[i]] = {};
+        }
+        current = current[keys[i]];
+      }
+      current[keys[keys.length - 1]] = value;
+    }
+  });
+  
+  return settings;
+};
+
 // 导出设置服务
 export default {
   openSettings,
@@ -170,4 +240,7 @@ export default {
   onTabChange,
   offTabChange,
   resetSettings,
+  setSetting,
+  getSetting,
+  getSettings,
 };

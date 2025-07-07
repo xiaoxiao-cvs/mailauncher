@@ -1,0 +1,896 @@
+/**
+ * HyperOS 2 设计语言主题
+ * 基于小米 HyperOS 2 的设计规范，提供现代化的用户界面体验
+ * 特色：圆润设计、玻璃效果、智能配色、流畅动画
+ */
+
+/* =============================================================================
+   CSS 变量立即生效优化
+   ============================================================================= */
+
+/* 强制所有元素立即响应主题变化 */
+*,
+*::before,
+*::after {
+  /* 确保CSS变量变化时立即重绘 */
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+/* 强制根元素立即应用主题变量 */
+html {
+  /* 强制重新计算CSS变量 */
+  --force-recalc: 1;
+}
+
+html[data-theme] {
+  /* 在主题切换时强制重新计算所有CSS变量 */
+  --force-recalc: 2;
+}
+
+/* 确保主题切换时文本颜色立即生效 */
+html[data-theme="light"] * {
+  --current-theme: "light";
+}
+
+html[data-theme="dark"] * {
+  --current-theme: "dark";
+}
+
+/* =============================================================================
+   HyperOS 2 设计变量系统
+   ============================================================================= */
+
+:root {
+  /* === 色彩系统 === */
+  --hyperos-primary: #007AFF;
+  --hyperos-primary-light: #4D9FFF;
+  --hyperos-primary-dark: #0051D5;
+  --hyperos-secondary: #5AC8FA;
+  --hyperos-success: #34C759;
+  --hyperos-warning: #FF9500;
+  --hyperos-error: #FF3B30;
+  
+  /* === 中性色彩 === */
+  --hyperos-white: #FFFFFF;
+  --hyperos-gray-50: #F9FAFB;
+  --hyperos-gray-100: #F3F4F6;
+  --hyperos-gray-200: #E5E7EB;
+  --hyperos-gray-300: #D1D5DB;
+  --hyperos-gray-400: #9CA3AF;
+  --hyperos-gray-500: #6B7280;
+  --hyperos-gray-600: #4B5563;
+  --hyperos-gray-700: #374151;
+  --hyperos-gray-800: #1F2937;
+  --hyperos-gray-900: #111827;
+  
+  /* === 背景系统 === */
+  --hyperos-bg-primary: var(--hyperos-white);
+  --hyperos-bg-secondary: var(--hyperos-gray-50);
+  --hyperos-bg-tertiary: var(--hyperos-gray-100);
+  --hyperos-bg-card: rgba(255, 255, 255, 0.8);
+  --hyperos-bg-glass: rgba(255, 255, 255, 0.6);
+  
+  /* === 文本色彩 === */
+  --hyperos-text-primary: var(--hyperos-gray-900);
+  --hyperos-text-secondary: var(--hyperos-gray-600);
+  --hyperos-text-tertiary: var(--hyperos-gray-400);
+  
+  /* === 边框和分割线 === */
+  --hyperos-border-primary: var(--hyperos-gray-200);
+  --hyperos-border-secondary: var(--hyperos-gray-100);
+  --hyperos-divider: rgba(0, 0, 0, 0.06);
+  
+  /* === 阴影系统 === */
+  --hyperos-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.02);
+  --hyperos-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --hyperos-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --hyperos-shadow-xl: 0 16px 64px rgba(0, 0, 0, 0.16), 0 8px 32px rgba(0, 0, 0, 0.08);
+  
+  /* === 圆角系统 === */
+  --hyperos-radius-xs: 4px;
+  --hyperos-radius-sm: 8px;
+  --hyperos-radius-md: 12px;
+  --hyperos-radius-lg: 16px;
+  --hyperos-radius-xl: 20px;
+  --hyperos-radius-2xl: 24px;
+  --hyperos-radius-full: 9999px;
+  
+  /* === 间距系统 === */
+  --hyperos-space-xs: 4px;
+  --hyperos-space-sm: 8px;
+  --hyperos-space-md: 12px;
+  --hyperos-space-lg: 16px;
+  --hyperos-space-xl: 20px;
+  --hyperos-space-2xl: 24px;
+  --hyperos-space-3xl: 32px;
+  --hyperos-space-4xl: 40px;
+  
+  /* === 动画系统 === */
+  --hyperos-transition-fast: 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+  --hyperos-transition-normal: 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
+  --hyperos-transition-slow: 0.35s cubic-bezier(0.4, 0.0, 0.2, 1);
+  --hyperos-transition-bounce: 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* === 暗色主题变量 === */
+[data-theme="dark"] {
+  /* 色彩调整 */
+  --hyperos-primary: #0A84FF;
+  --hyperos-primary-light: #409CFF;
+  --hyperos-primary-dark: #0066CC;
+  --hyperos-secondary: #5AC8FA;
+  
+  /* 背景系统 - 深色 */
+  --hyperos-bg-primary: #1C1C1E;
+  --hyperos-bg-secondary: #2C2C2E;
+  --hyperos-bg-tertiary: #3A3A3C;
+  --hyperos-bg-card: rgba(44, 44, 46, 0.9);
+  --hyperos-bg-glass: rgba(58, 58, 60, 0.7);
+  
+  /* 文本色彩 - 深色 */
+  --hyperos-text-primary: #FFFFFF;
+  --hyperos-text-secondary: rgba(255, 255, 255, 0.8);
+  --hyperos-text-tertiary: rgba(255, 255, 255, 0.6);
+  
+  /* 边框和分割线 - 深色 */
+  --hyperos-border-primary: #48484A;
+  --hyperos-border-secondary: #3A3A3C;
+  --hyperos-divider: rgba(255, 255, 255, 0.1);
+  
+  /* 阴影系统 - 深色 */
+  --hyperos-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
+  --hyperos-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --hyperos-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.5);
+  --hyperos-shadow-xl: 0 16px 64px rgba(0, 0, 0, 0.7), 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+/* =============================================================================
+   HyperOS 2 设置界面核心样式
+   ============================================================================= */
+
+/* === 设置抽屉背景遮罩 === */
+.hyperos2-settings-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: hyperos-backdrop-enter var(--hyperos-transition-normal) ease-out;
+}
+
+[data-theme="dark"] .hyperos2-settings-backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* === 主设置容器 === */
+.hyperos2-settings-container {
+  width: 92%;
+  max-width: 1200px;
+  height: 90%;
+  max-height: 800px;
+  background: var(--hyperos-bg-glass);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-radius: var(--hyperos-radius-2xl);
+  box-shadow: var(--hyperos-shadow-xl);
+  border: 1px solid var(--hyperos-border-primary);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  animation: hyperos-container-enter var(--hyperos-transition-slow) var(--hyperos-transition-bounce);
+}
+
+[data-theme="dark"] .hyperos2-settings-container {
+  background: rgba(28, 28, 30, 0.95);
+  border-color: rgba(72, 72, 74, 0.8);
+}
+
+/* === 设置头部 === */
+.hyperos2-settings-header {
+  height: 70px;
+  background: var(--hyperos-bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--hyperos-divider);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--hyperos-space-2xl);
+  position: relative;
+}
+
+[data-theme="dark"] .hyperos2-settings-header {
+  background: rgba(44, 44, 46, 0.95);
+  border-bottom-color: rgba(72, 72, 74, 0.5);
+}
+
+.hyperos2-settings-title {
+  font-size: 1.375rem;
+  font-weight: 600;
+  color: var(--hyperos-text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.hyperos2-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--hyperos-radius-full);
+  background: var(--hyperos-bg-tertiary);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--hyperos-text-secondary);
+  cursor: pointer;
+  transition: all var(--hyperos-transition-fast);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.hyperos2-close-btn:hover {
+  background: var(--hyperos-gray-200);
+  color: var(--hyperos-text-primary);
+  transform: scale(1.05);
+}
+
+[data-theme="dark"] .hyperos2-close-btn:hover {
+  background: var(--hyperos-gray-700);
+}
+
+/* === 设置主体内容 === */
+.hyperos2-settings-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* === 侧边栏导航 === */
+.hyperos2-settings-sidebar {
+  width: 280px;
+  background: var(--hyperos-bg-secondary);
+  border-right: 1px solid var(--hyperos-divider);
+  padding: var(--hyperos-space-lg);
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hyperos2-settings-sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+[data-theme="dark"] .hyperos2-settings-sidebar {
+  background: rgba(44, 44, 46, 0.9);
+  border-right-color: rgba(72, 72, 74, 0.5);
+}
+
+.hyperos2-nav-item {
+  width: 100%;
+  height: 48px;
+  border: none;
+  background: transparent;
+  border-radius: var(--hyperos-radius-md);
+  display: flex;
+  align-items: center;
+  gap: var(--hyperos-space-md);
+  padding: 0 var(--hyperos-space-md);
+  margin-bottom: var(--hyperos-space-xs);
+  cursor: pointer;
+  transition: all var(--hyperos-transition-fast);
+  color: var(--hyperos-text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: left;
+}
+
+.hyperos2-nav-item:hover {
+  background: var(--hyperos-bg-card);
+  color: var(--hyperos-text-primary);
+  transform: translateX(2px);
+}
+
+.hyperos2-nav-item.active {
+  background: linear-gradient(135deg, var(--hyperos-primary), var(--hyperos-primary-light));
+  color: white;
+  box-shadow: var(--hyperos-shadow-md);
+}
+
+.hyperos2-nav-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.hyperos2-nav-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* === 主内容区域 === */
+.hyperos2-settings-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hyperos2-settings-panel {
+  flex: 1;
+  padding: var(--hyperos-space-2xl);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hyperos-gray-300) transparent;
+  background: var(--hyperos-bg-primary);
+}
+
+[data-theme="dark"] .hyperos2-settings-panel {
+  background: rgba(28, 28, 30, 0.7);
+  scrollbar-color: rgba(72, 72, 74, 0.8) transparent;
+}
+
+.hyperos2-settings-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.hyperos2-settings-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.hyperos2-settings-panel::-webkit-scrollbar-thumb {
+  background: var(--hyperos-gray-300);
+  border-radius: var(--hyperos-radius-full);
+}
+
+.hyperos2-settings-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--hyperos-gray-400);
+}
+
+/* === 面板头部 === */
+.hyperos2-panel-header {
+  margin-bottom: var(--hyperos-space-3xl);
+}
+
+.hyperos2-panel-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--hyperos-text-primary);
+  margin: 0 0 var(--hyperos-space-sm) 0;
+  letter-spacing: -0.02em;
+}
+
+.hyperos2-panel-description {
+  font-size: 1rem;
+  color: var(--hyperos-text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* === 设置组样式 === */
+.hyperos2-setting-group {
+  margin-bottom: var(--hyperos-space-3xl);
+  background: var(--hyperos-bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--hyperos-radius-lg);
+  border: 1px solid var(--hyperos-border-secondary);
+  padding: var(--hyperos-space-xl);
+  box-shadow: var(--hyperos-shadow-sm);
+  transition: all var(--hyperos-transition-fast);
+}
+
+.hyperos2-setting-group:hover {
+  box-shadow: var(--hyperos-shadow-md);
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .hyperos2-setting-group {
+  background: rgba(58, 58, 60, 0.8);
+  border-color: rgba(72, 72, 74, 0.6);
+}
+
+[data-theme="dark"] .hyperos2-setting-group:hover {
+  background: rgba(58, 58, 60, 0.9);
+}
+
+.hyperos2-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--hyperos-space-md);
+  margin-bottom: var(--hyperos-space-lg);
+}
+
+.hyperos2-group-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--hyperos-radius-md);
+  background: linear-gradient(135deg, var(--hyperos-primary), var(--hyperos-primary-light));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: var(--hyperos-shadow-sm);
+}
+
+.hyperos2-group-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--hyperos-text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.hyperos2-group-subtitle {
+  font-size: 0.875rem;
+  color: var(--hyperos-text-secondary);
+  margin: 0;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+/* === 设置项样式 === */
+.hyperos2-setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--hyperos-space-lg) 0;
+  border-bottom: 1px solid var(--hyperos-divider);
+  transition: all var(--hyperos-transition-fast);
+}
+
+.hyperos2-setting-item:last-child {
+  border-bottom: none;
+}
+
+.hyperos2-setting-item:hover {
+  background: var(--hyperos-bg-tertiary);
+  margin: 0 calc(-1 * var(--hyperos-space-xl));
+  padding-left: var(--hyperos-space-xl);
+  padding-right: var(--hyperos-space-xl);
+  border-radius: var(--hyperos-radius-sm);
+}
+
+.hyperos2-setting-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.hyperos2-setting-label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--hyperos-text-primary);
+  margin: 0 0 2px 0;
+  line-height: 1.4;
+}
+
+.hyperos2-setting-description {
+  font-size: 0.8rem;
+  color: var(--hyperos-text-secondary);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.hyperos2-setting-control {
+  margin-left: var(--hyperos-space-lg);
+  flex-shrink: 0;
+}
+
+/* =============================================================================
+   HyperOS 2 控件样式
+   ============================================================================= */
+
+/* === 开关控件 === */
+.hyperos2-switch {
+  position: relative;
+  width: 52px;
+  height: 32px;
+  background: var(--hyperos-gray-300);
+  border-radius: var(--hyperos-radius-full);
+  cursor: pointer;
+  transition: all var(--hyperos-transition-normal);
+  border: none;
+  outline: none;
+}
+
+.hyperos2-switch.checked {
+  background: linear-gradient(135deg, var(--hyperos-primary), var(--hyperos-primary-light));
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
+.hyperos2-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 28px;
+  height: 28px;
+  background: white;
+  border-radius: var(--hyperos-radius-full);
+  transition: all var(--hyperos-transition-normal);
+  box-shadow: var(--hyperos-shadow-sm);
+}
+
+.hyperos2-switch.checked .hyperos2-switch-thumb {
+  transform: translateX(20px);
+}
+
+/* === 按钮样式 === */
+.hyperos2-btn {
+  height: 40px;
+  padding: 0 var(--hyperos-space-lg);
+  border-radius: var(--hyperos-radius-md);
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--hyperos-transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hyperos-space-sm);
+  text-decoration: none;
+  line-height: 1;
+}
+
+.hyperos2-btn-primary {
+  background: linear-gradient(135deg, var(--hyperos-primary), var(--hyperos-primary-light));
+  color: white;
+  box-shadow: var(--hyperos-shadow-sm);
+}
+
+.hyperos2-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--hyperos-shadow-md);
+}
+
+.hyperos2-btn-secondary {
+  background: var(--hyperos-bg-tertiary);
+  color: var(--hyperos-text-primary);
+  border: 1px solid var(--hyperos-border-primary);
+}
+
+.hyperos2-btn-secondary:hover {
+  background: var(--hyperos-gray-200);
+  transform: translateY(-1px);
+}
+
+/* === 输入框样式 === */
+.hyperos2-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--hyperos-space-md);
+  border: 1px solid var(--hyperos-border-primary);
+  border-radius: var(--hyperos-radius-md);
+  background: var(--hyperos-bg-primary);
+  color: var(--hyperos-text-primary);
+  font-size: 0.9rem;
+  transition: all var(--hyperos-transition-fast);
+  outline: none;
+}
+
+.hyperos2-input:focus {
+  border-color: var(--hyperos-primary);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+  background: var(--hyperos-bg-card);
+}
+
+/* === 选择框样式 === */
+.hyperos2-select {
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--hyperos-space-md);
+  border: 1px solid var(--hyperos-border-primary);
+  border-radius: var(--hyperos-radius-md);
+  background: var(--hyperos-bg-primary);
+  color: var(--hyperos-text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--hyperos-transition-fast);
+  outline: none;
+}
+
+.hyperos2-select:focus {
+  border-color: var(--hyperos-primary);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+/* =============================================================================
+   HyperOS 2 动画定义
+   ============================================================================= */
+
+@keyframes hyperos-backdrop-enter {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+
+@keyframes hyperos-container-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* === 面板切换动画 === */
+.hyperos-panel-enter-active,
+.hyperos-panel-leave-active {
+  transition: all var(--hyperos-transition-normal);
+}
+
+.hyperos-panel-enter-from {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.hyperos-panel-leave-to {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+/* =============================================================================
+   HyperOS 2 响应式设计
+   ============================================================================= */
+
+@media (max-width: 768px) {
+  .hyperos2-settings-container {
+    width: 95%;
+    height: 95%;
+    border-radius: var(--hyperos-radius-lg);
+  }
+  
+  .hyperos2-settings-sidebar {
+    width: 240px;
+  }
+  
+  .hyperos2-settings-panel {
+    padding: var(--hyperos-space-lg);
+  }
+  
+  .hyperos2-panel-title {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .hyperos2-settings-body {
+    flex-direction: column;
+  }
+  
+  .hyperos2-settings-sidebar {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--hyperos-divider);
+    padding: var(--hyperos-space-md);
+  }
+  
+  .hyperos2-nav-item {
+    height: 40px;
+    font-size: 0.85rem;
+  }
+  
+  .hyperos2-group-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--hyperos-space-sm);
+  }
+}
+
+/* =============================================================================
+   HyperOS 2 特殊效果
+   ============================================================================= */
+
+/* === 玻璃态效果增强 === */
+.hyperos2-glass-effect {
+  background: var(--hyperos-bg-glass);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* === 浮动效果 === */
+.hyperos2-floating {
+  animation: hyperos-float 6s ease-in-out infinite;
+}
+
+@keyframes hyperos-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+}
+
+/* === 脉冲效果 === */
+.hyperos2-pulse {
+  animation: hyperos-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes hyperos-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* === 渐变边框 === */
+.hyperos2-gradient-border {
+  position: relative;
+  background: var(--hyperos-bg-card);
+  border-radius: var(--hyperos-radius-lg);
+}
+
+.hyperos2-gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--hyperos-primary), var(--hyperos-secondary));
+  border-radius: inherit;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: xor;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+}
+
+/* =============================================================================
+   暗色主题强制文字颜色修复
+   ============================================================================= */
+
+/* 确保所有 HyperOS 2 组件在暗色主题下文字颜色正确 */
+[data-theme="dark"] .hyperos2-settings-container,
+[data-theme="dark"] .hyperos2-settings-container *,
+[data-theme="dark"] .hyperos2-panel-title,
+[data-theme="dark"] .hyperos2-panel-description,
+[data-theme="dark"] .hyperos2-group-title,
+[data-theme="dark"] .hyperos2-group-subtitle,
+[data-theme="dark"] .hyperos2-setting-label,
+[data-theme="dark"] .hyperos2-setting-description,
+[data-theme="dark"] .hyperos2-nav-label,
+[data-theme="dark"] .theme-name,
+[data-theme="dark"] .theme-desc,
+[data-theme="dark"] .app-details h4,
+[data-theme="dark"] .app-details p {
+  color: var(--hyperos-text-primary) !important;
+}
+
+/* 次要文字颜色 */
+[data-theme="dark"] .hyperos2-panel-description,
+[data-theme="dark"] .hyperos2-group-subtitle,
+[data-theme="dark"] .hyperos2-setting-description,
+[data-theme="dark"] .theme-desc,
+[data-theme="dark"] .app-details p {
+  color: var(--hyperos-text-secondary) !important;
+}
+
+/* 导航项文字颜色 */
+[data-theme="dark"] .hyperos2-nav-item {
+  color: var(--hyperos-text-secondary) !important;
+}
+
+[data-theme="dark"] .hyperos2-nav-item:hover {
+  color: var(--hyperos-text-primary) !important;
+}
+
+[data-theme="dark"] .hyperos2-nav-item.active {
+  color: white !important;
+}
+
+/* 输入框和表单元素文字颜色 */
+[data-theme="dark"] .hyperos2-input-field,
+[data-theme="dark"] .hyperos2-select-field {
+  color: var(--hyperos-text-primary) !important;
+  background: var(--hyperos-bg-tertiary) !important;
+}
+
+[data-theme="dark"] .hyperos2-input-field::placeholder,
+[data-theme="dark"] .hyperos2-select-field::placeholder {
+  color: var(--hyperos-text-tertiary) !important;
+}
+
+/* 按钮文字颜色 */
+[data-theme="dark"] .hyperos2-btn-secondary {
+  color: var(--hyperos-text-primary) !important;
+  background: var(--hyperos-bg-tertiary) !important;
+  border-color: var(--hyperos-border-primary) !important;
+}
+
+[data-theme="dark"] .hyperos2-btn-secondary:hover {
+  color: var(--hyperos-text-primary) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 主题选择器文字颜色 */
+[data-theme="dark"] .hyperos2-theme-option {
+  background: var(--hyperos-bg-tertiary) !important;
+  border-color: var(--hyperos-border-primary) !important;
+}
+
+[data-theme="dark"] .hyperos2-theme-option .theme-name {
+  color: var(--hyperos-text-primary) !important;
+}
+
+[data-theme="dark"] .hyperos2-theme-option .theme-desc {
+  color: var(--hyperos-text-secondary) !important;
+}
+
+/* 设置组标题文字颜色 */
+[data-theme="dark"] .hyperos2-setting-group {
+  background: var(--hyperos-bg-card) !important;
+  border-color: var(--hyperos-border-primary) !important;
+}
+
+/* 标签和描述文字颜色 */
+[data-theme="dark"] .input-label,
+[data-theme="dark"] .select-label {
+  color: var(--hyperos-text-primary) !important;
+}
+
+[data-theme="dark"] .input-description,
+[data-theme="dark"] .select-description {
+  color: var(--hyperos-text-secondary) !important;
+}
+
+/* 错误文字颜色 */
+[data-theme="dark"] .input-error,
+[data-theme="dark"] .select-error {
+  color: var(--hyperos-error) !important;
+}
+
+/* 确保所有文字元素在暗色主题下可见 */
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] h5,
+[data-theme="dark"] h6,
+[data-theme="dark"] p,
+[data-theme="dark"] span,
+[data-theme="dark"] div,
+[data-theme="dark"] label {
+  color: inherit;
+}
+
+/* 特殊情况：确保白色文字在深色背景上 */
+[data-theme="dark"] .hyperos2-settings-container h2,
+[data-theme="dark"] .hyperos2-settings-container h3,
+[data-theme="dark"] .hyperos2-settings-container h4 {
+  color: var(--hyperos-text-primary) !important;
+}
+
+/* 设置项hover状态文字颜色 */
+[data-theme="dark"] .hyperos2-setting-item:hover .hyperos2-setting-label,
+[data-theme="dark"] .hyperos2-setting-item:hover .hyperos2-setting-description {
+  color: var(--hyperos-text-primary) !important;
+}
+
+/* 面板内容区域文字颜色 */
+[data-theme="dark"] .hyperos2-panel-content,
+[data-theme="dark"] .hyperos2-panel-content * {
+  color: var(--hyperos-text-primary);
+}
+
+/* 确保设置标题在暗色主题下可见 */
+[data-theme="dark"] .hyperos2-settings-title {
+  color: var(--hyperos-text-primary) !important;
+}
+
+[data-theme="dark"] .header-subtitle {
+  color: var(--hyperos-text-secondary) !important;
+}

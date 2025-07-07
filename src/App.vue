@@ -16,8 +16,18 @@
       <transition :name="transitionName" mode="out-in">
         <component :is="currentComponent" :key="componentKey" />
       </transition>
-    </div><!-- 设置抽屉 -->
-    <SettingsDrawer :is-open="isSettingsOpen" @close="closeSettings" /> <!-- 欢迎弹窗 -->
+    </div>    <!-- 设置抽屉 - 支持 HyperOS 2 主题 -->
+    <HyperOS2SettingsDrawer 
+      v-if="useHyperOS2Theme" 
+      :is-open="isSettingsOpen" 
+      @close="closeSettings" 
+    />
+    <SettingsDrawer 
+      v-else 
+      :is-open="isSettingsOpen" 
+      @close="closeSettings" 
+    />
+    <!-- 欢迎弹窗 -->
     <WelcomeModal :visible="showWelcomeModal" @close="closeWelcomeModal" @start-setup-wizard="startSetupWizard"
       @open-settings="openSettingsFromWelcome" />
 
@@ -36,6 +46,8 @@ import DownloadsPanel from './components/DownloadsPanel.vue'
 import InstancesPanel from './components/InstancesPanel.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import SettingsDrawer from './components/settings/SettingsDrawer.vue'
+// 导入 HyperOS 2 设置抽屉
+import HyperOS2SettingsDrawer from './components/settings/HyperOS2SettingsDrawer.vue'
 import WelcomeModal from './components/common/WelcomeModal.vue'
 import FirstTimeSetupWizard from './components/setup/FirstTimeSetupWizard.vue'
 import PluginsView from './views/PluginsView.vue'
@@ -53,6 +65,9 @@ const isQuickReconnecting = ref(false);
 
 // 深色模式状态 - 应用级别的中心管理
 const { darkMode, toggleDarkMode } = useDarkMode();
+
+// HyperOS 2 主题启用状态
+const useHyperOS2Theme = ref(true); // 默认启用 HyperOS 2 主题
 
 // 侧边栏展开状态
 const sidebarExpanded = ref(false);
@@ -512,7 +527,7 @@ onMounted(() => {
     darkMode.value = false;
   });
 
-  // 主题变更监听处理
+  // 主题变更监听处理 - 增强版，确保立即生效
   const handleThemeChange = (event) => {
     console.log('App.vue 接收到主题变更事件:', event.type, new Date().toISOString());
 
@@ -528,82 +543,117 @@ onMounted(() => {
 
     console.log('应用新主题:', newTheme, '当前主题:', currentAppTheme);
 
-    // 更新响应式状态
+    // 立即更新响应式状态
     currentTheme.value = newTheme;
 
-    // 强制设置主题到所有关键元素
-    document.documentElement.setAttribute('data-theme', newTheme);
-    document.body.setAttribute('data-theme', newTheme);
+    // 强制批量更新DOM属性
+    const updates = () => {
+      // 设置到根元素
+      document.documentElement.setAttribute('data-theme', newTheme);
+      document.body.setAttribute('data-theme', newTheme);
 
-    // 应用到所有主要容器元素，包括主页面内容
-    const selectors = [
-      '.app-container',
-      '.content-area',
-      '.home-view',
-      '.instances-panel',
-      '.main-content',
-      '.sidebar',
-      '.app-main',
-      '.view-container'
-    ];
+      // 设置主题类
+      if (newTheme === 'dark') {
+        document.documentElement.classList.add('dark-mode', 'theme-dark');
+        document.documentElement.classList.remove('theme-light');
+        document.body.classList.add('dark-mode', 'theme-dark');
+        document.body.classList.remove('theme-light');
+      } else {
+        document.documentElement.classList.remove('dark-mode', 'theme-dark');
+        document.documentElement.classList.add('theme-light');
+        document.body.classList.remove('dark-mode', 'theme-dark');
+        document.body.classList.add('theme-light');
+      }
 
-    selectors.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => {
-        if (el) {
-          el.setAttribute('data-theme', newTheme);
-          // 添加适当的主题类
-          if (newTheme === 'dark') {
-            el.classList.add('dark-mode', 'theme-dark');
-            el.classList.remove('theme-light');
-          } else {
-            el.classList.remove('dark-mode', 'theme-dark');
-            el.classList.add('theme-light');
+      // 应用到所有主要容器元素
+      const selectors = [
+        '.app-container',
+        '.content-area', 
+        '.home-view',
+        '.instances-panel',
+        '.main-content',
+        '.sidebar',
+        '.app-main',
+        '.view-container',
+        '.hyperos2-settings-container', // 确保设置面板也立即响应
+        '.hyperos2-settings-backdrop'
+      ];
+
+      selectors.forEach(selector => {
+        document.querySelectorAll(selector).forEach(el => {
+          if (el) {
+            el.setAttribute('data-theme', newTheme);
+            // 添加适当的主题类
+            if (newTheme === 'dark') {
+              el.classList.add('dark-mode', 'theme-dark');
+              el.classList.remove('theme-light');
+            } else {
+              el.classList.remove('dark-mode', 'theme-dark');
+              el.classList.add('theme-light');
+            }
           }
-        }
+        });
       });
-    });    // 强制重新渲染应用
+
+      // 强制更新CSS变量
+      document.documentElement.style.colorScheme = newTheme === 'dark' ? 'dark' : 'light';
+    };
+
+    // 立即执行更新
+    updates();
+
+    // 强制样式重新计算
     nextTick(() => {
-      // 确保设置面板保持不透明
-      const settingsContainer = document.querySelector('.settings-drawer-container');
+      // 确保设置面板保持正确样式
+      const settingsContainer = document.querySelector('.hyperos2-settings-container');
       if (settingsContainer) {
-        settingsContainer.style.backgroundColor = 'hsl(var(--b1))';
+        settingsContainer.setAttribute('data-theme', newTheme);
         settingsContainer.style.opacity = '1';
       }
 
-      // 强制更新所有可能的主题相关元素
+      // 强制重新计算所有可见元素的样式
       const allElements = document.querySelectorAll('*');
+      let visibleCount = 0;
       allElements.forEach(el => {
-        // 检查元素是否有主题相关的类
-        if (el.classList.contains('app-container') ||
-          el.classList.contains('content-area') ||
-          el.classList.contains('home-view') ||
-          el.classList.contains('main-content') ||
-          el.tagName === 'MAIN' ||
-          el.classList.contains('view-container')) {
-          el.setAttribute('data-theme', newTheme);
+        if (el.offsetParent !== null) { // 只处理可见元素
+          visibleCount++;
+          // 触发重绘
+          el.offsetHeight;
         }
       });
 
-      // 确保CSS变量正确更新
-      document.documentElement.style.colorScheme = newTheme === 'dark' ? 'dark' : 'light';
+      console.log(`强制重新计算了 ${visibleCount} 个可见元素的样式`);
 
-      // 强制重新计算样式
-      void document.documentElement.offsetHeight;
-
-      // 触发重绘
-      document.body.style.transform = 'translateZ(0)';
-      setTimeout(() => {
-        document.body.style.transform = '';
-      }, 0);
+      // 多重强制重绘确保立即生效
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          document.body.style.transform = 'translateZ(0)';
+          setTimeout(() => {
+            document.body.style.transform = '';
+            console.log('主题切换强制重绘完成:', newTheme);
+          }, 0);
+        });
+      });
     });
+  };
+
+  // 添加 HyperOS 2 特定的主题变化监听
+  const handleHyperOS2ThemeChange = (event) => {
+    console.log('HyperOS2 主题变更事件:', event.detail);
+    // 立即调用通用主题变更处理
+    handleThemeChange(event);
   };
 
   // 添加主题变更事件监听 - 只监听主要的主题变更事件
   window.addEventListener('theme-changed', handleThemeChange);
+  
+  // 添加 HyperOS 2 特定的主题变更事件监听
+  window.addEventListener('hyperos2-theme-changed', handleHyperOS2ThemeChange);
 
   // 组件卸载时清理事件监听
   onBeforeUnmount(() => {
     window.removeEventListener('theme-changed', handleThemeChange);
+    window.removeEventListener('hyperos2-theme-changed', handleHyperOS2ThemeChange);
   });
 });
 
@@ -889,4 +939,9 @@ const changeTheme = (themeName) => {
   transform: translateY(-100%);
   opacity: 0;
 }
+</style>
+
+<!-- 引入 HyperOS 2 主题样式 -->
+<style>
+@import '@/assets/css/hyperos2-theme.css';
 </style>
