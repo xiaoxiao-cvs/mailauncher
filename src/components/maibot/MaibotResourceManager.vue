@@ -200,10 +200,7 @@
                       <p class="resource-desc">启用定期自动备份功能</p>
                     </div>
                     <div class="resource-control">
-                      <label class="toggle-switch">
-                        <input type="checkbox" v-model="autoBackupEnabled" @change="toggleAutoBackup" class="toggle-input" />
-                        <span class="toggle-slider"></span>
-                      </label>
+                      <CustomToggle v-model="autoBackupEnabled" @change="toggleAutoBackup" />
                     </div>
                   </div>
                 </div>
@@ -302,6 +299,7 @@ import { Icon } from '@iconify/vue';
 import EmojiManagement from './EmojiManagement.vue';
 import PersonManagement from './PersonManagement.vue';
 import ManagementTools from './ManagementTools.vue';
+import CustomToggle from '../common/CustomToggle.vue';
 import { maibotResourceApi } from '@/services/maibotResourceApi.js';
 import toastService from '@/services/toastService.js';
 

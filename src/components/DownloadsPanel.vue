@@ -104,7 +104,6 @@ onMounted(() => {
   };
 
   window.addEventListener('theme-changed', handleThemeChanged);
-  window.addEventListener('theme-changed-after', handleThemeChanged);
 
   // 组件卸载时移除事件监听
   onBeforeUnmount(() => {

@@ -59,7 +59,7 @@ html,
   min-height: 100vh;
 }
 
-/* 全局卡片样式增强 */
+/* 全局卡片样式增强 - 禁用动画 */
 .card,
 .card.bg-base-100 {
   background: var(--glass-bg);
@@ -67,27 +67,16 @@ html,
   -webkit-backdrop-filter: blur(var(--blur-amount));
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-soft);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: none !important;
 }
 
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-medium);
-  border-color: oklch(var(--p) / 0.2);
-}
-
-/* 按钮增强样式 */
+/* 按钮增强样式 - 禁用动画 */
 .btn {
   border-radius: 0.75rem;
   font-weight: 500;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: none !important;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-medium);
 }
 
 .btn-primary {

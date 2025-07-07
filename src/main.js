@@ -8,12 +8,6 @@ import { setupGlobalErrorHandler } from "./utils/chartErrorHandler.js";
 // 设置全局错误处理器
 setupGlobalErrorHandler();
 
-// 导入调试工具（仅在开发环境）
-if (import.meta.env?.MODE === 'development' || 
-    (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development')) {
-  import('./utils/chartDebugTools.js');
-}
-
 // 全局错误处理器 - 用于捕获ECharts等库的错误
 window.addEventListener('error', (event) => {
   // 检查是否是ECharts相关错误
@@ -94,6 +88,8 @@ import { createPinia } from "pinia";
 import App from "./App.vue";
 import "./assets/css/tailwind.css";
 import "./assets/global.css";
+import "./assets/css/ultimate-performance-theme.css"; // 终极性能主题样式（最高优先级）
+import "./assets/css/theme-performance-optimized.css"; // 性能优化的主题样式
 import "./assets/css/enhanced-light-theme.css"; // 增强亮色主题
 import "./assets/css/sidebar-enhanced.css"; // 侧边栏增强样式
 import "./assets/css/global-components-enhanced.css"; // 全局组件增强样式
@@ -109,6 +105,9 @@ import { Icon } from "@iconify/vue";
 
 // 导入主题初始化函数
 import { initTheme } from "./services/theme-simplified";
+
+// 导入优化的主题引擎
+import { optimizedTheme } from "./services/optimizedThemeEngine";
 
 // 导入轮询服务
 import { usePollingStore } from "./stores/pollingStore";
@@ -159,8 +158,12 @@ const initCssVariables = () => {
     sidebarCollapsed ? "calc(100% - 64px)" : "calc(100% - 220px)"
   );
 
-  // 初始化主题
+  // 初始化主题（使用原有的初始化保持兼容性）
   initTheme();
+  
+  // 启动优化的主题引擎
+  console.log('🚀 优化主题引擎已启动');
+  console.log('📊 当前主题状态:', optimizedTheme.getPerformanceStats());
 
   // 初始化布局密度
   const layoutDensity = localStorage.getItem("layoutDensity") || "comfortable";

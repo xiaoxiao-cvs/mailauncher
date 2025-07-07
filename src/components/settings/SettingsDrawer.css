@@ -1,5 +1,28 @@
 /* 设置抽屉样式 - 简化版本 */
 
+/* 全局禁用设置抽屉中的所有动画 */
+.settings-drawer-container *,
+.settings-drawer-backdrop *,
+.settings-drawer-container,
+.settings-drawer-backdrop {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* 禁用所有设置相关的动画效果 */
+.setting-group,
+.setting-item,
+.mode-option,
+.btn,
+input,
+select,
+textarea,
+.checkbox,
+.radio {
+  animation: none !important;
+  transition: none !important;
+}
+
 /* 背景遮罩 */
 .settings-drawer-backdrop {
   position: fixed;
@@ -29,7 +52,7 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* 主容器 */
+/* 主容器 - 禁用动画 */
 .settings-drawer-container {
   width: 90%;
   max-width: 1100px;
@@ -43,7 +66,7 @@
   overflow: hidden;
   position: relative;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: none !important;
 }
 
 /* 深色模式优化 - 使用更深的黑色背景 */

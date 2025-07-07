@@ -1,3 +1,26 @@
+/* 全局禁用所有动画和过渡效果 */
+* {
+  animation: none !important;
+  transition: none !important;
+}
+
+*::before,
+*::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* 确保主题切换瞬间完成 */
+[data-theme],
+[data-theme] *,
+html,
+html *,
+body,
+body * {
+  animation: none !important;
+  transition: none !important;
+}
+
 /* 全局样式 */
 
 /* 增强亮色主题基础变量 */
@@ -261,9 +284,9 @@ html.no-animations *::after {
   font-size: 2rem;
 }
 
-/* 添加DaisyUI主题过渡 - 优化为更快的过渡 */
+/* 禁用DaisyUI主题过渡 - 瞬间切换 */
 [data-theme] {
-  transition: background-color 0.1s ease, color 0.1s ease;
+  transition: none !important;
 }
 
 /* 主题切换时的即时模式 - 禁用过渡 */

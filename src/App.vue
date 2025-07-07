@@ -44,7 +44,6 @@ import IconifyIcon from './components/common/IconifyIcon.vue' // 导入图标组
 import settingsService from './services/settingsService'
 import { initTheme, setTheme, useDarkMode, useTheme } from './services/theme-simplified'
 import toastService from './services/toastService';
-import { exposeToastForDebugging } from './utils/debugUtils';
 import apiService from './services/apiService';
 import backendConfig from './config/backendConfig.js';
 import { usePollingStore } from './stores/pollingStore';
@@ -166,11 +165,6 @@ provide('isAnyEditModeActive', isAnyEditModeActive);
 
 // 提供Toast服务给所有组件
 provide('toast', toastService);
-
-// 在开发环境下暴露toast服务到全局用于调试
-if (process.env.NODE_ENV !== 'production') {
-  exposeToastForDebugging(toastService);
-}
 
 // 获取轮询store实例
 const pollingStore = usePollingStore();
@@ -512,13 +506,6 @@ onMounted(() => {
     isAnyEditModeActive.value = isActive;
   });
 
-  // 监听主题变化事件
-  window.addEventListener('theme-changed', (event) => {
-    if (event.detail && event.detail.name) {
-      currentTheme.value = event.detail.name;
-    }
-  });
-
   // 监听主题重置事件
   window.addEventListener('theme-reset', () => {
     currentTheme.value = 'light';
@@ -533,9 +520,18 @@ onMounted(() => {
     const newTheme = event.detail?.theme || (event.detail?.isDark ? 'dark' : 'light');
     const currentAppTheme = document.documentElement.getAttribute('data-theme');
 
+    // 如果主题没有变化，跳过处理
+    if (currentAppTheme === newTheme && currentTheme.value === newTheme) {
+      console.log('App.vue: 主题未变化，跳过处理:', newTheme);
+      return;
+    }
+
     console.log('应用新主题:', newTheme, '当前主题:', currentAppTheme);
 
-    // 强制设置主题到所有关键元素（移除提前返回的检查）
+    // 更新响应式状态
+    currentTheme.value = newTheme;
+
+    // 强制设置主题到所有关键元素
     document.documentElement.setAttribute('data-theme', newTheme);
     document.body.setAttribute('data-theme', newTheme);
 
@@ -602,14 +598,12 @@ onMounted(() => {
     });
   };
 
-  // 添加主题变更事件监听
+  // 添加主题变更事件监听 - 只监听主要的主题变更事件
   window.addEventListener('theme-changed', handleThemeChange);
-  window.addEventListener('theme-mode-changed', handleThemeChange);
 
   // 组件卸载时清理事件监听
   onBeforeUnmount(() => {
     window.removeEventListener('theme-changed', handleThemeChange);
-    window.removeEventListener('theme-mode-changed', handleThemeChange);
   });
 });
 

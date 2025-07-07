@@ -90,14 +90,13 @@
   }
 }
 
-/* 确保主题切换时平滑过渡 */
+/* 确保主题切换瞬间完成 - 禁用所有过渡 */
 :root {
-  --transition-theme: background-color 0.3s ease, color 0.3s ease,
-    border-color 0.3s ease;
+  --transition-theme: none;
 }
 
 [data-theme] {
-  transition: var(--transition-theme);
+  transition: none !important;
 }
 
 /* 后端离线警告栏样式 */

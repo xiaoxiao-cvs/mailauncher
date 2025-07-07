@@ -1,34 +1,22 @@
 <template>
-  <SettingItem :label="label" :description="description">
-    <label class="toggle-switch">
-      <input 
-        type="checkbox" 
-        :checked="modelValue" 
-        @change="handleChange"
-        class="toggle-input"
-        :disabled="disabled"
-      />
-      <span class="toggle-slider"></span>
-    </label>
-  </SettingItem>
+  <label class="custom-toggle">
+    <input 
+      type="checkbox" 
+      :checked="modelValue" 
+      @change="handleChange"
+      class="toggle-input"
+      :disabled="disabled"
+    />
+    <span class="toggle-slider"></span>
+  </label>
 </template>
 
 <script setup>
-import SettingItem from './SettingItem.vue'
-
 /**
- * 开关设置组件
- * 提供开关类型的设置项
+ * 通用开关组件
+ * 提供现代化设计的开关控件，支持浅色和深色模式
  */
 const props = defineProps({
-  label: {
-    type: String,
-    required: true
-  },
-  description: {
-    type: String,
-    default: ''
-  },
   modelValue: {
     type: Boolean,
     default: false
@@ -50,16 +38,15 @@ const handleChange = (event) => {
 
 <style scoped>
 /* 现代化开关切换样式 - 基于设计图 */
-.toggle-switch {
+.custom-toggle {
   position: relative;
-  display: block;
+  display: inline-block;
   width: 3.25rem; /* 52px */
   height: 1.875rem; /* 30px */
   cursor: pointer;
-  transform: translateY(-0.1rem); /* 微调对齐到文本中心 */
 }
 
-.toggle-switch:has(.toggle-input:disabled) {
+.custom-toggle:has(.toggle-input:disabled) {
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -130,19 +117,19 @@ const handleChange = (event) => {
 }
 
 /* 悬停效果 */
-.toggle-switch:hover .toggle-slider:not(:has(.toggle-input:disabled)) {
+.custom-toggle:hover .toggle-slider:not(:has(.toggle-input:disabled)) {
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 0 0 2px rgba(0, 0, 0, 0.1);
 }
 
-.toggle-switch:hover .toggle-input:checked + .toggle-slider:not(:has(.toggle-input:disabled)) {
+.custom-toggle:hover .toggle-input:checked + .toggle-slider:not(:has(.toggle-input:disabled)) {
   box-shadow: inset 0 2px 4px rgba(59, 130, 246, 0.4), 0 0 0 2px rgba(59, 130, 246, 0.3);
 }
 
-[data-theme="dark"] .toggle-switch:hover .toggle-slider:not(:has(.toggle-input:disabled)) {
+[data-theme="dark"] .custom-toggle:hover .toggle-slider:not(:has(.toggle-input:disabled)) {
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(255, 255, 255, 0.1);
 }
 
-[data-theme="dark"] .toggle-switch:hover .toggle-input:checked + .toggle-slider:not(:has(.toggle-input:disabled)) {
+[data-theme="dark"] .custom-toggle:hover .toggle-input:checked + .toggle-slider:not(:has(.toggle-input:disabled)) {
   box-shadow: inset 0 2px 4px rgba(59, 130, 246, 0.5), 0 0 0 2px rgba(59, 130, 246, 0.4);
 }
 
@@ -158,14 +145,53 @@ const handleChange = (event) => {
 }
 
 /* 活跃状态 - 按下时的弹性反馈 */
-.toggle-switch:active .toggle-slider:before {
+.custom-toggle:active .toggle-slider:before {
   width: 1.6rem; /* 更大的拉伸 */
   transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.toggle-switch:active .toggle-input:checked + .toggle-slider:before {
+.custom-toggle:active .toggle-input:checked + .toggle-slider:before {
   width: 1.6rem;
   transform: translateX(1.15rem) translateY(-50%); /* 调整位置补偿拉伸 */
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* 释放后的弹性回弹效果 */
+.toggle-slider:before {
+  transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* 小尺寸变体 */
+.custom-toggle.toggle-sm {
+  width: 2.5rem; /* 40px */
+  height: 1.5rem; /* 24px */
+}
+
+.custom-toggle.toggle-sm .toggle-slider {
+  border-radius: 1.5rem;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.custom-toggle.toggle-sm .toggle-slider:before {
+  height: 1.125rem; /* 18px */
+  width: 1.125rem; /* 18px */
+  left: 0.1875rem; /* 3px */
+  transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.custom-toggle.toggle-sm .toggle-input:checked + .toggle-slider:before {
+  transform: translateX(1rem) translateY(-50%); /* 移动距离 16px */
+  transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.custom-toggle.toggle-sm:active .toggle-slider:before {
+  width: 1.3rem; /* 小尺寸的弹性拉伸 */
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.custom-toggle.toggle-sm:active .toggle-input:checked + .toggle-slider:before {
+  width: 1.3rem;
+  transform: translateX(0.8rem) translateY(-50%);
   transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 </style>

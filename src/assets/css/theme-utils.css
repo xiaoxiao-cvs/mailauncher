@@ -1,19 +1,88 @@
-/* 主题切换过渡效果 - 优化为更快的过渡 */
+/* 全局禁用所有动画和过渡效果 - 确保主题瞬间切换 */
+* {
+  animation: none !important;
+  transition: none !important;
+}
+
+*::before,
+*::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* 特别针对主题切换的元素 */
+[data-theme],
+[data-theme] *,
+html,
+html *,
+body,
+body * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* 禁用DaisyUI组件的动画 */
+.btn,
+.card,
+.modal,
+.dropdown,
+.collapse,
+.tooltip,
+.progress,
+.loading,
+.alert,
+.toast {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* 禁用表单元素动画 */
+input,
+textarea,
+select,
+button {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* 禁用所有伪元素动画 */
+input::before,
+input::after,
+button::before,
+button::after,
+.btn::before,
+.btn::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* 禁用主题切换过渡效果 - 瞬间切换 */
 html {
-  transition: color 0.1s, background-color 0.1s;
+  transition: none !important;
 }
 
 html[data-theme] {
   color-scheme: light dark;
+  transition: none !important;
 }
 
-/* 主题切换时的即时模式 */
+/* 主题切换时的即时模式 - 性能优化 */
 html.theme-switching {
   transition: none !important;
 }
 
-html.theme-switching * {
+html.theme-switching .card,
+html.theme-switching .btn,
+html.theme-switching .input,
+html.theme-switching .textarea,
+html.theme-switching .select,
+html.theme-switching .modal {
   transition: none !important;
+}
+
+/* 减少重绘的优化 */
+.theme-container {
+  contain: layout style;
 }
 
 /* 针对DaisyUI主题的相关修复 */
@@ -70,7 +139,7 @@ html.theme-switching * {
   --icon-info: hsl(var(--in));
 }
 
-/* 为组件提供统一的主题过渡 */
+/* 禁用组件的主题过渡动画 */
 .card,
 .btn,
 .dropdown,
@@ -79,8 +148,8 @@ html.theme-switching * {
 .toast,
 .menu,
 .collapse {
-  transition: background-color 0.15s, border-color 0.15s, color 0.15s,
-    box-shadow 0.3s;
+  transition: none !important;
+  animation: none !important;
 }
 
 /* 修复各种主题下的表单和输入框样式 */
@@ -97,10 +166,10 @@ html.theme-switching * {
   color: hsl(var(--bc));
 }
 
-/* Iconify图标主题集成 */
+/* Iconify图标主题集成 - 禁用动画 */
 .iconify {
   color: var(--icon-color);
-  transition: color 0.15s ease;
+  transition: none !important;
 }
 
 /* 主题色图标 */
@@ -153,23 +222,15 @@ html.theme-switching * {
   font-size: 2rem;
 }
 
-/* 图标动画效果 */
-@keyframes icon-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
+/* 图标动画效果 - 禁用所有动画 */
 .iconify-spin {
-  animation: icon-spin 2s infinite linear;
+  animation: none !important;
 }
 
-/* 主题预览样式增强 */
+/* 主题预览样式增强 - 禁用过渡动画 */
 .theme-preview {
-  @apply p-3 rounded-lg border border-base-300 flex items-center gap-3 mb-2 transition-colors duration-300;
+  @apply p-3 rounded-lg border border-base-300 flex items-center gap-3 mb-2;
+  transition: none !important;
 }
 
 .theme-preview-title {
@@ -181,10 +242,10 @@ html.theme-switching * {
   @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2;
 }
 
-/* 支持深色与浅色主题之间无缝切换 */
+/* 禁用深色与浅色主题之间的切换动画 */
 [data-theme].theme-transition,
 [data-theme].theme-transition * {
-  transition: background-color 0.25s ease !important;
+  transition: none !important;
 }
 
 /* 针对特定主题的图标颜色调整 */

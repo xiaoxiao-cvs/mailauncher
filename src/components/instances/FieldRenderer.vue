@@ -49,12 +49,11 @@
       </div>
       
       <!-- 布尔类型 -->
-      <input 
+      <CustomToggle 
         v-else-if="config.type === 'switch'" 
-        type="checkbox" 
-        class="toggle toggle-primary toggle-sm" 
-        :checked="value"
-        @change="updateValue($event.target.checked)"
+        :model-value="value"
+        @update:model-value="updateValue"
+        class="toggle-sm"
       />
       
       <!-- 选择类型 -->
@@ -107,6 +106,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
+import CustomToggle from '../common/CustomToggle.vue'
 
 const props = defineProps({
   fieldKey: String,

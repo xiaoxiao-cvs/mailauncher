@@ -6,14 +6,30 @@
     <link rel="icon" href="/favicon.ico" />
     <title>MaiLauncher v0.1.0-Preview.3</title>
     <script>
-      // 从本地存储加载主题
+      // 性能优化的主题加载
       const savedTheme = localStorage.getItem("theme");
+      const html = document.documentElement;
+      
       if (savedTheme) {
-        document.documentElement.setAttribute("data-theme", savedTheme);
+        html.setAttribute("data-theme", savedTheme);
+        // 预设主题相关的CSS变量
+        if (savedTheme === 'dark') {
+          html.style.setProperty('--theme-transition-ready', '1');
+        }
       } else {
         // 默认为light主题
-        document.documentElement.setAttribute("data-theme", "light");
+        html.setAttribute("data-theme", "light");
       }
+      
+      // 避免页面加载时的主题闪烁
+      html.style.transition = 'none';
+      
+      // 页面加载完成后启用过渡动画
+      window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+          html.style.transition = '';
+        }, 100);
+      });
     </script>
   </head>
   <body>

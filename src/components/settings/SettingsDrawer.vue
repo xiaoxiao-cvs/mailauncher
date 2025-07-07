@@ -1396,7 +1396,7 @@ const changeThemeMode = () => {
     // 设置主题
     setTheme(targetTheme)
 
-    // 通知其他组件主题模式已更改
+    // 只触发一个主题模式变更事件，避免重复
     window.dispatchEvent(new CustomEvent('theme-mode-changed', {
         detail: {
             mode: themeMode.value,
@@ -1654,7 +1654,7 @@ onBeforeUnmount(() => {
 
 // 监听主题模式变化，保存到 localStorage
 watch(themeMode, (newMode, oldMode) => {
-    if (oldMode !== undefined) { // 避免初始化时触发
+    if (oldMode !== undefined && newMode !== oldMode) { // 避免初始化时触发，并确保值真的改变了
         console.log('主题模式变化 (watch):', oldMode, '->', newMode)
         localStorage.setItem('themeMode', newMode)
 

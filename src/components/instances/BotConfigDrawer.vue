@@ -815,11 +815,10 @@
                                                         <div class="model-setting" v-if="model.enable_thinking !== undefined">
                                                             <div class="model-switch-container">
                                                                 <label class="model-setting-label">启用思维链</label>
-                                                                <input 
-                                                                    type="checkbox" 
-                                                                    class="toggle toggle-primary toggle-sm" 
+                                                                <CustomToggle 
                                                                     v-model="model.enable_thinking"
                                                                     @change="markModelChanged"
+                                                                    class="toggle-sm"
                                                                 />
                                                             </div>
                                                             <p class="model-setting-description">启用后模型会显示推理过程</p>
@@ -991,6 +990,7 @@ import { maibotConfigApi } from '@/services/maibotConfigApi'
 import { SettingGroup } from '../settings'
 import FieldRenderer from './FieldRenderer.vue'
 import EnvVariableEditor from './EnvVariableEditor.vue'
+import CustomToggle from '../common/CustomToggle.vue'
 
 // 导入工具函数和常量
 import { useConfigLoader } from '@/composables/useConfigLoader'

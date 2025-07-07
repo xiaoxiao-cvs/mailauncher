@@ -201,7 +201,6 @@ onMounted(() => {
   };
 
   window.addEventListener('theme-changed', handleThemeChanged);
-  window.addEventListener('theme-changed-after', handleThemeChanged);
 
   // 监听来自其他页面的实例详情查看请求
   if (emitter) {

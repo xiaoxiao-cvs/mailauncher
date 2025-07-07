@@ -5,15 +5,6 @@
       <!-- 页面标题 -->
       <div class="mb-6 flex justify-between items-center">
         <h1 class="text-2xl md:text-3xl font-bold text-base-content">控制台</h1>
-        <!-- Toast测试按钮 -->
-        <div class="flex gap-2">
-          <button @click="testEnhancedToast" class="btn btn-primary btn-sm">
-            测试增强Toast
-          </button>
-          <button @click="testErrorToast" class="btn btn-error btn-sm">
-            测试错误Toast
-          </button>
-        </div>
       </div>
       <!-- 卡片布局 -->
       <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4"> <!-- 消息数图表卡片 -->
@@ -636,37 +627,6 @@ const navigateToInstances = () => {
   }
 };
 
-// Toast测试方法
-const testEnhancedToast = () => {
-  enhancedToastService.show('这是一个测试消息！', {
-    type: 'success',
-    size: 'medium',
-    duration: 5000,
-    deploymentData: {
-      status: '部署进行中',
-      instanceName: 'test-instance',
-      port: '8000',
-      lastUpdate: new Date().toLocaleString()
-    }
-  });
-};
-
-const testErrorToast = () => {
-  const testError = new ReferenceError('normalizePath is not defined');
-  testError.stack = `ReferenceError: normalizePath is not defined
-    at initializeDeploymentPath (DownloadCenter.vue:846:13)
-    at initializeData (DownloadCenter.vue:818:9)
-    at Object.handler (component.vue:25:3)`;
-  
-  enhancedToastService.showError('数据初始化失败', testError, {
-    context: {
-      component: 'DownloadCenter',
-      operation: '初始化部署路径',
-      timestamp: new Date().toLocaleString()
-    }
-  });
-};
-
 // 优化：使用统一的store管理，避免重复请求
 const loadData = async () => {
   try {
@@ -712,10 +672,12 @@ onMounted(() => {
   // 启动自动刷新
   startAutoRefresh();
 
-  // 添加主题变更事件监听
+  // 添加主题变更事件监听 - 只监听主要的主题变更事件
   const handleThemeChanged = (event) => {
     const newTheme = event.detail?.theme || localStorage.getItem('theme') || 'light';
-    const isDark = newTheme === 'dark';    // 获取当前组件根元素
+    const isDark = newTheme === 'dark';    
+    
+    // 获取当前组件根元素
     const homeViewElement = document.querySelector('.page');
     if (homeViewElement) {
       // 设置数据主题
@@ -736,12 +698,10 @@ onMounted(() => {
   };
 
   window.addEventListener('theme-changed', handleThemeChanged);
-  window.addEventListener('theme-changed-after', handleThemeChanged);
 
   // 组件卸载时移除事件监听
   onBeforeUnmount(() => {
     window.removeEventListener('theme-changed', handleThemeChanged);
-    window.removeEventListener('theme-changed-after', handleThemeChanged);
   });
 });
 

@@ -1,5 +1,11 @@
 import { ref, watch } from "vue";
 
+// 导入超级性能主题服务
+let ultraThemeService = null;
+import('../services/ultraPerformanceTheme.js').then(module => {
+  ultraThemeService = module.default;
+});
+
 // 使用深色模式
 export const useDarkMode = (emitter = null) => {
   const darkMode = ref(
@@ -230,23 +236,43 @@ export function initTheme() {
 }
 
 /**
- * 修复暗色模式下的文本颜色
- * 这个函数主要处理那些使用内联样式的黑色文本
+ * 性能优化的暗色模式文本颜色修复函数
+ * 减少DOM查询和操作的次数
  */
 export function fixDarkModeTextColor() {
-  if (document.documentElement.getAttribute("data-theme") === "dark") {
-    // 查找所有可能包含内联黑色文本的元素
-    const elementsWithBlackText = document.querySelectorAll(
-      '[style*="color: black"],[style*="color:#000"],[style*="color: #000"],[style*="color:black"],[style*="color: rgb(0, 0, 0)"]'
-    );
+  if (document.documentElement.getAttribute("data-theme") !== "dark") {
+    return;
+  }
 
-    // 将它们的颜色修改为白色
-    elementsWithBlackText.forEach((element) => {
-      element.style.color = "#FFFFFF";
+  // 使用更精确的选择器，避免大量DOM查询
+  const selectors = [
+    '[style*="color: black"]',
+    '[style*="color:#000"]', 
+    '[style*="color: #000"]',
+    '[style*="color:black"]',
+    '[style*="color: rgb(0, 0, 0)"]'
+  ];
+
+  // 批量处理，减少重绘次数
+  requestAnimationFrame(() => {
+    let fixedCount = 0;
+    
+    selectors.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach((element) => {
+        // 检查是否真的需要修改
+        const currentColor = element.style.color;
+        if (currentColor && (currentColor.includes('black') || currentColor.includes('#000') || currentColor.includes('rgb(0, 0, 0)'))) {
+          element.style.color = "rgba(255, 255, 255, 0.87)";
+          fixedCount++;
+        }
+      });
     });
 
-    console.log(`已修复 ${elementsWithBlackText.length} 个黑色文本元素`);
-  }
+    if (fixedCount > 0) {
+      console.log(`已修复 ${fixedCount} 个黑色文本元素`);
+    }
+  });
 }
 
 // 使用主题配置
@@ -256,7 +282,7 @@ export const useTheme = () => {
   const availableThemes = ref([
     { name: "light", label: "明亮", color: "#FFFFFF" },
     { name: "dark", label: "深色", color: "#2a303c" },
-  ]); // 设置主题
+  ]);  // 超级性能优化的主题设置函数
   const setTheme = (themeName) => {
     if (!themeName) return;
 
@@ -267,84 +293,105 @@ export const useTheme = () => {
       return;
     }
 
+    // 优先使用超级性能服务
+    if (ultraThemeService) {
+      console.log(`使用超级性能服务切换主题: ${themeName}`);
+      ultraThemeService.switchThemeUltraFast(themeName).then(() => {
+        currentTheme.value = themeName;
+        localStorage.setItem("theme", themeName);
+        localStorage.setItem("darkMode", (themeName === "dark").toString());
+        
+        // 触发事件
+        window.dispatchEvent(
+          new CustomEvent("theme-changed", { detail: { theme: themeName } })
+        );
+      });
+      return;
+    }
+
     console.log(`设置主题: ${themeName}`, new Date().toISOString());
 
-    // 立即应用主题，不等待任何过渡
-    document.documentElement.setAttribute("data-theme", themeName);
-    document.body.setAttribute("data-theme", themeName); // 同时应用到body
+    // 激进优化：完全禁用过渡和动画
+    const style = document.createElement('style');
+    style.id = 'theme-switch-disable';
+    style.textContent = `
+      *, *::before, *::after {
+        transition: none !important;
+        animation: none !important;
+        will-change: auto !important;
+      }
+    `;
+    document.head.appendChild(style);
 
-    // 应用到所有主要容器元素，确保主题得到广泛应用
-    document
-      .querySelectorAll(
-        ".app-container, .content-area, .settings-drawer-container, .home-view, .instances-panel"
-      )
-      .forEach((el) => {
-        el.setAttribute("data-theme", themeName);
+    // 使用多重 requestAnimationFrame 确保异步执行
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // 批量设置CSS变量（最快的方式）
+        const root = document.documentElement;
+        if (themeName === 'dark') {
+          root.style.setProperty('--theme-bg-primary', '#1a1d23');
+          root.style.setProperty('--theme-text-primary', 'rgba(255, 255, 255, 0.87)');
+          root.style.setProperty('--theme-border', '#343a40');
+        } else {
+          root.style.setProperty('--theme-bg-primary', '#ffffff');
+          root.style.setProperty('--theme-text-primary', '#000000');
+          root.style.setProperty('--theme-border', '#dee2e6');
+        }
+
+        // 立即应用主题到根元素
+        root.setAttribute("data-theme", themeName);
+        document.body.setAttribute("data-theme", themeName);
+
+        // 批量处理容器元素 - 使用缓存的选择器结果
+        const containers = document.querySelectorAll(
+          ".app-container, .content-area, .settings-drawer-container, .home-view, .instances-panel"
+        );
+        
+        const isDarkTheme = themeName === "dark";
+        
+        // 超级批量操作 - 减少DOM访问
+        const elementsToUpdate = [root, document.body, ...containers];
+        const classesToAdd = isDarkTheme ? ['dark-mode', 'theme-dark'] : ['theme-light'];
+        const classesToRemove = isDarkTheme ? ['theme-light'] : ['dark-mode', 'theme-dark'];
+
+        // 单次遍历完成所有操作
+        elementsToUpdate.forEach((el) => {
+          el.setAttribute("data-theme", themeName);
+          el.classList.remove(...classesToRemove);
+          el.classList.add(...classesToAdd);
+        });
+
+        // 存储到localStorage
+        localStorage.setItem("theme", themeName);
+        localStorage.setItem("darkMode", isDarkTheme.toString());
+        currentTheme.value = themeName;
+
+        // 移除禁用样式，恢复过渡
+        setTimeout(() => {
+          const disableStyle = document.getElementById('theme-switch-disable');
+          if (disableStyle) {
+            disableStyle.remove();
+          }
+        }, 30);
+
+        // 触发主题更改事件
+        window.dispatchEvent(
+          new CustomEvent("theme-changed", { detail: { theme: themeName } })
+        );
+
+        // 延迟处理非关键操作
+        setTimeout(() => {
+          // 只在暗色模式下进行文本修复
+          if (themeName === "dark") {
+            fixDarkModeTextColor();
+          }
+
+          window.dispatchEvent(
+            new CustomEvent("theme-changed-after", { detail: { theme: themeName } })
+          );
+        }, 50);
       });
-
-    localStorage.setItem("theme", themeName);
-    currentTheme.value = themeName; // 检查是否是深色主题
-    const isDarkTheme = themeName === "dark";
-
-    // 同步darkMode状态并应用到所有主要容器
-    if (isDarkTheme) {
-      document.documentElement.classList.add("dark-mode");
-      document.body.classList.add("dark-mode");
-      document
-        .querySelectorAll(
-          ".app-container, .content-area, .home-view, .instances-panel"
-        )
-        .forEach((el) => {
-          el.classList.add("dark-mode", "theme-dark");
-          el.classList.remove("theme-light");
-        });
-      localStorage.setItem("darkMode", "true");
-    } else {
-      document.documentElement.classList.remove("dark-mode");
-      document.body.classList.remove("dark-mode");
-      document
-        .querySelectorAll(
-          ".app-container, .content-area, .home-view, .instances-panel"
-        )
-        .forEach((el) => {
-          el.classList.remove("dark-mode", "theme-dark");
-          el.classList.add("theme-light");
-        });
-      localStorage.setItem("darkMode", "false");
-    }
-
-    // 强制浏览器重新计算样式
-    void document.documentElement.offsetHeight;
-
-    // 对所有UI组件强制刷新应用主题
-    document.querySelectorAll('[class*="settings-"]').forEach((el) => {
-      // 重新应用样式
-      if (el.classList.contains("settings-drawer-container")) {
-        el.style.backgroundColor = `hsl(var(--b1) / 1)`;
-        el.style.opacity = "1";
-      }
-    }); // 触发主题更改事件 - 立即执行处理
-    window.dispatchEvent(
-      new CustomEvent("theme-changed", { detail: { theme: themeName } })
-    );
-
-    // 修复暗色模式下的文本颜色
-    if (themeName === "dark") {
-      fixDarkModeTextColor();
-    }
-
-    // 避免多次触发和事件循环
-    clearTimeout(window.themeChangeTimeout);
-    window.themeChangeTimeout = setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent("theme-changed-after", { detail: { theme: themeName } })
-      );
-
-      // 延迟再次调用修复函数，处理可能动态加载的内容
-      if (themeName === "dark") {
-        fixDarkModeTextColor();
-      }
-    }, 100);
+    });
   };
 
   return {

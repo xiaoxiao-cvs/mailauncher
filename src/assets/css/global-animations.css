@@ -1,256 +1,63 @@
 /* 全局页面切换动画已删除 - 仅保留App.vue中的主应用页面切换动画 */
 
-.animated-status {
-  animation: statusPulse 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+/* 所有动画已禁用 - 瞬间切换模式 */
+
+/* 全局强制禁用所有动画和过渡，但保留开关动画 */
+*:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *) {
+  animation: none !important;
+  transition: none !important;
 }
 
-/* 卡片淡入动画 */
-@keyframes cardFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.95);
-    box-shadow: none;
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  }
+/* 确保主题切换瞬间完成，但保留开关动画 */
+[data-theme] *:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *),
+html *:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *) {
+  animation: none !important;
+  transition: none !important;
 }
 
-/* 状态脉冲动画 */
-@keyframes statusPulse {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+/* 禁用所有伪元素动画，但保留开关动画 */
+*:not(.toggle-slider):not(.custom-toggle .toggle-slider)::before,
+*:not(.toggle-slider):not(.custom-toggle .toggle-slider)::after {
+  animation: none !important;
+  transition: none !important;
 }
 
-/* 背景淡入动画 */
-@keyframes backdropFadeIn {
-  from {
-    opacity: 0;
-    backdrop-filter: blur(0px);
-  }
-  to {
-    opacity: 1;
-    backdrop-filter: blur(8px);
-  }
-}
-
-/* 抽屉和侧边栏动画已删除 */
-
-/* 悬停动画增强 */
-.animated-card:hover {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-}
-
-.animated-status:hover {
-  transform: scale(1.05);
-  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* 按钮动画增强 */
-.btn {
-  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.btn::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
-  transition: width 0.15s ease, height 0.15s ease;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-.btn:hover::before {
-  width: 300px;
-  height: 300px;
-}
-
-.btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-}
-
-.btn:active {
-  transform: translateY(0);
-  transition: transform 0.05s ease;
-}
-
-/* 输入框聚焦动画 */
-.input,
-.select,
-.textarea {
-  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.input:focus,
-.select:focus,
-.textarea:focus {
-  transform: scale(1.02);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-/* 复选框和单选按钮动画 */
-.checkbox,
-.radio {
-  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.checkbox:checked,
-.radio:checked {
-  animation: checkBounce 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes checkBounce {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.25);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-/* 模态框动画 */
-.modal {
-  animation: modalFadeIn 0.15s ease;
-}
-
-.modal-box {
-  animation: modalSlideIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes modalFadeIn {
-  from {
-    opacity: 0;
-    backdrop-filter: blur(0px);
-  }
-  to {
-    opacity: 1;
-    backdrop-filter: blur(4px);
-  }
-}
-
-@keyframes modalSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-50px) scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* 进度条动画 */
-.progress {
-  overflow: hidden;
-  position: relative;
-}
-
-.progress::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.4),
-    transparent
-  );
-  animation: progressShimmer 2s infinite;
-}
-
-@keyframes progressShimmer {
-  0% {
-    left: -100%;
-  }
-  100% {
-    left: 100%;
-  }
-}
-
-/* 加载状态动画 */
-.loading {
-  animation: loadingPulse 0.8s ease-in-out infinite;
-}
-
-@keyframes loadingPulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.loading-spinner {
-  animation: spin 0.5s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* 响应式动画调整 */
-@media (max-width: 768px) {
-  .animated-card {
-    animation-duration: 0.2s;
-  }
-
-/* 减少动画效果（无障碍） */
+/* 减少动画效果（无障碍） - 强制禁用所有动画，但保留开关动画 */
 @media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.1s !important;
-  }
-
-  .btn:hover {
-    transform: none;
-  }
-
-  .animated-card:hover {
-    transform: none;
+  *:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *) {
+    animation: none !important;
+    transition: none !important;
   }
 }
 
-/* 确保卡片点击时不会出现布局跳动 */
-.animated-card * {
-  pointer-events: none;
+/* 低性能设备检测和优化，但保留开关动画 */
+@media (update: slow) {
+  *:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *) {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
-.animated-card {
-  pointer-events: auto;
+/* 网络慢速时的优化，但保留开关动画 */
+@media (prefers-reduced-data: reduce) {
+  *:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *) {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
-.animated-card:active {
-  transform: translateY(-2px) scale(0.98);
-  transition-duration: 0.1s;
+/* CPU密集型场景的简化动画，但保留开关动画 */
+.performance-mode *:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *) {
+  animation: none !important;
+  transition: none !important;
+  transform: none !important;
+}
+
+/* 电池电量低时的优化 - 强制禁用所有动画，但保留开关动画 */
+@media (prefers-reduced-motion: reduce) and (update: slow) {
+  *:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *) {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
 }

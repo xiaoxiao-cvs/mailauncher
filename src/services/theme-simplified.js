@@ -38,6 +38,13 @@ export function setTheme(themeName) {
     themeName = "light";
   }
 
+  // 检查当前主题，如果没有变化则不重复操作
+  const currentDomTheme = document.documentElement.getAttribute("data-theme");
+  if (currentDomTheme === themeName && globalThemeState.value === themeName) {
+    console.log("主题未变化，跳过设置:", themeName);
+    return;
+  }
+
   console.log("设置主题:", themeName);
 
   // 更新全局状态
@@ -48,82 +55,15 @@ export function setTheme(themeName) {
   document.body.setAttribute("data-theme", themeName);
 
   // 更新存储
-  localStorage.setItem("theme", themeName); // 设置暗色模式类（为了兼容现有CSS）
+  localStorage.setItem("theme", themeName); 
+  
+  // 设置暗色模式类（为了兼容现有CSS）
   if (themeName === "dark") {
     document.documentElement.classList.add("dark-mode");
     document.body.classList.add("dark-mode");
-
-    // 强制修复暗色模式下的文本颜色问题
-    const forceWhiteText = () => {
-      // 获取所有可见的文本元素
-      const textElements = document.querySelectorAll(
-        "p, span, div, h1, h2, h3, h4, h5, h6, label, td, th, li, a, button, input, textarea, select, .card-title, .card-body, .text-base-content"
-      );
-
-      textElements.forEach((el) => {
-        // 跳过有特殊颜色类的元素
-        if (
-          !el.classList.contains("text-primary") &&
-          !el.classList.contains("text-secondary") &&
-          !el.classList.contains("text-accent") &&
-          !el.classList.contains("text-success") &&
-          !el.classList.contains("text-warning") &&
-          !el.classList.contains("text-error") &&
-          !el.classList.contains("text-info")
-        ) {
-          const computedStyle = window.getComputedStyle(el);
-          const color = computedStyle.color;
-
-          // 检查是否是黑色或深色文本
-          if (
-            color === "rgb(0, 0, 0)" ||
-            color === "rgba(0, 0, 0, 1)" ||
-            color === "#000000" ||
-            color === "black" ||
-            color.includes("rgb(0, 0, 0)") ||
-            color.includes("rgba(0, 0, 0")
-          ) {
-            // 强制设置为白色文本
-            el.style.setProperty(
-              "color",
-              "rgba(255, 255, 255, 0.87)",
-              "important"
-            );
-          }
-        }
-      });
-
-      // 处理所有可能的文本容器
-      const containers = document.querySelectorAll(
-        ".app-container, .content-area, .home-view, .main-content, .card, .card-body"
-      );
-      containers.forEach((container) => {
-        container.style.setProperty(
-          "color",
-          "rgba(255, 255, 255, 0.87)",
-          "important"
-        );
-      });
-    };
-
-    // 立即执行一次
-    forceWhiteText();
-
-    // 延迟执行，确保DOM完全渲染后再修复
-    setTimeout(forceWhiteText, 50);
-    setTimeout(forceWhiteText, 100);
-    setTimeout(forceWhiteText, 200);
   } else {
     document.documentElement.classList.remove("dark-mode");
     document.body.classList.remove("dark-mode");
-
-    // 移除强制的白色文本样式
-    const elements = document.querySelectorAll(
-      "[style*='color: rgba(255, 255, 255']"
-    );
-    elements.forEach((el) => {
-      el.style.removeProperty("color");
-    });
   }
 
   // 强制刷新样式
@@ -138,7 +78,7 @@ export function setTheme(themeName) {
     });
   }, 0);
 
-  // 触发主题变更事件
+  // 只触发一个主题变更事件，避免重复
   window.dispatchEvent(
     new CustomEvent("theme-changed", { detail: { theme: themeName } })
   );
@@ -190,8 +130,8 @@ export const useTheme = () => {
 
     // 检查当前主题，如果没有变化则不重复操作
     const currentDomTheme = document.documentElement.getAttribute("data-theme");
-    if (currentDomTheme === themeName) {
-      console.log("主题未变化，跳过设置:", themeName);
+    if (currentDomTheme === themeName && currentTheme.value === themeName) {
+      console.log("主题未变化，跳过重复设置:", themeName);
       return;
     }
 
