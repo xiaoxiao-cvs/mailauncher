@@ -3,7 +3,8 @@
     title="连接测试" 
     subtitle="测试后端服务器连接状态"
     icon="mdi:network-outline"
-    icon-class="text-blue-500"
+    :iconClass="'text-blue-500'"
+    :gradient-border="true"
   >
     <SettingItem 
       label="后端连接状态" 
@@ -72,7 +73,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import SettingGroup from '../base/SettingGroup.vue'
+import SettingGroup from '../base/HyperOS2SettingGroup.vue'
 import SettingItem from '../base/SettingItem.vue'
 import IconifyIcon from '@/components/common/IconifyIcon.vue'
 

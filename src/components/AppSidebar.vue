@@ -122,6 +122,17 @@ const addDirectionClass = (currentTab, prevTab) => {
 
 // 切换侧边栏的方法
 const toggleSidebar = () => {
+  // 添加动画状态类
+  const sidebarEl = document.querySelector('.sidebar');
+  if (sidebarEl) {
+    sidebarEl.classList.add('sidebar-transitioning');
+    
+    // 400ms后移除动画状态类（与CSS动画时间匹配）
+    setTimeout(() => {
+      sidebarEl.classList.remove('sidebar-transitioning');
+    }, 400);
+  }
+  
   emit('toggle');
 };
 

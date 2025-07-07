@@ -1,6 +1,28 @@
 /* 侧边栏增强样式 - 专门解决对齐问题 */
 
-/* 侧边栏基础结构 - 确保完美对齐 */
+/* 全局抗抖动优化 */
+.sidebar * {
+  /* 防止所有侧边栏子元素在动画过程中的抖动 */
+  backface-visibility: hidden;
+  /* 使用GPU加速 */
+  transform: translateZ(0);
+  /* 防止字体渲染抖动 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 侧边栏展开/收起时的过渡优化 */
+.sidebar.sidebar-transitioning {
+  /* 在动画过程中临时禁用某些效果以减少抖动 */
+  pointer-events: none;
+}
+
+.sidebar.sidebar-transitioning * {
+  /* 确保动画过程中的流畅性 */
+  will-change: auto;
+}
+
+/* 侧边栏基础结构 - 确保完美对齐和流畅动画 */
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -10,7 +32,8 @@
   top: 0;
   height: 100vh;
   width: 64px;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+  /* 与动画配合使用，提供备用方案 */
   background: var(--glass-bg);
   backdrop-filter: blur(var(--blur-amount));
   -webkit-backdrop-filter: blur(var(--blur-amount));
@@ -19,13 +42,19 @@
   z-index: 50;
   overflow: hidden;
   box-sizing: border-box;
+  /* 优化渲染性能 */
+  will-change: width;
+  /* 使用硬件加速 */
+  transform: translateZ(0);
+  /* 防止子元素溢出造成的抖动 */
+  contain: layout;
 }
 
 .sidebar.sidebar-expanded {
   width: 220px;
 }
 
-/* 侧边栏头部 */
+/* 侧边栏头部 - 优化动画 */
 .sidebar-header {
   display: flex;
   align-items: center;
@@ -34,6 +63,8 @@
   min-height: 4rem;
   border-bottom: 1px solid oklch(var(--bc) / 0.1);
   flex-shrink: 0;
+  /* 防止头部内容变化时的抖动 */
+  will-change: justify-content;
 }
 
 .sidebar.sidebar-expanded .sidebar-header {
@@ -44,17 +75,20 @@
   width: 1.5rem;
   height: 1.5rem;
   flex-shrink: 0;
+  /* 防止图标移动时的抖动 */
+  will-change: transform;
 }
 
-/* 收起状态下logo图标向右对齐 */
+/* 收起状态下logo图标向右对齐 - 优化动画 */
 .sidebar:not(.sidebar-expanded) .sidebar-header img {
   transform: translateX(4px); /* 与下方图标保持一致的偏移 */
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 /* 展开状态下logo图标正常位置 */
 .sidebar.sidebar-expanded .sidebar-header img {
   transform: translateX(0);
+  transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .sidebar-title {
@@ -62,10 +96,16 @@
   width: 0;
   overflow: hidden;
   white-space: nowrap;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
   font-weight: 700;
   font-size: 1.125rem;
   margin-left: 0;
+  /* 防止文本出现时的抖动 */
+  will-change: opacity, width;
+  /* 确保文本不会造成布局抖动 */
+  min-width: 0;
+  /* 防止字体渲染抖动 */
+  font-variant-numeric: tabular-nums;
 }
 
 .sidebar.sidebar-expanded .sidebar-title {
@@ -74,11 +114,13 @@
   margin-left: 0.75rem;
 }
 
-/* 主菜单区域 */
+/* 主菜单区域 - 优化动画 */
 .sidebar .menu {
   padding: 0.5rem;
   gap: 0.25rem;
   flex-shrink: 0;
+  /* 防止菜单项布局变化时的抖动 */
+  will-change: contents;
 }
 
 .sidebar .menu li {
@@ -93,13 +135,17 @@
   min-height: 3rem;
   width: 100%;
   border-radius: 0.75rem;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
   background: transparent;
   border: none;
   text-decoration: none;
   color: oklch(var(--bc));
   position: relative;
   overflow: hidden;
+  /* 防止菜单项变化时的抖动 */
+  will-change: padding, justify-content;
+  /* 确保菜单项不会造成布局抖动 */
+  contain: layout;
 }
 
 .sidebar.sidebar-expanded .menu li a {
@@ -107,7 +153,7 @@
   padding: 0.75rem 1rem;
 }
 
-/* 图标样式统一 */
+/* 图标样式统一 - 优化动画 */
 .sidebar .menu li a .iconify,
 .sidebar .menu li a svg {
   width: 1.25rem;
@@ -116,8 +162,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
   margin: 0;
+  /* 防止图标移动时的抖动 */
+  will-change: margin;
 }
 
 .sidebar.sidebar-expanded .menu li a .iconify,
@@ -125,14 +173,20 @@
   margin-right: 0.75rem;
 }
 
-/* 菜单文本控制 */
+/* 菜单文本控制 - 优化动画 */
 .sidebar .menu li a .sidebar-text {
   opacity: 0;
   width: 0;
   overflow: hidden;
   white-space: nowrap;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
   font-weight: 500;
+  /* 防止文本出现时的抖动 */
+  will-change: opacity, width;
+  /* 确保文本不会造成布局抖动 */
+  min-width: 0;
+  /* 防止字体渲染抖动 */
+  font-variant-numeric: tabular-nums;
 }
 
 .sidebar.sidebar-expanded .menu li a .sidebar-text {
@@ -140,20 +194,22 @@
   width: auto;
 }
 
-/* 悬停和激活状态 */
+/* 悬停和激活状态 - 优化动画 */
 .sidebar .menu li a:hover {
   background: var(--glass-bg);
   color: oklch(var(--p));
   transform: translateX(2px);
   box-shadow: var(--shadow-soft);
   border: 1px solid oklch(var(--p) / 0.2);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* 收起状态下的悬停效果 */
+/* 收起状态下的悬停效果 - 优化动画 */
 .sidebar:not(.sidebar-expanded) .menu li a:hover {
   transform: none;
   border: 1px solid oklch(var(--p) / 0.2);
   background: var(--glass-bg);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* 收起状态下的特殊悬停样式 */
@@ -334,11 +390,13 @@
   overflow: visible;
 }
 
-/* 底部收起按钮区域 */
+/* 底部收起按钮区域 - 优化动画 */
 .sidebar-footer {
   padding: 0.75rem;
   border-top: 1px solid oklch(var(--bc) / 0.1);
   flex-shrink: 0;
+  /* 防止底部按钮变化时的抖动 */
+  will-change: contents;
 }
 
 .sidebar-footer .btn {
@@ -352,9 +410,13 @@
   background: transparent;
   border: none;
   color: oklch(var(--bc));
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
   font-size: 0.875rem;
   box-sizing: border-box;
+  /* 防止按钮变化时的抖动 */
+  will-change: padding, justify-content;
+  /* 确保按钮不会造成布局抖动 */
+  contain: layout;
 }
 
 .sidebar.sidebar-expanded .sidebar-footer .btn {
@@ -368,22 +430,31 @@
   border: 1px solid oklch(var(--p) / 0.2);
   transform: translateY(-1px);
   box-shadow: var(--shadow-soft);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .sidebar-footer .btn .iconify {
   width: 1.25rem;
   height: 1.25rem;
-  transition: transform 0.3s ease;
+  transition: transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
   flex-shrink: 0;
+  /* 防止图标移动时的抖动 */
+  will-change: transform;
 }
 
-/* 收起按钮文本控制 */
+/* 收起按钮文本控制 - 优化动画 */
 .sidebar-footer .btn .sidebar-text {
   opacity: 0;
   width: 0;
   overflow: hidden;
   white-space: nowrap;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+  /* 防止文本出现时的抖动 */
+  will-change: opacity, width;
+  /* 确保文本不会造成布局抖动 */
+  min-width: 0;
+  /* 防止字体渲染抖动 */
+  font-variant-numeric: tabular-nums;
 }
 
 .sidebar.sidebar-expanded .sidebar-footer .btn .sidebar-text {
@@ -392,7 +463,7 @@
   margin-left: 0.5rem;
 }
 
-/* 收起状态下所有图标向右偏移 */
+/* 收起状态下所有图标向右偏移 - 优化动画 */
 .sidebar:not(.sidebar-expanded) .menu li a .iconify,
 .sidebar:not(.sidebar-expanded) .menu li a svg,
 .sidebar:not(.sidebar-expanded) .sidebar-footer-section .menu li a .iconify,
@@ -400,10 +471,10 @@
 .sidebar:not(.sidebar-expanded) .sidebar-footer .btn .iconify,
 .sidebar:not(.sidebar-expanded) .sidebar-footer .btn svg {
   transform: translateX(4px); /* 向右移动4像素 */
-  transition: transform 0.2s ease;
+  transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
-/* 确保展开状态下图标位置正常 */
+/* 确保展开状态下图标位置正常 - 优化动画 */
 .sidebar.sidebar-expanded .menu li a .iconify,
 .sidebar.sidebar-expanded .menu li a svg,
 .sidebar.sidebar-expanded .sidebar-footer-section .menu li a .iconify,
@@ -411,6 +482,73 @@
 .sidebar.sidebar-expanded .sidebar-footer .btn .iconify,
 .sidebar.sidebar-expanded .sidebar-footer .btn svg {
   transform: translateX(0);
+  transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* 延迟展示文本以防止闪烁 */
+.sidebar:not(.sidebar-expanded) .sidebar-text,
+.sidebar:not(.sidebar-expanded) .sidebar-title {
+  transition-delay: 0s;
+  opacity: 0;
+  width: 0;
+}
+
+.sidebar.sidebar-expanded .sidebar-text,
+.sidebar.sidebar-expanded .sidebar-title {
+  /* 延迟显示文本，等待宽度动画完成 */
+  transition-delay: 0.15s;
+  opacity: 1;
+  width: auto;
+}
+
+/* 收起时立即隐藏文本 */
+.sidebar.sidebar-transitioning:not(.sidebar-expanded) .sidebar-text,
+.sidebar.sidebar-transitioning:not(.sidebar-expanded) .sidebar-title {
+  transition-delay: 0s;
+  opacity: 0;
+  width: 0;
+}
+
+/* 侧边栏展开时的微妙弹性效果 */
+@keyframes sidebar-expand {
+  0% {
+    width: 64px;
+  }
+  85% {
+    width: 225px; /* 稍微超出目标宽度 */
+  }
+  100% {
+    width: 220px; /* 回到正常宽度 */
+  }
+}
+
+@keyframes sidebar-collapse {
+  0% {
+    width: 220px;
+  }
+  85% {
+    width: 59px; /* 稍微小于目标宽度 */
+  }
+  100% {
+    width: 64px; /* 回到正常宽度 */
+  }
+}
+
+/* 应用弹性动画 */
+.sidebar.sidebar-expanded {
+  animation: sidebar-expand 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.sidebar:not(.sidebar-expanded) {
+  animation: sidebar-collapse 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* 当不支持动画时的备用方案 */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar.sidebar-expanded,
+  .sidebar:not(.sidebar-expanded) {
+    animation: none;
+  }
 }
 
 /* 响应式处理 */

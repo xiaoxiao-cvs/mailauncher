@@ -1,63 +1,61 @@
 /* 全局页面切换动画已删除 - 仅保留App.vue中的主应用页面切换动画 */
 
-/* 所有动画已禁用 - 瞬间切换模式 */
+/* 恢复动画效果 - 允许合理的动画 */
 
-/* 全局强制禁用所有动画和过渡，但保留开关动画 */
-*:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *) {
+/* 全局允许合理的动画和过渡效果 */
+* {
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}
+
+/* 确保主题切换时瞬间完成，保留其他动画 */
+html.theme-switching,
+html.theme-switching * {
   animation: none !important;
   transition: none !important;
 }
 
-/* 确保主题切换瞬间完成，但保留开关动画 */
-[data-theme] *:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *),
-html *:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *) {
-  animation: none !important;
-  transition: none !important;
+/* 恢复伪元素动画 */
+*::before,
+*::after {
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
 }
 
-/* 禁用所有伪元素动画，但保留开关动画 */
-*:not(.toggle-slider):not(.custom-toggle .toggle-slider)::before,
-*:not(.toggle-slider):not(.custom-toggle .toggle-slider)::after {
-  animation: none !important;
-  transition: none !important;
-}
-
-/* 减少动画效果（无障碍） - 强制禁用所有动画，但保留开关动画 */
+/* 无障碍设置 - 尊重用户的减少动画偏好 */
 @media (prefers-reduced-motion: reduce) {
-  *:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *) {
+  * {
     animation: none !important;
     transition: none !important;
   }
 }
 
-/* 低性能设备检测和优化，但保留开关动画 */
+/* 低性能设备检测和优化 - 允许合理的动画 */
 @media (update: slow) {
-  *:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *) {
-    animation: none !important;
-    transition: none !important;
+  * {
+    transition-duration: 0.1s;
+    animation-duration: 0.1s;
   }
 }
 
-/* 网络慢速时的优化，但保留开关动画 */
+/* 网络慢速时的优化 - 减少动画复杂度 */
 @media (prefers-reduced-data: reduce) {
-  *:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *) {
-    animation: none !important;
-    transition: none !important;
+  * {
+    transition-duration: 0.1s;
+    animation-duration: 0.1s;
   }
 }
 
-/* CPU密集型场景的简化动画，但保留开关动画 */
-.performance-mode *:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *) {
-  animation: none !important;
-  transition: none !important;
-  transform: none !important;
+/* CPU密集型场景的简化动画 */
+.performance-mode * {
+  transition-duration: 0.1s !important;
+  animation-duration: 0.1s !important;
 }
 
-/* 电池电量低时的优化 - 强制禁用所有动画，但保留开关动画 */
+/* 电池电量低时的优化 - 减少动画效果 */
 @media (prefers-reduced-motion: reduce) and (update: slow) {
-  *:not(.toggle-switch):not(.toggle-slider):not(.toggle-slider:before):not(.custom-toggle):not(.custom-toggle *) {
+  * {
     transition: none !important;
     animation: none !important;
-    transform: none !important;
   }
 }

@@ -5,7 +5,8 @@
 
 // 基础组件
 export { default as SettingItem } from './base/SettingItem.vue'
-export { default as SettingGroup } from './base/SettingGroup.vue'
+export { default as SettingGroup } from './base/HyperOS2SettingGroup.vue' // 使用新的HyperOS2风格
+export { default as HyperOS2SettingGroup } from './base/HyperOS2SettingGroup.vue'
 export { default as SettingSwitch } from './base/SettingSwitch.vue'
 export { default as SettingSlider } from './base/SettingSlider.vue'
 export { default as SettingSelect } from './base/SettingSelect.vue'

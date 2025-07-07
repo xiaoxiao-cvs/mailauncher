@@ -1,83 +1,237 @@
-/* 全局禁用所有动画和过渡效果 - 确保主题瞬间切换 */
+/* 全局动画和过渡效果设置 - 恢复合理的动画体验 */
 * {
-  animation: none !important;
-  transition: none !important;
+  /* 允许合理的过渡动画 */
+  transition-duration: 0.15s;
+  transition-timing-function: ease;
+}
+
+/* 为侧边栏组件保留原有的动画设置 */
+.sidebar,
+.sidebar *,
+.sidebar .menu li a,
+.sidebar .sidebar-title,
+.sidebar .sidebar-text,
+.sidebar .sidebar-header img {
+  /* 让侧边栏使用自己的过渡设置，覆盖全局设置 */
+  transition-duration: inherit;
+  transition-timing-function: inherit;
 }
 
 *::before,
 *::after {
-  animation: none !important;
-  transition: none !important;
+  transition-duration: 0.15s;
+  transition-timing-function: ease;
 }
 
-/* 特别针对主题切换的元素 */
-[data-theme],
-[data-theme] *,
-html,
-html *,
-body,
-body * {
-  animation: none !important;
-  transition: none !important;
+/* 确保侧边栏的宽度过渡动画不被覆盖 - 优化版本 */
+.sidebar {
+  transition: width 0.4s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
+  /* 防止宽度变化时的抖动 */
+  will-change: width;
+  /* 使用硬件加速 */
+  transform: translateZ(0);
+  /* 防止子元素溢出造成的抖动 */
+  contain: layout;
 }
 
-/* 禁用DaisyUI组件的动画 */
-.btn,
-.card,
-.modal,
-.dropdown,
-.collapse,
-.tooltip,
-.progress,
-.loading,
-.alert,
+/* 恢复DaisyUI组件的动画效果 */
+.btn {
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.modal {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.modal:not(.modal-open) {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+.modal.modal-open {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.dropdown {
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.dropdown .dropdown-content {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(-10px);
+  opacity: 0;
+}
+
+.dropdown.dropdown-open .dropdown-content,
+.dropdown:hover .dropdown-content {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.collapse {
+  transition: max-height 0.3s ease;
+}
+
+.tooltip {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.tooltip:not(.tooltip-open)::before,
+.tooltip:not(.tooltip-open)::after {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.tooltip.tooltip-open::before,
+.tooltip.tooltip-open::after,
+.tooltip:hover::before,
+.tooltip:hover::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.progress {
+  transition: width 0.3s ease;
+}
+
+.loading {
+  animation: spin 1s linear infinite;
+}
+
+.alert {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
 .toast {
-  animation: none !important;
-  transition: none !important;
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-/* 禁用表单元素动画 */
+.toast:not(.toast-visible) {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.toast.toast-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* 恢复表单元素动画 */
 input,
 textarea,
 select,
 button {
-  animation: none !important;
-  transition: none !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
-/* 禁用所有伪元素动画 */
+input:focus,
+textarea:focus,
+select:focus {
+  transform: scale(1.01);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* 恢复伪元素动画 */
 input::before,
 input::after,
 button::before,
 button::after,
 .btn::before,
 .btn::after {
-  animation: none !important;
-  transition: none !important;
+  transition: all 0.2s ease;
 }
 
-/* 禁用主题切换过渡效果 - 瞬间切换 */
+/* 主题切换时的优化 - 仅在切换过程中禁用动画 */
 html {
-  transition: none !important;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 html[data-theme] {
   color-scheme: light dark;
-  transition: none !important;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* 主题切换时的即时模式 - 性能优化 */
 html.theme-switching {
   transition: none !important;
 }
 
-html.theme-switching .card,
-html.theme-switching .btn,
-html.theme-switching .input,
-html.theme-switching .textarea,
-html.theme-switching .select,
-html.theme-switching .modal {
+html.theme-switching * {
   transition: none !important;
+  animation: none !important;
+}
+
+/* 确保侧边栏的所有动画效果都正常工作 - 优化版本 */
+.sidebar .sidebar-title {
+  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
+  /* 防止文本出现时的抖动 */
+  will-change: opacity, width;
+  /* 确保文本不会造成布局抖动 */
+  min-width: 0;
+  /* 防止字体渲染抖动 */
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar .sidebar-text {
+  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
+  /* 防止文本出现时的抖动 */
+  will-change: opacity, width;
+  /* 确保文本不会造成布局抖动 */
+  min-width: 0;
+  /* 防止字体渲染抖动 */
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar .sidebar-header img {
+  transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
+  /* 防止图标移动时的抖动 */
+  will-change: transform;
+}
+
+.sidebar .menu li a {
+  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
+  /* 防止菜单项变化时的抖动 */
+  will-change: padding, justify-content;
+  /* 确保菜单项不会造成布局抖动 */
+  contain: layout;
+}
+
+.sidebar .menu li a .iconify,
+.sidebar .menu li a svg {
+  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
+  /* 防止图标移动时的抖动 */
+  will-change: margin;
+}
+
+/* 确保侧边栏的激活状态动画不被覆盖 */
+.sidebar .menu li a.active::after {
+  animation: slide-background-down 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.sidebar .menu li a.active.slide-up::after {
+  animation: slide-background-up 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.sidebar .menu li a.active::before {
+  animation: slide-bar-down 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both !important;
+}
+
+.sidebar .menu li a.active.slide-up::before {
+  animation: slide-bar-up 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both !important;
 }
 
 /* 减少重绘的优化 */
@@ -139,17 +293,37 @@ html.theme-switching .modal {
   --icon-info: hsl(var(--in));
 }
 
-/* 禁用组件的主题过渡动画 */
-.card,
-.btn,
-.dropdown,
-.modal,
-.alert,
-.toast,
-.menu,
+/* 恢复组件的主题过渡动画 */
+.card {
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.btn {
+  transition: all 0.2s ease;
+}
+
+.dropdown {
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.modal {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.alert {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.menu {
+  transition: background-color 0.2s ease;
+}
+
 .collapse {
-  transition: none !important;
-  animation: none !important;
+  transition: max-height 0.3s ease;
 }
 
 /* 修复各种主题下的表单和输入框样式 */
@@ -166,10 +340,10 @@ html.theme-switching .modal {
   color: hsl(var(--bc));
 }
 
-/* Iconify图标主题集成 - 禁用动画 */
+/* Iconify图标主题集成 - 恢复动画 */
 .iconify {
   color: var(--icon-color);
-  transition: none !important;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 
 /* 主题色图标 */
@@ -222,15 +396,29 @@ html.theme-switching .modal {
   font-size: 2rem;
 }
 
-/* 图标动画效果 - 禁用所有动画 */
+/* 图标动画效果 - 恢复旋转动画 */
 .iconify-spin {
-  animation: none !important;
+  animation: spin 1s linear infinite;
 }
 
-/* 主题预览样式增强 - 禁用过渡动画 */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 主题预览样式增强 - 恢复过渡动画 */
 .theme-preview {
   @apply p-3 rounded-lg border border-base-300 flex items-center gap-3 mb-2;
-  transition: none !important;
+  transition: all 0.2s ease;
+}
+
+.theme-preview:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .theme-preview-title {
@@ -242,10 +430,10 @@ html.theme-switching .modal {
   @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2;
 }
 
-/* 禁用深色与浅色主题之间的切换动画 */
+/* 主题切换动画 - 恢复正常过渡 */
 [data-theme].theme-transition,
 [data-theme].theme-transition * {
-  transition: none !important;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 /* 针对特定主题的图标颜色调整 */
@@ -331,4 +519,204 @@ html.theme-switching .modal {
 
 .app-scrollbar::-webkit-scrollbar-thumb {
   @apply bg-base-content/20 rounded-full hover:bg-base-content/30;
+}
+
+/* 通用动画工具类 */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.animate-fade-out {
+  animation: fadeOut 0.3s ease-in-out;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+.animate-slide-in-up {
+  animation: slideInUp 0.3s ease-out;
+}
+
+.animate-slide-in-down {
+  animation: slideInDown 0.3s ease-out;
+}
+
+.animate-bounce-in {
+  animation: bounceIn 0.5s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+.animate-scale-out {
+  animation: scaleOut 0.2s ease-in;
+}
+
+/* 动画定义 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  70% {
+    transform: scale(0.9);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleOut {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
+/* 悬停效果增强 */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.hover-glow {
+  transition: box-shadow 0.2s ease;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+.hover-rotate {
+  transition: transform 0.2s ease;
+}
+
+.hover-rotate:hover {
+  transform: rotate(5deg);
+}
+
+.hover-scale {
+  transition: transform 0.2s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+}
+
+/* 页面加载动画 */
+.page-transition {
+  transition: all 0.3s ease;
+}
+
+.page-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page-leave {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page-leave-active {
+  opacity: 0;
+  transform: translateY(-20px);
 }

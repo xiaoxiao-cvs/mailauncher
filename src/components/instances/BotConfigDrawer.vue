@@ -96,7 +96,8 @@
                                             <SettingGroup 
                                                 :title="section.title" 
                                                 :icon="section.icon" 
-                                                :icon-class="section.iconClass"
+                                                :iconClass="section.iconClass"
+                                                :gradient-border="true"
                                                 :class="{ 'search-matched-section': section.titleMatched }"
                                             >
                                                 <!-- 渲染匹配的配置项（搜索模式）或所有配置项（正常模式） -->
@@ -174,7 +175,7 @@
                                     <!-- LPMM 配置内容 -->
                                     <div v-else-if="lpmmConfig" class="config-section">
                                         <!-- 基本信息 -->
-                                        <SettingGroup title="基本信息" icon="mdi:information-outline">
+                                        <SettingGroup title="基本信息" icon="mdi:information-outline" :gradient-border="true">
                                             <div class="setting-item">
                                                 <div class="setting-info">
                                                     <label class="setting-label">版本</label>
@@ -192,7 +193,7 @@
                                         </SettingGroup>
 
                                         <!-- LLM 提供商配置 -->
-                                        <SettingGroup title="LLM 提供商" icon="mdi:server-network" icon-class="text-blue-500">
+                                        <SettingGroup title="LLM 提供商" icon="mdi:server-network" :iconClass="'text-blue-500'" :gradient-border="true">
                                             <div class="model-config-container">
                                                 <div 
                                                     v-for="(provider, index) in lpmmConfig.llm_providers" 
@@ -278,7 +279,7 @@
                                         </SettingGroup>
 
                                         <!-- 实体提取配置 -->
-                                        <SettingGroup title="实体提取" icon="mdi:text-recognition" icon-class="text-green-500">
+                                        <SettingGroup title="实体提取" icon="mdi:text-recognition" :iconClass="'text-green-500'" :gradient-border="true">
                                             <div class="model-config-container">
                                                 <div class="model-item">
                                                     <div class="model-header">
@@ -324,7 +325,7 @@
                                         </SettingGroup>
 
                                         <!-- RDF构建配置 -->
-                                        <SettingGroup title="RDF构建" icon="mdi:graph-outline" icon-class="text-orange-500">
+                                        <SettingGroup title="RDF构建" icon="mdi:graph-outline" :iconClass="'text-orange-500'" :gradient-border="true">
                                             <div class="model-config-container">
                                                 <div class="model-item">
                                                     <div class="model-header">
@@ -370,7 +371,7 @@
                                         </SettingGroup>
 
                                         <!-- 嵌入配置 -->
-                                        <SettingGroup title="嵌入配置" icon="mdi:vector-triangle" icon-class="text-purple-500">
+                                        <SettingGroup title="嵌入配置" icon="mdi:vector-triangle" :iconClass="'text-purple-500'" :gradient-border="true">
                                             <div class="model-config-container">
                                                 <div class="model-item">
                                                     <div class="model-header">
@@ -429,7 +430,7 @@
                                         </SettingGroup>
 
                                         <!-- RAG配置 -->
-                                        <SettingGroup title="RAG参数" icon="mdi:magnify">
+                                        <SettingGroup title="RAG参数" icon="mdi:magnify" :gradient-border="true">
                                             <div class="setting-item">
                                                 <div class="setting-info">
                                                     <label class="setting-label">同义词搜索Top K</label>
@@ -465,7 +466,7 @@
                                         </SettingGroup>
 
                                         <!-- 问答配置 -->
-                                        <SettingGroup title="问答配置" icon="mdi:comment-question-outline" icon-class="text-indigo-500">
+                                        <SettingGroup title="问答配置" icon="mdi:comment-question-outline" :iconClass="'text-indigo-500'" :gradient-border="true">
                                             <div class="model-config-container">
                                                 <div class="model-item">
                                                     <div class="model-header">
@@ -591,7 +592,7 @@
                                         </SettingGroup>
 
                                         <!-- 信息提取配置 -->
-                                        <SettingGroup title="信息提取" icon="mdi:file-document-multiple">
+                                        <SettingGroup title="信息提取" icon="mdi:file-document-multiple" :gradient-border="true">
                                             <div class="setting-item">
                                                 <div class="setting-info">
                                                     <label class="setting-label">工作线程数</label>
@@ -611,7 +612,7 @@
                                         </SettingGroup>
 
                                         <!-- 持久化配置 -->
-                                        <SettingGroup title="持久化配置" icon="mdi:database">
+                                        <SettingGroup title="持久化配置" icon="mdi:database" :gradient-border="true">
                                             <div class="persistence-grid">
                                                 <div class="setting-item">
                                                     <label class="setting-label">数据根路径</label>
@@ -688,7 +689,7 @@
 
                                     <div class="config-section" v-if="modelConfig">
                                         <!-- 输出长度限制 -->
-                                        <SettingGroup title="全局配置" icon="mdi:settings" icon-class="text-blue-500">
+                                        <SettingGroup title="全局配置" icon="mdi:settings" :iconClass="'text-blue-500'" :gradient-border="true">
                                             <div class="setting-item">
                                                 <div class="setting-info">
                                                     <label class="setting-label">最大输出长度</label>
@@ -709,7 +710,7 @@
                                         </SettingGroup>
 
                                         <!-- 模型配置列表 -->
-                                        <SettingGroup title="模型配置" icon="mdi:brain" icon-class="text-purple-500">
+                                        <SettingGroup title="模型配置" icon="mdi:brain" :iconClass="'text-purple-500'" :gradient-border="true">
                                             <div class="model-config-container">
                                                 <!-- 使用计算属性缓存和分页渲染来优化性能 -->
                                                 <div 
@@ -888,7 +889,7 @@
                                     </div>
 
                                     <div class="config-section" v-if="envConfig">
-                                        <SettingGroup title="环境变量" icon="mdi:cog-outline" icon-class="text-orange-500">
+                                        <SettingGroup title="环境变量" icon="mdi:cog-outline" :iconClass="'text-orange-500'" :gradient-border="true">
                                             <EnvVariableEditor 
                                                 :env-config="envConfig"
                                                 @update:env-config="envConfig = $event"

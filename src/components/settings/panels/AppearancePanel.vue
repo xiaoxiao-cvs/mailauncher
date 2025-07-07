@@ -10,7 +10,8 @@
       <SettingGroup 
         title="主题模式" 
         icon="mdi:palette" 
-        icon-class="text-purple-500"
+        :iconClass="'text-purple-500'"
+        :gradient-border="true"
       >
         <ThemeSelector
           v-model="settings.themeMode"
@@ -22,7 +23,8 @@
       <SettingGroup 
         title="界面调整" 
         icon="mdi:tune" 
-        icon-class="text-blue-500"
+        :iconClass="'text-blue-500'"
+        :gradient-border="true"
       >
         <SettingSwitch
           label="动画效果"
@@ -55,7 +57,8 @@
         title="高级选项" 
         subtitle="实验性功能和高级自定义"
         icon="mdi:cog" 
-        icon-class="text-gray-500"
+        :iconClass="'text-gray-500'"
+        :gradient-border="true"
       >
         <SettingSwitch
           label="透明效果"
@@ -87,7 +90,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import SettingGroup from '../base/SettingGroup.vue'
+import SettingGroup from '../base/HyperOS2SettingGroup.vue'
 import SettingSwitch from '../base/SettingSwitch.vue'
 import SettingSlider from '../base/SettingSlider.vue'
 import SettingSelect from '../base/SettingSelect.vue'
