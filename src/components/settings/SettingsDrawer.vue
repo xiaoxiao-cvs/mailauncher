@@ -192,87 +192,156 @@
                                 <p class="panel-description">查看应用版本信息和相关资源</p>
                             </div>
 
-                            <div class="settings-section">
-                                <!-- 应用信息 -->
-                                <div class="setting-group">
-                                    <h4 class="group-title">应用信息</h4>
-
-                                    <div class="about-app-info">
-                                        <div class="app-icon">
-                                            <IconifyIcon icon="mdi:rocket-launch" class="app-icon-img" />
+                            <div class="settings-section">                                <!-- 应用信息 -->
+                                <SettingGroup title="应用信息" icon="mdi:rocket-launch" icon-class="text-blue-500">
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">应用详情</label>
+                                            <p class="setting-desc">MaiBot 实例管理和部署工具</p>
                                         </div>
-                                        <div class="app-details">
-                                            <h5 class="app-name">MaiLauncher</h5>
-                                            <p class="app-description">MaiBot 实例管理和部署工具</p>
-                                            <div class="version-details">
-                                                <div class="version-item">
-                                                    <span class="version-label">前端版本:</span>
-                                                    <span class="version-value">{{ currentVersionInfo.frontend.version
-                                                        }}</span>
-                                                    <span class="version-internal">({{
-                                                        currentVersionInfo.frontend.internal }})</span>
-                                                </div>
-                                                <div class="version-item">
-                                                    <span class="version-label">后端版本:</span>
-                                                    <span class="version-value">{{ backendVersionInfo.version ||
-                                                        '获取中...' }}</span>
-                                                    <span v-if="backendVersionInfo.internal"
-                                                        class="version-internal">({{ backendVersionInfo.internal
-                                                        }})</span>
-                                                </div>
-                                                <div class="version-item">
-                                                    <span class="version-label">构建时间:</span>
-                                                    <span class="version-value">{{ buildDate }}</span>
-                                                </div> <!-- 版本检查部分 -->
-                                                <div class="version-check-section">
-                                                    <div class="version-check-controls">
-                                                        <button class="btn btn-outline btn-sm" @click="checkForUpdates"
-                                                            :disabled="isCheckingVersion">
-                                                            <span v-if="isCheckingVersion"
-                                                                class="loading loading-spinner loading-xs"></span>
-                                                            <IconifyIcon v-else icon="mdi:refresh" />
-                                                            {{ isCheckingVersion ? '检查中...' : '检查更新' }}
-                                                        </button>
+                                        <div class="setting-control">
+                                            <div class="bg-base-100 border border-base-300/50 rounded-lg p-4">
+                                                <div class="flex items-center gap-4">
+                                                    <div class="app-icon bg-primary/10 p-3 rounded-lg">
+                                                        <IconifyIcon icon="mdi:rocket-launch" size="2xl" class="text-primary" />
                                                     </div>
-
-                                                    <!-- 更新状态显示 -->
-                                                    <div v-if="versionCheckInfo.lastCheck" class="version-check-result">
-                                                        <div v-if="versionCheckInfo.hasUpdate" class="alert alert-info">
-                                                            <IconifyIcon icon="mdi:information" />
-                                                            <div>
-                                                                <div class="font-medium">发现新版本: {{
-                                                                    versionCheckInfo.latestVersion }}</div>
-                                                                <div class="text-sm opacity-80">
-                                                                    内部版本号: {{ versionCheckInfo.latestInternal }}
-                                                                </div>
-                                                                <div v-if="versionCheckInfo.releaseNotes"
-                                                                    class="text-sm mt-1">
-                                                                    {{ versionCheckInfo.releaseNotes }}
-                                                                </div>
-                                                                <button v-if="versionCheckInfo.updateUrl"
-                                                                    @click="openUpdateUrl"
-                                                                    class="btn btn-primary btn-xs mt-2">
-                                                                    下载更新
-                                                                </button>
-                                                            </div>
-                                                        </div>
-
-                                                        <div v-else class="alert alert-success">
-                                                            <IconifyIcon icon="mdi:check-circle" />
-                                                            <div>当前已是最新版本</div>
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 检查失败显示 -->
-                                                    <div v-if="versionCheckError" class="alert alert-error">
-                                                        <IconifyIcon icon="mdi:alert-circle" />
-                                                        <div>{{ versionCheckError }}</div>
+                                                    <div class="app-details">
+                                                        <h5 class="text-lg font-semibold text-base-content">MaiLauncher</h5>
+                                                        <p class="text-sm text-base-content/70">MaiBot 实例管理和部署工具</p>
+                                                        <p class="text-xs text-base-content/50 mt-1">构建时间: {{ buildDate }}</p>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                </SettingGroup>
+
+                                <!-- 版本与更新管理 -->
+                                <SettingGroup title="版本与更新" icon="mdi:update" icon-class="text-emerald-500">
+                                    <!-- 当前版本信息 -->
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">当前版本</label>
+                                            <p class="setting-desc">查看当前安装的版本信息</p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <div class="bg-base-100 border border-base-300/50 rounded-lg p-4">
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                                    <div class="version-info-card bg-gradient-to-r from-primary/5 to-primary/10 p-3 rounded-lg">
+                                                        <div class="flex items-center gap-2 mb-2">
+                                                            <IconifyIcon icon="mdi:monitor" class="text-primary" />
+                                                            <span class="font-medium text-base-content">前端版本</span>
+                                                        </div>
+                                                        <div class="text-primary font-bold text-lg">
+                                                            {{ currentVersionInfo.frontend.version }}
+                                                        </div>
+                                                        <div class="text-xs text-base-content/60">
+                                                            内部版本: {{ currentVersionInfo.frontend.internal }}
+                                                        </div>
+                                                    </div>
+                                                    <div class="version-info-card bg-gradient-to-r from-secondary/5 to-secondary/10 p-3 rounded-lg">
+                                                        <div class="flex items-center gap-2 mb-2">
+                                                            <IconifyIcon icon="mdi:server" class="text-secondary" />
+                                                            <span class="font-medium text-base-content">后端版本</span>
+                                                        </div>
+                                                        <div class="text-secondary font-bold text-lg">
+                                                            {{ backendVersionInfo.version || '获取中...' }}
+                                                        </div>
+                                                        <div v-if="backendVersionInfo.internal" class="text-xs text-base-content/60">
+                                                            内部版本: {{ backendVersionInfo.internal }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 更新通道选择 -->
+                                    <SettingRadioGroup
+                                        label="更新通道"
+                                        description="选择接收更新的版本类型，不同通道提供不同稳定性的版本"
+                                        :options="updateChannelOptions"
+                                        v-model="updateChannel"
+                                        @change="changeUpdateChannel"
+                                    />
+
+                                    <!-- 自动检查更新设置 -->
+                                    <SettingSwitch
+                                        label="自动检查更新"
+                                        description="定期自动检查是否有新版本可用"
+                                        v-model="autoCheckEnabled"
+                                        @change="toggleAutoVersionCheck"
+                                    />
+
+                                    <!-- 检查更新操作 -->
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <label class="setting-label">检查更新</label>
+                                            <p class="setting-desc">
+                                                手动检查是否有新版本可用
+                                                <span v-if="versionCheckInfo.lastCheck" class="text-xs text-base-content/60 block mt-1">
+                                                    上次检查: {{ new Date(versionCheckInfo.lastCheck).toLocaleString('zh-CN') }}
+                                                </span>
+                                            </p>
+                                        </div>
+                                        <div class="setting-control">
+                                            <div class="flex flex-col gap-3">
+                                                <!-- 检查更新按钮 -->
+                                                <button class="btn btn-outline btn-sm" @click="checkForUpdates"
+                                                    :disabled="isCheckingVersion">
+                                                    <span v-if="isCheckingVersion"
+                                                        class="loading loading-spinner loading-xs"></span>
+                                                    <IconifyIcon v-else icon="mdi:refresh" />
+                                                    {{ isCheckingVersion ? '检查中...' : '检查更新' }}
+                                                </button>
+
+                                                <!-- 更新状态显示 -->
+                                                <div v-if="versionCheckInfo.lastCheck || versionCheckError" class="update-status">
+                                                    <!-- 有更新可用 -->
+                                                    <div v-if="versionCheckInfo.hasUpdate" class="alert alert-info">
+                                                        <IconifyIcon icon="mdi:download" />
+                                                        <div class="flex-1">
+                                                            <div class="font-medium">发现新版本: {{ versionCheckInfo.latestVersion }}</div>
+                                                            <div class="text-sm opacity-80 mt-1">
+                                                                <div>内部版本号: {{ versionCheckInfo.latestInternal }}</div>
+                                                                <div>更新通道: {{ getChannelDisplayName(updateChannel) }}</div>
+                                                            </div>
+                                                            <div v-if="versionCheckInfo.releaseNotes" class="text-sm mt-2 p-2 bg-base-200/50 rounded">
+                                                                {{ versionCheckInfo.releaseNotes }}
+                                                            </div>
+                                                        </div>
+                                                        <button v-if="versionCheckInfo.updateUrl"
+                                                            @click="openUpdateUrl"
+                                                            class="btn btn-primary btn-sm">
+                                                            <IconifyIcon icon="mdi:download" />
+                                                            下载更新
+                                                        </button>
+                                                    </div>
+
+                                                    <!-- 已是最新版本 -->
+                                                    <div v-else-if="!versionCheckError" class="alert alert-success">
+                                                        <IconifyIcon icon="mdi:check-circle" />
+                                                        <div>
+                                                            <div class="font-medium">当前已是最新版本</div>
+                                                            <div class="text-sm opacity-80">
+                                                                更新通道: {{ getChannelDisplayName(updateChannel) }}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- 检查失败 -->
+                                                    <div v-if="versionCheckError" class="alert alert-error">
+                                                        <IconifyIcon icon="mdi:alert-circle" />
+                                                        <div>
+                                                            <div class="font-medium">检查更新失败</div>
+                                                            <div class="text-sm">{{ versionCheckError }}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </SettingGroup>
 
                                 <!-- 系统信息 -->
                                 <div class="setting-group">
@@ -846,6 +915,14 @@ const versionCheckError = ref('')
 const autoCheckEnabled = ref(localStorage.getItem('autoVersionCheck') !== 'false')
 const autoCheckInterval = ref(parseInt(localStorage.getItem('autoVersionCheckInterval')) || 24) // 小时
 
+// 更新通道设置
+const updateChannel = ref(localStorage.getItem('updateChannel') || 'stable')
+const updateChannelOptions = [
+    { value: 'stable', label: '稳定版', description: '经过充分测试的稳定版本' },
+    { value: 'preview', label: 'Preview', description: '预览版本，包含最新功能' },
+    { value: 'development', label: '开发版', description: '开发中版本，可能不稳定' }
+]
+
 // 方法
 const switchTab = (tab) => {
     // 记录前一个标签页
@@ -887,6 +964,38 @@ const handleBackdropClick = () => {
 const getCurrentTabTitle = () => {
     const tab = settingTabs.find(t => t.key === activeTab.value)
     return tab ? tab.title : '设置'
+}
+
+// 更新通道相关方法
+const changeUpdateChannel = async () => {
+    try {
+        localStorage.setItem('updateChannel', updateChannel.value)
+        
+        const { default: toastService } = await import('../../services/toastService')
+        toastService.success(`更新通道已切换到: ${getChannelDisplayName(updateChannel.value)}`)
+        
+        console.log('更新通道已切换:', updateChannel.value)
+        
+        // 清除之前的版本检查结果，因为通道改变了
+        versionCheckInfo.value = {
+            hasUpdate: false,
+            latestVersion: '',
+            latestInternal: 0,
+            updateUrl: null,
+            releaseNotes: '',
+            lastCheck: null
+        }
+        versionCheckError.value = ''
+    } catch (error) {
+        console.error('切换更新通道失败:', error)
+        const { default: toastService } = await import('../../services/toastService')
+        toastService.error('切换更新通道失败')
+    }
+}
+
+const getChannelDisplayName = (channel) => {
+    const option = updateChannelOptions.find(opt => opt.value === channel)
+    return option ? option.label : channel
 }
 
 // 组件库相关方法
@@ -986,12 +1095,12 @@ const selectDataFolder = async () => {
                 detail: { path: selectedPath }
             }))
 
-            const { default: toastService } = await import('@/services/toastService')
+            const { default: toastService } = await import('../../services/toastService')
             toastService.success(`数据存放路径已设置为: ${selectedPath}`)
         }
     } catch (error) {
         console.error('选择文件夹失败:', error)
-        const { default: toastService } = await import('@/services/toastService')
+        const { default: toastService } = await import('../../services/toastService')
         toastService.error('选择文件夹失败，请重试')
     } finally {
         isSelectingFolder.value = false
@@ -1006,13 +1115,13 @@ const selectDeploymentFolder = async () => {
     try {
         // 检查是否在 Tauri 环境中
         if (typeof window === 'undefined' || (!window.__TAURI__ && !window.isTauriApp)) {
-            const { default: toastService } = await import('@/services/toastService')
+            const { default: toastService } = await import('../../services/toastService')
             toastService.error('文件夹选择功能仅在桌面应用中可用，请手动输入路径')
             return
         }
 
         // 动态导入 folderSelector
-        const { selectFolder } = await import('@/utils/folderSelector')
+        const { selectFolder } = await import('../../utils/folderSelector')
 
         const selectedPath = await selectFolder({
             title: '选择部署下载文件夹',
@@ -1028,12 +1137,12 @@ const selectDeploymentFolder = async () => {
                 detail: { path: selectedPath }
             }))
 
-            const { default: toastService } = await import('@/services/toastService')
+            const { default: toastService } = await import('../../services/toastService')
             toastService.success(`部署下载路径已设置为: ${selectedPath}`)
         }
     } catch (error) {
         console.error('选择文件夹失败:', error)
-        const { default: toastService } = await import('@/services/toastService')
+        const { default: toastService } = await import('../../services/toastService')
         
         // 提供更具体的错误信息
         if (error.message && error.message.includes('invoke')) {
@@ -1079,16 +1188,16 @@ const updateInstanceNamePattern = async () => {
     
     // 调用实例名称生成器的设置方法
     try {
-        const { setInstanceNamePattern } = await import('@/utils/instanceNameGenerator')
+        const { setInstanceNamePattern } = await import('../../utils/instanceNameGenerator')
         setInstanceNamePattern(pattern)
         
-        const { default: toastService } = await import('@/services/toastService')
+        const { default: toastService } = await import('../../services/toastService')
         toastService.success('实例名称模式已更新')
         
         console.log('实例名称模式已更新:', pattern)
     } catch (error) {
         console.error('更新实例名称模式失败:', error)
-        const { default: toastService } = await import('@/services/toastService')
+        const { default: toastService } = await import('../../services/toastService')
         toastService.error('更新实例名称模式失败')
     }
 }
@@ -1670,6 +1779,25 @@ watch(systemDarkMode, (newValue, oldValue) => {
     }
 }, { immediate: false })
 
+// 监听更新通道变化，保存到 localStorage
+watch(updateChannel, (newChannel, oldChannel) => {
+    if (oldChannel !== undefined && newChannel !== oldChannel) {
+        console.log('更新通道变化 (watch):', oldChannel, '->', newChannel)
+        localStorage.setItem('updateChannel', newChannel)
+        
+        // 清除之前的版本检查结果，因为通道改变了
+        versionCheckInfo.value = {
+            hasUpdate: false,
+            latestVersion: '',
+            latestInternal: 0,
+            updateUrl: null,
+            releaseNotes: '',
+            lastCheck: null
+        }
+        versionCheckError.value = ''
+    }
+}, { immediate: false })
+
 // 版本检查相关方法
 const checkForUpdates = async () => {
     if (isCheckingVersion.value) return
@@ -1678,7 +1806,10 @@ const checkForUpdates = async () => {
     versionCheckError.value = ''
 
     try {
-        const updateInfo = await versionService.checkForUpdatesFromBackend()
+        // 传递更新通道参数给后端
+        const updateInfo = await versionService.checkForUpdatesFromBackend({
+            channel: updateChannel.value
+        })
 
         if (updateInfo.success) {
             versionCheckInfo.value = {
@@ -1687,15 +1818,16 @@ const checkForUpdates = async () => {
                 latestInternal: updateInfo.data.latest_internal,
                 updateUrl: updateInfo.data.update_url,
                 releaseNotes: updateInfo.data.release_notes,
-                lastCheck: new Date().toISOString()
+                lastCheck: new Date().toISOString(),
+                channel: updateChannel.value
             }
 
             if (updateInfo.data.has_update) {
-                const { default: toastService } = await import('@/services/toastService')
-                toastService.info(`发现新版本: ${updateInfo.data.latest_version}`)
+                const { default: toastService } = await import('../../services/toastService')
+                toastService.info(`发现新版本: ${updateInfo.data.latest_version} (${getChannelDisplayName(updateChannel.value)})`)
             } else {
-                const { default: toastService } = await import('@/services/toastService')
-                toastService.success('当前已是最新版本')
+                const { default: toastService } = await import('../../services/toastService')
+                toastService.success(`当前已是最新版本 (${getChannelDisplayName(updateChannel.value)})`)
             }
         } else {
             throw new Error(updateInfo.error || '检查更新失败')
@@ -1704,7 +1836,7 @@ const checkForUpdates = async () => {
         console.error('检查版本更新失败:', error)
         versionCheckError.value = error.message || '检查更新时发生错误'
 
-        const { default: toastService } = await import('@/services/toastService')
+        const { default: toastService } = await import('../../services/toastService')
         toastService.error('检查更新失败，请稍后重试')
     } finally {
         isCheckingVersion.value = false
@@ -1754,15 +1886,20 @@ const initializeVersionInfo = () => {
     // 初始化前端版本信息
     try {
         // 从 package.json 或其他地方获取前端版本
-        const packageVersion = '0.1.0' // 这里应该从实际的 package.json 获取
-        const { version, internal } = formatVersionInfo(packageVersion)
+        const packageVersion = '0.1.0-preview.2' // 这里应该从实际的 package.json 获取
+        const versionInfo = formatVersionInfo(packageVersion)
 
         currentVersionInfo.value.frontend = {
-            version,
-            internal
+            version: versionInfo.original,
+            internal: versionInfo.internal
         }
     } catch (error) {
         console.error('初始化版本信息失败:', error)
+        // 设置默认值
+        currentVersionInfo.value.frontend = {
+            version: '0.1.0-preview.2',
+            internal: 102
+        }
     }
 
     // 加载后端版本信息
@@ -1787,9 +1924,21 @@ const updateAutoCheckInterval = () => {
     }
 }
 
-const openUpdateUrl = () => {
+const openUpdateUrl = async () => {
     if (versionCheckInfo.value.updateUrl) {
-        window.open(versionCheckInfo.value.updateUrl, '_blank')
+        try {
+            // 在 Tauri 环境中使用 shell.open，否则使用 window.open
+            if (window.__TAURI_INTERNALS__) {
+                const { shell } = await import('@tauri-apps/api')
+                await shell.open(versionCheckInfo.value.updateUrl)
+            } else {
+                window.open(versionCheckInfo.value.updateUrl, '_blank', 'noopener,noreferrer')
+            }
+        } catch (error) {
+            console.error('打开更新链接失败:', error)
+            const { default: toastService } = await import('../../services/toastService')
+            toastService.error('无法打开更新链接')
+        }
     }
 }
 </script>
@@ -1835,5 +1984,56 @@ const openUpdateUrl = () => {
 .setting-label {
   /* 确保文字与图标对齐 */
   line-height: 1.4;
+}
+
+/* 更新管理卡片专用样式 */
+.update-check-container {
+  min-height: 60px;
+}
+
+.update-status .alert {
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+}
+
+.update-status .alert-info {
+  background: linear-gradient(135deg, 
+    rgba(59, 130, 246, 0.1) 0%, 
+    rgba(59, 130, 246, 0.05) 100%);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.update-status .alert-success {
+  background: linear-gradient(135deg, 
+    rgba(34, 197, 94, 0.1) 0%, 
+    rgba(34, 197, 94, 0.05) 100%);
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.update-status .alert-error {
+  background: linear-gradient(135deg, 
+    rgba(239, 68, 68, 0.1) 0%, 
+    rgba(239, 68, 68, 0.05) 100%);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+/* 检查更新按钮样式 */
+.btn[disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn .loading {
+  margin-right: 0.5rem;
+}
+
+/* 版本信息卡片样式 */
+.version-info-card {
+  transition: all 0.2s ease;
+}
+
+.version-info-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 </style>

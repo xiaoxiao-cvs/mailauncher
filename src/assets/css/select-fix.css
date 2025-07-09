@@ -1,0 +1,320 @@
+/* 下拉框文字显示修复补丁 */
+
+/* 确保所有 select 元素的文字颜色正确显示 */
+.select,
+select {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+/* 确保 select option 的文字颜色正确显示 */
+.select option,
+select option {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+/* 修复在不同主题下的显示问题 */
+[data-theme] .select,
+[data-theme] select {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+[data-theme] .select option,
+[data-theme] select option {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+/* 特别针对暗色主题的修复 */
+[data-theme="dark"] .select,
+[data-theme="night"] .select,
+[data-theme="black"] .select,
+[data-theme="dracula"] .select,
+[data-theme="dark"] select,
+[data-theme="night"] select,
+[data-theme="black"] select,
+[data-theme="dracula"] select {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+[data-theme="dark"] .select option,
+[data-theme="night"] .select option,
+[data-theme="black"] .select option,
+[data-theme="dracula"] .select option,
+[data-theme="dark"] select option,
+[data-theme="night"] select option,
+[data-theme="black"] select option,
+[data-theme="dracula"] select option {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+/* 修复 HyperOS2 选择框的文字显示 */
+.hyperos2-select-field {
+  color: var(--hyperos-text-primary) !important;
+  background: var(--hyperos-bg-primary) !important;
+}
+
+.hyperos2-select-field option {
+  color: var(--hyperos-text-primary) !important;
+  background: var(--hyperos-bg-primary) !important;
+}
+
+/* 修复设置组件中的选择框 */
+.setting-select .select,
+.setting-select select {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+.setting-select .select option,
+.setting-select select option {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+/* 确保聚焦时文字仍然可见 */
+.select:focus,
+select:focus {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+.select:focus option,
+select:focus option {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+/* 修复禁用状态下的文字显示 */
+.select:disabled,
+select:disabled {
+  color: hsl(var(--bc) / 0.6) !important;
+  background-color: hsl(var(--b2)) !important;
+}
+
+.select:disabled option,
+select:disabled option {
+  color: hsl(var(--bc) / 0.6) !important;
+  background-color: hsl(var(--b2)) !important;
+}
+
+/* 字体渲染优化 */
+.select,
+select,
+.select option,
+select option {
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: optimizeLegibility !important;
+  font-family: inherit !important;
+}
+
+/* 特殊修复：确保继承的颜色不会被覆盖 */
+* .select,
+* select {
+  color: hsl(var(--bc)) !important;
+}
+
+* .select option,
+* select option {
+  color: hsl(var(--bc)) !important;
+}
+
+/* WebKit 浏览器特殊修复 */
+@supports (-webkit-appearance: none) {
+  .select,
+  select {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    color: hsl(var(--bc)) !important;
+  }
+  
+  .select option,
+  select option {
+    color: hsl(var(--bc)) !important;
+  }
+}
+
+/* Firefox 特殊修复 */
+@-moz-document url-prefix() {
+  .select,
+  select {
+    color: hsl(var(--bc)) !important;
+    background-color: hsl(var(--b1)) !important;
+  }
+  
+  .select option,
+  select option {
+    color: hsl(var(--bc)) !important;
+    background-color: hsl(var(--b1)) !important;
+  }
+}
+
+/* 特定组件的额外修复 */
+
+/* EmojiManagement 组件的过滤器选择框 */
+.filters .select,
+.filters select {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+.filters .select option,
+.filters select option {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+/* PersonManagement 组件的选择框 */
+.person-management .select,
+.person-management select {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+.person-management .select option,
+.person-management select option {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+/* FieldRenderer 组件的选择框 */
+.field-renderer .select,
+.field-renderer select {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+.field-renderer .select option,
+.field-renderer select option {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+/* 版本选择下拉框特殊修复 */
+.version-option {
+  color: hsl(var(--bc)) !important;
+}
+
+.dropdown-content .version-option {
+  color: hsl(var(--bc)) !important;
+}
+
+/* 确保所有下拉框内容可见 */
+.dropdown-content,
+.dropdown-menu {
+  color: hsl(var(--bc)) !important;
+  background-color: hsl(var(--b1)) !important;
+}
+
+.dropdown-content li,
+.dropdown-content li a,
+.dropdown-menu li,
+.dropdown-menu li a {
+  color: hsl(var(--bc)) !important;
+}
+
+/* 修复可能的继承问题 */
+.select,
+select {
+  color: hsl(var(--bc)) !important;
+  -webkit-text-fill-color: hsl(var(--bc)) !important;
+}
+
+.select option,
+select option {
+  color: hsl(var(--bc)) !important;
+  -webkit-text-fill-color: hsl(var(--bc)) !important;
+}
+
+/* 针对可能的样式重置问题 */
+.select:not([style*="color"]),
+select:not([style*="color"]) {
+  color: hsl(var(--bc)) !important;
+}
+
+.select option:not([style*="color"]),
+select option:not([style*="color"]) {
+  color: hsl(var(--bc)) !important;
+}
+
+/* 确保系统级别的CSS变量正确 */
+:root[data-theme] {
+  --select-text-color: hsl(var(--bc));
+  --select-bg-color: hsl(var(--b1));
+}
+
+/* 应用系统级别的CSS变量 */
+.select,
+select {
+  color: var(--select-text-color, hsl(var(--bc))) !important;
+  background-color: var(--select-bg-color, hsl(var(--b1))) !important;
+}
+
+.select option,
+select option {
+  color: var(--select-text-color, hsl(var(--bc))) !important;
+  background-color: var(--select-bg-color, hsl(var(--b1))) !important;
+}
+
+/* 浏览器特定修复 */
+
+/* Edge 浏览器修复 */
+@supports (-ms-ime-align: auto) {
+  .select,
+  select {
+    color: hsl(var(--bc)) !important;
+    background-color: hsl(var(--b1)) !important;
+  }
+}
+
+/* Safari 浏览器修复 */
+@supports (-webkit-hyphens: none) {
+  .select,
+  select {
+    -webkit-text-fill-color: hsl(var(--bc)) !important;
+  }
+  
+  .select option,
+  select option {
+    -webkit-text-fill-color: hsl(var(--bc)) !important;
+  }
+}
+
+/* 移动设备修复 */
+@media (hover: none) and (pointer: coarse) {
+  .select,
+  select {
+    color: hsl(var(--bc)) !important;
+    background-color: hsl(var(--b1)) !important;
+    font-size: 16px; /* 防止iOS缩放 */
+  }
+  
+  .select option,
+  select option {
+    color: hsl(var(--bc)) !important;
+    background-color: hsl(var(--b1)) !important;
+  }
+}
+
+/* 高对比度模式修复 */
+@media (prefers-contrast: high) {
+  .select,
+  select {
+    color: hsl(var(--bc)) !important;
+    background-color: hsl(var(--b1)) !important;
+    border: 2px solid hsl(var(--bc)) !important;
+  }
+}
+
+/* 减少动画模式修复 */
+@media (prefers-reduced-motion: reduce) {
+  .select,
+  select {
+    transition: none !important;
+  }
+}

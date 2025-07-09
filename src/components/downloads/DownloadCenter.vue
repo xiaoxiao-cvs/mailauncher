@@ -319,7 +319,6 @@
                                                         <div class="font-medium transition-colors duration-300"
                                                             :class="{ 
                                                                 'text-primary': selectedVersion,
-                                                                'text-base-content': selectedVersion,
                                                                 'text-base-content/70': !selectedVersion
                                                             }">
                                                             {{ selectedVersion || '请选择一个版本' }}
@@ -2829,7 +2828,6 @@ watch(installComplete, (newValue, oldValue) => {
 .version-option {
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid transparent;
-    color: hsl(var(--bc)) !important;
     position: relative;
     overflow: hidden;
 }
@@ -2863,7 +2861,6 @@ watch(installComplete, (newValue, oldValue) => {
 /* 选中状态的版本选项增强 */
 .version-option.bg-primary\/10 {
     background: hsl(var(--p) / 0.1) !important;
-    color: hsl(var(--p)) !important;
     border-color: hsl(var(--p) / 0.3) !important;
     box-shadow: 0 2px 8px hsl(var(--p) / 0.2);
 }

@@ -88,6 +88,7 @@ import { createPinia } from "pinia";
 import App from "./App.vue";
 import "./assets/css/tailwind.css";
 import "./assets/global.css";
+import "./assets/css/select-fix.css"; // 下拉框文字显示修复
 import "./assets/css/ultimate-performance-theme.css"; // 终极性能主题样式（最高优先级）
 import "./assets/css/theme-performance-optimized.css"; // 性能优化的主题样式
 import "./assets/css/enhanced-light-theme.css"; // 增强亮色主题
@@ -117,6 +118,12 @@ import backendConfig from "./config/backendConfig";
 
 // 导入全局错误处理器
 import globalErrorHandler from "./services/globalErrorHandler";
+
+// 导入下拉框修复工具
+import "./utils/selectFixUtil.js";
+
+// 导入下拉框诊断工具（开发环境）
+import "./utils/selectDiagnosticTool.js";
 
 // 创建应用实例
 const app = createApp(App);

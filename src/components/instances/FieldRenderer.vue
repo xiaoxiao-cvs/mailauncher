@@ -49,11 +49,10 @@
       </div>
       
       <!-- 布尔类型 -->
-      <CustomToggle 
+      <HyperOS2Switch 
         v-else-if="config.type === 'switch'" 
         :model-value="value"
         @update:model-value="updateValue"
-        class="toggle-sm"
       />
       
       <!-- 选择类型 -->
@@ -106,7 +105,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
-import CustomToggle from '../common/CustomToggle.vue'
+import { HyperOS2Switch } from '../settings/hyperos2'
 
 const props = defineProps({
   fieldKey: String,

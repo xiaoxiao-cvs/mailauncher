@@ -407,7 +407,7 @@
                                     <div class="flex items-center gap-3">
                                         <span class="text-sm font-medium">{{ config.webui.enabled ? '已启用' : '已禁用'
                                             }}</span>
-                                        <CustomToggle v-model="config.webui.enabled" />
+                                        <HyperOS2Switch v-model="config.webui.enabled" />
                                     </div>
                                 </div>
                             </div>
@@ -538,14 +538,14 @@
                                             <label class="font-medium">动画效果</label>
                                             <p class="text-sm text-base-content/70">启用界面过渡动画</p>
                                         </div>
-                                        <CustomToggle v-model="config.enableAnimations" />
+                                        <HyperOS2Switch v-model="config.enableAnimations" />
                                     </div>
                                     <div class="flex items-center justify-between">
                                         <div>
                                             <label class="font-medium">启动时显示欢迎页面</label>
                                             <p class="text-sm text-base-content/70">每次启动时显示欢迎界面</p>
                                         </div>
-                                        <CustomToggle v-model="config.showWelcomeOnStartup" />
+                                        <HyperOS2Switch v-model="config.showWelcomeOnStartup" />
                                     </div>
                                 </div>
                             </div>
@@ -632,7 +632,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { getDefaultDataPath, getDefaultDeploymentPath, setDataStoragePath, setDeploymentPath } from '@/utils/pathSync'
 import toastService from '@/services/toastService'
-import CustomToggle from '../common/CustomToggle.vue'
+import { HyperOS2Switch } from '../settings/hyperos2'
 
 const props = defineProps({
     visible: {

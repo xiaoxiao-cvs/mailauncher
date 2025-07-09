@@ -200,7 +200,7 @@
                       <p class="resource-desc">启用定期自动备份功能</p>
                     </div>
                     <div class="resource-control">
-                      <CustomToggle v-model="autoBackupEnabled" @change="toggleAutoBackup" />
+                      <HyperOS2Switch v-model="autoBackupEnabled" @update:model-value="toggleAutoBackup" />
                     </div>
                   </div>
                 </div>
@@ -299,7 +299,7 @@ import { Icon } from '@iconify/vue';
 import EmojiManagement from './EmojiManagement.vue';
 import PersonManagement from './PersonManagement.vue';
 import ManagementTools from './ManagementTools.vue';
-import CustomToggle from '../common/CustomToggle.vue';
+import { HyperOS2Switch } from '../settings/hyperos2';
 import { maibotResourceApi } from '@/services/maibotResourceApi.js';
 import toastService from '@/services/toastService.js';
 

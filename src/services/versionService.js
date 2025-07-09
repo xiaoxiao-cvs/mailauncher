@@ -173,18 +173,23 @@ class VersionService {
 
   /**
    * 检查版本更新（调用后端API）
-   * @param {boolean} forceCheck 是否强制检查
+   * @param {object} options 检查选项
+   * @param {boolean} options.forceCheck 是否强制检查
+   * @param {string} options.channel 更新通道 (stable, preview, development)
    * @returns {Promise<object>} 更新检查结果
    */
-  async checkForUpdatesFromBackend(forceCheck = false) {
+  async checkForUpdatesFromBackend(options = {}) {
+    const { forceCheck = false, channel = 'stable' } = options;
+    
     try {
-      console.log("调用后端检查版本更新...");
+      console.log("调用后端检查版本更新...", { channel, forceCheck });
 
       const currentVersion = this.getCurrentVersion();
       const requestData = {
         current_version: currentVersion.frontend.version,
         internal_version: currentVersion.frontend.internal,
         force_check: forceCheck,
+        channel: channel // 添加更新通道参数
       };
 
       console.log("发送更新检查请求:", requestData);

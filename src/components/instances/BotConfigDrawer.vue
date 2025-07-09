@@ -93,16 +93,16 @@
 
                                         <!-- 动态生成配置节 -->
                                         <template v-for="section in displaySections(configSections)" :key="section.key">
-                                            <SettingGroup 
+                                            <HyperOS2Group 
                                                 :title="section.title" 
                                                 :icon="section.icon" 
-                                                :iconClass="section.iconClass"
+                                                :icon-class="section.iconClass"
                                                 :gradient-border="true"
                                                 :class="{ 'search-matched-section': section.titleMatched }"
                                             >
                                                 <!-- 渲染匹配的配置项（搜索模式）或所有配置项（正常模式） -->
                                                 <template v-for="field in (searchQuery ? section.matchedFields : Object.entries(section.data || {}).map(([key, value]) => ({ key, value, label: getFieldLabel(key), description: getFieldDescription(key, section.key) })))" :key="field.key">
-                                                    <FieldRenderer
+                                                    <HyperOS2FieldRenderer
                                                         :field-key="field.key"
                                                         :label="field.label || getFieldLabel(field.key)"
                                                         :description="field.description || getFieldDescription(field.key, section.key)"
@@ -116,7 +116,7 @@
                                                         @remove-array-item="removeArrayItem(`${section.key}.${field.key}`, $event)"
                                                     />
                                                 </template>
-                                            </SettingGroup>
+                                            </HyperOS2Group>
                                         </template>
                                     </div>
 
@@ -175,111 +175,89 @@
                                     <!-- LPMM 配置内容 -->
                                     <div v-else-if="lpmmConfig" class="config-section">
                                         <!-- 基本信息 -->
-                                        <SettingGroup title="基本信息" icon="mdi:information-outline" :gradient-border="true">
-                                            <div class="setting-item">
-                                                <div class="setting-info">
-                                                    <label class="setting-label">版本</label>
-                                                    <p class="setting-description">LPMM 组件版本号</p>
-                                                </div>
-                                                <div class="setting-control">
-                                                    <input 
-                                                        type="text" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model="lpmmConfig.lpmm.version"
-                                                        readonly
-                                                    />
-                                                </div>
-                                            </div>
-                                        </SettingGroup>
+                                        <HyperOS2Group title="基本信息" icon="mdi:information-outline" :gradient-border="true">
+                                            <HyperOS2Input
+                                                label="版本"
+                                                description="LPMM 组件版本号"
+                                                :model-value="lpmmConfig.lpmm.version"
+                                                readonly
+                                            />
+                                        </HyperOS2Group>
 
                                         <!-- LLM 提供商配置 -->
-                                        <SettingGroup title="LLM 提供商" icon="mdi:server-network" :iconClass="'text-blue-500'" :gradient-border="true">
+                                        <HyperOS2Group title="LLM 提供商" icon="mdi:server-network" :icon-class="'text-blue-500'" :gradient-border="true">
                                             <div class="model-config-container">
                                                 <div 
                                                     v-for="(provider, index) in lpmmConfig.llm_providers" 
                                                     :key="index"
-                                                    class="model-item"
+                                                    class="provider-item"
                                                 >
-                                                    <div class="model-header">
-                                                        <div class="model-title-section">
-                                                            <div class="model-name">{{ provider.name || `提供商 ${index + 1}` }}</div>
-                                                            <div class="model-key">provider-{{ index }}</div>
+                                                    <div class="provider-header">
+                                                        <div class="provider-title-section">
+                                                            <div class="provider-name">{{ provider.name || `提供商 ${index + 1}` }}</div>
+                                                            <div class="provider-key">provider-{{ index }}</div>
                                                         </div>
-                                                        <div class="model-provider-badge">
+                                                        <div class="provider-badge">
                                                             <Icon icon="mdi:server-network" class="w-3 h-3" />
                                                             LLM 提供商
                                                         </div>
                                                     </div>
                                                     
-                                                    <div class="model-settings">
+                                                    <div class="provider-settings">
                                                         <!-- 提供商名称 -->
-                                                        <div class="model-setting">
-                                                            <label class="model-setting-label">提供商名称</label>
-                                                            <input 
-                                                                type="text" 
-                                                                class="input input-bordered input-sm flex-1" 
-                                                                v-model="provider.name"
-                                                                @input="markLpmmChanged"
-                                                                placeholder="输入提供商名称"
-                                                            />
-                                                        </div>
+                                                        <HyperOS2Input
+                                                            label="提供商名称"
+                                                            :model-value="provider.name"
+                                                            @update:model-value="provider.name = $event; markLpmmChanged()"
+                                                            placeholder="输入提供商名称"
+                                                        />
 
                                                         <!-- 基础URL -->
-                                                        <div class="model-setting">
-                                                            <label class="model-setting-label">基础URL</label>
-                                                            <input 
-                                                                type="text" 
-                                                                class="input input-bordered input-sm flex-1" 
-                                                                v-model="provider.base_url"
-                                                                placeholder="http://127.0.0.1:8888/v1/"
-                                                                @input="markLpmmChanged"
-                                                            />
-                                                        </div>
+                                                        <HyperOS2Input
+                                                            label="基础URL"
+                                                            :model-value="provider.base_url"
+                                                            @update:model-value="provider.base_url = $event; markLpmmChanged()"
+                                                            placeholder="http://127.0.0.1:8888/v1/"
+                                                        />
 
                                                         <!-- API密钥 -->
-                                                        <div class="model-setting">
-                                                            <label class="model-setting-label">API密钥</label>
-                                                            <input 
-                                                                type="password" 
-                                                                class="input input-bordered input-sm flex-1" 
-                                                                v-model="provider.api_key"
-                                                                placeholder="输入API密钥"
-                                                                @input="markLpmmChanged"
-                                                            />
-                                                        </div>
+                                                        <HyperOS2Input
+                                                            label="API密钥"
+                                                            type="password"
+                                                            :model-value="provider.api_key"
+                                                            @update:model-value="provider.api_key = $event; markLpmmChanged()"
+                                                            placeholder="输入API密钥"
+                                                        />
 
                                                         <!-- 删除按钮 -->
-                                                        <div class="model-setting" v-if="lpmmConfig.llm_providers.length > 1">
-                                                            <div class="model-switch-container">
-                                                                <label class="model-setting-label">删除提供商</label>
-                                                                <button 
-                                                                    class="btn btn-error btn-sm"
-                                                                    @click="removeLlmProvider(index)"
-                                                                >
-                                                                    <Icon icon="mdi:delete" class="w-4 h-4 mr-2" />
-                                                                    删除
-                                                                </button>
-                                                            </div>
-                                                            <p class="model-setting-description">删除此LLM提供商配置</p>
+                                                        <div v-if="lpmmConfig.llm_providers.length > 1" class="provider-actions">
+                                                            <HyperOS2Button 
+                                                                variant="error"
+                                                                size="small"
+                                                                @click="removeLlmProvider(index)"
+                                                                prefix-icon="mdi:delete"
+                                                            >
+                                                                删除提供商
+                                                            </HyperOS2Button>
                                                         </div>
                                                     </div>
                                                 </div>
 
                                                 <!-- 添加新提供商按钮 -->
-                                                <div class="mt-4">
-                                                    <button 
-                                                        class="btn btn-outline btn-sm"
+                                                <div class="add-provider-section">
+                                                    <HyperOS2Button 
+                                                        variant="secondary"
                                                         @click="addLlmProvider"
+                                                        prefix-icon="mdi:plus"
                                                     >
-                                                        <Icon icon="mdi:plus" class="w-4 h-4 mr-2" />
                                                         添加提供商
-                                                    </button>
+                                                    </HyperOS2Button>
                                                 </div>
                                             </div>
-                                        </SettingGroup>
+                                        </HyperOS2Group>
 
                                         <!-- 实体提取配置 -->
-                                        <SettingGroup title="实体提取" icon="mdi:text-recognition" :iconClass="'text-green-500'" :gradient-border="true">
+                                        <HyperOS2Group title="实体提取" icon="mdi:text-recognition" :icon-class="'text-green-500'" :gradient-border="true">
                                             <div class="model-config-container">
                                                 <div class="model-item">
                                                     <div class="model-header">
@@ -295,37 +273,27 @@
                                                     
                                                     <div class="model-settings">
                                                         <!-- 提供商选择 -->
-                                                        <div class="model-setting">
-                                                            <label class="model-setting-label">LLM 提供商</label>
-                                                            <select 
-                                                                class="select select-bordered select-sm flex-1" 
-                                                                v-model="lpmmConfig.entity_extract.llm.provider"
-                                                                @change="markLpmmChanged"
-                                                            >
-                                                                <option v-for="provider in lpmmConfig.llm_providers" :key="provider.name" :value="provider.name">
-                                                                    {{ provider.name }}
-                                                                </option>
-                                                            </select>
-                                                        </div>
+                                                        <HyperOS2Select
+                                                            label="LLM 提供商"
+                                                            :model-value="lpmmConfig.entity_extract.llm.provider"
+                                                            @update:model-value="lpmmConfig.entity_extract.llm.provider = $event; markLpmmChanged()"
+                                                            :options="lpmmConfig.llm_providers.map(p => ({ value: p.name, label: p.name }))"
+                                                        />
 
                                                         <!-- 模型名称 -->
-                                                        <div class="model-setting">
-                                                            <label class="model-setting-label">模型名称</label>
-                                                            <input 
-                                                                type="text" 
-                                                                class="input input-bordered input-sm flex-1" 
-                                                                v-model="lpmmConfig.entity_extract.llm.model"
-                                                                placeholder="deepseek-ai/DeepSeek-V3"
-                                                                @input="markLpmmChanged"
-                                                            />
-                                                        </div>
+                                                        <HyperOS2Input
+                                                            label="模型名称"
+                                                            :model-value="lpmmConfig.entity_extract.llm.model"
+                                                            @update:model-value="lpmmConfig.entity_extract.llm.model = $event; markLpmmChanged()"
+                                                            placeholder="deepseek-ai/DeepSeek-V3"
+                                                        />
                                                     </div>
                                                 </div>
                                             </div>
-                                        </SettingGroup>
+                                        </HyperOS2Group>
 
                                         <!-- RDF构建配置 -->
-                                        <SettingGroup title="RDF构建" icon="mdi:graph-outline" :iconClass="'text-orange-500'" :gradient-border="true">
+                                        <HyperOS2Group title="RDF构建" icon="mdi:graph-outline" :icon-class="'text-orange-500'" :gradient-border="true">
                                             <div class="model-config-container">
                                                 <div class="model-item">
                                                     <div class="model-header">
@@ -341,37 +309,27 @@
                                                     
                                                     <div class="model-settings">
                                                         <!-- 提供商选择 -->
-                                                        <div class="model-setting">
-                                                            <label class="model-setting-label">LLM 提供商</label>
-                                                            <select 
-                                                                class="select select-bordered select-sm flex-1" 
-                                                                v-model="lpmmConfig.rdf_build.llm.provider"
-                                                                @change="markLpmmChanged"
-                                                            >
-                                                                <option v-for="provider in lpmmConfig.llm_providers" :key="provider.name" :value="provider.name">
-                                                                    {{ provider.name }}
-                                                                </option>
-                                                            </select>
-                                                        </div>
+                                                        <HyperOS2Select
+                                                            label="LLM 提供商"
+                                                            :model-value="lpmmConfig.rdf_build.llm.provider"
+                                                            @update:model-value="lpmmConfig.rdf_build.llm.provider = $event; markLpmmChanged()"
+                                                            :options="lpmmConfig.llm_providers.map(p => ({ value: p.name, label: p.name }))"
+                                                        />
 
                                                         <!-- 模型名称 -->
-                                                        <div class="model-setting">
-                                                            <label class="model-setting-label">模型名称</label>
-                                                            <input 
-                                                                type="text" 
-                                                                class="input input-bordered input-sm flex-1" 
-                                                                v-model="lpmmConfig.rdf_build.llm.model"
-                                                                placeholder="deepseek-ai/DeepSeek-V3"
-                                                                @input="markLpmmChanged"
-                                                            />
-                                                        </div>
+                                                        <HyperOS2Input
+                                                            label="模型名称"
+                                                            :model-value="lpmmConfig.rdf_build.llm.model"
+                                                            @update:model-value="lpmmConfig.rdf_build.llm.model = $event; markLpmmChanged()"
+                                                            placeholder="deepseek-ai/DeepSeek-V3"
+                                                        />
                                                     </div>
                                                 </div>
                                             </div>
-                                        </SettingGroup>
+                                        </HyperOS2Group>
 
                                         <!-- 嵌入配置 -->
-                                        <SettingGroup title="嵌入配置" icon="mdi:vector-triangle" :iconClass="'text-purple-500'" :gradient-border="true">
+                                        <HyperOS2Group title="嵌入配置" icon="mdi:vector-triangle" :icon-class="'text-purple-500'" :gradient-border="true">
                                             <div class="model-config-container">
                                                 <div class="model-item">
                                                     <div class="model-header">
@@ -387,86 +345,59 @@
                                                     
                                                     <div class="model-settings">
                                                         <!-- 提供商选择 -->
-                                                        <div class="model-setting">
-                                                            <label class="model-setting-label">提供商</label>
-                                                            <select 
-                                                                class="select select-bordered select-sm flex-1" 
-                                                                v-model="lpmmConfig.embedding.provider"
-                                                                @change="markLpmmChanged"
-                                                            >
-                                                                <option v-for="provider in lpmmConfig.llm_providers" :key="provider.name" :value="provider.name">
-                                                                    {{ provider.name }}
-                                                                </option>
-                                                            </select>
-                                                        </div>
+                                                        <HyperOS2Select
+                                                            label="提供商"
+                                                            :model-value="lpmmConfig.embedding.provider"
+                                                            @update:model-value="lpmmConfig.embedding.provider = $event; markLpmmChanged()"
+                                                            :options="lpmmConfig.llm_providers.map(p => ({ value: p.name, label: p.name }))"
+                                                        />
 
                                                         <!-- 模型名称 -->
-                                                        <div class="model-setting">
-                                                            <label class="model-setting-label">模型名称</label>
-                                                            <input 
-                                                                type="text" 
-                                                                class="input input-bordered input-sm flex-1" 
-                                                                v-model="lpmmConfig.embedding.model"
-                                                                placeholder="Pro/BAAI/bge-m3"
-                                                                @input="markLpmmChanged"
-                                                            />
-                                                        </div>
+                                                        <HyperOS2Input
+                                                            label="模型名称"
+                                                            :model-value="lpmmConfig.embedding.model"
+                                                            @update:model-value="lpmmConfig.embedding.model = $event; markLpmmChanged()"
+                                                            placeholder="Pro/BAAI/bge-m3"
+                                                        />
 
                                                         <!-- 嵌入维度 -->
-                                                        <div class="model-setting">
-                                                            <label class="model-setting-label">嵌入维度</label>
-                                                            <input 
-                                                                type="number" 
-                                                                class="input input-bordered input-sm flex-1" 
-                                                                v-model.number="lpmmConfig.embedding.dimension"
-                                                                placeholder="1024"
-                                                                min="1"
-                                                                @input="markLpmmChanged"
-                                                            />
-                                                        </div>
+                                                        <HyperOS2Input
+                                                            label="嵌入维度"
+                                                            type="number"
+                                                            :model-value="lpmmConfig.embedding.dimension"
+                                                            @update:model-value="lpmmConfig.embedding.dimension = parseInt($event) || 1024; markLpmmChanged()"
+                                                            placeholder="1024"
+                                                            :min="1"
+                                                        />
                                                     </div>
                                                 </div>
                                             </div>
-                                        </SettingGroup>
+                                        </HyperOS2Group>
 
                                         <!-- RAG配置 -->
-                                        <SettingGroup title="RAG参数" icon="mdi:magnify" :gradient-border="true">
-                                            <div class="setting-item">
-                                                <div class="setting-info">
-                                                    <label class="setting-label">同义词搜索Top K</label>
-                                                    <p class="setting-description">同义词搜索返回的最大结果数</p>
-                                                </div>
-                                                <div class="setting-control">
-                                                    <input 
-                                                        type="number" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model.number="lpmmConfig.rag.params.synonym_search_top_k"
-                                                        min="1"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div class="setting-item">
-                                                <div class="setting-info">
-                                                    <label class="setting-label">同义词阈值</label>
-                                                    <p class="setting-description">同义词匹配的相似度阈值</p>
-                                                </div>
-                                                <div class="setting-control">
-                                                    <input 
-                                                        type="number" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model.number="lpmmConfig.rag.params.synonym_threshold"
-                                                        min="0"
-                                                        max="1"
-                                                        step="0.1"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </SettingGroup>
+                                        <HyperOS2Group title="RAG参数" icon="mdi:magnify" :gradient-border="true">
+                                            <HyperOS2Input
+                                                label="同义词搜索Top K"
+                                                description="同义词搜索返回的最大结果数"
+                                                type="number"
+                                                :model-value="lpmmConfig.rag.params.synonym_search_top_k"
+                                                @update:model-value="lpmmConfig.rag.params.synonym_search_top_k = parseInt($event) || 1; markLpmmChanged()"
+                                                :min="1"
+                                            />
+                                            <HyperOS2Input
+                                                label="同义词阈值"
+                                                description="同义词匹配的相似度阈值"
+                                                type="number"
+                                                :model-value="lpmmConfig.rag.params.synonym_threshold"
+                                                @update:model-value="lpmmConfig.rag.params.synonym_threshold = parseFloat($event) || 0; markLpmmChanged()"
+                                                :min="0"
+                                                :max="1"
+                                                :step="0.1"
+                                            />
+                                        </HyperOS2Group>
 
                                         <!-- 问答配置 -->
-                                        <SettingGroup title="问答配置" icon="mdi:comment-question-outline" :iconClass="'text-indigo-500'" :gradient-border="true">
+                                        <HyperOS2Group title="问答配置" icon="mdi:comment-question-outline" :icon-class="'text-indigo-500'" :gradient-border="true">
                                             <div class="model-config-container">
                                                 <div class="model-item">
                                                     <div class="model-header">
@@ -482,190 +413,132 @@
                                                     
                                                     <div class="model-settings">
                                                         <!-- 提供商选择 -->
-                                                        <div class="model-setting">
-                                                            <label class="model-setting-label">LLM 提供商</label>
-                                                            <select 
-                                                                class="select select-bordered select-sm flex-1" 
-                                                                v-model="lpmmConfig.qa.llm.provider"
-                                                                @change="markLpmmChanged"
-                                                            >
-                                                                <option v-for="provider in lpmmConfig.llm_providers" :key="provider.name" :value="provider.name">
-                                                                    {{ provider.name }}
-                                                                </option>
-                                                            </select>
-                                                        </div>
+                                                        <HyperOS2Select
+                                                            label="LLM 提供商"
+                                                            :model-value="lpmmConfig.qa.llm.provider"
+                                                            @update:model-value="lpmmConfig.qa.llm.provider = $event; markLpmmChanged()"
+                                                            :options="lpmmConfig.llm_providers.map(p => ({ value: p.name, label: p.name }))"
+                                                        />
 
                                                         <!-- 模型名称 -->
-                                                        <div class="model-setting">
-                                                            <label class="model-setting-label">模型名称</label>
-                                                            <input 
-                                                                type="text" 
-                                                                class="input input-bordered input-sm flex-1" 
-                                                                v-model="lpmmConfig.qa.llm.model"
-                                                                placeholder="deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
-                                                                @input="markLpmmChanged"
-                                                            />
-                                                        </div>
+                                                        <HyperOS2Input
+                                                            label="模型名称"
+                                                            :model-value="lpmmConfig.qa.llm.model"
+                                                            @update:model-value="lpmmConfig.qa.llm.model = $event; markLpmmChanged()"
+                                                            placeholder="deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+                                                        />
 
-                                                        <!-- QA参数网格 -->
-                                                        <div class="model-setting-grid">
-                                                            <div class="model-setting">
-                                                                <label class="model-setting-label">关系搜索Top K</label>
-                                                                <input 
-                                                                    type="number" 
-                                                                    class="input input-bordered input-sm flex-1" 
-                                                                    v-model.number="lpmmConfig.qa.params.relation_search_top_k"
-                                                                    min="1"
-                                                                    @input="markLpmmChanged"
-                                                                />
-                                                            </div>
-                                                            <div class="model-setting">
-                                                                <label class="model-setting-label">关系阈值</label>
-                                                                <input 
-                                                                    type="number" 
-                                                                    class="input input-bordered input-sm flex-1" 
-                                                                    v-model.number="lpmmConfig.qa.params.relation_threshold"
-                                                                    min="0"
-                                                                    max="1"
-                                                                    step="0.1"
-                                                                    @input="markLpmmChanged"
-                                                                />
-                                                            </div>
-                                                            <div class="model-setting">
-                                                                <label class="model-setting-label">段落搜索Top K</label>
-                                                                <input 
-                                                                    type="number" 
-                                                                    class="input input-bordered input-sm flex-1" 
-                                                                    v-model.number="lpmmConfig.qa.params.paragraph_search_top_k"
-                                                                    min="1"
-                                                                    @input="markLpmmChanged"
-                                                                />
-                                                            </div>
-                                                            <div class="model-setting">
-                                                                <label class="model-setting-label">段落节点权重</label>
-                                                                <input 
-                                                                    type="number" 
-                                                                    class="input input-bordered input-sm flex-1" 
-                                                                    v-model.number="lpmmConfig.qa.params.paragraph_node_weight"
-                                                                    min="0"
-                                                                    max="1"
-                                                                    step="0.01"
-                                                                    @input="markLpmmChanged"
-                                                                />
-                                                            </div>
-                                                            <div class="model-setting">
-                                                                <label class="model-setting-label">实体过滤Top K</label>
-                                                                <input 
-                                                                    type="number" 
-                                                                    class="input input-bordered input-sm flex-1" 
-                                                                    v-model.number="lpmmConfig.qa.params.ent_filter_top_k"
-                                                                    min="1"
-                                                                    @input="markLpmmChanged"
-                                                                />
-                                                            </div>
-                                                            <div class="model-setting">
-                                                                <label class="model-setting-label">PPR阻尼</label>
-                                                                <input 
-                                                                    type="number" 
-                                                                    class="input input-bordered input-sm flex-1" 
-                                                                    v-model.number="lpmmConfig.qa.params.ppr_damping"
-                                                                    min="0"
-                                                                    max="1"
-                                                                    step="0.1"
-                                                                    @input="markLpmmChanged"
-                                                                />
-                                                            </div>
-                                                            <div class="model-setting">
-                                                                <label class="model-setting-label">结果Top K</label>
-                                                                <input 
-                                                                    type="number" 
-                                                                    class="input input-bordered input-sm flex-1" 
-                                                                    v-model.number="lpmmConfig.qa.params.res_top_k"
-                                                                    min="1"
-                                                                    @input="markLpmmChanged"
-                                                                />
-                                                            </div>
+                                                        <!-- QA参数 -->
+                                                        <div class="qa-params-grid">
+                                                            <HyperOS2Input
+                                                                label="关系搜索Top K"
+                                                                type="number"
+                                                                :model-value="lpmmConfig.qa.params.relation_search_top_k"
+                                                                @update:model-value="lpmmConfig.qa.params.relation_search_top_k = parseInt($event) || 1; markLpmmChanged()"
+                                                                :min="1"
+                                                            />
+                                                            <HyperOS2Input
+                                                                label="关系阈值"
+                                                                type="number"
+                                                                :model-value="lpmmConfig.qa.params.relation_threshold"
+                                                                @update:model-value="lpmmConfig.qa.params.relation_threshold = parseFloat($event) || 0; markLpmmChanged()"
+                                                                :min="0"
+                                                                :max="1"
+                                                                :step="0.1"
+                                                            />
+                                                            <HyperOS2Input
+                                                                label="段落搜索Top K"
+                                                                type="number"
+                                                                :model-value="lpmmConfig.qa.params.paragraph_search_top_k"
+                                                                @update:model-value="lpmmConfig.qa.params.paragraph_search_top_k = parseInt($event) || 1; markLpmmChanged()"
+                                                                :min="1"
+                                                            />
+                                                            <HyperOS2Input
+                                                                label="段落节点权重"
+                                                                type="number"
+                                                                :model-value="lpmmConfig.qa.params.paragraph_node_weight"
+                                                                @update:model-value="lpmmConfig.qa.params.paragraph_node_weight = parseFloat($event) || 0; markLpmmChanged()"
+                                                                :min="0"
+                                                                :max="1"
+                                                                :step="0.01"
+                                                            />
+                                                            <HyperOS2Input
+                                                                label="实体过滤Top K"
+                                                                type="number"
+                                                                :model-value="lpmmConfig.qa.params.ent_filter_top_k"
+                                                                @update:model-value="lpmmConfig.qa.params.ent_filter_top_k = parseInt($event) || 1; markLpmmChanged()"
+                                                                :min="1"
+                                                            />
+                                                            <HyperOS2Input
+                                                                label="PPR阻尼"
+                                                                type="number"
+                                                                :model-value="lpmmConfig.qa.params.ppr_damping"
+                                                                @update:model-value="lpmmConfig.qa.params.ppr_damping = parseFloat($event) || 0; markLpmmChanged()"
+                                                                :min="0"
+                                                                :max="1"
+                                                                :step="0.1"
+                                                            />
+                                                            <HyperOS2Input
+                                                                label="结果Top K"
+                                                                type="number"
+                                                                :model-value="lpmmConfig.qa.params.res_top_k"
+                                                                @update:model-value="lpmmConfig.qa.params.res_top_k = parseInt($event) || 1; markLpmmChanged()"
+                                                                :min="1"
+                                                            />
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </SettingGroup>
+                                        </HyperOS2Group>
 
                                         <!-- 信息提取配置 -->
-                                        <SettingGroup title="信息提取" icon="mdi:file-document-multiple" :gradient-border="true">
-                                            <div class="setting-item">
-                                                <div class="setting-info">
-                                                    <label class="setting-label">工作线程数</label>
-                                                    <p class="setting-description">并行处理的工作线程数量</p>
-                                                </div>
-                                                <div class="setting-control">
-                                                    <input 
-                                                        type="number" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model.number="lpmmConfig.info_extraction.workers"
-                                                        min="1"
-                                                        max="10"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </SettingGroup>
+                                        <HyperOS2Group title="信息提取" icon="mdi:file-document-multiple" :gradient-border="true">
+                                            <HyperOS2Input
+                                                label="工作线程数"
+                                                description="并行处理的工作线程数量"
+                                                type="number"
+                                                :model-value="lpmmConfig.info_extraction.workers"
+                                                @update:model-value="lpmmConfig.info_extraction.workers = parseInt($event) || 1; markLpmmChanged()"
+                                                :min="1"
+                                                :max="10"
+                                            />
+                                        </HyperOS2Group>
 
                                         <!-- 持久化配置 -->
-                                        <SettingGroup title="持久化配置" icon="mdi:database" :gradient-border="true">
+                                        <HyperOS2Group title="持久化配置" icon="mdi:database" :gradient-border="true">
                                             <div class="persistence-grid">
-                                                <div class="setting-item">
-                                                    <label class="setting-label">数据根路径</label>
-                                                    <input 
-                                                        type="text" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model="lpmmConfig.persistence.data_root_path"
-                                                        placeholder="data"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                                <div class="setting-item">
-                                                    <label class="setting-label">导入数据路径</label>
-                                                    <input 
-                                                        type="text" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model="lpmmConfig.persistence.imported_data_path"
-                                                        placeholder="data/imported_lpmm_data"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                                <div class="setting-item">
-                                                    <label class="setting-label">OpenIE数据路径</label>
-                                                    <input 
-                                                        type="text" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model="lpmmConfig.persistence.openie_data_path"
-                                                        placeholder="data/openie"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                                <div class="setting-item">
-                                                    <label class="setting-label">嵌入数据目录</label>
-                                                    <input 
-                                                        type="text" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model="lpmmConfig.persistence.embedding_data_dir"
-                                                        placeholder="data/embedding"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
-                                                <div class="setting-item">
-                                                    <label class="setting-label">RAG数据目录</label>
-                                                    <input 
-                                                        type="text" 
-                                                        class="input input-bordered input-sm" 
-                                                        v-model="lpmmConfig.persistence.rag_data_dir"
-                                                        placeholder="data/rag"
-                                                        @input="markLpmmChanged"
-                                                    />
-                                                </div>
+                                                <HyperOS2Input
+                                                    label="数据根路径"
+                                                    :model-value="lpmmConfig.persistence.data_root_path"
+                                                    @update:model-value="lpmmConfig.persistence.data_root_path = $event; markLpmmChanged()"
+                                                    placeholder="data"
+                                                />
+                                                <HyperOS2Input
+                                                    label="导入数据路径"
+                                                    :model-value="lpmmConfig.persistence.imported_data_path"
+                                                    @update:model-value="lpmmConfig.persistence.imported_data_path = $event; markLpmmChanged()"
+                                                    placeholder="data/imported_lpmm_data"
+                                                />
+                                                <HyperOS2Input
+                                                    label="OpenIE数据路径"
+                                                    :model-value="lpmmConfig.persistence.openie_data_path"
+                                                    @update:model-value="lpmmConfig.persistence.openie_data_path = $event; markLpmmChanged()"
+                                                    placeholder="data/openie"
+                                                />
+                                                <HyperOS2Input
+                                                    label="嵌入数据目录"
+                                                    :model-value="lpmmConfig.persistence.embedding_data_dir"
+                                                    @update:model-value="lpmmConfig.persistence.embedding_data_dir = $event; markLpmmChanged()"
+                                                    placeholder="data/embedding"
+                                                />
+                                                <HyperOS2Input
+                                                    label="RAG数据目录"
+                                                    :model-value="lpmmConfig.persistence.rag_data_dir"
+                                                    @update:model-value="lpmmConfig.persistence.rag_data_dir = $event; markLpmmChanged()"
+                                                    placeholder="data/rag"
+                                                />
                                             </div>
-                                        </SettingGroup>
+                                        </HyperOS2Group>
                                     </div>
 
                                     <!-- 空状态 -->
@@ -689,28 +562,21 @@
 
                                     <div class="config-section" v-if="modelConfig">
                                         <!-- 输出长度限制 -->
-                                        <SettingGroup title="全局配置" icon="mdi:settings" :iconClass="'text-blue-500'" :gradient-border="true">
-                                            <div class="setting-item">
-                                                <div class="setting-info">
-                                                    <label class="setting-label">最大输出长度</label>
-                                                    <p class="setting-description">所有模型的最大输出token数量限制</p>
-                                                </div>
-                                                <div class="setting-control">
-                                                    <input 
-                                                        type="number" 
-                                                        class="input input-bordered input-sm w-32" 
-                                                        v-model.number="modelConfig.model_max_output_length"
-                                                        min="100"
-                                                        max="10000"
-                                                        step="100"
-                                                        @input="markModelChanged"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </SettingGroup>
+                                        <HyperOS2Group title="全局配置" icon="mdi:settings" :icon-class="'text-blue-500'" :gradient-border="true">
+                                            <HyperOS2Input
+                                                label="最大输出长度"
+                                                description="所有模型的最大输出token数量限制"
+                                                type="number"
+                                                :model-value="modelConfig.model_max_output_length"
+                                                @update:model-value="modelConfig.model_max_output_length = parseInt($event) || 100; markModelChanged()"
+                                                :min="100"
+                                                :max="10000"
+                                                :step="100"
+                                            />
+                                        </HyperOS2Group>
 
                                         <!-- 模型配置列表 -->
-                                        <SettingGroup title="模型配置" icon="mdi:brain" :iconClass="'text-purple-500'" :gradient-border="true">
+                                        <HyperOS2Group title="模型配置" icon="mdi:brain" :icon-class="'text-purple-500'" :gradient-border="true">
                                             <div class="model-config-container">
                                                 <!-- 使用计算属性缓存和分页渲染来优化性能 -->
                                                 <div 
@@ -731,99 +597,72 @@
                                                     
                                                     <div class="model-settings">
                                                         <!-- 模型名称 -->
-                                                        <div class="model-setting">
-                                                            <label class="model-setting-label">模型名称</label>
-                                                            <input 
-                                                                type="text" 
-                                                                class="input input-bordered input-sm flex-1" 
-                                                                v-model="model.name"
-                                                                @input="markModelChanged"
-                                                                placeholder="输入模型名称"
+                                                        <HyperOS2Input
+                                                            label="模型名称"
+                                                            :model-value="model.name"
+                                                            @update:model-value="model.name = $event; markModelChanged()"
+                                                            placeholder="输入模型名称"
+                                                        />
+
+                                                        <!-- 提供商 -->
+                                                        <HyperOS2Select
+                                                            label="提供商"
+                                                            :model-value="model.provider"
+                                                            @update:model-value="model.provider = $event; markModelChanged()"
+                                                            :options="[
+                                                                { value: 'SILICONFLOW', label: 'SiliconFlow' },
+                                                                { value: 'OPENAI', label: 'OpenAI' },
+                                                                { value: 'ANTHROPIC', label: 'Anthropic' },
+                                                                { value: 'GOOGLE', label: 'Google' },
+                                                                { value: 'AZURE', label: 'Azure' },
+                                                                { value: 'LOCAL', label: 'Local' },
+                                                                { value: 'OTHER', label: '其他' }
+                                                            ]"
+                                                        />
+
+                                                        <!-- 价格配置 -->
+                                                        <div class="hyperos2-grid-2">
+                                                            <HyperOS2Input
+                                                                label="输入价格"
+                                                                type="number"
+                                                                :model-value="model.pri_in"
+                                                                @update:model-value="model.pri_in = parseFloat($event) || 0; markModelChanged()"
+                                                                :min="0"
+                                                                :step="0.01"
+                                                                placeholder="¥/1M tokens"
+                                                            />
+                                                            <HyperOS2Input
+                                                                label="输出价格"
+                                                                type="number"
+                                                                :model-value="model.pri_out"
+                                                                @update:model-value="model.pri_out = parseFloat($event) || 0; markModelChanged()"
+                                                                :min="0"
+                                                                :step="0.01"
+                                                                placeholder="¥/1M tokens"
                                                             />
                                                         </div>
 
-                                                        <!-- 提供商 -->
-                                                        <div class="model-setting">
-                                                            <label class="model-setting-label">提供商</label>
-                                                            <select 
-                                                                class="select select-bordered select-sm flex-1" 
-                                                                v-model="model.provider"
-                                                                @change="markModelChanged"
-                                                            >
-                                                                <option value="SILICONFLOW">SiliconFlow</option>
-                                                                <option value="OPENAI">OpenAI</option>
-                                                                <option value="ANTHROPIC">Anthropic</option>
-                                                                <option value="GOOGLE">Google</option>
-                                                                <option value="AZURE">Azure</option>
-                                                                <option value="LOCAL">Local</option>
-                                                                <option value="OTHER">其他</option>
-                                                            </select>
-                                                        </div>
-
-                                                        <!-- 价格配置 -->
-                                                        <div class="model-setting-grid">
-                                                            <div class="model-setting">
-                                                                <label class="model-setting-label">输入价格</label>
-                                                                <input 
-                                                                    type="number" 
-                                                                    class="input input-bordered input-sm flex-1" 
-                                                                    v-model.number="model.pri_in"
-                                                                    min="0"
-                                                                    step="0.01"
-                                                                    placeholder="¥/1M tokens"
-                                                                    @input="markModelChanged"
-                                                                />
-                                                            </div>
-                                                            <div class="model-setting">
-                                                                <label class="model-setting-label">输出价格</label>
-                                                                <input 
-                                                                    type="number" 
-                                                                    class="input input-bordered input-sm flex-1" 
-                                                                    v-model.number="model.pri_out"
-                                                                    min="0"
-                                                                    step="0.01"
-                                                                    placeholder="¥/1M tokens"
-                                                                    @input="markModelChanged"
-                                                                />
-                                                            </div>
-                                                        </div>
-
                                                         <!-- 温度参数 -->
-                                                        <div class="model-setting" v-if="model.temp !== undefined">
-                                                            <label class="model-setting-label">
-                                                                温度参数
-                                                                <span class="model-param-value">{{ model.temp }}</span>
-                                                            </label>
-                                                            <div class="range-container">
-                                                                <input 
-                                                                    type="range" 
-                                                                    class="range range-primary range-sm" 
-                                                                    v-model.number="model.temp"
-                                                                    min="0"
-                                                                    max="1"
-                                                                    step="0.1"
-                                                                    @input="markModelChanged"
-                                                                />
-                                                                <div class="range-labels">
-                                                                    <span>保守 (0)</span>
-                                                                    <span>平衡 (0.5)</span>
-                                                                    <span>创造 (1)</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                                                        <HyperOS2Slider
+                                                            v-if="model.temp !== undefined"
+                                                            label="温度参数"
+                                                            :model-value="model.temp"
+                                                            @update:model-value="model.temp = parseFloat($event) || 0; markModelChanged()"
+                                                            :min="0"
+                                                            :max="1"
+                                                            :step="0.1"
+                                                            :marks="{ 0: '保守', 0.5: '平衡', 1: '创造' }"
+                                                            show-value
+                                                        />
 
                                                         <!-- 思维链开关 -->
-                                                        <div class="model-setting" v-if="model.enable_thinking !== undefined">
-                                                            <div class="model-switch-container">
-                                                                <label class="model-setting-label">启用思维链</label>
-                                                                <CustomToggle 
-                                                                    v-model="model.enable_thinking"
-                                                                    @change="markModelChanged"
-                                                                    class="toggle-sm"
-                                                                />
-                                                            </div>
-                                                            <p class="model-setting-description">启用后模型会显示推理过程</p>
-                                                        </div>
+                                                        <HyperOS2Switch
+                                                            v-if="model.enable_thinking !== undefined"
+                                                            label="启用思维链"
+                                                            description="启用后模型会显示推理过程"
+                                                            :model-value="model.enable_thinking"
+                                                            @update:model-value="model.enable_thinking = $event; markModelChanged()"
+                                                        />
                                                     </div>
                                                 </div>
                                             </div>
@@ -856,7 +695,7 @@
                                                     </button>
                                                 </div>
                                             </div>
-                                        </SettingGroup>
+                                        </HyperOS2Group>
                                     </div>
 
                                     <!-- 加载状态 -->
@@ -889,13 +728,13 @@
                                     </div>
 
                                     <div class="config-section" v-if="envConfig">
-                                        <SettingGroup title="环境变量" icon="mdi:cog-outline" :iconClass="'text-orange-500'" :gradient-border="true">
+                                        <HyperOS2Group title="环境变量" icon="mdi:cog-outline" :icon-class="'text-orange-500'" :gradient-border="true">
                                             <EnvVariableEditor 
                                                 :env-config="envConfig"
                                                 @update:env-config="envConfig = $event"
                                                 @mark-changed="markEnvChanged"
                                             />
-                                        </SettingGroup>
+                                        </HyperOS2Group>
                                     </div>
 
                                     <!-- 加载状态 -->
@@ -988,10 +827,17 @@ import toastService from '@/services/toastService'
 import { maibotConfigApi } from '@/services/maibotConfigApi'
 
 // 导入组件
-import { SettingGroup } from '../settings'
-import FieldRenderer from './FieldRenderer.vue'
+import { 
+    HyperOS2Group, 
+    HyperOS2Input, 
+    HyperOS2Select, 
+    HyperOS2Switch,
+    HyperOS2Textarea,
+    HyperOS2Slider,
+    HyperOS2Button
+} from '../settings/hyperos2'
+import HyperOS2FieldRenderer from './HyperOS2FieldRenderer.vue'
 import EnvVariableEditor from './EnvVariableEditor.vue'
-import CustomToggle from '../common/CustomToggle.vue'
 
 // 导入工具函数和常量
 import { useConfigLoader } from '@/composables/useConfigLoader'
@@ -2799,6 +2645,13 @@ onMounted(() => {
 }
 
 .model-setting-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+/* HyperOS2 Grid 样式 */
+.hyperos2-grid-2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
