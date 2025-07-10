@@ -38,6 +38,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: 配置Git安全目录
+        run: |
+          git config --global --add safe.directory $env:GITHUB_WORKSPACE
+          git config --global --add safe.directory "C:/actions-runner/_work/mailauncher/mailauncher"
+          Write-Host "✅ Git safe directory configured"
+
       - name: 获取包版本并创建开发版本
         id: version
         run: |
