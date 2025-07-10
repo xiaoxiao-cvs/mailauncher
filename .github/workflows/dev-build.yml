@@ -284,7 +284,7 @@ jobs:
 
       # 安装前端依赖
       - name: 安装前端依赖
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       # 临时更新版本号用于构建
       - name: 临时更新版本号用于构建
