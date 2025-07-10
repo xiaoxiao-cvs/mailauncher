@@ -1,45 +1,43 @@
 <template>
-  <SettingItem :label="label" :description="description">
-    <div class="path-control">
-      <div class="path-input-group">
-        <input 
-          :value="modelValue"
-          @input="handleInput"
-          type="text" 
-          :placeholder="placeholder"
-          class="input input-bordered input-sm flex-1"
-          :readonly="readonly"
-          :disabled="disabled"
-        />
-        <button 
-          @click="selectPath"
-          class="btn btn-outline btn-sm"
-          :disabled="disabled || isSelecting"
-        >
-          <span v-if="isSelecting" class="loading loading-spinner loading-xs"></span>
-          {{ isSelecting ? '选择中...' : '浏览' }}
-        </button>
-        <button 
-          v-if="showResetButton"
-          @click="resetToDefault"
-          class="btn btn-ghost btn-sm"
-          title="重置为默认值"
-        >
-          <IconifyIcon icon="mdi:refresh" class="w-4 h-4" />
-          默认
-        </button>
-      </div>
-      <div v-if="currentPath" class="path-info">
+  <HyperOS2Input
+    :label="label"
+    :description="description"
+    :model-value="modelValue"
+    @update:model-value="handleInput"
+    :placeholder="placeholder"
+    :readonly="readonly"
+    :disabled="disabled"
+  >
+    <template #suffix>
+      <button 
+        @click="selectPath"
+        class="btn btn-outline btn-sm"
+        :disabled="disabled || isSelecting"
+      >
+        <span v-if="isSelecting" class="loading loading-spinner loading-xs"></span>
+        {{ isSelecting ? '选择中...' : '浏览' }}
+      </button>
+      <button 
+        v-if="showResetButton"
+        @click="resetToDefault"
+        class="btn btn-ghost btn-sm"
+        title="重置为默认值"
+      >
+        <IconifyIcon icon="mdi:refresh" class="w-4 h-4" />
+      </button>
+    </template>
+    <template #below v-if="currentPath">
+      <div class="path-info flex items-center gap-2 mt-2 text-sm text-base-content/70">
         <IconifyIcon icon="mdi:information" class="w-4 h-4 text-info" />
-        <span class="current-path">当前路径: {{ currentPath }}</span>
+        <span>当前路径: {{ currentPath }}</span>
       </div>
-    </div>
-  </SettingItem>
+    </template>
+  </HyperOS2Input>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import SettingItem from '../base/SettingItem.vue'
+import HyperOS2Input from '../base/HyperOS2Input.vue'
 import IconifyIcon from '@/components/common/IconifyIcon.vue'
 
 /**
@@ -93,8 +91,7 @@ const currentPath = computed(() => {
   return props.modelValue || '未设置'
 })
 
-const handleInput = (event) => {
-  const value = event.target.value
+const handleInput = (value) => {
   emit('update:modelValue', value)
   emit('change', value)
 }

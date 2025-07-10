@@ -74,7 +74,7 @@ const props = defineProps({
   // 图标大小
   iconSize: {
     type: [String, Number],
-    default: 20
+    default: '20'
   },
   
   // 图标样式类

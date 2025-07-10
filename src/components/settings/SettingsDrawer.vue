@@ -45,36 +45,37 @@
                                 <!-- 主题模式组件 -->
                                 <SettingGroup title="主题模式" icon="mdi:palette" icon-class="text-purple-500">
                                     <ThemeSelector 
-                                        v-model="themeMode" 
+                                        :model-value="themeMode" 
+                                        @update:model-value="themeMode = $event"
                                         @change="changeThemeMode" 
                                     />
                                 </SettingGroup>
 
                                 <!-- 界面调整组件 -->
                                 <SettingGroup title="界面调整" icon="mdi:cog-outline" icon-class="text-blue-500">
-                                    <SettingSwitch
+                                    <HyperOS2Switch
                                         label="动画效果"
                                         description="启用或禁用界面动画"
-                                        v-model="enableAnimations"
-                                        @change="toggleAnimations"
+                                        :model-value="enableAnimations"
+                                        @update:model-value="toggleAnimations"
                                     />
 
-                                    <SettingSlider
+                                    <HyperOS2Slider
                                         label="字体大小"
                                         description="调整界面文字的显示大小"
                                         :min="12"
                                         :max="18"
                                         suffix="px"
-                                        v-model="fontSize"
-                                        @change="changeFontSize"
+                                        :model-value="fontSize"
+                                        @update:model-value="changeFontSize"
                                     />
 
-                                    <SettingRadioGroup
+                                    <HyperOS2Select
                                         label="布局密度"
                                         description="选择界面元素的间距紧密程度"
                                         :options="densityOptions"
-                                        v-model="layoutDensity"
-                                        @change="setLayoutDensity"
+                                        :model-value="layoutDensity"
+                                        @update:model-value="setLayoutDensity"
                                     />
                                 </SettingGroup>
                             </div>
@@ -89,11 +90,11 @@
                             <div class="settings-section">
                                 <!-- WebUI启用设置组件 -->
                                 <SettingGroup title="WebUI 启用状态" icon="mdi:web" icon-class="text-blue-500">
-                                    <SettingSwitch
+                                    <HyperOS2Switch
                                         label="启用 Web 用户界面"
                                         description="启用后可通过浏览器访问管理界面"
-                                        v-model="webuiEnabled"
-                                        @change="toggleWebuiEnabled"
+                                        :model-value="webuiEnabled"
+                                        @update:model-value="toggleWebuiEnabled"
                                     />
                                 </SettingGroup>
 
@@ -102,7 +103,8 @@
                                     <PortConfig
                                         label="访问端口"
                                         description="设置 WebUI 的访问端口 (1024-65535)"
-                                        v-model="webuiPort"
+                                        :model-value="webuiPort"
+                                        @update:model-value="webuiPort = $event"
                                         :min-port="1024"
                                         :max-port="65535"
                                         :default-port="11111"
@@ -163,16 +165,13 @@
                             <div class="settings-section">
                                 <!-- 后端地址配置组件 -->
                                 <SettingGroup title="服务地址" icon="mdi:server" icon-class="text-blue-500">
-                                    <SettingInput
+                                    <HyperOS2Input
                                         label="后端服务地址"
                                         description="配置后端API服务的连接地址"
                                         type="url"
                                         placeholder="http://localhost:23456"
-                                        v-model="backendUrl"
-                                        :show-reset-button="true"
-                                        default-value="http://localhost:23456"
-                                        @change="changeBackendUrl"
-                                        @reset="resetBackendUrl"
+                                        :model-value="backendUrl"
+                                        @update:model-value="changeBackendUrl"
                                     />
                                 </SettingGroup>
 
@@ -257,20 +256,20 @@
                                     </div>
 
                                     <!-- 更新通道选择 -->
-                                    <SettingRadioGroup
+                                    <HyperOS2Select
                                         label="更新通道"
                                         description="选择接收更新的版本类型，不同通道提供不同稳定性的版本"
                                         :options="updateChannelOptions"
-                                        v-model="updateChannel"
-                                        @change="changeUpdateChannel"
+                                        :model-value="updateChannel"
+                                        @update:model-value="changeUpdateChannel"
                                     />
 
                                     <!-- 自动检查更新设置 -->
-                                    <SettingSwitch
+                                    <HyperOS2Switch
                                         label="自动检查更新"
                                         description="定期自动检查是否有新版本可用"
-                                        v-model="autoCheckEnabled"
-                                        @change="toggleAutoVersionCheck"
+                                        :model-value="autoCheckEnabled"
+                                        @update:model-value="toggleAutoVersionCheck"
                                     />
 
                                     <!-- 检查更新操作 -->
@@ -482,44 +481,40 @@
                             <div class="settings-section">
                                 <!-- 启动设置组件 -->
                                 <SettingGroup title="启动设置" icon="mdi:rocket-launch" icon-class="text-purple-500">
-                                    <SettingSwitch
+                                    <HyperOS2Switch
                                         label="启动时显示欢迎页面"
                                         description="每次启动应用程序时显示欢迎界面和功能介绍"
-                                        v-model="showWelcomeOnStartup"
-                                        @change="toggleShowWelcomeOnStartup"
+                                        :model-value="showWelcomeOnStartup"
+                                        @update:model-value="toggleShowWelcomeOnStartup"
                                     />
                                 </SettingGroup>
 
                                 <!-- 通知设置组件 -->
                                 <SettingGroup title="通知设置" icon="mdi:bell" icon-class="text-amber-500">
-                                    <SettingSwitch
+                                    <HyperOS2Switch
                                         label="部署完成通知"
                                         description="当实例部署完成时显示通知"
-                                        v-model="deploymentNotifications"
-                                        @change="toggleDeploymentNotifications"
+                                        :model-value="deploymentNotifications"
+                                        @update:model-value="toggleDeploymentNotifications"
                                     />
 
-                                    <SettingSwitch
+                                    <HyperOS2Switch
                                         label="实例状态变化通知"
                                         description="当实例启动、停止或出错时显示通知"
-                                        v-model="instanceNotifications"
-                                        @change="toggleInstanceNotifications"
+                                        :model-value="instanceNotifications"
+                                        @update:model-value="toggleInstanceNotifications"
                                     />
                                 </SettingGroup>
 
                                 <!-- 实例命名设置组件 -->
                                 <SettingGroup title="实例命名设置" icon="mdi:tag-outline" icon-class="text-cyan-500">
-                                    <SettingInput
+                                    <HyperOS2Input
                                         label="实例名称模式"
                                         description="定义新实例的自动命名规则，支持变量占位符"
                                         type="text"
                                         placeholder="例如: MaiBot-{version}"
-                                        v-model="instanceNamePattern"
-                                        :show-reset-button="true"
-                                        default-value="MaiBot-{version}"
-                                        :hint="instanceNameHint"
-                                        @change="updateInstanceNamePattern"
-                                        @reset="resetInstanceNamePattern"
+                                        :model-value="instanceNamePattern"
+                                        @update:model-value="updateInstanceNamePattern"
                                     />
                                 </SettingGroup>
 
@@ -574,7 +569,8 @@
                                     <PathSelector
                                         label="数据存放路径"
                                         description="选择MaiBot实例数据的存放位置，建议选择磁盘空间充足的位置"
-                                        v-model="dataStoragePath"
+                                        :model-value="dataStoragePath"
+                                        @update:model-value="dataStoragePath = $event"
                                         dialog-title="选择数据存储目录"
                                         :default-path="getDefaultDataPath()"
                                         @select="selectDataFolder"
@@ -587,7 +583,8 @@
                                     <PathSelector
                                         label="实例部署路径"
                                         description="选择MaiBot实例的部署和运行位置"
-                                        v-model="deploymentPath"
+                                        :model-value="deploymentPath"
+                                        @update:model-value="deploymentPath = $event"
                                         dialog-title="选择部署目录"
                                         :default-path="getDefaultDeploymentPath()"
                                         @select="selectDeploymentFolder"
@@ -687,11 +684,10 @@ import { formatVersionInfo } from '../../utils/versionUtils'
 // 导入设置组件库
 import {
     SettingGroup,
-    SettingSwitch,
-    SettingSlider,
-    SettingSelect,
-    SettingInput,
-    SettingRadioGroup,
+    HyperOS2Switch,
+    HyperOS2Slider,
+    HyperOS2Select,
+    HyperOS2Input,
     ThemeSelector,
     PathSelector,
     PortConfig,

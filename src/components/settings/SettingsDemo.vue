@@ -13,42 +13,45 @@
         icon="mdi:widgets" 
         icon-class="text-blue-500"
       >
-        <SettingSwitch
+        <HyperOS2Switch
           label="开关组件"
           description="这是一个开关设置组件的示例"
-          v-model="demoData.switchValue"
+          :model-value="demoData.switchValue"
+          @update:model-value="demoData.switchValue = $event"
         />
 
-        <SettingSlider
+        <HyperOS2Slider
           label="滑块组件"
           description="用于选择数值范围的滑块组件"
           :min="0"
           :max="100"
           suffix="%"
-          v-model="demoData.sliderValue"
+          :model-value="demoData.sliderValue"
+          @update:model-value="demoData.sliderValue = $event"
         />
 
-        <SettingSelect
+        <HyperOS2Select
           label="下拉选择"
           description="从预定义选项中选择一个值"
           :options="selectOptions"
-          v-model="demoData.selectValue"
+          :model-value="demoData.selectValue"
+          @update:model-value="demoData.selectValue = $event"
         />
 
-        <SettingInput
+        <HyperOS2Input
           label="输入框组件"
           description="用于输入文本或数字的组件"
           placeholder="请输入内容"
-          :show-reset-button="true"
-          default-value="默认值"
-          v-model="demoData.inputValue"
+          :model-value="demoData.inputValue"
+          @update:model-value="demoData.inputValue = $event"
         />
 
-        <SettingRadioGroup
+        <HyperOS2Select
           label="单选组"
           description="从多个选项中选择一个"
           :options="radioOptions"
-          v-model="demoData.radioValue"
+          :model-value="demoData.radioValue"
+          @update:model-value="demoData.radioValue = $event"
         />
       </SettingGroup>
 
@@ -59,7 +62,10 @@
         icon="mdi:tools" 
         icon-class="text-green-500"
       >
-        <ThemeSelector v-model="demoData.themeMode" />
+        <ThemeSelector 
+          :model-value="demoData.themeMode"
+          @update:model-value="demoData.themeMode = $event"
+        />
 
         <PathSelector
           label="路径选择器"
@@ -67,7 +73,8 @@
           placeholder="请选择路径"
           dialog-title="选择演示路径"
           :default-path="getDefaultPath()"
-          v-model="demoData.pathValue"
+          :model-value="demoData.pathValue"
+          @update:model-value="demoData.pathValue = $event"
         />
 
         <PortConfig
@@ -78,7 +85,8 @@
           :show-status="true"
           :access-urls="getAccessUrls()"
           hint="请确保端口未被其他应用占用"
-          v-model="demoData.portValue"
+          :model-value="demoData.portValue"
+          @update:model-value="demoData.portValue = $event"
           @test="handlePortTest"
         />
       </SettingGroup>
@@ -123,11 +131,10 @@
 import { reactive, computed } from 'vue'
 import {
   SettingGroup,
-  SettingSwitch,
-  SettingSlider,
-  SettingSelect,
-  SettingInput,
-  SettingRadioGroup,
+  HyperOS2Switch,
+  HyperOS2Slider,
+  HyperOS2Select,
+  HyperOS2Input,
   ThemeSelector,
   PathSelector,
   PortConfig,

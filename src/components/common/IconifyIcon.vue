@@ -15,8 +15,8 @@ const props = defineProps({
     required: true
   },
   size: {
-    type: String,
-    default: 'default', // xs, sm, default, lg, xl
+    type: [String, Number],
+    default: 'default', // xs, sm, default, lg, xl, 2xl, 或数字字符串如 "20"
   },
   color: {
     type: String,
@@ -31,9 +31,30 @@ const computedSize = computed(() => {
     'sm': '16px',
     'default': '20px',
     'lg': '24px',
-    'xl': '32px'
+    'xl': '32px',
+    '2xl': '32px'
   };
-  return sizeMap[props.size] || '20px';
+  
+  // 转换为字符串
+  const sizeStr = String(props.size);
+  
+  // 如果是预定义的尺寸关键字，使用映射值
+  if (sizeMap[sizeStr]) {
+    return sizeMap[sizeStr];
+  }
+  
+  // 如果是数字字符串，直接添加px
+  if (/^\d+$/.test(sizeStr)) {
+    return sizeStr + 'px';
+  }
+  
+  // 如果已经包含单位，直接返回
+  if (/^\d+(\.\d+)?(px|rem|em|%)$/.test(sizeStr)) {
+    return sizeStr;
+  }
+  
+  // 默认回退
+  return '20px';
 });
 
 // 计算颜色
@@ -43,7 +64,8 @@ const computedColor = computed(() => {
 
 // 尺寸样式类
 const sizeClass = computed(() => {
-  return `iconify-size-${props.size}`;
+  const sizeStr = String(props.size);
+  return `iconify-size-${sizeStr}`;
 });
 
 // 颜色样式类

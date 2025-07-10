@@ -1,46 +1,46 @@
 <template>
-  <SettingItem :label="label" :description="description">
-    <div class="port-control">
-      <div class="port-input-group">
-        <input 
-          type="number"
-          :value="modelValue"
-          @input="handleInput"
-          @blur="handleBlur"
-          :min="minPort"
-          :max="maxPort"
-          :placeholder="placeholder"
-          class="input input-bordered input-sm"
-          :class="{ 'input-error': hasError }"
-          :disabled="disabled"
-        />
-        <button 
-          v-if="showTestButton"
-          @click="testConnection"
-          class="btn btn-outline btn-sm"
-          :disabled="disabled || isTesting || hasError"
-          :class="{ 'loading': isTesting }"
-        >
-          {{ isTesting ? '测试中...' : '测试' }}
-        </button>
-        <button 
-          v-if="showResetButton"
-          @click="resetToDefault"
-          class="btn btn-ghost btn-sm"
-          title="重置为默认端口"
-        >
-          <IconifyIcon icon="mdi:refresh" class="w-4 h-4" />
-        </button>
-      </div>
-      
+  <HyperOS2Input
+    :label="label"
+    :description="description"
+    type="number"
+    :model-value="modelValue"
+    @update:model-value="handleInput"
+    @blur="handleBlur"
+    :min="minPort"
+    :max="maxPort"
+    :placeholder="placeholder"
+    :disabled="disabled"
+    :class="{ 'input-error': hasError }"
+  >
+    <template #suffix>
+      <button 
+        v-if="showTestButton"
+        @click="testConnection"
+        class="btn btn-outline btn-sm"
+        :disabled="disabled || isTesting || hasError"
+        :class="{ 'loading': isTesting }"
+      >
+        {{ isTesting ? '测试中...' : '测试' }}
+      </button>
+      <button 
+        v-if="showResetButton"
+        @click="resetToDefault"
+        class="btn btn-ghost btn-sm"
+        title="重置为默认端口"
+      >
+        <IconifyIcon icon="mdi:refresh" class="w-4 h-4" />
+      </button>
+    </template>
+    
+    <template #below>
       <!-- 端口状态指示 -->
-      <div v-if="showStatus" class="port-status">
-        <div class="status-indicator" :class="statusClass">
+      <div v-if="showStatus" class="port-status mt-2">
+        <div class="status-indicator flex items-center gap-2" :class="statusClass">
           <IconifyIcon :icon="statusIcon" class="w-4 h-4" />
           <span>{{ statusText }}</span>
         </div>
-        <div v-if="accessUrls.length > 0" class="access-urls">
-          <div v-for="url in accessUrls" :key="url.label" class="url-item">
+        <div v-if="accessUrls.length > 0" class="access-urls mt-2">
+          <div v-for="url in accessUrls" :key="url.label" class="url-item flex items-center gap-2 text-sm">
             <span class="url-label">{{ url.label }}:</span>
             <code class="url-value">{{ url.url }}</code>
           </div>
@@ -48,23 +48,23 @@
       </div>
       
       <!-- 错误信息 -->
-      <div v-if="error" class="error-message">
+      <div v-if="error" class="error-message mt-2 flex items-center gap-2 text-error text-sm">
         <IconifyIcon icon="mdi:alert-circle" class="w-4 h-4" />
         {{ error }}
       </div>
       
       <!-- 提示信息 -->
-      <div v-if="hint" class="hint-message">
+      <div v-if="hint" class="hint-message mt-2 flex items-center gap-2 text-base-content/70 text-sm">
         <IconifyIcon icon="mdi:information" class="w-4 h-4" />
         {{ hint }}
       </div>
-    </div>
-  </SettingItem>
+    </template>
+  </HyperOS2Input>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import SettingItem from '../base/SettingItem.vue'
+import HyperOS2Input from '../base/HyperOS2Input.vue'
 import IconifyIcon from '@/components/common/IconifyIcon.vue'
 
 /**
@@ -159,8 +159,7 @@ const statusText = computed(() => {
   return testResult.value ? '连接成功' : '连接失败'
 })
 
-const handleInput = (event) => {
-  const value = event.target.value
+const handleInput = (value) => {
   const numValue = value === '' ? '' : Number(value)
   
   // 清除之前的错误

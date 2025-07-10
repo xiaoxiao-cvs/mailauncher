@@ -74,7 +74,6 @@
 <script setup>
 import { ref, computed } from 'vue'
 import SettingGroup from '../base/HyperOS2SettingGroup.vue'
-import SettingItem from '../base/SettingItem.vue'
 import IconifyIcon from '@/components/common/IconifyIcon.vue'
 
 /**

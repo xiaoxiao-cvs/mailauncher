@@ -14,7 +14,8 @@
         :gradient-border="true"
       >
         <ThemeSelector
-          v-model="settings.themeMode"
+          :model-value="settings.themeMode"
+          @update:model-value="settings.themeMode = $event"
           @change="handleThemeChange"
         />
       </SettingGroup>
@@ -26,29 +27,29 @@
         :iconClass="'text-blue-500'"
         :gradient-border="true"
       >
-        <SettingSwitch
+        <HyperOS2Switch
           label="动画效果"
           description="启用或禁用界面动画"
-          v-model="settings.enableAnimations"
-          @change="handleAnimationChange"
+          :model-value="settings.enableAnimations"
+          @update:model-value="settings.enableAnimations = $event; handleAnimationChange($event)"
         />
 
-        <SettingSlider
+        <HyperOS2Slider
           label="字体大小"
           description="调整界面文字的显示大小"
           :min="12"
           :max="18"
           suffix="px"
-          v-model="settings.fontSize"
-          @change="handleFontSizeChange"
+          :model-value="settings.fontSize"
+          @update:model-value="settings.fontSize = $event; handleFontSizeChange($event)"
         />
 
-        <SettingSelect
+        <HyperOS2Select
           label="布局密度"
           description="选择界面元素的间距紧密程度"
           :options="densityOptions"
-          v-model="settings.layoutDensity"
-          @change="handleDensityChange"
+          :model-value="settings.layoutDensity"
+          @update:model-value="settings.layoutDensity = $event; handleDensityChange($event)"
         />
       </SettingGroup>
 
@@ -60,28 +61,26 @@
         :iconClass="'text-gray-500'"
         :gradient-border="true"
       >
-        <SettingSwitch
+        <HyperOS2Switch
           label="透明效果"
           description="启用窗口和元素的透明效果（实验性功能）"
-          v-model="settings.enableTransparency"
-          @change="handleTransparencyChange"
+          :model-value="settings.enableTransparency"
+          @update:model-value="settings.enableTransparency = $event; handleTransparencyChange($event)"
         />
 
-        <SettingSwitch
+        <HyperOS2Switch
           label="减少动画"
           description="为视觉敏感用户减少动画效果"
-          v-model="settings.reduceMotion"
-          @change="handleMotionChange"
+          :model-value="settings.reduceMotion"
+          @update:model-value="settings.reduceMotion = $event; handleMotionChange($event)"
         />
 
-        <SettingInput
+        <HyperOS2Input
           label="自定义CSS类"
           description="添加自定义CSS类名到根元素"
           placeholder="custom-theme dark-mode"
-          v-model="settings.customCssClass"
-          :show-reset-button="true"
-          default-value=""
-          @change="handleCustomCssChange"
+          :model-value="settings.customCssClass"
+          @update:model-value="settings.customCssClass = $event; handleCustomCssChange($event)"
         />
       </SettingGroup>
     </div>
@@ -91,10 +90,10 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import SettingGroup from '../base/HyperOS2SettingGroup.vue'
-import SettingSwitch from '../base/SettingSwitch.vue'
-import SettingSlider from '../base/SettingSlider.vue'
-import SettingSelect from '../base/SettingSelect.vue'
-import SettingInput from '../base/SettingInput.vue'
+import HyperOS2Switch from '../base/HyperOS2Switch.vue'
+import HyperOS2Slider from '../base/HyperOS2Slider.vue'
+import HyperOS2Select from '../base/HyperOS2Select.vue'
+import HyperOS2Input from '../base/HyperOS2Input.vue'
 import ThemeSelector from '../forms/ThemeSelector.vue'
 
 /**

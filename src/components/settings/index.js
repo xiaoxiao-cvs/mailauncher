@@ -18,6 +18,13 @@ export {
     HyperOS2Button
 } from './hyperos2'
 
+// 兼容性别名
+export { HyperOS2Input as SettingInput } from './hyperos2'
+export { HyperOS2Switch as SettingSwitch } from './hyperos2'
+export { HyperOS2Select as SettingSelect } from './hyperos2'
+export { HyperOS2Select as SettingRadioGroup } from './hyperos2'
+export { HyperOS2Slider as SettingSlider } from './hyperos2'
+
 // 专用表单组件
 export { default as ThemeSelector } from './forms/ThemeSelector.vue'
 export { default as PathSelector } from './forms/PathSelector.vue'

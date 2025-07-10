@@ -1,16 +1,15 @@
 <template>
-  <SettingRadioGroup
+  <HyperOS2Select
     label="主题模式"
     description="切换系统界面的明暗主题，支持跟随系统设置"
     :options="themeOptions"
-    :modelValue="modelValue"
-    @update:modelValue="$emit('update:modelValue', $event)"
-    @change="handleChange"
+    :model-value="modelValue"
+    @update:model-value="handleChange"
   />
 </template>
 
 <script setup>
-import SettingRadioGroup from '../base/SettingRadioGroup.vue'
+import HyperOS2Select from '../base/HyperOS2Select.vue'
 
 /**
  * 主题选择器组件
@@ -44,6 +43,7 @@ const themeOptions = [
 ]
 
 const handleChange = (value) => {
+  emit('update:modelValue', value)
   emit('change', value)
 }
 </script>
