@@ -6,11 +6,23 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:preview": "cross-env VITE_BUILD_TYPE=preview vite build",
+    "build:dev": "cross-env VITE_BUILD_TYPE=development vite build",
+    "build:prod": "cross-env VITE_BUILD_TYPE=production vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:build:preview": "cross-env VITE_BUILD_TYPE=preview tauri build",
     "serve": "vite --host",
     "serve:lan": "vite --host 0.0.0.0",
-    "lint": "vue-tsc --noEmit"
+    "lint": "vue-tsc --noEmit",
+    "version:patch": "pwsh scripts/version-manager.ps1 -Type patch",
+    "version:minor": "pwsh scripts/version-manager.ps1 -Type minor",
+    "version:major": "pwsh scripts/version-manager.ps1 -Type major",
+    "version:preview": "pwsh scripts/version-manager.ps1 -Type preview",
+    "version:dev": "pwsh scripts/version-manager.ps1 -Type dev",
+    "version:dry-run": "pwsh scripts/version-manager.ps1 -Type patch -DryRun"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
@@ -41,6 +53,7 @@
     "@vitejs/plugin-vue": "^5.2.1",
     "autoprefixer": "^10.4.17",
     "concurrently": "^8.0.1",
+    "cross-env": "^7.0.3",
     "postcss": "^8.4.35",
     "postcss-import": "^16.0.1",
     "postcss-preset-env": "10.1.6",

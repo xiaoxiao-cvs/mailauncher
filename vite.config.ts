@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import path from "path";
 import { fileURLToPath } from "url";
+import { versionInjectionPlugin } from "./scripts/vite-plugin-version.js";
 
 // 获取当前文件的目录路径
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -10,7 +11,12 @@ const host = process.env.TAURI_DEV_HOST;
 
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    versionInjectionPlugin({
+      buildType: process.env.VITE_BUILD_TYPE || 'production'
+    })
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),

@@ -1,3 +1,11 @@
+# ⚠️ 注意：此工作流仅作为参考模板保留，不在实际CI/CD流程中使用
+# 实际的构建流程已迁移到以下专门的工作流：
+# - dev-build.yml (开发版本自动构建)
+# - preview-build.yml (预览版本手动构建)  
+# - production-release.yml (生产版本手动构建)
+# 
+# 此文件包含完整的多平台构建逻辑，可作为故障排除和配置参考使用
+
 name: Build Tauri App with Backend
 
 on:
@@ -23,8 +31,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 所有jobs都已禁用，此工作流仅作为参考保留
   build-windows-self-hosted:
     runs-on: [self-hosted, windows, x64] # 使用自托管的 Windows runner
+    if: false # 禁用此job，仅作为参考
     
     steps:
     - name: Checkout code
@@ -320,6 +330,7 @@ jobs:
 
   build-linux:
     runs-on: ubuntu-latest # 使用最新的 Ubuntu runner
+    if: false # 禁用此job，仅作为参考
 
     steps:
     - name: Checkout code
@@ -410,6 +421,7 @@ jobs:
         path: src-tauri/target/release/bundle/ # 构建产物所在的目录（包含 .AppImage 等）
   build-macos:
     runs-on: macos-latest # 使用最新的 macOS runner
+    if: false # 禁用此job，仅作为参考
 
     steps:
     - name: Checkout code

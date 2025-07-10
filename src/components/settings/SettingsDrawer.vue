@@ -654,7 +654,7 @@
             <!-- 底部 -->
             <div class="settings-footer">
                 <div class="footer-info">
-                    <span class="version-info">版本 0.1.0-preview.2</span>
+                    <span class="version-info">版本 {{ currentVersionInfo.frontend.version || '0.1.0' }}</span>
                 </div>
                 <div class="footer-actions"> <button class="btn btn-ghost btn-sm" @click="resetSettings">
                         <IconifyIcon icon="mdi:refresh" size="sm" />
@@ -679,7 +679,8 @@ import IconifyIcon from '../common/IconifyIcon.vue'
 import './SettingsDrawer.css'
 // 导入版本相关服务
 import versionService from '../../services/versionService'
-import { formatVersionInfo } from '../../utils/versionUtils'
+import { formatVersionInfo, getCurrentVersionInfo } from '../../utils/versionUtils'
+import { getRuntimeVersion } from '../../config/versionConfig'
 
 // 导入设置组件库
 import {
@@ -1881,20 +1882,22 @@ const loadVersionHistory = async () => {
 const initializeVersionInfo = () => {
     // 初始化前端版本信息
     try {
-        // 从 package.json 或其他地方获取前端版本
-        const packageVersion = '0.1.0-preview.2' // 这里应该从实际的 package.json 获取
-        const versionInfo = formatVersionInfo(packageVersion)
+        // 动态获取版本信息
+        const packageVersion = getRuntimeVersion()
+        const versionInfo = getCurrentVersionInfo(packageVersion)
 
         currentVersionInfo.value.frontend = {
-            version: versionInfo.original,
-            internal: versionInfo.internal
+            version: versionInfo.display,
+            internal: versionInfo.frontend.internal
         }
+        
+        console.log('前端版本信息已初始化:', currentVersionInfo.value.frontend)
     } catch (error) {
         console.error('初始化版本信息失败:', error)
         // 设置默认值
         currentVersionInfo.value.frontend = {
-            version: '0.1.0-preview.2',
-            internal: 102
+            version: '0.1.0',
+            internal: 100
         }
     }
 

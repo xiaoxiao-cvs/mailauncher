@@ -3,6 +3,19 @@
  * 用于版本号处理和比较
  */
 
+// 动态导入package.json的版本信息
+let packageVersion = '0.1.0'; // 默认版本
+try {
+  // 在构建时，Vite会处理这个导入
+  const packageInfo = await import('../../package.json', { 
+    with: { type: 'json' },
+    assert: { type: 'json' }
+  });
+  packageVersion = packageInfo.default?.version || packageInfo.version || '0.1.0';
+} catch (error) {
+  console.warn('无法动态加载package.json版本，使用默认版本:', error);
+}
+
 /**
  * 将版本字符串转换为内部数字版本
  * 例如: "0.1.0-Preview.3" => 103
@@ -130,18 +143,78 @@ export function formatVersionInfo(versionString) {
 
 /**
  * 获取当前应用版本信息
+ * @param {string} packageVersion 从package.json获取的版本号
  * @returns {object} 当前版本信息
  */
-export function getCurrentVersionInfo() {
-  // 从多个来源获取版本信息
-  const frontendVersion = "0.1.0"; // 从 package.json
-  const backendVersion = "0.1.0-Preview.2"; // 从后端
-
+export function getCurrentVersionInfo(packageVersion = '0.1.0') {
+  const buildInfo = getBuildVersionInfo(packageVersion);
+  
   return {
-    frontend: formatVersionInfo(frontendVersion),
-    backend: formatVersionInfo(backendVersion),
-    display: frontendVersion, // 主要显示前端版本
+    frontend: formatVersionInfo(buildInfo.final),
+    buildInfo,
+    display: buildInfo.displayVersion,
+    safe: getSafeVersionString(buildInfo.final),
+    original: buildInfo.base
   };
+}
+
+/**
+ * 获取构建版本信息
+ * 根据不同环境和构建参数生成适当的版本号
+ * @returns {object} 版本信息
+ */
+export function getBuildVersionInfo() {
+  const baseVersion = packageVersion;
+  const buildTime = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+  
+  // 检测构建环境
+  const isDev = import.meta.env.DEV;
+  const isPreview = import.meta.env.VITE_BUILD_TYPE === 'preview';
+  const isProduction = import.meta.env.PROD && !isPreview;
+  
+  let finalVersion = baseVersion;
+  let versionSuffix = '';
+  
+  if (isDev) {
+    // 开发环境：添加dev标识和时间戳
+    versionSuffix = '-dev';
+    finalVersion = `${baseVersion}${versionSuffix}.${buildTime}`;
+  } else if (isPreview) {
+    // 预览版本：保持preview标识
+    if (!baseVersion.includes('preview')) {
+      versionSuffix = '-preview';
+      finalVersion = `${baseVersion}${versionSuffix}`;
+    }
+  } else if (isProduction) {
+    // 生产版本：移除所有预发布标识
+    finalVersion = baseVersion.split('-')[0];
+  }
+  
+  return {
+    base: baseVersion,
+    final: finalVersion,
+    suffix: versionSuffix,
+    buildTime,
+    environment: isDev ? 'development' : isPreview ? 'preview' : 'production',
+    displayVersion: finalVersion
+  };
+}
+
+/**
+ * 获取安全的版本字符串（用于构建文件名等）
+ * 移除或替换可能导致构建问题的字符
+ * @param {string} versionString 原始版本字符串
+ * @returns {string} 安全的版本字符串
+ */
+export function getSafeVersionString(versionString) {
+  if (!versionString) return '0-0-0';
+  
+  // 替换可能有问题的字符
+  return versionString
+    .toLowerCase()
+    .replace(/[^a-z0-9.-]/g, '-')  // 替换非字母数字的字符为连字符
+    .replace(/-+/g, '-')           // 合并多个连字符
+    .replace(/^-|-$/g, '');        // 移除开头和结尾的连字符
 }
 
 export default {
@@ -151,4 +224,6 @@ export default {
   hasNewVersion,
   formatVersionInfo,
   getCurrentVersionInfo,
+  getBuildVersionInfo,
+  getSafeVersionString,
 };

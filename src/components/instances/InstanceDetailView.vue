@@ -89,23 +89,14 @@
                             <div class="module-action">
                                 <Icon icon="mdi:chevron-right" />
                             </div>
-                        </div>                        <!-- 适配器配置模块 -->
-                        <div class="module-card" @click="openModule('adapter')">
-                            <div class="module-icon module-icon-cyan">
-                                <Icon icon="mdi:connection" class="text-cyan-500" />
-                            </div>
-                            <div class="module-name">适配器配置</div>
-                            <div class="module-action">
-                                <Icon icon="mdi:chevron-right" />
-                            </div>
-                        </div>
+                        </div>                     
 
                         <!-- MaiBot资源管理模块 -->
                         <div class="module-card" @click="openModule('resource')">
                             <div class="module-icon module-icon-green">
                                 <Icon icon="mdi:database" class="text-green-500" />
                             </div>
-                            <div class="module-name">资源管理</div>
+                            <div class="module-name">资源管理（部分实现）</div>
                             <div class="module-action">
                                 <Icon icon="mdi:chevron-right" />
                             </div>

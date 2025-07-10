@@ -1,0 +1,395 @@
+name: 自动构建开发版本
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+
+# 限制并发执行
+concurrency:
+  group: dev-build-${{ github.ref }}
+  cancel-in-progress: true
+
+# 添加必要的权限
+permissions:
+  contents: write
+  actions: read
+
+env:
+  VITE_BUILD_TYPE: development
+
+jobs:
+  build-windows:
+    name: 构建Windows版本
+    runs-on: [self-hosted, windows, x64] # 仅使用自托管的 Windows runner
+    
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag_name: ${{ steps.create_tag.outputs.tag_name }}
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 获取包版本并创建开发版本
+        id: version
+        run: |
+          # 读取 package.json 的版本号
+          $packageJson = Get-Content -Raw -Path "package.json" | ConvertFrom-Json
+          $packageVersion = $packageJson.version
+          
+          # 获取当前基础版本的所有开发版本标签
+          $allTags = git tag -l "dev-$packageVersion-dev.*" | Sort-Object -Descending
+          
+          # 计算下一个构建号
+          $buildNumber = 1
+          if ($allTags.Count -gt 0) {
+            # 从最新的标签中提取构建号
+            $latestTag = $allTags[0]
+            if ($latestTag -match "dev-$packageVersion-dev\.(\d+)$") {
+              $buildNumber = [int]$matches[1] + 1
+            }
+          }
+          
+          $devVersion = "$packageVersion-dev.$buildNumber"
+          
+          echo "version=$devVersion" >> $env:GITHUB_OUTPUT
+          echo "package_version=$packageVersion" >> $env:GITHUB_OUTPUT
+          echo "build_number=$buildNumber" >> $env:GITHUB_OUTPUT
+          
+          Write-Host "📦 Package Version: $packageVersion"
+          Write-Host "🔧 Dev Version: $devVersion"
+          Write-Host "🔢 Build Number: $buildNumber"
+
+      - name: 创建开发标签
+        id: create_tag
+        run: |
+          $tagName = "dev-${{ steps.version.outputs.version }}"
+          echo "tag_name=$tagName" >> $env:GITHUB_OUTPUT
+          
+          # 检查tag是否已存在
+          $existingTags = git ls-remote --tags origin
+          if ($existingTags -match "refs/tags/$tagName`$") {
+            Write-Host "⚠️ Tag $tagName already exists, skipping creation"
+          } else {
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$tagName" -m "🔧 Auto Dev Build: ${{ steps.version.outputs.version }}"
+            git push origin "$tagName"
+            Write-Host "✅ Created and pushed tag: $tagName"
+          }
+
+      # 克隆后端仓库
+      - name: 克隆后端仓库
+        run: |
+          if (Test-Path "backend") { Remove-Item -Recurse -Force "backend" }
+          git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
+
+      # 直接设置 Python 路径（基于系统实际路径）
+      - name: 直接设置Python路径
+        run: |
+          # 基于日志输出的实际 PATH，直接使用完整路径
+          $pythonPath = "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe"
+          Write-Host "Trying Python at: $pythonPath"
+          
+          try {
+            # 直接使用完整路径，绕过 Test-Path 的权限检查
+            $version = & $pythonPath --version 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "✓ Python found and working"
+              Write-Host "Version: $version"
+              echo "PYTHON_EXECUTABLE=$pythonPath" >> $env:GITHUB_ENV
+              Write-Host "Python path set successfully"
+              exit 0
+            } else {
+              Write-Host "Python found but failed to execute"
+            }
+          } catch {
+            Write-Host "Failed to execute Python: $($_.Exception.Message)"
+          }
+          
+          # 如果直接路径失败，尝试其他系统级路径
+          $systemPaths = @(
+            "C:\Python313\python.exe",
+            "C:\Python312\python.exe",
+            "C:\Program Files\Python313\python.exe",
+            "C:\Program Files\Python312\python.exe"
+          )
+          
+          foreach ($path in $systemPaths) {
+            Write-Host "Checking: $path"
+            try {
+              if (Test-Path $path) {
+                $version = & $path --version 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                  Write-Host "✓ Found working Python: $path"
+                  Write-Host "Version: $version"
+                  echo "PYTHON_EXECUTABLE=$path" >> $env:GITHUB_ENV
+                  exit 0
+                }
+              }
+            } catch {
+              Write-Host "Cannot access: $path"
+            }
+          }
+          
+          Write-Host "Python not found, will try automatic detection..."
+
+      # 检查并设置 Python 环境（自托管 runner）
+      - name: 设置Python环境
+        run: |
+          # 检查上一步是否已经设置了 Python
+          if ($env:PYTHON_EXECUTABLE) {
+            Write-Host "Python already set from previous step: $env:PYTHON_EXECUTABLE"
+            exit 0
+          }
+          
+          Write-Host "Searching for Python installation..."
+          
+          # 首先尝试 PATH 中的 Python 命令
+          $pythonCommands = @("python", "python3", "py")
+          foreach ($cmd in $pythonCommands) {
+            Write-Host "Trying command: $cmd"
+            try {
+              $version = & $cmd --version 2>&1
+              if ($LASTEXITCODE -eq 0) {
+                Write-Host "✓ Working Python command found: $cmd"
+                Write-Host "Version: $version"
+                echo "PYTHON_EXECUTABLE=$cmd" >> $env:GITHUB_ENV
+                Write-Host "=== Python Setup Complete ==="
+                exit 0
+              }
+            } catch {
+              Write-Host "✗ Command not found or failed: $cmd"
+            }
+          }
+          
+          # 如果命令都失败了，尝试系统级路径（避免用户配置文件）
+          $systemPaths = @(
+            "C:\Python*\python.exe",
+            "C:\Program Files\Python*\python.exe",
+            "C:\Program Files (x86)\Python*\python.exe"
+          )
+          
+          $pythonFound = $false
+          foreach ($path in $systemPaths) {
+            Write-Host "Checking system path: $path"
+            try {
+              $resolvedPaths = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+              if ($resolvedPaths) {
+                foreach ($resolvedPath in $resolvedPaths) {
+                  Write-Host "Found potential Python at: $($resolvedPath.FullName)"
+                  try {
+                    $version = & $resolvedPath.FullName --version 2>&1
+                    if ($LASTEXITCODE -eq 0) {
+                      Write-Host "✓ Working Python found: $($resolvedPath.FullName)"
+                      Write-Host "Version: $version"
+                      echo "PYTHON_EXECUTABLE=$($resolvedPath.FullName)" >> $env:GITHUB_ENV
+                      $pythonFound = $true
+                      break
+                    }
+                  } catch {
+                    Write-Host "✗ Failed to execute: $($resolvedPath.FullName)"
+                  }
+                }
+                if ($pythonFound) { break }
+              }
+            } catch {
+              Write-Host "✗ Error checking path: $path"
+            }
+          }
+          
+          if (-not $pythonFound) {
+            Write-Host "=== Python Search Failed ==="
+            Write-Host "Current working directory: $(Get-Location)"
+            Write-Host "Current user: $env:USERNAME"
+            Write-Host "PATH variable:"
+            $env:PATH -split ';' | ForEach-Object { Write-Host "  $_" }
+            Write-Error "Python not found! Please ensure Python is installed and accessible."
+            exit 1
+          }
+          
+          Write-Host "=== Python Setup Complete ==="
+          Write-Host "Python executable: $env:PYTHON_EXECUTABLE"
+
+      # 清理可能的缓存和临时文件（可选但推荐）
+      - name: 清理Python缓存
+        run: |
+          Write-Host "Cleaning Python cache..."
+          Write-Host "Using Python: $env:PYTHON_EXECUTABLE"
+          & $env:PYTHON_EXECUTABLE -m pip cache purge
+          Write-Host "Cache cleaned."
+          
+      # 缓存 pip 依赖
+      - name: 缓存pip依赖
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # 安装后端构建依赖
+      - name: 安装后端依赖
+        run: |
+          cd backend
+          & $env:PYTHON_EXECUTABLE -m pip install --upgrade pip
+          & $env:PYTHON_EXECUTABLE -m pip install -r requirements.txt
+          & $env:PYTHON_EXECUTABLE -m pip install pyinstaller
+          
+      # 创建数据目录
+      - name: 创建后端数据目录
+        run: |
+          cd backend
+          if (!(Test-Path "data")) { New-Item -ItemType Directory -Path "data" }
+          
+      # 构建 Windows 后端
+      - name: 构建Windows后端
+        run: |
+          cd backend
+          Write-Host "Using Python: $env:PYTHON_EXECUTABLE"
+          & $env:PYTHON_EXECUTABLE -m PyInstaller main.spec
+          
+      # 复制后端可执行文件到 Tauri binaries 目录
+      - name: 复制后端可执行文件到Tauri目录
+        run: |
+          if (!(Test-Path "src-tauri\binaries")) { New-Item -ItemType Directory -Path "src-tauri\binaries" -Force }
+          Copy-Item "backend\dist\MaiLauncher-Backend.exe" "src-tauri\binaries\MaiLauncher-Backend-x86_64-pc-windows-msvc.exe"
+
+      # 检查并安装 Node.js
+      - name: 设置Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          
+      # 设置 pnpm
+      - name: 设置pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: latest
+          run_install: true
+
+      # 临时更新版本号用于构建
+      - name: 临时更新版本号用于构建
+        run: |
+          $devVersion = "${{ steps.version.outputs.version }}"
+          
+          # 临时更新package.json版本号（仅用于构建，不提交）
+          $packageJson = Get-Content -Raw -Path "package.json" | ConvertFrom-Json
+          $originalVersion = $packageJson.version
+          $packageJson.version = $devVersion
+          $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path "package.json"
+          Write-Host "🔧 临时更新 package.json 版本号: $originalVersion -> $devVersion"
+          
+          # 临时更新Cargo.toml版本号（仅用于构建，不提交）
+          $cargoToml = Get-Content -Path "src-tauri\Cargo.toml"
+          $cargoToml = $cargoToml -replace '^version = ".*"', "version = `"$devVersion`""
+          $cargoToml | Set-Content -Path "src-tauri\Cargo.toml"
+          Write-Host "🔧 临时更新 Cargo.toml 版本号为: $devVersion"
+
+      # 构建 Tauri 应用（Dev版本）
+      - name: 构建Tauri应用（开发版本）
+        run: |
+          Write-Host "🔧 Building Dev Version: ${{ steps.version.outputs.version }}"
+          pnpm run build:dev
+          pnpm tauri build
+          
+      # 上传构建产物
+      - name: 上传开发版构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-build-windows-${{ steps.version.outputs.version }}
+          path: src-tauri/target/release/bundle/
+          retention-days: 7
+
+      - name: 创建发布说明
+        run: |
+          @"
+          # 🔧 开发版本构建 - ${{ steps.version.outputs.version }}
+          
+          ## 📋 构建信息
+          - **基础版本**: ${{ steps.version.outputs.package_version }}
+          - **构建时间**: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')
+          - **构建类型**: Development
+          - **提交SHA**: ${{ github.sha }}
+          - **分支**: ${{ github.ref_name }}
+          
+          ## ⚠️ 注意事项
+          这是自动构建的开发版本，仅用于测试和开发目的。
+          - 可能包含未经充分测试的功能
+          - 不建议在生产环境中使用
+          - 该版本会定期清理
+          
+          ## 📦 下载
+          - Windows: MSI, EXE 安装包
+          
+          ---
+          *此版本由 GitHub Actions 自动构建和发布*
+          "@ | Out-File -FilePath "release_note.md" -Encoding UTF8
+
+      - name: 创建开发版发布
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.create_tag.outputs.tag_name }}
+          name: "🔧 Dev Build - ${{ steps.version.outputs.version }}"
+          body_path: release_note.md
+          files: |
+            src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/release/bundle/**/*.exe
+          prerelease: true
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup-old-dev-releases:
+    name: 清理旧开发版本
+    needs: [build-windows]
+    runs-on: [self-hosted, windows, x64]
+    if: always()
+    
+    steps:
+      - name: 清理旧的开发版发布
+        run: |
+          Write-Host "🧹 Cleaning up old dev releases..."
+          
+          # 获取所有开发版本的releases（按创建时间倒序）
+          $releases = gh release list --limit 50 --json tagName,createdAt,prerelease,id | ConvertFrom-Json
+          $devReleases = $releases | Where-Object { $_.prerelease -eq $true -and $_.tagName -match "^dev-" } | Sort-Object createdAt -Descending
+          
+          Write-Host "Found $($devReleases.Count) dev releases"
+          
+          # 保留最新的5个开发版本，删除其余的
+          if ($devReleases.Count -gt 5) {
+            $releasesToDelete = $devReleases | Select-Object -Skip 5
+            
+            foreach ($release in $releasesToDelete) {
+              $tagName = $release.tagName
+              Write-Host "🗑️ Deleting old dev release: $tagName"
+              
+              try {
+                # 删除release
+                gh release delete $tagName --yes
+                
+                # 删除tag
+                git push --delete origin $tagName
+                
+                Write-Host "✅ Deleted: $tagName"
+              } catch {
+                Write-Host "❌ Failed to delete: $tagName - $($_.Exception.Message)"
+              }
+            }
+          } else {
+            Write-Host "✅ No cleanup needed (less than 5 dev releases)"
+          }
+          
+          Write-Host "✅ Cleanup completed. Kept $([Math]::Min(5, $($devReleases.Count))) dev releases."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
