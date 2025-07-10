@@ -609,15 +609,7 @@
                                                             label="提供商"
                                                             :model-value="model.provider"
                                                             @update:model-value="model.provider = $event; markModelChanged()"
-                                                            :options="[
-                                                                { value: 'SILICONFLOW', label: 'SiliconFlow' },
-                                                                { value: 'OPENAI', label: 'OpenAI' },
-                                                                { value: 'ANTHROPIC', label: 'Anthropic' },
-                                                                { value: 'GOOGLE', label: 'Google' },
-                                                                { value: 'AZURE', label: 'Azure' },
-                                                                { value: 'LOCAL', label: 'Local' },
-                                                                { value: 'OTHER', label: '其他' }
-                                                            ]"
+                                                            :options="availableProviders"
                                                         />
 
                                                         <!-- 价格配置 -->
@@ -1021,7 +1013,7 @@ const needsPagination = computed(() => totalModelConfigs.value > modelPageSize.v
 
 // 方法
 // 简化的方法
-const switchTab = (tabKey) => {
+const switchTab = async (tabKey) => {
     previousTab.value = activeTab.value
     activeTab.value = tabKey
     
@@ -1030,6 +1022,11 @@ const switchTab = (tabKey) => {
     // 加载对应数据
     const loaders = { bot: loadBotConfig, model: loadModelConfig, env: loadEnvConfig, lpmm: loadLpmmConfig }
     const hasData = { bot: botConfig.value, model: modelConfig.value, env: envConfig.value, lpmm: lpmmConfig.value }
+    
+    // 如果切换到模型配置标签页，需要先确保LPMM配置已加载
+    if (tabKey === 'model' && !lpmmConfig.value && props.instanceId) {
+        await loadLpmmConfig(props.instanceId)
+    }
     
     if (!hasData[tabKey] && loaders[tabKey]) {
         loaders[tabKey](props.instanceId)
@@ -1090,6 +1087,35 @@ const removeArrayItem = (path, index) => {
 
 // 计算属性
 const hasChanges = computed(() => hasConfigChanges.value || hasEnvChanges.value || hasLpmmChanges.value || hasModelChanges.value)
+
+// 获取已配置的提供商选项
+const availableProviders = computed(() => {
+    if (!lpmmConfig.value?.llm_providers || lpmmConfig.value.llm_providers.length === 0) {
+        // 如果没有配置提供商，返回默认选项
+        return [
+            { value: 'SILICONFLOW', label: 'SiliconFlow' },
+            { value: 'OPENAI', label: 'OpenAI' },
+            { value: 'ANTHROPIC', label: 'Anthropic' },
+            { value: 'GOOGLE', label: 'Google' },
+            { value: 'AZURE', label: 'Azure' },
+            { value: 'LOCAL', label: 'Local' },
+            { value: 'OTHER', label: '其他' }
+        ]
+    }
+    
+    // 基于已配置的提供商创建选项
+    const configuredProviders = lpmmConfig.value.llm_providers.map(provider => ({
+        value: provider.name.toUpperCase(),
+        label: provider.name
+    }))
+    
+    // 去重处理
+    const uniqueProviders = configuredProviders.filter((provider, index, self) => 
+        index === self.findIndex(p => p.value === provider.value)
+    )
+    
+    return uniqueProviders
+})
 
 // LPMM 配置相关方法
 const addLlmProvider = () => {
@@ -1293,12 +1319,17 @@ watch(() => props.instanceId, (newId, oldId) => {
     }
 })
 
-watch(() => props.isOpen, (isOpen, wasOpen) => {
+watch(() => props.isOpen, async (isOpen, wasOpen) => {
     if (isOpen && !wasOpen && props.instanceId) {
         console.log('抽屉打开，开始加载配置', { instanceId: props.instanceId, activeTab: activeTab.value })
         
         const hasData = { bot: botConfig.value, model: modelConfig.value, env: envConfig.value, lpmm: lpmmConfig.value }
         const loaders = { bot: loadBotConfig, model: loadModelConfig, env: loadEnvConfig, lpmm: loadLpmmConfig }
+        
+        // 如果当前标签页是模型配置，先确保LPMM配置已加载
+        if (activeTab.value === 'model' && !hasData.lpmm) {
+            await loadLpmmConfig(props.instanceId)
+        }
         
         if (!hasData[activeTab.value] && loaders[activeTab.value]) {
             loaders[activeTab.value](props.instanceId)
@@ -2703,21 +2734,6 @@ onMounted(() => {
 }
 
 .model-setting-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-}
-
-/* HyperOS2 Grid 样式 */
-.hyperos2-grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-}
-
-.model-setting-label {
-    font-size: 0.8rem;
-    font-weight: 500;
     color: var(--color-text-primary);
     display: flex;
     align-items: center;
