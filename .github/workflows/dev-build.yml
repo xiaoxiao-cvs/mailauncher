@@ -342,7 +342,7 @@ jobs:
           
           ---
           *此版本由 GitHub Actions 自动构建和发布*
-          "@ | Out-File -FilePath "release_note.md" -Encoding UTF8BOM
+          "@ | Set-Content -Path "release_note.md" -Encoding utf8
 
       - name: 创建开发版发布
         if: github.ref == 'refs/heads/main'
