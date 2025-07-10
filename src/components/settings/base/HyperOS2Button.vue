@@ -236,11 +236,22 @@ const createRipple = (event) => {
 .hyperos2-button--ghost {
   background: transparent;
   color: var(--hyperos-primary);
-  border: 1px solid var(--hyperos-primary);
+  border: none; /* 移除边框 */
 }
 
 .hyperos2-button--ghost:hover:not(.hyperos2-button--disabled):not(.hyperos2-button--loading) {
-  background: rgba(0, 122, 255, 0.1);
+  background: none; /* 移除悬停背景 */
+  transform: scale(1.05); /* 轻微放大效果 */
+}
+
+/* Ghost 按钮中的图标加粗 */
+.hyperos2-button--ghost .button-icon {
+  font-weight: 700;
+}
+
+/* Ghost 按钮中的文本也稍微加粗 */
+.hyperos2-button--ghost .button-text {
+  font-weight: 600;
 }
 
 .hyperos2-button--text {

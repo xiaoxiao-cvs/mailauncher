@@ -1326,6 +1326,17 @@ createDebounceWatcher(modelConfig, originalModelConfig, hasModelChanges)
 onMounted(() => {
     console.log('BotConfigDrawer mounted', { isOpen: props.isOpen, instanceId: props.instanceId })
     
+    // 确保CSS变量正确设置
+    const sidebarWidth = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim()
+    console.log('当前侧边栏宽度CSS变量:', sidebarWidth)
+    
+    // 如果CSS变量未设置，使用默认值
+    if (!sidebarWidth) {
+        const defaultWidth = localStorage.getItem('sidebarExpanded') === 'true' ? '220px' : '64px'
+        document.documentElement.style.setProperty('--sidebar-width', defaultWidth)
+        console.log('设置默认侧边栏宽度:', defaultWidth)
+    }
+    
     // 如果抽屉已经打开，立即加载配置
     if (props.isOpen && props.instanceId && activeTab.value === 'bot') {
         loadBotConfig(props.instanceId)
@@ -1346,43 +1357,47 @@ onMounted(() => {
 <style scoped>
 /* Bot配置抽屉样式 - 与设置抽屉保持一致 */
 
-/* 背景遮罩 - 不覆盖侧边栏 */
+/* 背景遮罩 - 全屏遮罩，确保正确居中 */
 .bot-config-drawer-backdrop {
     position: fixed;
     top: 0;
+    left: 0;
     right: 0;
     bottom: 0;
-    left: var(--sidebar-width, 64px); /* 从侧边栏右侧开始 */
     background: rgba(0, 0, 0, 0.25);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 40; /* 确保在侧边栏下方 */
+    z-index: 100; /* 确保在侧边栏上方，但低于设置抽屉 */
     pointer-events: auto;
 }
 
 /* 主题相关的背景遮罩调整 */
 :root[data-theme="dark"] .bot-config-drawer-backdrop {
-    background: rgba(0, 0, 0, 0.35);
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
 }
 
 :root[data-theme="light"] .bot-config-drawer-backdrop,
 :root[data-theme="cupcake"] .bot-config-drawer-backdrop,
 :root[data-theme="bumblebee"] .bot-config-drawer-backdrop {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
 }
 
 /* 主容器 */
 .bot-config-drawer-container {
-    /* 动态计算宽度：可用宽度的85%，确保两侧有留白 */
-    width: calc((100vw - var(--sidebar-width, 64px)) * 0.85);
-    min-width: 600px; /* 最小宽度确保可用性 */
-    max-width: 1200px; /* 最大宽度避免过大 */
-    height: 85vh; /* 使用视口高度的85% */
-    min-height: 500px; /* 最小高度 */
-    max-height: 800px; /* 最大高度 */
+    /* 使用固定的最佳宽度，在全屏遮罩中居中显示 */
+    width: 85vw;
+    min-width: 600px;
+    max-width: 1200px;
+    height: 85vh;
+    min-height: 500px;
+    max-height: 800px;
     background-color: #ffffff;
     border-radius: 16px;
     box-shadow: 0 32px 64px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.1);
@@ -1392,30 +1407,70 @@ onMounted(() => {
     position: relative;
     border: 1px solid rgba(0, 0, 0, 0.1);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* 确保容器在遮罩层中正确居中 */
+    margin: auto;
 }
 
-/* 响应式调整：当可用宽度较小时，调整最小宽度 */
+/* 响应式调整 */
 @media (max-width: 1024px) {
     .bot-config-drawer-container {
-        width: calc((100vw - var(--sidebar-width, 64px)) * 0.9);
+        width: 90vw;
         min-width: 500px;
+        max-width: 900px;
     }
 }
 
 @media (max-width: 768px) {
     .bot-config-drawer-container {
-        width: calc((100vw - var(--sidebar-width, 64px)) * 0.95);
+        width: 95vw;
         min-width: 400px;
+        max-width: 600px;
         height: 90vh;
+    }
+}
+
+@media (max-width: 480px) {
+    .bot-config-drawer-container {
+        width: 98vw;
+        min-width: 350px;
+        height: 95vh;
+    }
+}
+
+@media (max-width: 480px) {
+    .bot-config-drawer-backdrop {
+        left: 0; /* 小屏幕时覆盖整个屏幕 */
+    }
+    
+    .bot-config-drawer-container {
+        width: 95vw;
+        min-width: 320px;
+        max-width: none;
+        height: 95vh;
     }
 }
 
 /* 深色模式优化 */
 :root[data-theme="dark"] .bot-config-drawer-container {
-    background-color: rgba(22, 25, 30, 0.95);
+    background-color: rgba(22, 25, 30, 0.98);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 32px 64px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    box-shadow: 
+        0 32px 64px rgba(0, 0, 0, 0.6), 
+        0 0 0 1px rgba(255, 255, 255, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* 浅色模式优化 */
+:root[data-theme="light"] .bot-config-drawer-container,
+:root[data-theme="cupcake"] .bot-config-drawer-container,
+:root[data-theme="bumblebee"] .bot-config-drawer-container {
+    background-color: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 
+        0 32px 64px rgba(0, 0, 0, 0.15), 
+        0 0 0 1px rgba(0, 0, 0, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 /* 头部 */
@@ -1509,11 +1564,14 @@ onMounted(() => {
     padding: 0.25rem;
     border-radius: 0.25rem;
     transition: all 0.2s ease;
+    font-weight: 700; /* 加粗×符号 */
+    font-size: 1rem; /* 确保×符号大小合适 */
 }
 
 .search-clear:hover {
     color: rgba(0, 0, 0, 0.8);
-    background: rgba(0, 0, 0, 0.05);
+    background: none; /* 移除悬停时的背景框 */
+    transform: scale(1.1); /* 悬停时轻微放大效果 */
 }
 
 .search-stats {
@@ -1549,7 +1607,7 @@ onMounted(() => {
 
 :root[data-theme="dark"] .search-clear:hover {
     color: rgba(255, 255, 255, 0.8);
-    background: rgba(255, 255, 255, 0.1);
+    background: none; /* 移除深色模式下的背景框 */
 }
 
 :root[data-theme="dark"] .search-stats {
@@ -2813,12 +2871,31 @@ onMounted(() => {
     }
     
     .pagination-info {
-        order: 2;
+        order: -1;
     }
-    
-    .pagination-controls {
-        order: 1;
-    }
+}
+
+/* Bot配置抽屉进入/退出动画 */
+.bot-config-drawer-enter-active,
+.bot-config-drawer-leave-active {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bot-config-drawer-enter-from,
+.bot-config-drawer-leave-to {
+    opacity: 0;
+}
+
+.bot-config-drawer-enter-from .bot-config-drawer-container,
+.bot-config-drawer-leave-to .bot-config-drawer-container {
+    transform: scale(0.95) translateY(20px);
+    opacity: 0;
+}
+
+.bot-config-drawer-enter-to .bot-config-drawer-container,
+.bot-config-drawer-leave-from .bot-config-drawer-container {
+    transform: scale(1) translateY(0);
+    opacity: 1;
 }
 </style>
 
