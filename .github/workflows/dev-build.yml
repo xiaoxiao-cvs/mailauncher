@@ -270,7 +270,7 @@ jobs:
           & $env:PYTHON_EXECUTABLE -m pip install -r requirements.txt
           & $env:PYTHON_EXECUTABLE -m pip install pyinstaller
           
-          Write-Host "✅ 后端依赖安装完成"
+          Write-Host "✅ Backend dependencies installed"
           
       # 创建数据目录
       - name: 创建后端数据目录
@@ -289,7 +289,7 @@ jobs:
           Write-Host "Using Python: $env:PYTHON_EXECUTABLE"
           & $env:PYTHON_EXECUTABLE -m PyInstaller main.spec
           
-          Write-Host "✅ 后端构建完成"
+          Write-Host "✅ Backend build completed"
           
       # 复制后端可执行文件到 Tauri binaries 目录
       - name: 复制后端可执行文件到Tauri目录
@@ -297,7 +297,7 @@ jobs:
           # 确保目录存在
           if (!(Test-Path "src-tauri\binaries")) { 
             New-Item -ItemType Directory -Path "src-tauri\binaries" -Force 
-            Write-Host "✅ 创建 binaries 目录"
+            Write-Host "✅ Created binaries directory"
           }
           
           # 检查源文件是否存在
@@ -306,23 +306,23 @@ jobs:
           
           if (Test-Path $sourceFile) {
             Copy-Item $sourceFile $destFile -Force
-            Write-Host "✅ 后端可执行文件复制完成: $sourceFile -> $destFile"
+            Write-Host "✅ Backend executable copied successfully: $sourceFile -> $destFile"
             
             # 验证文件存在
             if (Test-Path $destFile) {
               $fileSize = (Get-Item $destFile).Length
-              Write-Host "✅ 文件验证成功，大小: $([math]::round($fileSize/1MB, 2)) MB"
+              Write-Host "✅ File verification successful, size: $([math]::round($fileSize/1MB, 2)) MB"
             } else {
-              Write-Error "❌ 文件复制失败"
+              Write-Error "❌ File copy failed"
               exit 1
             }
           } else {
-            Write-Error "❌ 源文件不存在: $sourceFile"
-            Write-Host "列出 backend/dist 目录内容:"
+            Write-Error "❌ Source file does not exist: $sourceFile"
+            Write-Host "Listing backend/dist directory contents:"
             if (Test-Path "backend\dist") {
               Get-ChildItem "backend\dist" -Recurse | ForEach-Object { Write-Host "  $($_.FullName)" }
             } else {
-              Write-Host "  目录不存在"
+              Write-Host "  Directory does not exist"
             }
             exit 1
           }
@@ -354,13 +354,13 @@ jobs:
           $originalVersion = $packageJson.version
           $packageJson.version = $devVersion
           $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path "package.json" -Encoding UTF8
-          Write-Host "🔧 临时更新 package.json 版本号: $originalVersion -> $devVersion"
+          Write-Host "🔧 Temporarily updated package.json version: $originalVersion -> $devVersion"
           
           # 临时更新Cargo.toml版本号（仅用于构建，不提交）
           $cargoToml = Get-Content -Path "src-tauri\Cargo.toml" -Encoding UTF8
           $cargoToml = $cargoToml -replace '^version = ".*"', "version = `"$devVersion`""
           $cargoToml | Set-Content -Path "src-tauri\Cargo.toml" -Encoding UTF8
-          Write-Host "🔧 临时更新 Cargo.toml 版本号为: $devVersion"
+          Write-Host "🔧 Temporarily updated Cargo.toml version to: $devVersion"
 
       # 构建 Tauri 应用（Dev版本）
       - name: 构建Tauri应用（开发版本）
@@ -405,7 +405,7 @@ jobs:
           ---
           *此版本由 GitHub Actions 自动构建和发布*
           "@ | Set-Content -Path "release_note.md" -Encoding UTF8
-          Write-Host "✅ 发布说明已创建"
+          Write-Host "✅ Release notes created"
 
       - name: 创建开发版发布
         if: github.ref == 'refs/heads/main'
