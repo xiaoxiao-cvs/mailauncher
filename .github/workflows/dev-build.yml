@@ -22,6 +22,9 @@ permissions:
 
 env:
   VITE_BUILD_TYPE: development
+  # 设置 PowerShell 和系统编码
+  POWERSHELL_OUTPUT_ENCODING: utf8
+  PYTHONIOENCODING: utf-8
 
 jobs:
   build-windows:
@@ -33,6 +36,19 @@ jobs:
       tag_name: ${{ steps.create_tag.outputs.tag_name }}
     
     steps:
+      - name: 设置PowerShell编码
+        run: |
+          # 设置PowerShell控制台编码为UTF-8
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+          $OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
+          
+          # 设置环境变量
+          echo "POWERSHELL_TELEMETRY_OPTOUT=1" >> $env:GITHUB_ENV
+          echo "PYTHONIOENCODING=utf-8" >> $env:GITHUB_ENV
+          
+          Write-Host "✅ PowerShell encoding set to UTF-8"
+
       - name: 检出代码
         uses: actions/checkout@v4
         with:
@@ -48,7 +64,7 @@ jobs:
         id: version
         run: |
           # 读取 package.json 的版本号
-          $packageJson = Get-Content -Raw -Path "package.json" | ConvertFrom-Json
+          $packageJson = Get-Content -Raw -Path "package.json" -Encoding UTF8 | ConvertFrom-Json
           $packageVersion = $packageJson.version
           
           # 获取当前基础版本的所有开发版本标签
@@ -245,10 +261,16 @@ jobs:
       # 安装后端构建依赖
       - name: 安装后端依赖
         run: |
+          # 设置Python编码
+          $env:PYTHONIOENCODING = "utf-8"
+          $env:PYTHONUTF8 = "1"
+          
           cd backend
           & $env:PYTHON_EXECUTABLE -m pip install --upgrade pip
           & $env:PYTHON_EXECUTABLE -m pip install -r requirements.txt
           & $env:PYTHON_EXECUTABLE -m pip install pyinstaller
+          
+          Write-Host "✅ 后端依赖安装完成"
           
       # 创建数据目录
       - name: 创建后端数据目录
@@ -259,15 +281,51 @@ jobs:
       # 构建 Windows 后端
       - name: 构建Windows后端
         run: |
+          # 设置Python编码
+          $env:PYTHONIOENCODING = "utf-8"
+          $env:PYTHONUTF8 = "1"
+          
           cd backend
           Write-Host "Using Python: $env:PYTHON_EXECUTABLE"
           & $env:PYTHON_EXECUTABLE -m PyInstaller main.spec
           
+          Write-Host "✅ 后端构建完成"
+          
       # 复制后端可执行文件到 Tauri binaries 目录
       - name: 复制后端可执行文件到Tauri目录
         run: |
-          if (!(Test-Path "src-tauri\binaries")) { New-Item -ItemType Directory -Path "src-tauri\binaries" -Force }
-          Copy-Item "backend\dist\MaiLauncher-Backend.exe" "src-tauri\binaries\MaiLauncher-Backend-x86_64-pc-windows-msvc.exe"
+          # 确保目录存在
+          if (!(Test-Path "src-tauri\binaries")) { 
+            New-Item -ItemType Directory -Path "src-tauri\binaries" -Force 
+            Write-Host "✅ 创建 binaries 目录"
+          }
+          
+          # 检查源文件是否存在
+          $sourceFile = "backend\dist\MaiLauncher-Backend.exe"
+          $destFile = "src-tauri\binaries\MaiLauncher-Backend-x86_64-pc-windows-msvc.exe"
+          
+          if (Test-Path $sourceFile) {
+            Copy-Item $sourceFile $destFile -Force
+            Write-Host "✅ 后端可执行文件复制完成: $sourceFile -> $destFile"
+            
+            # 验证文件存在
+            if (Test-Path $destFile) {
+              $fileSize = (Get-Item $destFile).Length
+              Write-Host "✅ 文件验证成功，大小: $([math]::round($fileSize/1MB, 2)) MB"
+            } else {
+              Write-Error "❌ 文件复制失败"
+              exit 1
+            }
+          } else {
+            Write-Error "❌ 源文件不存在: $sourceFile"
+            Write-Host "列出 backend/dist 目录内容:"
+            if (Test-Path "backend\dist") {
+              Get-ChildItem "backend\dist" -Recurse | ForEach-Object { Write-Host "  $($_.FullName)" }
+            } else {
+              Write-Host "  目录不存在"
+            }
+            exit 1
+          }
 
       # 检查并安装 Node.js
       - name: 设置Node.js 22
@@ -292,16 +350,16 @@ jobs:
           $devVersion = "${{ steps.version.outputs.version }}"
           
           # 临时更新package.json版本号（仅用于构建，不提交）
-          $packageJson = Get-Content -Raw -Path "package.json" | ConvertFrom-Json
+          $packageJson = Get-Content -Raw -Path "package.json" -Encoding UTF8 | ConvertFrom-Json
           $originalVersion = $packageJson.version
           $packageJson.version = $devVersion
-          $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path "package.json"
+          $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path "package.json" -Encoding UTF8
           Write-Host "🔧 临时更新 package.json 版本号: $originalVersion -> $devVersion"
           
           # 临时更新Cargo.toml版本号（仅用于构建，不提交）
-          $cargoToml = Get-Content -Path "src-tauri\Cargo.toml"
+          $cargoToml = Get-Content -Path "src-tauri\Cargo.toml" -Encoding UTF8
           $cargoToml = $cargoToml -replace '^version = ".*"', "version = `"$devVersion`""
-          $cargoToml | Set-Content -Path "src-tauri\Cargo.toml"
+          $cargoToml | Set-Content -Path "src-tauri\Cargo.toml" -Encoding UTF8
           Write-Host "🔧 临时更新 Cargo.toml 版本号为: $devVersion"
 
       # 构建 Tauri 应用（Dev版本）
@@ -321,6 +379,10 @@ jobs:
 
       - name: 创建发布说明
         run: |
+          # 设置控制台输出编码为UTF-8
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
+          
           @"
           # 🔧 开发版本构建 - ${{ steps.version.outputs.version }}
           
@@ -342,7 +404,8 @@ jobs:
           
           ---
           *此版本由 GitHub Actions 自动构建和发布*
-          "@ | Set-Content -Path "release_note.md" -Encoding utf8
+          "@ | Set-Content -Path "release_note.md" -Encoding UTF8
+          Write-Host "✅ 发布说明已创建"
 
       - name: 创建开发版发布
         if: github.ref == 'refs/heads/main'
@@ -366,8 +429,20 @@ jobs:
     if: always()
     
     steps:
+      - name: 设置PowerShell编码
+        run: |
+          # 设置PowerShell控制台编码为UTF-8
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+          $OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
+          Write-Host "✅ PowerShell encoding set to UTF-8"
+
       - name: 清理旧的开发版发布
         run: |
+          # 设置控制台输出编码为UTF-8
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
+          
           Write-Host "🧹 Cleaning up old dev releases..."
           
           # 获取所有开发版本的releases（按创建时间倒序）

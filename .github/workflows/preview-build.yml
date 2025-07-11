@@ -15,6 +15,9 @@ on:
 
 env:
   VITE_BUILD_TYPE: preview
+  # 设置 PowerShell 和系统编码
+  POWERSHELL_OUTPUT_ENCODING: utf8
+  PYTHONIOENCODING: utf-8
 
 # 添加必要的权限
 permissions:
@@ -47,7 +50,7 @@ jobs:
             Write-Host "🔧 Using override version: $VERSION"
           } else {
             # 读取 package.json 的版本号
-            $packageJson = Get-Content -Raw -Path "package.json" | ConvertFrom-Json
+            $packageJson = Get-Content -Raw -Path "package.json" -Encoding UTF8 | ConvertFrom-Json
             $packageVersion = $packageJson.version
             
             # 移除可能存在的 preview 后缀，获取基础版本
@@ -76,6 +79,20 @@ jobs:
           echo "version=$VERSION" >> $env:GITHUB_OUTPUT
           echo "tag_name=$tagName" >> $env:GITHUB_OUTPUT
           Write-Host "🏷️ Tag name: $tagName"
+
+      # 设置PowerShell编码
+      - name: 设置PowerShell编码
+        run: |
+          # 设置PowerShell控制台编码为UTF-8
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+          $OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
+          
+          # 设置环境变量
+          echo "POWERSHELL_TELEMETRY_OPTOUT=1" >> $env:GITHUB_ENV
+          echo "PYTHONIOENCODING=utf-8" >> $env:GITHUB_ENV
+          
+          Write-Host "✅ PowerShell encoding set to UTF-8"
 
       # 克隆后端仓库
       - name: 克隆后端仓库
@@ -273,16 +290,16 @@ jobs:
           $previewVersion = "${{ steps.version.outputs.version }}"
           
           # 临时更新package.json版本号（仅用于构建，不提交）
-          $packageJson = Get-Content -Raw -Path "package.json" | ConvertFrom-Json
+          $packageJson = Get-Content -Raw -Path "package.json" -Encoding UTF8 | ConvertFrom-Json
           $originalVersion = $packageJson.version
           $packageJson.version = $previewVersion
-          $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path "package.json"
+          $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path "package.json" -Encoding UTF8
           Write-Host "🎯 临时更新 package.json 版本号: $originalVersion -> $previewVersion"
           
           # 临时更新Cargo.toml版本号（仅用于构建，不提交）
-          $cargoToml = Get-Content -Path "src-tauri\Cargo.toml"
+          $cargoToml = Get-Content -Path "src-tauri\Cargo.toml" -Encoding UTF8
           $cargoToml = $cargoToml -replace '^version = ".*"', "version = `"$previewVersion`""
-          $cargoToml | Set-Content -Path "src-tauri\Cargo.toml"
+          $cargoToml | Set-Content -Path "src-tauri\Cargo.toml" -Encoding UTF8
           Write-Host "🎯 临时更新 Cargo.toml 版本号为: $previewVersion"
 
       # 构建 Tauri 应用（Preview版本）
