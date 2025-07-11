@@ -22,33 +22,17 @@ permissions:
 
 env:
   VITE_BUILD_TYPE: development
-  # 设置 PowerShell 和系统编码
-  POWERSHELL_OUTPUT_ENCODING: utf8
-  PYTHONIOENCODING: utf-8
 
 jobs:
   build-windows:
     name: 构建Windows版本
-    runs-on: [self-hosted, windows, x64] # 仅使用自托管的 Windows runner
+    runs-on: windows-latest # 使用GitHub托管的Windows服务器
     
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag_name: ${{ steps.create_tag.outputs.tag_name }}
     
     steps:
-      - name: 设置PowerShell编码
-        run: |
-          # 设置PowerShell控制台编码为UTF-8
-          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-          [Console]::InputEncoding = [System.Text.Encoding]::UTF8
-          $OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
-          
-          # 设置环境变量
-          echo "POWERSHELL_TELEMETRY_OPTOUT=1" >> $env:GITHUB_ENV
-          echo "PYTHONIOENCODING=utf-8" >> $env:GITHUB_ENV
-          
-          Write-Host "✅ PowerShell encoding set to UTF-8"
-
       - name: 检出代码
         uses: actions/checkout@v4
         with:
@@ -57,7 +41,6 @@ jobs:
       - name: 配置Git安全目录
         run: |
           git config --global --add safe.directory $env:GITHUB_WORKSPACE
-          git config --global --add safe.directory "C:/actions-runner/_work/mailauncher/mailauncher"
           Write-Host "✅ Git safe directory configured"
 
       - name: 获取包版本并创建开发版本
@@ -114,140 +97,11 @@ jobs:
           if (Test-Path "backend") { Remove-Item -Recurse -Force "backend" }
           git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
 
-      # 直接设置 Python 路径（基于系统实际路径）
-      - name: 直接设置Python路径
-        run: |
-          # 基于日志输出的实际 PATH，直接使用完整路径
-          $pythonPath = "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe"
-          Write-Host "Trying Python at: $pythonPath"
-          
-          try {
-            # 直接使用完整路径，绕过 Test-Path 的权限检查
-            $version = & $pythonPath --version 2>&1
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "✓ Python found and working"
-              Write-Host "Version: $version"
-              echo "PYTHON_EXECUTABLE=$pythonPath" >> $env:GITHUB_ENV
-              Write-Host "Python path set successfully"
-              exit 0
-            } else {
-              Write-Host "Python found but failed to execute"
-            }
-          } catch {
-            Write-Host "Failed to execute Python: $($_.Exception.Message)"
-          }
-          
-          # 如果直接路径失败，尝试其他系统级路径
-          $systemPaths = @(
-            "C:\Python313\python.exe",
-            "C:\Python312\python.exe",
-            "C:\Program Files\Python313\python.exe",
-            "C:\Program Files\Python312\python.exe"
-          )
-          
-          foreach ($path in $systemPaths) {
-            Write-Host "Checking: $path"
-            try {
-              if (Test-Path $path) {
-                $version = & $path --version 2>&1
-                if ($LASTEXITCODE -eq 0) {
-                  Write-Host "✓ Found working Python: $path"
-                  Write-Host "Version: $version"
-                  echo "PYTHON_EXECUTABLE=$path" >> $env:GITHUB_ENV
-                  exit 0
-                }
-              }
-            } catch {
-              Write-Host "Cannot access: $path"
-            }
-          }
-          
-          Write-Host "Python not found, will try automatic detection..."
-
-      # 检查并设置 Python 环境（自托管 runner）
+      # 设置 Python 环境（GitHub托管的runner）
       - name: 设置Python环境
-        run: |
-          # 检查上一步是否已经设置了 Python
-          if ($env:PYTHON_EXECUTABLE) {
-            Write-Host "Python already set from previous step: $env:PYTHON_EXECUTABLE"
-            exit 0
-          }
-          
-          Write-Host "Searching for Python installation..."
-          
-          # 首先尝试 PATH 中的 Python 命令
-          $pythonCommands = @("python", "python3", "py")
-          foreach ($cmd in $pythonCommands) {
-            Write-Host "Trying command: $cmd"
-            try {
-              $version = & $cmd --version 2>&1
-              if ($LASTEXITCODE -eq 0) {
-                Write-Host "✓ Working Python command found: $cmd"
-                Write-Host "Version: $version"
-                echo "PYTHON_EXECUTABLE=$cmd" >> $env:GITHUB_ENV
-                Write-Host "=== Python Setup Complete ==="
-                exit 0
-              }
-            } catch {
-              Write-Host "✗ Command not found or failed: $cmd"
-            }
-          }
-          
-          # 如果命令都失败了，尝试系统级路径（避免用户配置文件）
-          $systemPaths = @(
-            "C:\Python*\python.exe",
-            "C:\Program Files\Python*\python.exe",
-            "C:\Program Files (x86)\Python*\python.exe"
-          )
-          
-          $pythonFound = $false
-          foreach ($path in $systemPaths) {
-            Write-Host "Checking system path: $path"
-            try {
-              $resolvedPaths = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
-              if ($resolvedPaths) {
-                foreach ($resolvedPath in $resolvedPaths) {
-                  Write-Host "Found potential Python at: $($resolvedPath.FullName)"
-                  try {
-                    $version = & $resolvedPath.FullName --version 2>&1
-                    if ($LASTEXITCODE -eq 0) {
-                      Write-Host "✓ Working Python found: $($resolvedPath.FullName)"
-                      Write-Host "Version: $version"
-                      echo "PYTHON_EXECUTABLE=$($resolvedPath.FullName)" >> $env:GITHUB_ENV
-                      $pythonFound = $true
-                      break
-                    }
-                  } catch {
-                    Write-Host "✗ Failed to execute: $($resolvedPath.FullName)"
-                  }
-                }
-                if ($pythonFound) { break }
-              }
-            } catch {
-              Write-Host "✗ Error checking path: $path"
-            }
-          }
-          
-          if (-not $pythonFound) {
-            Write-Host "=== Python Search Failed ==="
-            Write-Host "Current working directory: $(Get-Location)"
-            Write-Host "Current user: $env:USERNAME"
-            Write-Host "PATH variable:"
-            $env:PATH -split ';' | ForEach-Object { Write-Host "  $_" }
-            Write-Error "Python not found! Please ensure Python is installed and accessible."
-            exit 1
-          }
-          
-          Write-Host "=== Python Setup Complete ==="
-          Write-Host "Python executable: $env:PYTHON_EXECUTABLE"
-
-      # 清理可能的缓存和临时文件（可选但推荐）
-      - name: 清理Python缓存
-        run: |
-          Write-Host "Cleaning Python cache..."
-          Write-Host "Using Python: $env:PYTHON_EXECUTABLE"
-          & $env:PYTHON_EXECUTABLE -m pip cache purge
-          Write-Host "Cache cleaned."
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
           
       # 缓存 pip 依赖
       - name: 缓存pip依赖
@@ -261,15 +115,10 @@ jobs:
       # 安装后端构建依赖
       - name: 安装后端依赖
         run: |
-          # 设置Python编码
-          $env:PYTHONIOENCODING = "utf-8"
-          $env:PYTHONUTF8 = "1"
-          
           cd backend
-          & $env:PYTHON_EXECUTABLE -m pip install --upgrade pip
-          & $env:PYTHON_EXECUTABLE -m pip install -r requirements.txt
-          & $env:PYTHON_EXECUTABLE -m pip install pyinstaller
-          
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
           Write-Host "✅ Backend dependencies installed"
           
       # 创建数据目录
@@ -281,14 +130,8 @@ jobs:
       # 构建 Windows 后端
       - name: 构建Windows后端
         run: |
-          # 设置Python编码
-          $env:PYTHONIOENCODING = "utf-8"
-          $env:PYTHONUTF8 = "1"
-          
           cd backend
-          Write-Host "Using Python: $env:PYTHON_EXECUTABLE"
-          & $env:PYTHON_EXECUTABLE -m PyInstaller main.spec
-          
+          python -m PyInstaller main.spec
           Write-Host "✅ Backend build completed"
           
       # 复制后端可执行文件到 Tauri binaries 目录
@@ -353,16 +196,13 @@ jobs:
           $packageJson = Get-Content -Raw -Path "package.json" -Encoding UTF8 | ConvertFrom-Json
           $originalVersion = $packageJson.version
           $packageJson.version = $devVersion
-          # 使用UTF8NoBOM编码避免BOM字符导致的JSON解析错误
-          $jsonContent = $packageJson | ConvertTo-Json -Depth 100
-          [System.IO.File]::WriteAllText((Join-Path $PWD "package.json"), $jsonContent, [System.Text.UTF8Encoding]::new($false))
+          $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path "package.json" -Encoding UTF8
           Write-Host "🔧 Temporarily updated package.json version: $originalVersion -> $devVersion"
           
           # 临时更新Cargo.toml版本号（仅用于构建，不提交）
           $cargoToml = Get-Content -Path "src-tauri\Cargo.toml" -Encoding UTF8
           $cargoToml = $cargoToml -replace '^version = ".*"', "version = `"$devVersion`""
-          # 使用UTF8NoBOM编码避免BOM字符
-          [System.IO.File]::WriteAllLines((Join-Path $PWD "src-tauri\Cargo.toml"), $cargoToml, [System.Text.UTF8Encoding]::new($false))
+          $cargoToml | Set-Content -Path "src-tauri\Cargo.toml" -Encoding UTF8
           Write-Host "🔧 Temporarily updated Cargo.toml version to: $devVersion"
 
       # 构建 Tauri 应用（Dev版本）
@@ -382,10 +222,6 @@ jobs:
 
       - name: 创建发布说明
         run: |
-          # 设置控制台输出编码为UTF-8
-          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-          $OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
-          
           # 构建发布说明内容
           $releaseNote = "# 🔧 开发版本构建 - ${{ steps.version.outputs.version }}`n`n"
           $releaseNote += "## 📋 构建信息`n"
@@ -404,8 +240,7 @@ jobs:
           $releaseNote += "---`n"
           $releaseNote += "*此版本由 GitHub Actions 自动构建和发布*"
           
-          # 使用UTF8NoBOM编码避免BOM字符
-          [System.IO.File]::WriteAllText((Join-Path $PWD "release_note.md"), $releaseNote, [System.Text.UTF8Encoding]::new($false))
+          $releaseNote | Set-Content -Path "release_note.md" -Encoding UTF8
           Write-Host "✅ Release notes created"
 
       - name: 创建开发版发布
@@ -426,24 +261,12 @@ jobs:
   cleanup-old-dev-releases:
     name: 清理旧开发版本
     needs: [build-windows]
-    runs-on: [self-hosted, windows, x64]
+    runs-on: windows-latest # 使用GitHub托管的Windows服务器
     if: always()
     
     steps:
-      - name: 设置PowerShell编码
-        run: |
-          # 设置PowerShell控制台编码为UTF-8
-          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-          [Console]::InputEncoding = [System.Text.Encoding]::UTF8
-          $OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
-          Write-Host "✅ PowerShell encoding set to UTF-8"
-
       - name: 清理旧的开发版发布
         run: |
-          # 设置控制台输出编码为UTF-8
-          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-          $OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
-          
           Write-Host "🧹 Cleaning up old dev releases..."
           
           # 获取所有开发版本的releases（按创建时间倒序）
