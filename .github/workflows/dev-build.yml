@@ -353,13 +353,16 @@ jobs:
           $packageJson = Get-Content -Raw -Path "package.json" -Encoding UTF8 | ConvertFrom-Json
           $originalVersion = $packageJson.version
           $packageJson.version = $devVersion
-          $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path "package.json" -Encoding UTF8
+          # 使用UTF8NoBOM编码避免BOM字符导致的JSON解析错误
+          $jsonContent = $packageJson | ConvertTo-Json -Depth 100
+          [System.IO.File]::WriteAllText((Join-Path $PWD "package.json"), $jsonContent, [System.Text.UTF8Encoding]::new($false))
           Write-Host "🔧 Temporarily updated package.json version: $originalVersion -> $devVersion"
           
           # 临时更新Cargo.toml版本号（仅用于构建，不提交）
           $cargoToml = Get-Content -Path "src-tauri\Cargo.toml" -Encoding UTF8
           $cargoToml = $cargoToml -replace '^version = ".*"', "version = `"$devVersion`""
-          $cargoToml | Set-Content -Path "src-tauri\Cargo.toml" -Encoding UTF8
+          # 使用UTF8NoBOM编码避免BOM字符
+          [System.IO.File]::WriteAllLines((Join-Path $PWD "src-tauri\Cargo.toml"), $cargoToml, [System.Text.UTF8Encoding]::new($false))
           Write-Host "🔧 Temporarily updated Cargo.toml version to: $devVersion"
 
       # 构建 Tauri 应用（Dev版本）
@@ -383,28 +386,26 @@ jobs:
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
           $OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
           
-          @"
-          # 🔧 开发版本构建 - ${{ steps.version.outputs.version }}
+          # 构建发布说明内容
+          $releaseNote = "# 🔧 开发版本构建 - ${{ steps.version.outputs.version }}`n`n"
+          $releaseNote += "## 📋 构建信息`n"
+          $releaseNote += "- **基础版本**: ${{ steps.version.outputs.package_version }}`n"
+          $releaseNote += "- **构建时间**: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')`n"
+          $releaseNote += "- **构建类型**: Development`n"
+          $releaseNote += "- **提交SHA**: ${{ github.sha }}`n"
+          $releaseNote += "- **分支**: ${{ github.ref_name }}`n`n"
+          $releaseNote += "## ⚠️ 注意事项`n"
+          $releaseNote += "这是自动构建的开发版本，仅用于测试和开发目的。`n"
+          $releaseNote += "- 可能包含未经充分测试的功能`n"
+          $releaseNote += "- 不建议在生产环境中使用`n"
+          $releaseNote += "- 该版本会定期清理`n`n"
+          $releaseNote += "## 📦 下载`n"
+          $releaseNote += "- Windows: MSI, EXE 安装包`n`n"
+          $releaseNote += "---`n"
+          $releaseNote += "*此版本由 GitHub Actions 自动构建和发布*"
           
-          ## 📋 构建信息
-          - **基础版本**: ${{ steps.version.outputs.package_version }}
-          - **构建时间**: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')
-          - **构建类型**: Development
-          - **提交SHA**: ${{ github.sha }}
-          - **分支**: ${{ github.ref_name }}
-          
-          ## ⚠️ 注意事项
-          这是自动构建的开发版本，仅用于测试和开发目的。
-          - 可能包含未经充分测试的功能
-          - 不建议在生产环境中使用
-          - 该版本会定期清理
-          
-          ## 📦 下载
-          - Windows: MSI, EXE 安装包
-          
-          ---
-          *此版本由 GitHub Actions 自动构建和发布*
-          "@ | Set-Content -Path "release_note.md" -Encoding UTF8
+          # 使用UTF8NoBOM编码避免BOM字符
+          [System.IO.File]::WriteAllText((Join-Path $PWD "release_note.md"), $releaseNote, [System.Text.UTF8Encoding]::new($false))
           Write-Host "✅ Release notes created"
 
       - name: 创建开发版发布
