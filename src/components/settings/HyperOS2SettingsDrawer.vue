@@ -334,8 +334,8 @@
                       </div>
                       <div class="app-details">
                         <h4>MaiLauncher</h4>
-                        <p>版本 2.0.0</p>
-                        <p>HyperOS 2 设计语言</p>
+                        <p>版本 0.1.0-preview.4</p>
+                        <p>由 MaiMai 开发团队打造，旨在提供简洁高效的桌面体验</p>
                       </div>
                     </div>
 

@@ -37,11 +37,27 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          clean: true
+          # 强制获取最新代码，避免缓存问题
+          ref: ${{ github.ref }}
 
       - name: 配置Git安全目录
         run: |
           git config --global --add safe.directory $env:GITHUB_WORKSPACE
           Write-Host "✅ Git safe directory configured"
+          
+      - name: 确保获取最新代码
+        run: |
+          git fetch origin ${{ github.ref_name }}
+          git reset --hard origin/${{ github.ref_name }}
+          $currentCommit = git rev-parse HEAD
+          Write-Host "📝 Current commit: $currentCommit"
+          Write-Host "📝 Expected commit: ${{ github.sha }}"
+          if ($currentCommit -ne "${{ github.sha }}") {
+            Write-Error "❌ Commit mismatch! Expected ${{ github.sha }}, got $currentCommit"
+            exit 1
+          }
+          Write-Host "✅ Code is up to date"
 
       - name: 获取包版本并创建开发版本
         id: version
@@ -91,11 +107,21 @@ jobs:
             Write-Host "✅ Created and pushed tag: $tagName"
           }
 
-      # 克隆后端仓库
+      # 克隆后端仓库 - 确保获取最新代码
       - name: 克隆后端仓库
         run: |
-          if (Test-Path "backend") { Remove-Item -Recurse -Force "backend" }
-          git clone https://github.com/MaiM-with-u/mailauncher-backend.git backend
+          if (Test-Path "backend") { 
+            Remove-Item -Recurse -Force "backend" 
+            Write-Host "🗑️ Removed existing backend directory"
+          }
+          
+          # 克隆最新的主分支代码
+          git clone --depth=1 --branch=main https://github.com/MaiM-with-u/mailauncher-backend.git backend
+          
+          cd backend
+          $backendCommit = git rev-parse HEAD
+          Write-Host "📝 Backend commit: $backendCommit"
+          Write-Host "✅ Backend repository cloned successfully"
 
       # 设置 Python 环境（GitHub托管的runner）
       - name: 设置Python环境
@@ -103,13 +129,14 @@ jobs:
         with:
           python-version: '3.11'
           
-      # 缓存 pip 依赖
+      # 缓存 pip 依赖 - 使用更具体的缓存键
       - name: 缓存pip依赖
         uses: actions/cache@v4
         with:
           path: ~\AppData\Local\pip\Cache
-          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          key: ${{ runner.os }}-pip-dev-${{ hashFiles('backend/requirements.txt') }}-${{ github.run_number }}
           restore-keys: |
+            ${{ runner.os }}-pip-dev-${{ hashFiles('backend/requirements.txt') }}
             ${{ runner.os }}-pip-
 
       # 安装后端构建依赖
@@ -131,7 +158,22 @@ jobs:
       - name: 构建Windows后端
         run: |
           cd backend
-          python -m PyInstaller main.spec
+          
+          # 清理之前的构建产物
+          if (Test-Path "dist") { 
+            Remove-Item -Recurse -Force "dist" 
+            Write-Host "🗑️ Cleaned previous build artifacts"
+          }
+          if (Test-Path "build") { 
+            Remove-Item -Recurse -Force "build" 
+            Write-Host "🗑️ Cleaned previous build cache"
+          }
+          
+          # 显示当前代码信息
+          $currentCommit = git rev-parse HEAD
+          Write-Host "📝 Building backend from commit: $currentCommit"
+          
+          python -m PyInstaller main.spec --clean
           Write-Host "✅ Backend build completed"
           
       # 复制后端可执行文件到 Tauri binaries 目录
@@ -183,9 +225,35 @@ jobs:
           version: latest
           run_install: false
 
+      # 清理前端缓存
+      - name: 清理前端缓存
+        run: |
+          # 清理 pnpm 缓存
+          if (Get-Command pnpm -ErrorAction SilentlyContinue) {
+            pnpm store prune
+            Write-Host "🗑️ Cleaned pnpm store"
+          }
+          
+          # 清理 node_modules
+          if (Test-Path "node_modules") {
+            Remove-Item -Recurse -Force "node_modules"
+            Write-Host "🗑️ Removed node_modules"
+          }
+          
+          # 清理构建缓存
+          if (Test-Path "dist") {
+            Remove-Item -Recurse -Force "dist"
+            Write-Host "🗑️ Removed dist directory"
+          }
+          
+          Write-Host "✅ Frontend cache cleaned"
+
       # 安装前端依赖
       - name: 安装前端依赖
-        run: pnpm install --no-frozen-lockfile
+        run: |
+          Write-Host "📦 Installing fresh dependencies..."
+          pnpm install --no-frozen-lockfile --force
+          Write-Host "✅ Dependencies installed"
 
       # 临时更新版本号用于构建
       - name: 临时更新版本号用于构建
@@ -209,8 +277,23 @@ jobs:
       - name: 构建Tauri应用（开发版本）
         run: |
           Write-Host "🔧 Building Dev Version: ${{ steps.version.outputs.version }}"
+          
+          # 清理 Tauri 构建缓存
+          if (Test-Path "src-tauri\target") {
+            Remove-Item -Recurse -Force "src-tauri\target"
+            Write-Host "🗑️ Cleaned Tauri build cache"
+          }
+          
+          # 显示构建信息
+          Write-Host "📝 Frontend commit: ${{ github.sha }}"
+          
+          # 构建前端
           pnpm run build:dev
+          
+          # 构建 Tauri 应用
           pnpm tauri build
+          
+          Write-Host "✅ Tauri build completed"
           
       # 上传构建产物
       - name: 上传开发版构建产物
@@ -222,19 +305,31 @@ jobs:
 
       - name: 创建发布说明
         run: |
+          # 获取后端提交信息
+          cd backend
+          $backendCommit = git rev-parse HEAD
+          $backendCommitShort = git rev-parse --short HEAD
+          cd ..
+          
           # 构建发布说明内容
           $releaseNote = "# 🔧 开发版本构建 - ${{ steps.version.outputs.version }}`n`n"
           $releaseNote += "## 📋 构建信息`n"
           $releaseNote += "- **基础版本**: ${{ steps.version.outputs.package_version }}`n"
           $releaseNote += "- **构建时间**: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')`n"
           $releaseNote += "- **构建类型**: Development`n"
-          $releaseNote += "- **提交SHA**: ${{ github.sha }}`n"
-          $releaseNote += "- **分支**: ${{ github.ref_name }}`n`n"
+          $releaseNote += "- **前端提交**: ${{ github.sha }}`n"
+          $releaseNote += "- **后端提交**: $backendCommit`n"
+          $releaseNote += "- **分支**: ${{ github.ref_name }}`n"
+          $releaseNote += "- **构建号**: ${{ github.run_number }}`n`n"
+          $releaseNote += "## 🔍 代码版本详情`n"
+          $releaseNote += "- **前端仓库**: [mailauncher@${{ github.sha }}](https://github.com/MaiM-with-u/mailauncher/commit/${{ github.sha }})`n"
+          $releaseNote += "- **后端仓库**: [mailauncher-backend@$backendCommitShort](https://github.com/MaiM-with-u/mailauncher-backend/commit/$backendCommit)`n`n"
           $releaseNote += "## ⚠️ 注意事项`n"
           $releaseNote += "这是自动构建的开发版本，仅用于测试和开发目的。`n"
           $releaseNote += "- 可能包含未经充分测试的功能`n"
           $releaseNote += "- 不建议在生产环境中使用`n"
-          $releaseNote += "- 该版本会定期清理`n`n"
+          $releaseNote += "- 该版本会定期清理`n"
+          $releaseNote += "- 本次构建确保使用最新代码，清理了所有缓存`n`n"
           $releaseNote += "## 📦 下载`n"
           $releaseNote += "- Windows: MSI, EXE 安装包`n`n"
           $releaseNote += "---`n"
