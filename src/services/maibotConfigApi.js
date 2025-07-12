@@ -89,6 +89,33 @@ export const envConfigApi = {
 };
 
 /**
+ * 适配器配置管理 API
+ */
+export const adapterConfigApi = {
+  /**
+   * 获取适配器配置
+   * @param {string} instanceId - 实例ID
+   * @returns {Promise} 配置数据
+   */
+  async getAdapterConfig(instanceId) {
+    return await apiService.get(`${API_BASE}/${instanceId}/adapter/napcat/get`);
+  },
+
+  /**
+   * 更新适配器配置
+   * @param {string} instanceId - 实例ID
+   * @param {Object} configData - 配置数据
+   * @returns {Promise} 更新结果
+   */
+  async updateAdapterConfig(instanceId, configData) {
+    return await apiService.post(`${API_BASE}/${instanceId}/adapter/napcat/update`, {
+      instance_id: instanceId,
+      config_data: configData
+    });
+  }
+};
+
+/**
  * 统一的 MaiBot 配置管理 API
  */
 export const maibotConfigApi = {
@@ -104,10 +131,15 @@ export const maibotConfigApi = {
   getEnvConfig: envConfigApi.getEnvConfig,
   updateEnvConfig: envConfigApi.updateEnvConfig,
 
+  // 适配器配置相关方法
+  getAdapterConfig: adapterConfigApi.getAdapterConfig,
+  updateAdapterConfig: adapterConfigApi.updateAdapterConfig,
+
   // 分组访问
   bot: botConfigApi,
   lpmm: lpmmConfigApi,
-  env: envConfigApi
+  env: envConfigApi,
+  adapter: adapterConfigApi
 };
 
 export default maibotConfigApi;

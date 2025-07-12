@@ -751,6 +751,291 @@
                                     </div>
                                 </div>
 
+                                <!-- 适配器配置面板 -->
+                                <div v-else-if="activeTab === 'adapter'" key="adapter" class="config-panel">
+                                    <div class="panel-header">
+                                        <h3 class="panel-title">适配器配置</h3>
+                                        <p class="panel-description">配置适配器的连接和行为设置</p>
+                                    </div>
+
+                                    <div class="config-section" v-if="adapterConfig">
+                                        <!-- 基本信息 -->
+                                        <HyperOS2Group title="基本信息" icon="mdi:information-outline" :gradient-border="true">
+                                            <HyperOS2Input
+                                                label="版本"
+                                                description="适配器版本号"
+                                                :model-value="adapterConfig.inner.version"
+                                                readonly
+                                            />
+                                        </HyperOS2Group>
+
+                                        <!-- 机器人昵称 -->
+                                        <HyperOS2Group title="机器人设置" icon="mdi:robot" :icon-class="'text-blue-500'" :gradient-border="true">
+                                            <HyperOS2Input
+                                                label="机器人昵称"
+                                                description="自定义机器人的显示昵称"
+                                                :model-value="adapterConfig.nickname.nickname"
+                                                @update:model-value="adapterConfig.nickname.nickname = $event; markAdapterChanged()"
+                                                placeholder="输入机器人昵称"
+                                            />
+                                        </HyperOS2Group>
+
+                                        <!-- NapCat服务器配置 -->
+                                        <HyperOS2Group title="NapCat服务器" icon="mdi:server-network" :icon-class="'text-green-500'" :gradient-border="true">
+                                            <div class="hyperos2-grid-2">
+                                                <HyperOS2Input
+                                                    label="主机地址"
+                                                    :model-value="adapterConfig.napcat_server.host"
+                                                    @update:model-value="adapterConfig.napcat_server.host = $event; markAdapterChanged()"
+                                                    placeholder="localhost"
+                                                />
+                                                <HyperOS2Input
+                                                    label="端口"
+                                                    type="number"
+                                                    :model-value="adapterConfig.napcat_server.port"
+                                                    @update:model-value="adapterConfig.napcat_server.port = parseInt($event) || 8095; markAdapterChanged()"
+                                                    :min="1"
+                                                    :max="65535"
+                                                />
+                                            </div>
+                                            <HyperOS2Input
+                                                label="心跳间隔"
+                                                description="心跳检测间隔时间（秒）"
+                                                type="number"
+                                                :model-value="adapterConfig.napcat_server.heartbeat_interval"
+                                                @update:model-value="adapterConfig.napcat_server.heartbeat_interval = parseInt($event) || 30; markAdapterChanged()"
+                                                :min="5"
+                                                :max="300"
+                                            />
+                                        </HyperOS2Group>
+
+                                        <!-- MaiBot服务器配置 -->
+                                        <HyperOS2Group title="MaiBot服务器" icon="mdi:server" :icon-class="'text-purple-500'" :gradient-border="true">
+                                            <div class="hyperos2-grid-2">
+                                                <HyperOS2Input
+                                                    label="主机地址"
+                                                    :model-value="adapterConfig.maibot_server.host"
+                                                    @update:model-value="adapterConfig.maibot_server.host = $event; markAdapterChanged()"
+                                                    placeholder="localhost"
+                                                />
+                                                <HyperOS2Input
+                                                    label="端口"
+                                                    type="number"
+                                                    :model-value="adapterConfig.maibot_server.port"
+                                                    @update:model-value="adapterConfig.maibot_server.port = parseInt($event) || 8000; markAdapterChanged()"
+                                                    :min="1"
+                                                    :max="65535"
+                                                />
+                                            </div>
+                                        </HyperOS2Group>
+
+                                        <!-- 聊天配置 -->
+                                        <HyperOS2Group title="聊天配置" icon="mdi:chat" :icon-class="'text-orange-500'" :gradient-border="true">
+                                            <div class="hyperos2-grid-2">
+                                                <HyperOS2Select
+                                                    label="群组列表类型"
+                                                    :model-value="adapterConfig.chat.group_list_type"
+                                                    @update:model-value="adapterConfig.chat.group_list_type = $event; markAdapterChanged()"
+                                                    :options="[
+                                                        { value: 'whitelist', label: '白名单' },
+                                                        { value: 'blacklist', label: '黑名单' }
+                                                    ]"
+                                                />
+                                                <HyperOS2Select
+                                                    label="私聊列表类型"
+                                                    :model-value="adapterConfig.chat.private_list_type"
+                                                    @update:model-value="adapterConfig.chat.private_list_type = $event; markAdapterChanged()"
+                                                    :options="[
+                                                        { value: 'whitelist', label: '白名单' },
+                                                        { value: 'blacklist', label: '黑名单' }
+                                                    ]"
+                                                />
+                                            </div>
+
+                                            <!-- 群组列表 -->
+                                            <div class="tag-field">
+                                                <label class="field-label">群组列表</label>
+                                                <div class="tag-container">
+                                                    <div class="tag-list">
+                                                        <div 
+                                                            v-for="(groupId, index) in adapterConfig.chat.group_list" 
+                                                            :key="index" 
+                                                            class="tag-item"
+                                                        >
+                                                            <span class="tag-text">{{ groupId || '未设置' }}</span>
+                                                            <button 
+                                                                class="tag-remove"
+                                                                @click="adapterConfig.chat.group_list.splice(index, 1); markAdapterChanged()"
+                                                                title="删除群组"
+                                                            >
+                                                                <Icon icon="mdi:close" class="w-3 h-3" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="tag-input-container">
+                                                        <input 
+                                                            type="text" 
+                                                            class="tag-input"
+                                                            placeholder="输入群号"
+                                                            @keydown.enter="addGroupId"
+                                                            ref="groupInputRef"
+                                                        />
+                                                        <button 
+                                                            class="tag-add-btn"
+                                                            @click="addGroupId"
+                                                            title="添加群组"
+                                                        >
+                                                            <Icon icon="mdi:plus" class="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- 私聊列表 -->
+                                            <div class="tag-field">
+                                                <label class="field-label">私聊列表</label>
+                                                <div class="tag-container">
+                                                    <div class="tag-list">
+                                                        <div 
+                                                            v-for="(userId, index) in adapterConfig.chat.private_list" 
+                                                            :key="index" 
+                                                            class="tag-item"
+                                                        >
+                                                            <span class="tag-text">{{ userId || '未设置' }}</span>
+                                                            <button 
+                                                                class="tag-remove"
+                                                                @click="adapterConfig.chat.private_list.splice(index, 1); markAdapterChanged()"
+                                                                title="删除用户"
+                                                            >
+                                                                <Icon icon="mdi:close" class="w-3 h-3" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="tag-input-container">
+                                                        <input 
+                                                            type="text" 
+                                                            class="tag-input"
+                                                            placeholder="输入用户QQ号"
+                                                            @keydown.enter="addPrivateUserId"
+                                                            ref="privateInputRef"
+                                                        />
+                                                        <button 
+                                                            class="tag-add-btn"
+                                                            @click="addPrivateUserId"
+                                                            title="添加用户"
+                                                        >
+                                                            <Icon icon="mdi:plus" class="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- 黑名单用户 -->
+                                            <div class="tag-field">
+                                                <label class="field-label">黑名单用户</label>
+                                                <div class="tag-container">
+                                                    <div class="tag-list">
+                                                        <div 
+                                                            v-for="(userId, index) in adapterConfig.chat.ban_user_id" 
+                                                            :key="index" 
+                                                            class="tag-item ban-user-tag"
+                                                        >
+                                                            <span class="tag-text">{{ userId || '未设置' }}</span>
+                                                            <button 
+                                                                class="tag-remove"
+                                                                @click="adapterConfig.chat.ban_user_id.splice(index, 1); markAdapterChanged()"
+                                                                title="删除黑名单用户"
+                                                            >
+                                                                <Icon icon="mdi:close" class="w-3 h-3" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="tag-input-container">
+                                                        <input 
+                                                            type="text" 
+                                                            class="tag-input"
+                                                            placeholder="输入用户QQ号"
+                                                            @keydown.enter="addBanUserId"
+                                                            ref="banInputRef"
+                                                        />
+                                                        <button 
+                                                            class="tag-add-btn"
+                                                            @click="addBanUserId"
+                                                            title="添加黑名单用户"
+                                                        >
+                                                            <Icon icon="mdi:plus" class="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- 开关选项 -->
+                                            <div class="hyperos2-grid-2">
+                                                <HyperOS2Switch
+                                                    label="禁止QQ机器人"
+                                                    description="是否禁止响应QQ机器人消息"
+                                                    :model-value="adapterConfig.chat.ban_qq_bot"
+                                                    @update:model-value="adapterConfig.chat.ban_qq_bot = $event; markAdapterChanged()"
+                                                />
+                                                <HyperOS2Switch
+                                                    label="启用戳一戳"
+                                                    description="是否响应戳一戳功能"
+                                                    :model-value="adapterConfig.chat.enable_poke"
+                                                    @update:model-value="adapterConfig.chat.enable_poke = $event; markAdapterChanged()"
+                                                />
+                                            </div>
+                                        </HyperOS2Group>
+
+                                        <!-- 语音配置 -->
+                                        <HyperOS2Group title="语音配置" icon="mdi:microphone" :icon-class="'text-cyan-500'" :gradient-border="true">
+                                            <HyperOS2Switch
+                                                label="使用TTS"
+                                                description="是否启用文字转语音功能"
+                                                :model-value="adapterConfig.voice.use_tts"
+                                                @update:model-value="adapterConfig.voice.use_tts = $event; markAdapterChanged()"
+                                            />
+                                        </HyperOS2Group>
+
+                                        <!-- 调试配置 -->
+                                        <HyperOS2Group title="调试配置" icon="mdi:bug" :icon-class="'text-red-500'" :gradient-border="true">
+                                            <HyperOS2Select
+                                                label="日志级别"
+                                                description="设置应用程序的日志输出级别"
+                                                :model-value="adapterConfig.debug.level"
+                                                @update:model-value="adapterConfig.debug.level = $event; markAdapterChanged()"
+                                                :options="[
+                                                    { value: 'DEBUG', label: 'DEBUG - 调试' },
+                                                    { value: 'INFO', label: 'INFO - 信息' },
+                                                    { value: 'WARNING', label: 'WARNING - 警告' },
+                                                    { value: 'ERROR', label: 'ERROR - 错误' },
+                                                    { value: 'CRITICAL', label: 'CRITICAL - 严重错误' }
+                                                ]"
+                                            />
+                                        </HyperOS2Group>
+                                    </div>
+
+                                    <!-- 加载状态 -->
+                                    <div v-else-if="isLoadingAdapter" class="loading-container">
+                                        <div class="loading loading-spinner loading-lg text-primary"></div>
+                                        <p class="mt-4 text-base-content/70">正在加载适配器配置...</p>
+                                    </div>
+
+                                    <!-- 错误状态 -->
+                                    <div v-else-if="adapterError" class="error-container">
+                                        <div class="alert alert-error">
+                                            <Icon icon="mdi:alert-circle" class="w-6 h-6" />
+                                            <div>
+                                                <p class="font-medium">加载适配器配置失败</p>
+                                                <p class="text-sm">{{ adapterError }}</p>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-primary mt-4" @click="loadAdapterConfig(props.instanceId)">
+                                            <Icon icon="mdi:refresh" class="w-4 h-4 mr-2" />
+                                            重试
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <!-- 其他标签页 -->
                                 <div v-else class="config-panel">
                                     <div class="panel-header">
@@ -871,6 +1156,7 @@ const previousTab = ref('bot')
 // 配置标签页定义
 const configTabs = [
     { key: 'bot', title: 'Bot 配置', icon: 'mdi:robot' },
+    { key: 'adapter', title: '适配器配置', icon: 'mdi:lan-connect' },
     { key: 'model', title: '模型配置', icon: 'mdi:chip' },
     { key: 'lpmm', title: 'LPMM 配置', icon: 'mdi:brain' },
     { key: 'env', title: '环境变量', icon: 'mdi:cog-outline' }
@@ -892,6 +1178,7 @@ const currentTabInfo = computed(() => {
 const getTabConfig = (tabKey) => {
     switch(tabKey) {
         case 'bot': return botConfig.value
+        case 'adapter': return adapterConfig.value
         case 'model': return modelConfig.value  
         case 'env': return envConfig.value
         case 'lpmm': return lpmmConfig.value
@@ -906,6 +1193,7 @@ const getTabHasData = (tabKey) => {
 const getTabIsLoading = (tabKey) => {
     switch(tabKey) {
         case 'bot': return isLoading.value
+        case 'adapter': return isLoadingAdapter.value
         case 'model': return isLoadingModel.value
         case 'env': return isLoadingEnv.value  
         case 'lpmm': return isLoadingLpmm.value
@@ -916,6 +1204,7 @@ const getTabIsLoading = (tabKey) => {
 const getTabError = (tabKey) => {
     switch(tabKey) {
         case 'bot': return error.value
+        case 'adapter': return adapterError.value
         case 'model': return modelError.value
         case 'env': return envError.value
         case 'lpmm': return lpmmError.value
@@ -946,29 +1235,70 @@ const botConfig = ref(null)
 const envConfig = ref(null)
 const lpmmConfig = ref(null)
 const modelConfig = ref(null)
+const adapterConfig = ref(null)
 const originalBotConfig = ref(null)
 const originalEnvConfig = ref(null)
 const originalLpmmConfig = ref(null)
 const originalModelConfig = ref(null)
+const originalAdapterConfig = ref(null)
 
 // 加载状态
 const isLoading = ref(false)
 const isLoadingEnv = ref(false)
 const isLoadingLpmm = ref(false)
 const isLoadingModel = ref(false)
+const isLoadingAdapter = ref(false)
 const isSaving = ref(false)
 const error = ref('')
 const envError = ref('')
 const lpmmError = ref('')
 const modelError = ref('')
+const adapterError = ref('')
 
 // 变更追踪
 const hasConfigChanges = ref(false)
 const hasEnvChanges = ref(false)
 const hasLpmmChanges = ref(false)
 const hasModelChanges = ref(false)
+const hasAdapterChanges = ref(false)
 
-// 创建所有配置加载器
+// 创建专门的适配器配置加载器
+const loadAdapterConfig = async (instanceId) => {
+    if (!instanceId) return
+    
+    // 防止重复请求
+    if (isLoadingAdapter.value) {
+        console.log('适配器配置正在加载中，跳过重复请求')
+        return
+    }
+    
+    // 如果已经有配置数据，不重复加载
+    if (adapterConfig.value) {
+        console.log('适配器配置已存在，跳过重复加载')
+        return
+    }
+    
+    isLoadingAdapter.value = true
+    adapterError.value = ''
+    
+    try {
+        console.log('开始加载适配器配置:', instanceId)
+        const response = await maibotConfigApi.getAdapterConfig(instanceId)
+        // 根据API响应结构，配置数据在response.data中
+        adapterConfig.value = response.data
+        originalAdapterConfig.value = JSON.parse(JSON.stringify(response.data))
+        hasAdapterChanges.value = false
+        console.log('适配器配置加载成功:', response.data)
+    } catch (err) {
+        console.error('加载适配器配置失败:', err)
+        adapterError.value = err.message || '加载适配器配置失败'
+        toastService.error('加载适配器配置失败: ' + adapterError.value)
+    } finally {
+        isLoadingAdapter.value = false
+    }
+}
+
+// 创建其他配置加载器
 const { loadBotConfig, loadEnvConfig, loadLpmmConfig } = (() => {
     const { createConfigLoader } = useConfigLoader()
     return {
@@ -1020,8 +1350,8 @@ const switchTab = async (tabKey) => {
     if (searchQuery.value) clearSearch()
     
     // 加载对应数据
-    const loaders = { bot: loadBotConfig, model: loadModelConfig, env: loadEnvConfig, lpmm: loadLpmmConfig }
-    const hasData = { bot: botConfig.value, model: modelConfig.value, env: envConfig.value, lpmm: lpmmConfig.value }
+    const loaders = { bot: loadBotConfig, adapter: loadAdapterConfig, model: loadModelConfig, env: loadEnvConfig, lpmm: loadLpmmConfig }
+    const hasData = { bot: botConfig.value, adapter: adapterConfig.value, model: modelConfig.value, env: envConfig.value, lpmm: lpmmConfig.value }
     
     // 如果切换到模型配置标签页，需要先确保LPMM配置已加载
     if (tabKey === 'model' && !lpmmConfig.value && props.instanceId) {
@@ -1039,6 +1369,7 @@ const getCurrentTabTitle = () => currentTabInfo.value.title
 const markChanged = (type = 'config') => {
     const changeMap = {
         config: () => hasConfigChanges.value = true,
+        adapter: () => hasAdapterChanges.value = true,
         env: () => hasEnvChanges.value = true, 
         lpmm: () => hasLpmmChanges.value = true,
         model: () => hasModelChanges.value = true
@@ -1048,6 +1379,7 @@ const markChanged = (type = 'config') => {
 
 // 向后兼容的别名
 const markConfigChanged = () => markChanged('config')
+const markAdapterChanged = () => markChanged('adapter')
 const markEnvChanged = () => markChanged('env')
 const markLpmmChanged = () => markChanged('lpmm')
 const markModelChanged = () => markChanged('model')
@@ -1086,7 +1418,7 @@ const removeArrayItem = (path, index) => {
 }
 
 // 计算属性
-const hasChanges = computed(() => hasConfigChanges.value || hasEnvChanges.value || hasLpmmChanges.value || hasModelChanges.value)
+const hasChanges = computed(() => hasConfigChanges.value || hasAdapterChanges.value || hasEnvChanges.value || hasLpmmChanges.value || hasModelChanges.value)
 
 // 获取已配置的提供商选项
 const availableProviders = computed(() => {
@@ -1192,6 +1524,13 @@ const saveConfig = async () => {
             hasConfigChanges.value = false
         }
         
+        // 保存适配器配置
+        if (hasAdapterChanges.value && adapterConfig.value) {
+            await maibotConfigApi.updateAdapterConfig(props.instanceId, adapterConfig.value)
+            originalAdapterConfig.value = JSON.parse(JSON.stringify(adapterConfig.value))
+            hasAdapterChanges.value = false
+        }
+        
         // 保存环境变量
         if (hasEnvChanges.value && envConfig.value) {
             await maibotConfigApi.updateEnvConfig(props.instanceId, envConfig.value)
@@ -1227,6 +1566,11 @@ const resetConfig = async () => {
     if (hasConfigChanges.value && originalBotConfig.value) {
         botConfig.value = JSON.parse(JSON.stringify(originalBotConfig.value))
         hasConfigChanges.value = false
+    }
+    
+    if (hasAdapterChanges.value && originalAdapterConfig.value) {
+        adapterConfig.value = JSON.parse(JSON.stringify(originalAdapterConfig.value))
+        hasAdapterChanges.value = false
     }
     
     if (hasEnvChanges.value && originalEnvConfig.value) {
@@ -1268,6 +1612,47 @@ const getModelConfigs = () => {
 
 const getModelDisplayName = (modelKey) => {
     return MODEL_DISPLAY_NAMES[modelKey] || modelKey
+}
+
+// 标签输入相关方法
+const groupInputRef = ref(null)
+const privateInputRef = ref(null)
+const banInputRef = ref(null)
+
+const addGroupId = () => {
+    const input = groupInputRef.value
+    if (!input || !input.value.trim()) return
+    
+    const groupId = input.value.trim()
+    if (!adapterConfig.value.chat.group_list.includes(groupId)) {
+        adapterConfig.value.chat.group_list.push(groupId)
+        markAdapterChanged()
+    }
+    input.value = ''
+}
+
+const addPrivateUserId = () => {
+    const input = privateInputRef.value
+    if (!input || !input.value.trim()) return
+    
+    const userId = input.value.trim()
+    if (!adapterConfig.value.chat.private_list.includes(userId)) {
+        adapterConfig.value.chat.private_list.push(userId)
+        markAdapterChanged()
+    }
+    input.value = ''
+}
+
+const addBanUserId = () => {
+    const input = banInputRef.value
+    if (!input || !input.value.trim()) return
+    
+    const userId = input.value.trim()
+    if (!adapterConfig.value.chat.ban_user_id.includes(userId)) {
+        adapterConfig.value.chat.ban_user_id.push(userId)
+        markAdapterChanged()
+    }
+    input.value = ''
 }
 
 const closeDrawer = () => {
@@ -2912,6 +3297,190 @@ onMounted(() => {
 .bot-config-drawer-leave-from .bot-config-drawer-container {
     transform: scale(1) translateY(0);
     opacity: 1;
+}
+
+/* 标签字段样式 */
+.tag-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.field-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.tag-container {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.02);
+    transition: all 0.2s ease;
+}
+
+.tag-container:focus-within {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    min-height: 1.5rem;
+}
+
+.tag-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #3b82f6;
+    color: white;
+    padding: 0.375rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.tag-item:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.tag-text {
+    line-height: 1;
+}
+
+.tag-remove {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 50%;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: white;
+}
+
+.tag-remove:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.tag-input-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tag-input {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 0.375rem;
+    background: white;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.tag-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.tag-input::placeholder {
+    color: rgba(0, 0, 0, 0.5);
+}
+
+.tag-add-btn {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.tag-add-btn:hover {
+    background: #2563eb;
+    transform: scale(1.05);
+}
+
+.tag-add-btn:active {
+    transform: scale(0.95);
+}
+
+/* 黑名单用户特殊样式 */
+.ban-user-tag {
+    background: #ef4444;
+    color: white;
+}
+
+.ban-user-tag:hover {
+    background: #dc2626;
+}
+
+/* 深色模式适配 */
+:root[data-theme="dark"] .field-label {
+    color: var(--color-text-primary-dark);
+}
+
+:root[data-theme="dark"] .tag-container {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+:root[data-theme="dark"] .tag-container:focus-within {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+:root[data-theme="dark"] .tag-input {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="dark"] .tag-input:focus {
+    border-color: #3b82f6;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+:root[data-theme="dark"] .tag-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* 空状态提示 */
+.tag-list:empty::before {
+    content: "暂无项目";
+    color: rgba(0, 0, 0, 0.5);
+    font-size: 0.875rem;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.5rem;
+}
+
+:root[data-theme="dark"] .tag-list:empty::before {
+    color: rgba(255, 255, 255, 0.5);
 }
 </style>
 
