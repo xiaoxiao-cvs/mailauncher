@@ -7,7 +7,7 @@
                     <tr>
                         <th>名称</th>
                         <th>状态</th>
-                        <th>安装时间</th>
+                        <th>创建时间</th>
                         <th>操作</th>
                     </tr>
                 </thead>

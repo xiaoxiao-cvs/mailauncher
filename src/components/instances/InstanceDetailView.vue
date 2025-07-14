@@ -33,24 +33,28 @@
                         </div>
                         <div class="info-item">
                             <div class="info-label">最后启动:</div>
-                            <div class="info-value">{{ instance.lastStartTime || '从未启动' }}</div>
+                            <div class="info-value">{{ formatDateTime(instance.last_start_time) || '从未启动' }}</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label">创建时间:</div>
-                            <div class="info-value">{{ instance.createdAt || instance.installedAt || '未知' }}</div>
+                            <div class="info-value">{{ formatDateTime(instance.created_at || instance.installedAt) }}</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label">状态:</div>
                             <div class="info-value">
                                 <span class="font-medium"
-                                    :class="{ 'text-success': isRunning, 'text-neutral': !isRunning }">
-                                    {{ isRunning ? '运行中' : '未运行' }}
+                                    :class="getStatusColorClass(instance.status)">
+                                    {{ getStatusText(instance.status) }}
                                 </span>
                             </div>
                         </div>
                         <div class="info-item">
+                            <div class="info-label">总运行时长:</div>
+                            <div class="info-value">{{ formatRuntime(instance.total_runtime) }}</div>
+                        </div>
+                        <div class="info-item">
                             <div class="info-label">启动次数:</div>
-                            <div class="info-value">{{ instance.startCount || 0 }}</div>
+                            <div class="info-value">{{ instance.start_count || 0 }}</div>
                         </div>
                     </div>
                 </div>
@@ -161,6 +165,32 @@
 </template>
 
 <script setup>
+// 状态颜色和文本
+function getStatusColorClass(status) {
+  if (status === 'running') return 'text-green-500';
+  if (status === 'stopped') return 'text-red-500';
+  return 'text-gray-400';
+}
+function getStatusText(status) {
+  if (status === 'running') return '运行中';
+  if (status === 'stopped') return '已停止';
+  return '未运行';
+}
+// 格式化创建时间（与卡片一致）
+function formatDateTime(str) {
+  if (!str) return '未知';
+  const date = new Date(str.split('.')[0].replace('T', ' ').replace(/-/g, '/'));
+  if (isNaN(date.getTime())) return str.split('.')[0].replace('T', ' ');
+  const pad = n => n.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+// 格式化运行时长（秒转小时分钟）
+function formatRuntime(seconds) {
+  if (!seconds || seconds < 0) return '0小时0分钟';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return `${hours}小时${minutes}分钟`;
+}
 import { ref, computed, onMounted, onUnmounted, watch, nextTick, inject } from 'vue';
 import { Icon } from '@iconify/vue';
 import toastService from '@/services/toastService';

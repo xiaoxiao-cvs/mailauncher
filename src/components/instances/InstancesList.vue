@@ -92,12 +92,12 @@
                         <!-- 实例信息 -->
                         <div class="space-y-2 mb-4 text-sm flex-1">
                             <div class="flex justify-between">
-                                <span class="opacity-70">安装时间:</span>
-                                <span>{{ instance.createdAt || instance.installedAt || '2023-05-13 19:56:18' }}</span>
+                                <span class="opacity-70">创建时间:</span>
+                                <span>{{ formatDateTime(instance.createdAt || instance.installedAt) }}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="opacity-70">总运行时长:</span>
-                                <span>{{ instance.totalRunningTime || '48小时36分钟' }}</span>
+                                <span>{{ formatRuntime(instance.total_runtime) }}</span>
                             </div>
                         </div>
 
@@ -205,6 +205,21 @@
 </template>
 
 <script setup>
+// 格式化运行时长（秒转小时分钟）
+function formatRuntime(seconds) {
+  if (!seconds || seconds < 0) return '0小时0分钟';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return `${hours}小时${minutes}分钟`;
+}
+function formatDateTime(str) {
+  if (!str) return '未知';
+  // 兼容数据库带毫秒的ISO字符串
+  const date = new Date(str.split('.')[0].replace('T', ' ').replace(/-/g, '/'));
+  if (isNaN(date.getTime())) return str.split('.')[0].replace('T', ' ');
+  const pad = n => n.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
 import { ref, computed, onMounted, inject, onUnmounted, watch, nextTick } from 'vue';
 import { Icon } from '@iconify/vue';
 import toastService from '@/services/toastService';

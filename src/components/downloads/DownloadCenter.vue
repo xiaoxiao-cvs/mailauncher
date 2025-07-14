@@ -949,12 +949,13 @@ const logs = computed(() => deployStore.currentDeployment?.logs || []);
 // 计算属性 - 安装统计信息
 const installDuration = computed(() => {
     if (!installStartTime.value || !installEndTime.value) return '未知';
-    
     const duration = installEndTime.value - installStartTime.value;
-    const minutes = Math.floor(duration / 60000);
+    const hours = Math.floor(duration / 3600000);
+    const minutes = Math.floor((duration % 3600000) / 60000);
     const seconds = Math.floor((duration % 60000) / 1000);
-    
-    if (minutes > 0) {
+    if (hours > 0) {
+        return `${hours}小时${minutes}分${seconds}秒`;
+    } else if (minutes > 0) {
         return `${minutes}分${seconds}秒`;
     } else {
         return `${seconds}秒`;
