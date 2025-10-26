@@ -23,12 +23,5 @@ dist-ssr
 *.sln
 *.sw?
 
-# VSCodeCounter
-.VSCodeCounter
-
-# Generated log files (hash-named text files)
-*_main.txt
-*_napcat-*.txt
-# Pattern for hash-named log files
-[a-f0-9]*_*.txt
-
+# Old backup folder
+old/
