@@ -1,0 +1,115 @@
+/* 背景渐变球动画 - 使用 CSS 动画优化性能 */
+@keyframes float1 {
+  0%, 100% { 
+    transform: translate(0, 0) scale(1);
+  }
+  33% { 
+    transform: translate(30vw, -15vh) scale(1.3);
+  }
+  66% { 
+    transform: translate(-20vw, 20vh) scale(0.9);
+  }
+}
+
+@keyframes float2 {
+  0%, 100% { 
+    transform: translate(0, 0) scale(1);
+  }
+  33% { 
+    transform: translate(-25vw, 15vh) scale(1.4);
+  }
+  66% { 
+    transform: translate(20vw, -25vh) scale(0.8);
+  }
+}
+
+@keyframes float3 {
+  0%, 100% { 
+    transform: translate(0, 0) scale(1);
+  }
+  33% { 
+    transform: translate(15vw, -20vh) scale(1.2);
+  }
+  66% { 
+    transform: translate(-30vw, 15vh) scale(0.7);
+  }
+}
+
+.gradient-blob {
+  will-change: transform;
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+.blob-1 {
+  animation: float1 25s ease-in-out infinite;
+  background: radial-gradient(circle, #a2d2ff 0%, #bde0fe 40%, transparent 70%);
+}
+
+.blob-2 {
+  animation: float2 30s ease-in-out infinite;
+  background: radial-gradient(circle, #ffafcc 0%, #ffc8dd 40%, transparent 70%);
+}
+
+.blob-3 {
+  animation: float3 35s ease-in-out infinite;
+  background: radial-gradient(circle, #cdb4db 0%, #d6c2e2 40%, transparent 70%);
+}
+
+/* 步骤卡片渐变背景 */
+.step-gradient-1 {
+  background: linear-gradient(135deg, #a2d2ff 0%, #bde0fe 100%);
+}
+
+.step-gradient-2 {
+  background: linear-gradient(135deg, #ffafcc 0%, #ffc8dd 100%);
+}
+
+.step-gradient-3 {
+  background: linear-gradient(135deg, #cdb4db 0%, #ffc8dd 100%);
+}
+
+.step-gradient-4 {
+  background: linear-gradient(135deg, #bde0fe 0%, #cdb4db 100%);
+}
+
+/* 徽章渐变背景 */
+.badge-gradient {
+  background: linear-gradient(to right, var(--badge-from), var(--badge-to));
+}
+
+/* 优化渲染性能 */
+.step-card {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* 动态步骤颜色类 */
+.step-icon-bg {
+  background: linear-gradient(135deg, var(--icon-color), var(--icon-color-dark, var(--icon-color)));
+}
+
+.step-indicator-bg {
+  background-color: var(--indicator-color);
+}
+
+.step-badge-bg {
+  background: linear-gradient(135deg, var(--step-color-light), var(--step-color-lighter));
+}
+
+.step-text-color {
+  color: var(--step-color);
+}
+
+.step-feature-icon-bg {
+  background: linear-gradient(135deg, var(--feature-color-light), var(--feature-color-lighter));
+}
+
+/* 确保跨浏览器的平滑动画 */
+@media (prefers-reduced-motion: reduce) {
+  .blob-1,
+  .blob-2,
+  .blob-3 {
+    animation: none;
+  }
+}
