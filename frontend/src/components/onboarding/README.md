@@ -11,9 +11,10 @@ src/
 │       ├── OnboardingPage.tsx          # 主组件（协调器）
 │       ├── OnboardingSidebar.tsx       # 侧边栏组件
 │       ├── OnboardingContent.tsx       # 内容展示组件
-│       ├── useOnboardingAnimation.ts   # 动画逻辑 Hook
 │       ├── constants.tsx               # 步骤数据配置
 │       └── index.ts                    # 模块导出
+├── hooks/
+│   └── useOnboardingAnimation.ts       # 动画逻辑 Hook
 ├── types/
 │   └── onboarding/
 │       └── index.ts                    # 类型定义
@@ -46,14 +47,7 @@ src/
   - 提供前进/后退按钮
   - 移动端适配
 
-### 4. **useOnboardingAnimation.ts** - 动画逻辑
-- **职责**：管理过渡动画
-- **功能**：
-  - 初始入场动画
-  - 步骤切换动画
-  - 支持前进/后退不同方向
-
-### 5. **constants.tsx** - 数据配置
+### 4. **constants.tsx** - 数据配置
 - **职责**：存储步骤数据
 - **功能**：
   - 定义所有引导步骤
@@ -109,7 +103,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
 
 ### 自定义动画
 
-动画参数在 `useOnboardingAnimation.ts` 中配置：
+动画参数在 `src/hooks/useOnboardingAnimation.ts` 中配置：
 
 ```tsx
 // 初始动画
@@ -145,7 +139,7 @@ style={{
 ## 🔧 扩展建议
 
 1. **添加新步骤**：编辑 `constants.tsx`
-2. **修改动画**：编辑 `useOnboardingAnimation.ts`
+2. **修改动画**：编辑 `src/hooks/useOnboardingAnimation.ts`
 3. **调整布局**：编辑对应的 UI 组件
 4. **添加新功能**：在 `OnboardingPage.tsx` 中协调
 

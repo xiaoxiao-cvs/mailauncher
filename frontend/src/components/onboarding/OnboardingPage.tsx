@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { OnboardingSidebar } from './OnboardingSidebar'
 import { OnboardingContent } from './OnboardingContent'
-import { useOnboardingAnimation } from './useOnboardingAnimation'
+import { useOnboardingAnimation } from '@/hooks/useOnboardingAnimation'
 import { ONBOARDING_STEPS } from './constants'
 import type { OnboardingCallbacks } from '@/types/onboarding'
 
