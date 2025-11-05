@@ -1,0 +1,66 @@
+import {
+  BotIcon,
+  RocketIcon,
+  ZapIcon,
+  ShieldCheckIcon,
+} from 'lucide-react'
+import type { OnboardingStep } from '@/types/onboarding'
+
+/**
+ * 引导步骤数据
+ * 职责：存储引导流程的所有步骤配置
+ */
+export const ONBOARDING_STEPS: OnboardingStep[] = [
+  {
+    id: 1,
+    title: '可视化管理',
+    subtitle: '告别命令行的复杂操作',
+    description: [
+      '直观的图形界面，所有配置一目了然',
+      '实时状态监控，随时掌握运行情况',
+      '一键启停，无需记忆复杂命令'
+    ],
+    icon: <BotIcon className="w-8 h-8" />,
+    gradient: 'from-[#a2d2ff] to-[#bde0fe]',
+    color: '#a2d2ff'
+  },
+  {
+    id: 2,
+    title: '快速部署',
+    subtitle: '从零到上线只需几分钟',
+    description: [
+      '智能配置向导，自动检测系统环境',
+      '一键安装依赖，无需手动配置',
+      '模板化配置，快速创建新实例'
+    ],
+    icon: <RocketIcon className="w-8 h-8" />,
+    gradient: 'from-[#ffafcc] to-[#ffc8dd]',
+    color: '#ffafcc'
+  },
+  {
+    id: 3,
+    title: '多实例管理',
+    subtitle: '同时管理多个机器人账号',
+    description: [
+      '支持多个 Bot 实例同时运行',
+      '独立的配置和日志管理',
+      '批量操作，提升管理效率'
+    ],
+    icon: <ZapIcon className="w-8 h-8" />,
+    gradient: 'from-[#cdb4db] to-[#ffc8dd]',
+    color: '#cdb4db'
+  },
+  {
+    id: 4,
+    title: '安全稳定',
+    subtitle: '7×24 小时稳定运行',
+    description: [
+      '完善的错误处理和自动重启机制',
+      '详细的日志记录，方便问题排查',
+      '定期备份配置，数据安全无忧'
+    ],
+    icon: <ShieldCheckIcon className="w-8 h-8" />,
+    gradient: 'from-[#bde0fe] to-[#cdb4db]',
+    color: '#bde0fe'
+  }
+]
