@@ -16,7 +16,7 @@ export function useOnboardingAnimation() {
         opacity: [0, 1],
         translateY: [30, 0],
         duration: 800,
-        ease: 'outQuad'
+        ease: 'out(2)'
       })
     }
   }, [])
@@ -42,8 +42,8 @@ export function useOnboardingAnimation() {
         opacity: [1, 0],
         translateY: [0, exitY],
         duration: 300,
-        ease: 'inQuad',
-        onComplete: () => {
+        ease: 'in(2)',
+        complete: () => {
           callback()
           
           // 使用 setTimeout 确保状态更新完成后再执行入场动画
@@ -53,8 +53,8 @@ export function useOnboardingAnimation() {
                 opacity: [0, 1],
                 translateY: [enterY, 0],
                 duration: 400,
-                ease: 'outQuad',
-                onComplete: () => setIsAnimating(false)
+                ease: 'out(2)',
+                complete: () => setIsAnimating(false)
               })
             }
           }, 10)
