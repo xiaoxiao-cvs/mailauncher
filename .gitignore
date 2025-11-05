@@ -25,3 +25,4 @@ dist-ssr
 
 # Old backup folder
 old/
+.VSCodeCounter

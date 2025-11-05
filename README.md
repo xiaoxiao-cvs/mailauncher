@@ -1,49 +1,49 @@
-# 麦麦启动器
+# MAI Launcher
 
-全新重写的麦麦启动器前端项目。
-
-## 技术栈
-
-- **Vue 3** - 使用 Composition API
-- **Vue Router** - 路由管理
-- **Pinia** - 状态管理
-- **Tailwind CSS 3** - 样式框架
-- **DaisyUI** - UI 组件库
-- **Anime.js** - 动画库
-- **Vite** - 构建工具
-- **pnpm** - 包管理器
-
-## 开发
-
-```bash
-# 安装依赖
-pnpm install
-
-# 启动开发服务器
-pnpm dev
-
-# 构建生产版本
-pnpm build
-
-# 预览生产构建
-pnpm preview
-```
+麦麦启动器 - 为 MaiBot、NapCat 和适配器提供可视化管理的新手友好工具
 
 ## 项目结构
 
 ```
 mailauncher/
-├── src/
-│   ├── router/          # 路由配置
-│   ├── views/           # 页面视图
-│   ├── App.vue          # 根组件
-│   ├── main.js          # 入口文件
-│   └── style.css        # 全局样式
-├── public/              # 静态资源
-├── old/                 # 旧版本代码备份
-└── index.html           # HTML 模板
+├── frontend/          # 前端项目 (React + TypeScript + Vite)
+├── backend/           # 后端服务 (待开发)
+├── docs/             # 项目文档
+└── old/              # 旧版本代码备份
 ```
 
-## 旧代码
+## 快速开始
 
-旧版本的所有代码已备份到 `old/` 文件夹中。
+### 前端开发
+
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+
+访问 http://localhost:3000
+
+### 后端开发
+
+(待开发)
+
+## 技术栈
+
+### 前端
+- React 18 + TypeScript
+- Vite 6
+- Tailwind CSS + Origin UI
+- React Router v6
+- Zustand
+
+### 后端
+- 待定
+
+## 开发规范
+
+请查看 [架构文档](./docs/ARCHITECTURE.md) 了解详细的开发规范和项目架构。
+
+## License
+
+MIT
