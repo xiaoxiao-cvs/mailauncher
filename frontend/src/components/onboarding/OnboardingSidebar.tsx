@@ -20,15 +20,15 @@ export function OnboardingSidebar({
 }: OnboardingSidebarProps) {
   return (
     <div className="hidden md:flex flex-col w-80 gap-4">
-      <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-6 border border-white/60 shadow-xl">
+      <div className="bg-white/50 dark:bg-[#1f1f1f]/50 backdrop-blur-xl rounded-2xl p-6 border border-white/60 dark:border-[#2e2e2e]/40 shadow-xl transition-colors duration-500">
         {/* Logo */}
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#a2d2ff] to-[#bde0fe] flex items-center justify-center">
             <BotIcon className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[#03045e]">MAI Launcher</h1>
-            <p className="text-xs text-[#023e8a]/60">引导设置</p>
+            <h1 className="text-xl font-bold text-[#03045e] dark:text-white">MAI Launcher</h1>
+            <p className="text-xs text-[#023e8a]/60 dark:text-white/70">引导设置</p>
           </div>
         </div>
 
@@ -41,8 +41,8 @@ export function OnboardingSidebar({
               disabled={isAnimating}
               className={`w-full text-left p-4 rounded-xl transition-all duration-300 ${
                 index === currentStep
-                  ? 'bg-white shadow-lg scale-105'
-                  : 'bg-white/40 hover:bg-white/60'
+                  ? 'bg-white dark:bg-[#2e2e2e] shadow-lg scale-105'
+                  : 'bg-white/40 dark:bg-[#161616] hover:bg-white/60 dark:hover:bg-[#252525]'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -59,7 +59,7 @@ export function OnboardingSidebar({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-medium text-[#023e8a]/60">
+                    <span className="text-xs font-medium text-[#023e8a]/60 dark:text-white/60">
                       步骤 {index + 1}
                     </span>
                     {index === currentStep && (
@@ -67,13 +67,13 @@ export function OnboardingSidebar({
                     )}
                   </div>
                   <p className={`text-sm font-semibold truncate ${
-                    index === currentStep ? 'text-[#03045e]' : 'text-[#023e8a]/70'
+                    index === currentStep ? 'text-[#03045e] dark:text-white' : 'text-[#023e8a]/70 dark:text-white/70'
                   }`}>
                     {step.title}
                   </p>
                 </div>
                 {index < currentStep && (
-                  <CheckCircle2Icon className="w-5 h-5 text-[#a2d2ff]" />
+                  <CheckCircle2Icon className="w-5 h-5 text-[#a2d2ff] dark:text-[#48cae4]" />
                 )}
               </div>
             </button>

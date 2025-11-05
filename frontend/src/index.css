@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    /* 亮色模式 - 原有的清新蓝色系 */
     --radius: 0.625rem;
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
@@ -32,25 +33,45 @@
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+    /* 深色模式 - 更深的黑色系 */
+    /* 接近纯黑的背景 */
+    --background: 0 0% 6%;       /* #0f0f0f 更深的黑 */
+    --foreground: 0 0% 100%;     /* 纯白色文字 */
+    
+    /* 深灰作为卡片背景 */
+    --card: 0 0% 12%;            /* #1f1f1f */
+    --card-foreground: 0 0% 100%;
+    
+    /* 中灰作为弹出层背景 */
+    --popover: 0 0% 18%;         /* #2e2e2e */
+    --popover-foreground: 0 0% 100%;
+    
+    /* 浅灰作为主要交互色 */
+    --primary: 0 0% 35%;         /* #595959 */
+    --primary-foreground: 0 0% 100%;
+    
+    /* 更浅的灰作为次要色 */
+    --secondary: 0 0% 55%;       /* #8c8c8c */
+    --secondary-foreground: 0 0% 100%;
+    
+    /* 中灰作为静音背景 */
+    --muted: 0 0% 18%;           /* #2e2e2e */
+    --muted-foreground: 0 0% 55%; /* #8c8c8c */
+    
+    /* 浅灰作为强调色 */
+    --accent: 0 0% 35%;          /* #595959 */
+    --accent-foreground: 0 0% 100%;
+    
+    /* 保持红色系警告色 */
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* 边框使用深灰 */
+    --border: 0 0% 15%;          /* #262626 */
+    --input: 0 0% 18%;           /* #2e2e2e */
+    --ring: 0 0% 55%;            /* #8c8c8c */
+    
+    /* 图表颜色保持鲜艳 */
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;

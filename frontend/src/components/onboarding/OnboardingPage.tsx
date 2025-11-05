@@ -51,7 +51,7 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
 
   return (
     <div 
-      className="min-h-screen bg-white flex items-center justify-center p-4 overflow-hidden relative"
+      className="min-h-screen bg-white dark:bg-[#0f0f0f] flex items-center justify-center p-4 overflow-hidden relative transition-colors duration-500"
       style={{
         ['--step-color' as string]: currentStepData.color,
         ['--step-color-light' as string]: `${currentStepData.color}20`,
@@ -61,9 +61,9 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
     >
       {/* 优化的动态渐变背景 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="gradient-blob blob-1 absolute top-0 left-0 w-[900px] h-[900px] rounded-full blur-3xl opacity-40" />
-        <div className="gradient-blob blob-2 absolute top-1/3 right-0 w-[800px] h-[800px] rounded-full blur-3xl opacity-45" />
-        <div className="gradient-blob blob-3 absolute bottom-0 left-1/3 w-[850px] h-[850px] rounded-full blur-3xl opacity-35" />
+        <div className="gradient-blob blob-1 absolute top-0 left-0 w-[1530px] h-[1530px] rounded-full blur-3xl opacity-40 dark:opacity-20" />
+        <div className="gradient-blob blob-2 absolute top-1/3 right-0 w-[1360px] h-[1360px] rounded-full blur-3xl opacity-45 dark:opacity-20" />
+        <div className="gradient-blob blob-3 absolute bottom-0 left-1/3 w-[1445px] h-[1445px] rounded-full blur-3xl opacity-35 dark:opacity-20" />
       </div>
 
       {/* 全新左右分栏式布局 */}
@@ -94,7 +94,7 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
           variant="ghost"
           onClick={handleSkip}
           disabled={isAnimating}
-          className="text-[#023e8a]/60 hover:text-[#023e8a] hover:bg-white/50"
+          className="text-[#023e8a]/60 dark:text-white/70 hover:text-[#023e8a] dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10"
         >
           跳过引导，直接开始
         </Button>

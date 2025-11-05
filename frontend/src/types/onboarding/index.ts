@@ -9,6 +9,8 @@ export interface OnboardingStep {
   icon: React.ReactNode
   gradient: string
   color: string
+  /** 是否为设置步骤（显示表单而非描述列表） */
+  isSettingsStep?: boolean
 }
 
 /**

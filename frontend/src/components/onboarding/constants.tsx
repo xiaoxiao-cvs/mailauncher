@@ -13,16 +13,13 @@ import type { OnboardingStep } from '@/types/onboarding'
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 1,
-    title: '可视化管理',
-    subtitle: '告别命令行的复杂操作',
-    description: [
-      '直观的图形界面，所有配置一目了然',
-      '实时状态监控，随时掌握运行情况',
-      '一键启停，无需记忆复杂命令'
-    ],
+    title: '启动器设置',
+    subtitle: '个性化你的 MAI Launcher 体验',
+    description: [],
     icon: <BotIcon className="w-8 h-8" />,
     gradient: 'from-[#a2d2ff] to-[#bde0fe]',
-    color: '#a2d2ff'
+    color: '#a2d2ff',
+    isSettingsStep: true
   },
   {
     id: 2,
