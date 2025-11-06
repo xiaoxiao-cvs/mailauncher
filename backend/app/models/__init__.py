@@ -8,7 +8,7 @@ from .instance import (
     InstanceStatus,
     InstanceStatusResponse,
     InstanceList,
-    ModLoader,
+    BotType,
 )
 from .deployment import (
     Deployment,

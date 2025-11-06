@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # 默认在后端同目录下的 deployments 文件夹
     INSTANCES_DIR: str = "./deployments"
     
+    # 数据库配置
+    DATABASE_URL: str = "sqlite+aiosqlite:///./data/database/mailauncher.db"
+    
     # Python 环境配置
     # 默认使用系统 Python，如果指定则使用指定路径
     PYTHON_EXECUTABLE: Optional[str] = None

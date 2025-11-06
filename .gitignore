@@ -26,3 +26,21 @@ dist-ssr
 # Old backup folder
 old/
 .VSCodeCounter
+
+# Backend data
+backend/data/database/*.db
+backend/data/database/*.db-shm
+backend/data/database/*.db-wal
+backend/deployments/*.json
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.env
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.venv/
+venv/

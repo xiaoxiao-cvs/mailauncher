@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import settings, api_v1_router
+from app.core.database import init_db, close_db
 
 # 创建 FastAPI 应用实例
 app = FastAPI(
@@ -44,14 +45,18 @@ async def root():
 @app.on_event("startup")
 async def startup_event():
     """应用启动时执行"""
-    pass
+    # 初始化数据库，创建所有表
+    await init_db()
+    print("✓ 数据库初始化完成")
 
 
 # 应用关闭事件
 @app.on_event("shutdown")
 async def shutdown_event():
     """应用关闭时执行"""
-    pass
+    # 关闭数据库连接
+    await close_db()
+    print("✓ 数据库连接已关闭")
 
 
 if __name__ == "__main__":

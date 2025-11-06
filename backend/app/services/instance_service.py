@@ -1,12 +1,11 @@
 """
 实例服务
-处理实例相关的业务逻辑
+处理机器人实例相关的业务逻辑
 """
 from typing import List, Optional
 from datetime import datetime
 import uuid
 import json
-import os
 from pathlib import Path
 
 from ..models import (
@@ -20,7 +19,7 @@ from ..core import settings
 
 
 class InstanceService:
-    """实例服务类 - 遵循单一职责原则"""
+    """机器人实例服务类 - 遵循单一职责原则"""
     
     def __init__(self):
         """初始化实例服务"""
@@ -171,7 +170,7 @@ class InstanceService:
         )
     
     async def start_instance(self, instance_id: str) -> bool:
-        """启动实例
+        """启动机器人实例
         
         Args:
             instance_id: 实例 ID
@@ -186,20 +185,20 @@ class InstanceService:
         if instance.status == InstanceStatus.RUNNING:
             return True
         
-        # TODO: 实现真实的实例启动逻辑
+        # TODO: 实现真实的机器人实例启动逻辑
         instance.status = InstanceStatus.STARTING
         self._save_instances()
         
-        # 这里应该启动 Minecraft 进程
+        # 这里应该启动机器人进程
         # 启动成功后更新状态为 RUNNING
         instance.status = InstanceStatus.RUNNING
-        instance.last_played = datetime.now()
+        instance.last_run = datetime.now()
         self._save_instances()
         
         return True
     
     async def stop_instance(self, instance_id: str) -> bool:
-        """停止实例
+        """停止机器人实例
         
         Args:
             instance_id: 实例 ID
@@ -214,11 +213,11 @@ class InstanceService:
         if instance.status == InstanceStatus.STOPPED:
             return True
         
-        # TODO: 实现真实的实例停止逻辑
+        # TODO: 实现真实的机器人实例停止逻辑
         instance.status = InstanceStatus.STOPPING
         self._save_instances()
         
-        # 这里应该停止 Minecraft 进程
+        # 这里应该停止机器人进程
         # 停止成功后更新状态为 STOPPED
         instance.status = InstanceStatus.STOPPED
         self._save_instances()
