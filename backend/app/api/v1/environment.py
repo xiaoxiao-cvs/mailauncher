@@ -6,10 +6,10 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.environment import environment_manager, PythonVersion, GitInfo
-from app.core.config import settings
-from app.core.database import get_db
-from app.models.response import APIResponse
+from ...core.environment import environment_manager, PythonVersion, GitInfo
+from ...core.config import settings
+from ...core.database import get_db
+from ...models.response import APIResponse
 
 router = APIRouter()
 
@@ -139,7 +139,7 @@ async def get_environment_config(db: AsyncSession = Depends(get_db)) -> APIRespo
         包含环境配置的响应
     """
     try:
-        from app.services.config_service import config_service
+        from ...services.config_service import config_service
         
         # 尝试从数据库获取用户保存的部署路径
         saved_instances_dir = await config_service.get_path(db, "instances_dir")

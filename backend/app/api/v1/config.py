@@ -11,7 +11,7 @@ from ...core.database import get_db
 from ...services.config_service import config_service
 from ...models.response import APIResponse
 
-router = APIRouter(prefix="/config", tags=["config"])
+router = APIRouter(tags=["config"])
 
 
 # ===== Pydantic 模型 =====

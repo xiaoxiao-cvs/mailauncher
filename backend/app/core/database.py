@@ -8,13 +8,13 @@ import os
 
 from .config import settings
 
-# 延迟导入 logger 以避免循环依赖
+
 def _get_logger():
+    """延迟导入 logger 以避免循环依赖"""
     try:
         from .logger import logger
         return logger
     except ImportError:
-        # 如果 logger 尚未初始化，返回 None
         return None
 
 
@@ -24,29 +24,20 @@ class Base(DeclarativeBase):
 
 
 def _ensure_db_directory() -> None:
-    """
-    确保数据库目录存在,如果不存在则自动创建
-    """
-    # 从 DATABASE_URL 中提取数据库文件路径
-    # 格式: sqlite+aiosqlite:///./data/database/mailauncher.db
+    """确保数据库目录存在"""
     db_url = settings.DATABASE_URL
     if db_url.startswith("sqlite"):
-        # 提取文件路径部分
         db_path = db_url.split("///")[-1] if "///" in db_url else db_url.split("//")[-1]
         db_file = Path(db_path)
         
-        # 创建数据库文件的父目录
         db_dir = db_file.parent
         if not db_dir.exists():
             db_dir.mkdir(parents=True, exist_ok=True)
             log = _get_logger()
             if log:
                 log.info(f"已创建数据库目录: {db_dir.absolute()}")
-            else:
-                print(f"✓ 已创建数据库目录: {db_dir.absolute()}")
 
 
-# 在创建引擎之前确保目录存在
 _ensure_db_directory()
 
 # 创建数据库引擎

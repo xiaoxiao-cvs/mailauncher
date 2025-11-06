@@ -4,6 +4,7 @@
 """
 import os
 from pathlib import Path
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 from typing import List, Optional
 
@@ -27,6 +28,26 @@ class Settings(BaseSettings):
     # 实例存储路径配置
     # 默认在后端同目录下的 deployments 文件夹
     INSTANCES_DIR: str = "./deployments"
+    
+    @field_validator('INSTANCES_DIR')
+    @classmethod
+    def validate_instances_dir(cls, v: str) -> str:
+        """验证实例目录配置"""
+        if not v or not v.strip():
+            raise ValueError('INSTANCES_DIR 不能为空')
+        return v.strip()
+    
+    @field_validator('ALLOWED_ORIGINS')
+    @classmethod
+    def validate_allowed_origins(cls, v: List[str]) -> List[str]:
+        """验证 CORS 配置"""
+        if not v:
+            raise ValueError('ALLOWED_ORIGINS 不能为空')
+        # 验证 URL 格式
+        for origin in v:
+            if not origin.startswith(('http://', 'https://')):
+                raise ValueError(f'无效的 origin 格式: {origin}，必须以 http:// 或 https:// 开头')
+        return v
     
     # 数据库配置
     # 使用绝对路径指向 backend/data/database 目录

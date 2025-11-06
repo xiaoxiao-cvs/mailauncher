@@ -5,8 +5,9 @@
 from typing import List, Optional
 from datetime import datetime
 import uuid
-import json
 from pathlib import Path
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import (
     Deployment,
@@ -14,7 +15,9 @@ from ..models import (
     DeploymentStatus,
     DeploymentLog,
 )
+from ..models.db_models import DeploymentDB, DeploymentLogDB
 from ..core import settings
+from ..core.logger import logger
 
 
 class DeploymentService:
@@ -23,222 +26,214 @@ class DeploymentService:
     def __init__(self):
         """初始化部署服务"""
         self.instances_dir = Path(settings.INSTANCES_DIR)
-        self.deployments_file = self.instances_dir / "deployments.json"
-        self._deployments: dict[str, Deployment] = {}
-        self._logs: dict[str, List[DeploymentLog]] = {}
-        self._load_deployments()
-    
-    def _load_deployments(self) -> None:
-        """从文件加载部署数据"""
-        if self.deployments_file.exists():
-            try:
-                with open(self.deployments_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    for deploy_data in data:
-                        deployment = Deployment(**deploy_data)
-                        self._deployments[deployment.id] = deployment
-            except Exception as e:
-                print(f"加载部署数据失败: {e}")
-    
-    def _save_deployments(self) -> None:
-        """保存部署数据到文件"""
-        try:
-            with open(self.deployments_file, "w", encoding="utf-8") as f:
-                data = [dep.model_dump() for dep in self._deployments.values()]
-                json.dump(data, f, ensure_ascii=False, indent=2, default=str)
-        except Exception as e:
-            print(f"保存部署数据失败: {e}")
+        logger.info("部署服务已初始化")
     
     def _generate_deployment_id(self) -> str:
         """生成唯一的部署任务 ID"""
         return f"deploy_{uuid.uuid4().hex[:12]}"
     
-    def _add_log(self, deployment_id: str, level: str, message: str) -> None:
-        """添加部署日志"""
-        if deployment_id not in self._logs:
-            self._logs[deployment_id] = []
-        
-        log = DeploymentLog(
-            timestamp=datetime.now(),
-            level=level,
-            message=message,
+    def _db_to_model(self, db_deployment: DeploymentDB) -> Deployment:
+        """将数据库模型转换为 Pydantic 模型"""
+        return Deployment(
+            id=db_deployment.id,
+            instance_id=db_deployment.instance_id,
+            deployment_type=db_deployment.deployment_type,
+            description=db_deployment.description,
+            status=DeploymentStatus(db_deployment.status),
+            progress=db_deployment.progress,
+            created_at=db_deployment.created_at,
+            started_at=db_deployment.started_at,
+            completed_at=db_deployment.completed_at,
+            error_message=db_deployment.error_message,
+            deployed_files=[],
         )
-        self._logs[deployment_id].append(log)
+    
+    async def _add_log(
+        self, db: AsyncSession, deployment_id: str, level: str, message: str
+    ) -> None:
+        """添加部署日志"""
+        try:
+            log = DeploymentLogDB(
+                deployment_id=deployment_id,
+                timestamp=datetime.now(),
+                level=level,
+                message=message,
+            )
+            db.add(log)
+            await db.commit()
+            logger.info(f"[{deployment_id}] {level}: {message}")
+        except Exception as e:
+            logger.error(f"添加部署日志失败: {e}")
     
     async def get_all_deployments(
         self,
+        db: AsyncSession,
         status: Optional[DeploymentStatus] = None,
         instance_id: Optional[str] = None,
     ) -> List[Deployment]:
-        """获取所有部署任务列表
-        
-        Args:
-            status: 按状态过滤
-            instance_id: 按实例过滤
-            
-        Returns:
-            部署任务列表
-        """
-        deployments = list(self._deployments.values())
-        
-        # 状态过滤
-        if status:
-            deployments = [d for d in deployments if d.status == status]
-        
-        # 实例过滤
-        if instance_id:
-            deployments = [d for d in deployments if d.instance_id == instance_id]
-        
-        return deployments
-    
-    async def get_deployment(self, deployment_id: str) -> Optional[Deployment]:
-        """获取指定部署任务
-        
-        Args:
-            deployment_id: 部署任务 ID
-            
-        Returns:
-            部署任务对象，不存在则返回 None
-        """
-        return self._deployments.get(deployment_id)
-    
-    async def create_deployment(self, deployment_data: DeploymentCreate) -> Deployment:
-        """创建部署任务
-        
-        Args:
-            deployment_data: 部署创建数据
-            
-        Returns:
-            创建的部署任务对象
-        """
-        deployment_id = self._generate_deployment_id()
-        now = datetime.now()
-        
-        deployment = Deployment(
-            id=deployment_id,
-            instance_id=deployment_data.instance_id,
-            deployment_type=deployment_data.deployment_type,
-            description=deployment_data.description,
-            status=DeploymentStatus.PENDING,
-            progress=0,
-            created_at=now,
-        )
-        
-        self._deployments[deployment_id] = deployment
-        self._save_deployments()
-        
-        # 添加初始日志
-        self._add_log(deployment_id, "INFO", "部署任务已创建")
-        
-        # TODO: 在后台异步执行部署任务
-        # asyncio.create_task(self._execute_deployment(deployment_id, deployment_data))
-        
-        return deployment
-    
-    async def cancel_deployment(self, deployment_id: str) -> bool:
-        """取消部署任务
-        
-        Args:
-            deployment_id: 部署任务 ID
-            
-        Returns:
-            取消是否成功
-        """
-        deployment = self._deployments.get(deployment_id)
-        if not deployment:
-            return False
-        
-        if deployment.status not in [DeploymentStatus.PENDING, DeploymentStatus.RUNNING]:
-            return False
-        
-        deployment.status = DeploymentStatus.CANCELLED
-        self._save_deployments()
-        
-        self._add_log(deployment_id, "WARNING", "部署任务已取消")
-        
-        return True
-    
-    async def retry_deployment(self, deployment_id: str) -> bool:
-        """重试失败的部署任务
-        
-        Args:
-            deployment_id: 部署任务 ID
-            
-        Returns:
-            重试是否成功
-        """
-        deployment = self._deployments.get(deployment_id)
-        if not deployment:
-            return False
-        
-        if deployment.status != DeploymentStatus.FAILED:
-            return False
-        
-        deployment.status = DeploymentStatus.PENDING
-        deployment.progress = 0
-        deployment.error_message = None
-        self._save_deployments()
-        
-        self._add_log(deployment_id, "INFO", "重试部署任务")
-        
-        # TODO: 在后台异步执行部署任务
-        
-        return True
-    
-    async def get_deployment_logs(self, deployment_id: str) -> List[DeploymentLog]:
-        """获取部署日志
-        
-        Args:
-            deployment_id: 部署任务 ID
-            
-        Returns:
-            日志列表
-        """
-        return self._logs.get(deployment_id, [])
-    
-    async def _execute_deployment(
-        self, deployment_id: str, deployment_data: DeploymentCreate
-    ) -> None:
-        """执行部署任务（后台任务）
-        
-        Args:
-            deployment_id: 部署任务 ID
-            deployment_data: 部署数据
-        """
-        deployment = self._deployments.get(deployment_id)
-        if not deployment:
-            return
-        
+        """获取所有部署任务列表"""
         try:
-            # 更新状态为运行中
-            deployment.status = DeploymentStatus.RUNNING
-            deployment.started_at = datetime.now()
-            self._save_deployments()
+            query = select(DeploymentDB)
             
-            self._add_log(deployment_id, "INFO", "开始执行部署")
+            if status:
+                query = query.where(DeploymentDB.status == status.value)
             
-            # TODO: 实现真实的部署逻辑
-            # 1. 验证资源文件
-            # 2. 复制文件到目标位置
-            # 3. 更新进度
-            # 4. 处理自动启动
+            if instance_id:
+                query = query.where(DeploymentDB.instance_id == instance_id)
             
-            # 模拟部署完成
-            deployment.status = DeploymentStatus.COMPLETED
-            deployment.progress = 100
-            deployment.completed_at = datetime.now()
+            result = await db.execute(query)
+            db_deployments = result.scalars().all()
             
-            self._add_log(deployment_id, "INFO", "部署完成")
+            logger.info(f"查询到 {len(db_deployments)} 个部署任务")
+            return [self._db_to_model(dep) for dep in db_deployments]
             
         except Exception as e:
-            deployment.status = DeploymentStatus.FAILED
-            deployment.error_message = str(e)
+            logger.error(f"获取部署列表失败: {e}")
+            raise
+    
+    async def get_deployment(
+        self, db: AsyncSession, deployment_id: str
+    ) -> Optional[Deployment]:
+        """获取指定部署任务"""
+        try:
+            result = await db.execute(
+                select(DeploymentDB).where(DeploymentDB.id == deployment_id)
+            )
+            db_deployment = result.scalar_one_or_none()
             
-            self._add_log(deployment_id, "ERROR", f"部署失败: {e}")
-        
-        finally:
-            self._save_deployments()
+            if db_deployment:
+                return self._db_to_model(db_deployment)
+            return None
+            
+        except Exception as e:
+            logger.error(f"获取部署任务 {deployment_id} 失败: {e}")
+            raise
+    
+    async def create_deployment(
+        self, db: AsyncSession, deployment_data: DeploymentCreate
+    ) -> Deployment:
+        """创建部署任务"""
+        try:
+            deployment_id = self._generate_deployment_id()
+            now = datetime.now()
+            
+            db_deployment = DeploymentDB(
+                id=deployment_id,
+                instance_id=deployment_data.instance_id,
+                deployment_type=deployment_data.deployment_type.value,
+                description=deployment_data.description,
+                status=DeploymentStatus.PENDING.value,
+                progress=0,
+                created_at=now,
+            )
+            
+            db.add(db_deployment)
+            await db.commit()
+            await db.refresh(db_deployment)
+            
+            await self._add_log(db, deployment_id, "INFO", "部署任务已创建")
+            logger.info(f"成功创建部署任务: {deployment_id}")
+            
+            return self._db_to_model(db_deployment)
+            
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"创建部署任务失败: {e}")
+            raise
+    
+    async def cancel_deployment(
+        self, db: AsyncSession, deployment_id: str
+    ) -> bool:
+        """取消部署任务"""
+        try:
+            result = await db.execute(
+                select(DeploymentDB).where(DeploymentDB.id == deployment_id)
+            )
+            db_deployment = result.scalar_one_or_none()
+            
+            if not db_deployment:
+                logger.warning(f"部署任务 {deployment_id} 不存在")
+                return False
+            
+            if db_deployment.status not in [
+                DeploymentStatus.PENDING.value,
+                DeploymentStatus.RUNNING.value,
+            ]:
+                logger.warning(f"部署任务 {deployment_id} 无法取消")
+                return False
+            
+            db_deployment.status = DeploymentStatus.CANCELLED.value
+            await db.commit()
+            
+            await self._add_log(db, deployment_id, "WARNING", "部署任务已取消")
+            logger.info(f"成功取消部署任务: {deployment_id}")
+            
+            return True
+            
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"取消部署任务 {deployment_id} 失败: {e}")
+            raise
+    
+    async def retry_deployment(
+        self, db: AsyncSession, deployment_id: str
+    ) -> bool:
+        """重试失败的部署任务"""
+        try:
+            result = await db.execute(
+                select(DeploymentDB).where(DeploymentDB.id == deployment_id)
+            )
+            db_deployment = result.scalar_one_or_none()
+            
+            if not db_deployment:
+                logger.warning(f"部署任务 {deployment_id} 不存在")
+                return False
+            
+            if db_deployment.status != DeploymentStatus.FAILED.value:
+                logger.warning(f"部署任务 {deployment_id} 无法重试")
+                return False
+            
+            db_deployment.status = DeploymentStatus.PENDING.value
+            db_deployment.progress = 0
+            db_deployment.error_message = None
+            await db.commit()
+            
+            await self._add_log(db, deployment_id, "INFO", "重试部署任务")
+            logger.info(f"成功重试部署任务: {deployment_id}")
+            
+            return True
+            
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"重试部署任务 {deployment_id} 失败: {e}")
+            raise
+    
+    async def get_deployment_logs(
+        self, db: AsyncSession, deployment_id: str
+    ) -> List[DeploymentLog]:
+        """获取部署日志"""
+        try:
+            result = await db.execute(
+                select(DeploymentLogDB)
+                .where(DeploymentLogDB.deployment_id == deployment_id)
+                .order_by(DeploymentLogDB.timestamp)
+            )
+            db_logs = result.scalars().all()
+            
+            return [
+                DeploymentLog(
+                    timestamp=log.timestamp,
+                    level=log.level,
+                    message=log.message,
+                )
+                for log in db_logs
+            ]
+            
+        except Exception as e:
+            logger.error(f"获取部署日志失败: {e}")
+            raise
 
 
-# 创建全局部署服务实例
-deployment_service = DeploymentService()
+def get_deployment_service() -> DeploymentService:
+    """获取部署服务的依赖注入"""
+    return DeploymentService()
