@@ -42,7 +42,7 @@ export function ThemeSelector() {
   const { theme, setTheme } = useTheme()
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {themeOptions.map((option) => {
         const isSelected = theme === option.value
         
@@ -52,7 +52,7 @@ export function ThemeSelector() {
             onClick={() => setTheme(option.value)}
             className={`
               w-full p-3.5 rounded-xl transition-all duration-300
-              flex items-center gap-3
+              flex items-center gap-2.5
               ${isSelected 
                 ? 'bg-white dark:bg-[#2e2e2e] shadow-lg border-2 border-[#0077b6] dark:border-[#595959]' 
                 : 'bg-white/60 dark:bg-[#161616] border-2 border-transparent hover:bg-white/80 dark:hover:bg-[#252525] hover:shadow-md'
@@ -74,13 +74,13 @@ export function ThemeSelector() {
 
             {/* 文字区域 */}
             <div className="flex-1 text-left min-w-0">
-              <div className="font-semibold text-[#03045e] dark:text-white flex items-center gap-2 leading-relaxed">
+              <div className="text-sm font-semibold text-[#03045e] dark:text-white flex items-center gap-2 leading-relaxed">
                 {option.label}
                 {isSelected && (
                   <div className="w-1.5 h-1.5 rounded-full bg-[#0077b6] dark:bg-[#8c8c8c] animate-pulse flex-shrink-0"></div>
                 )}
               </div>
-              <div className="text-sm text-[#023e8a]/70 dark:text-white/70 leading-relaxed">
+              <div className="text-xs text-[#023e8a]/70 dark:text-white/70 leading-relaxed">
                 {option.description}
               </div>
             </div>

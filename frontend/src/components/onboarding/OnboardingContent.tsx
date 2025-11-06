@@ -30,7 +30,7 @@ export function OnboardingContent({
 }: OnboardingContentProps) {
   return (
     <div className="flex-1">
-      <div className="bg-white/50 dark:bg-[#1f1f1f]/50 backdrop-blur-xl rounded-2xl p-8 md:p-12 border border-white/60 dark:border-[#2e2e2e]/40 shadow-xl min-h-[600px] flex flex-col transition-colors duration-500">
+      <div className="bg-white/50 dark:bg-[#1f1f1f]/50 backdrop-blur-xl rounded-2xl p-8 md:p-12 border border-white/60 dark:border-[#2e2e2e]/40 shadow-xl min-h-[680px] flex flex-col transition-colors duration-500">
         {/* 内容区域 - 包含移动端指示器以确保动画一致 */}
         <div ref={contentRef} className="flex-1 flex flex-col">
           {/* 移动端步骤指示器 */}
@@ -66,10 +66,10 @@ export function OnboardingContent({
           </div>
 
           {/* 内容区域 - 根据步骤类型显示不同内容 */}
-          <div className="mb-8 h-[252px] flex flex-col overflow-y-auto">
+          <div className="mb-8 flex flex-col min-h-[380px]">
             {currentStepData.isSettingsStep ? (
               /* 设置表单 */
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <ThemeSelector />
               </div>
             ) : currentStepData.isEnvironmentStep ? (
@@ -77,14 +77,14 @@ export function OnboardingContent({
               <EnvironmentCheck stepColor={currentStepData.color} />
             ) : (
               /* 特性列表 */
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {currentStepData.description.map((item, index) => (
                   <div 
                     key={index}
-                    className="flex items-start gap-3 p-3.5 rounded-xl bg-white/60 dark:bg-[#2e2e2e] hover:bg-white/80 dark:hover:bg-[#3a3a3a] transition-all duration-300 hover:shadow-md"
+                    className="flex items-start gap-2.5 p-3.5 rounded-xl bg-white/60 dark:bg-[#2e2e2e] hover:bg-white/80 dark:hover:bg-[#3a3a3a] transition-all duration-300 hover:shadow-md"
                   >
                     <div 
-                      className="step-icon-bg w-6 h-6 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm mt-0.5 flex-shrink-0"
+                      className="step-icon-bg w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm flex-shrink-0"
                       style={{
                         ['--icon-color' as string]: currentStepData.color,
                         ['--icon-color-dark' as string]: `${currentStepData.color}dd`
@@ -92,7 +92,7 @@ export function OnboardingContent({
                     >
                       {index + 1}
                     </div>
-                    <p className="text-[#023e8a] dark:text-white leading-relaxed flex-1">
+                    <p className="text-[#023e8a] dark:text-white leading-relaxed flex-1 text-sm pt-1.5">
                       {item}
                     </p>
                   </div>

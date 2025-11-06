@@ -1,0 +1,5 @@
+/* Localized versions of Info.plist keys */
+CFBundleName = "MAI Launcher";
+CFBundleDisplayName = "MAI Launcher";
+CFBundleGetInfoString = "MAI Launcher 版本 0.1.0";
+NSHumanReadableCopyright = "Copyright © 2024";
