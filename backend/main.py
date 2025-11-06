@@ -45,6 +45,10 @@ async def root():
 @app.on_event("startup")
 async def startup_event():
     """应用启动时执行"""
+    # 确保必要的目录存在
+    instances_path = settings.ensure_instances_dir()
+    print(f"✓ 实例目录已就绪: {instances_path}")
+    
     # 初始化数据库，创建所有表
     await init_db()
     print("✓ 数据库初始化完成")

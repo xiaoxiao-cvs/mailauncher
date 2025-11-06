@@ -40,8 +40,11 @@ ENV/
 
 # 数据库
 *.db
+*.db-*
 *.sqlite
 *.sqlite3
+data/database/*.db
+data/database/*.db-*
 
 # 配置文件
 .env

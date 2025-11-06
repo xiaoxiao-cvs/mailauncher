@@ -4,6 +4,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from pathlib import Path
+import os
 
 from .config import settings
 
@@ -12,6 +13,28 @@ class Base(DeclarativeBase):
     """SQLAlchemy 基础模型类"""
     pass
 
+
+def _ensure_db_directory() -> None:
+    """
+    确保数据库目录存在,如果不存在则自动创建
+    """
+    # 从 DATABASE_URL 中提取数据库文件路径
+    # 格式: sqlite+aiosqlite:///./data/database/mailauncher.db
+    db_url = settings.DATABASE_URL
+    if db_url.startswith("sqlite"):
+        # 提取文件路径部分
+        db_path = db_url.split("///")[-1] if "///" in db_url else db_url.split("//")[-1]
+        db_file = Path(db_path)
+        
+        # 创建数据库文件的父目录
+        db_dir = db_file.parent
+        if not db_dir.exists():
+            db_dir.mkdir(parents=True, exist_ok=True)
+            print(f"✓ 已创建数据库目录: {db_dir.absolute()}")
+
+
+# 在创建引擎之前确保目录存在
+_ensure_db_directory()
 
 # 创建数据库引擎
 engine = create_async_engine(
