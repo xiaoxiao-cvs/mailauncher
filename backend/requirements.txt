@@ -1,0 +1,10 @@
+# FastAPI 核心依赖
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+
+# ASGI 服务器依赖
+python-multipart==0.0.6
+
+# 工具库
+pydantic==2.5.3
+pydantic-settings==2.1.0
