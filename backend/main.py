@@ -7,21 +7,28 @@ MAI Launcher Backend
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import settings, api_v1_router
+
 # 创建 FastAPI 应用实例
 app = FastAPI(
-    title="MAI Launcher API",
-    description="MAI Launcher 后端服务",
-    version="0.1.0"
+    title=settings.PROJECT_NAME,
+    description="MAI Launcher 后端服务 API",
+    version=settings.VERSION,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
 # 配置 CORS 中间件，允许前端跨域访问
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite 默认开发端口
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 注册 API v1 路由
+app.include_router(api_v1_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/")

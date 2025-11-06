@@ -14,20 +14,32 @@ function AppRoutes() {
   const navigate = useNavigate()
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false)
 
-  // 开发环境：每次都清除引导完成标记，确保引导页每次都加载
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      localStorage.removeItem('onboarding_completed')
-    }
-  }, [])
-
-  // 检查本地存储，判断是否已完成引导
+  // 检查本地存储,判断是否已完成引导
   useEffect(() => {
     const completed = localStorage.getItem('onboarding_completed')
     if (completed === 'true') {
       setHasCompletedOnboarding(true)
     }
   }, [])
+
+  // 开发环境:在控制台添加 test1() 命令用于跳转到引导页
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      (window as any).test1 = () => {
+        console.log('清除引导标记,跳转到引导页...')
+        localStorage.removeItem('onboarding_completed')
+        // 直接刷新页面，让应用重新加载并进入引导页
+        window.location.href = '/onboarding'
+      }
+      console.log('开发提示:在控制台执行 test1() 可以跳转到引导页')
+    }
+    
+    return () => {
+      if (import.meta.env.DEV) {
+        delete (window as any).test1
+      }
+    }
+  }, [navigate])
 
   const handleOnboardingComplete = () => {
     console.log('引导完成！')

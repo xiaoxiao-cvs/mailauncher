@@ -114,14 +114,16 @@ export function Sidebar() {
             'text-[#023e8a]/70 dark:text-white/70',
             'overflow-hidden', // 防止内容溢出
             'py-2.5',
-            // 展开时：图标区域左右等距，文字在右侧
-            !isCollapsed && 'pl-[18px] pr-4 gap-3',
-            // 收起时：图标区域完全居中（左右等距）
-            isCollapsed && 'px-[18px] justify-center'
+            // 统一使用固定的左内边距，确保图标位置不变
+            'pl-[18px]',
+            // 展开时：右边距 + 间隙
+            !isCollapsed && 'pr-4',
+            // 收起时：右边距与左边距相等，实现居中
+            isCollapsed && 'pr-[18px] justify-center'
           )}
           aria-label={isCollapsed ? '展开侧边栏' : '收起侧边栏'}
         >
-          {/* 图标容器 - 与导航项图标对齐 */}
+          {/* 图标容器 - 与导航项图标对齐，固定宽度 */}
           <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
             <Icon
               icon={isCollapsed ? 'ph:caret-right-thin' : 'ph:caret-left-thin'}
@@ -131,10 +133,11 @@ export function Sidebar() {
               )}
             />
           </div>
+          {/* 文字标签 - 使用 margin 代替 gap，确保位置过渡平滑 */}
           <span 
             className={cn(
               'text-sm font-medium whitespace-nowrap transition-all duration-200',
-              isCollapsed ? 'opacity-0 w-0' : 'opacity-100'
+              isCollapsed ? 'opacity-0 w-0 ml-0' : 'opacity-100 ml-3'
             )}
           >
             收起
