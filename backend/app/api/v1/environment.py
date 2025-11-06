@@ -2,11 +2,13 @@
 环境配置 API
 提供环境检查和配置的 REST API 端点
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.environment import environment_manager, PythonVersion, GitInfo
 from app.core.config import settings
+from app.core.database import get_db
 from app.models.response import APIResponse
 
 router = APIRouter()
@@ -129,7 +131,7 @@ async def get_system_info() -> APIResponse:
 
 
 @router.get("/config")
-async def get_environment_config() -> APIResponse:
+async def get_environment_config(db: AsyncSession = Depends(get_db)) -> APIResponse:
     """
     获取当前环境配置
     
@@ -137,13 +139,22 @@ async def get_environment_config() -> APIResponse:
         包含环境配置的响应
     """
     try:
-        instances_path = settings.get_instances_path()
+        from app.services.config_service import config_service
+        
+        # 尝试从数据库获取用户保存的部署路径
+        saved_instances_dir = await config_service.get_path(db, "instances_dir")
+        
+        # 如果数据库中没有保存的路径，使用默认路径
+        if saved_instances_dir:
+            instances_path = saved_instances_dir
+        else:
+            instances_path = str(settings.get_instances_path())
         
         return APIResponse(
             success=True,
             message="成功获取环境配置",
             data={
-                "instances_dir": str(instances_path),
+                "instances_dir": instances_path,
                 "python_executable": settings.PYTHON_EXECUTABLE or "系统默认",
                 "git_executable": settings.GIT_EXECUTABLE or "系统默认",
             }

@@ -1,10 +1,12 @@
 import {
-  BotIcon,
+  SettingsIcon,
   RocketIcon,
   ZapIcon,
   ShieldCheckIcon,
 } from 'lucide-react'
 import type { OnboardingStep } from '@/types/onboarding'
+import { ThemeSelector } from '@/components/theme/ThemeSelector'
+import { ConnectivityCheck } from './ConnectivityCheck'
 
 /**
  * 引导步骤数据
@@ -13,13 +15,24 @@ import type { OnboardingStep } from '@/types/onboarding'
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 1,
-    title: '外观设置',
-    subtitle: '个性化你的 MAI Launcher 体验',
+    title: '系统设置',
+    subtitle: '配置你的 MAI Launcher',
     description: [],
-    icon: <BotIcon className="w-8 h-8" />,
+    icon: <SettingsIcon className="w-8 h-8" />,
     gradient: 'from-[#a2d2ff] to-[#bde0fe]',
     color: '#a2d2ff',
-    isSettingsStep: true
+    tabs: [
+      {
+        id: 'appearance',
+        label: '外观设计',
+        component: <ThemeSelector />
+      },
+      {
+        id: 'connectivity',
+        label: '联通性检查',
+        component: <ConnectivityCheck stepColor="#a2d2ff" />
+      }
+    ]
   },
   {
     id: 2,

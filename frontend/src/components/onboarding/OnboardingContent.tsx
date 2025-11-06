@@ -1,8 +1,9 @@
-import { RefObject } from 'react'
+import { RefObject, useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { ArrowRightIcon, CheckCircle2Icon } from 'lucide-react'
 import { ThemeSelector } from '@/components/theme'
 import { EnvironmentCheck } from './EnvironmentCheck'
+import { OnboardingTabs } from './OnboardingTabs'
 import type { OnboardingStep } from '@/types/onboarding'
 
 interface OnboardingContentProps {
@@ -28,6 +29,38 @@ export function OnboardingContent({
   onNext,
   onPrevious
 }: OnboardingContentProps) {
+  const [currentTabIndex, setCurrentTabIndex] = useState(0)
+  const hasTabs = currentStepData.tabs && currentStepData.tabs.length > 0
+  const isLastTab = hasTabs && currentTabIndex === (currentStepData.tabs?.length ?? 0) - 1
+
+  // 当步骤改变时，重置 Tab 索引
+  useEffect(() => {
+    setCurrentTabIndex(0)
+  }, [currentStep])
+
+  // 处理下一页（Tab）或下一步
+  const handleNext = () => {
+    if (hasTabs && !isLastTab) {
+      // 如果有 Tabs 且不是最后一个 Tab，切换到下一个 Tab
+      setCurrentTabIndex(prev => prev + 1)
+    } else {
+      // 否则，进入下一步
+      setCurrentTabIndex(0) // 重置 Tab 索引
+      onNext()
+    }
+  }
+
+  // 处理上一页（Tab）或上一步
+  const handlePrevious = () => {
+    if (hasTabs && currentTabIndex > 0) {
+      // 如果有 Tabs 且不是第一个 Tab，切换到上一个 Tab
+      setCurrentTabIndex(prev => prev - 1)
+    } else {
+      // 否则，返回上一步
+      onPrevious()
+    }
+  }
+
   return (
     <div className="flex-1">
       <div className="bg-white/50 dark:bg-[#1f1f1f]/50 backdrop-blur-xl rounded-2xl p-8 md:p-12 border border-white/60 dark:border-[#2e2e2e]/40 shadow-xl min-h-[680px] flex flex-col transition-colors duration-500">
@@ -66,8 +99,16 @@ export function OnboardingContent({
           </div>
 
           {/* 内容区域 - 根据步骤类型显示不同内容 */}
-          <div className="mb-8 flex flex-col min-h-[380px]">
-            {currentStepData.isSettingsStep ? (
+          <div className="mb-8 flex flex-col h-[420px] overflow-hidden">
+            {hasTabs ? (
+              /* 显示 Tabs */
+              <OnboardingTabs
+                tabs={currentStepData.tabs!}
+                stepColor={currentStepData.color}
+                currentTab={currentTabIndex}
+                onTabChange={(_tabId, tabIndex) => setCurrentTabIndex(tabIndex)}
+              />
+            ) : currentStepData.isSettingsStep ? (
               /* 设置表单 */
               <div className="space-y-4">
                 <ThemeSelector />
@@ -103,21 +144,21 @@ export function OnboardingContent({
 
           {/* 底部按钮 */}
           <div className="flex items-center justify-between gap-4 pt-6 border-t border-[#023e8a]/10 dark:border-[#2e2e2e]">
-            {currentStep > 0 ? (
+            {(currentStep > 0 || (hasTabs && currentTabIndex > 0)) ? (
               <Button
                 variant="outline"
-                onClick={onPrevious}
+                onClick={handlePrevious}
                 disabled={isAnimating}
                 className="bg-white/60 dark:bg-[#2e2e2e] border-[#023e8a]/20 dark:border-[#3a3a3a] text-[#023e8a] dark:text-white hover:bg-white dark:hover:bg-[#3a3a3a]"
               >
-                上一步
+                {hasTabs && currentTabIndex > 0 ? '上一页' : '上一步'}
               </Button>
             ) : (
               <div></div>
             )}
             
             <Button
-              onClick={onNext}
+              onClick={handleNext}
               disabled={isAnimating}
               className="step-icon-bg text-white border-0 px-8 py-6 text-base shadow-lg hover:shadow-xl transition-all"
               style={{
@@ -125,10 +166,15 @@ export function OnboardingContent({
                 ['--icon-color-dark' as string]: `${currentStepData.color}dd`
               } as React.CSSProperties}
             >
-              {currentStep === steps.length - 1 ? (
+              {currentStep === steps.length - 1 && (!hasTabs || isLastTab) ? (
                 <>
                   <CheckCircle2Icon className="w-5 h-5 mr-2" />
                   开始使用 MAI Launcher
+                </>
+              ) : hasTabs && !isLastTab ? (
+                <>
+                  下一页
+                  <ArrowRightIcon className="w-5 h-5 ml-2" />
                 </>
               ) : (
                 <>

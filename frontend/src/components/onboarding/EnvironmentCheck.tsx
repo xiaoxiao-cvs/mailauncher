@@ -22,6 +22,8 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
   const [isCheckingGit, setIsCheckingGit] = useState(false)
   const [gitError, setGitError] = useState<string>('')
   const [pathError, setPathError] = useState<string>('')
+  const [pathSuccess, setPathSuccess] = useState<string>('')
+  const [isSavingPath, setIsSavingPath] = useState(false)
 
   // 检查 Git 环境
   const checkGitEnvironment = async () => {
@@ -82,8 +84,11 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
       console.log('Selected path:', selected)
       
       if (selected) {
-        setDeploymentPath(selected as string)
+        const selectedPath = selected as string
+        setDeploymentPath(selectedPath)
         setPathError('')
+        // 保存到后端
+        await saveDeploymentPath(selectedPath)
       }
     } catch (error) {
       // 如果不在 Tauri 环境中，回退到提示用户手动输入
@@ -92,14 +97,56 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
     }
   }
 
-  // 验证路径
+  // 保存路径到后端
+  const saveDeploymentPath = async (path: string) => {
+    setIsSavingPath(true)
+    setPathError('')
+    setPathSuccess('')
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/config/paths', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: 'instances_dir',
+          path: path,
+          path_type: 'directory',
+          is_verified: false,
+          description: 'Bot 实例部署目录'
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        setPathSuccess('✓ 路径已保存')
+        // 3秒后清除成功提示
+        setTimeout(() => setPathSuccess(''), 3000)
+      } else {
+        setPathError('保存路径失败')
+      }
+    } catch (error) {
+      console.error('Failed to save deployment path:', error)
+      setPathError('保存路径失败，请检查后端连接')
+    } finally {
+      setIsSavingPath(false)
+    }
+  }
+
+  // 验证并保存路径
   const handlePathChange = (value: string) => {
     setDeploymentPath(value)
     setPathError('')
+    setPathSuccess('')
     
     // 简单的路径验证
     if (value && !value.startsWith('/') && !value.match(/^[A-Z]:\\/i)) {
       setPathError('请输入有效的绝对路径')
+    } else if (value) {
+      // 路径有效，保存到后端
+      saveDeploymentPath(value)
     }
   }
 
@@ -228,9 +275,12 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
                 value={deploymentPath}
                 onChange={(e) => handlePathChange(e.target.value)}
                 placeholder="/path/to/deployments"
-                className={`w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-[#3a3a3a] text-[#023e8a] dark:text-white placeholder:text-[#023e8a]/40 dark:placeholder:text-white/40 focus:outline-none focus:ring-2 transition-all ${
+                disabled={isSavingPath}
+                className={`w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-[#3a3a3a] text-[#023e8a] dark:text-white placeholder:text-[#023e8a]/40 dark:placeholder:text-white/40 focus:outline-none focus:ring-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
                   pathError
                     ? 'border-red-300 dark:border-red-700 focus:ring-red-200 dark:focus:ring-red-800'
+                    : pathSuccess
+                    ? 'border-green-300 dark:border-green-700 focus:ring-green-200 dark:focus:ring-green-800'
                     : 'border-[#023e8a]/20 dark:border-[#3a3a3a] focus:ring-[#023e8a]/20'
                 }`}
               />
@@ -239,11 +289,17 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
                   {pathError}
                 </p>
               )}
+              {isSavingPath && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <LoaderIcon className="w-4 h-4 animate-spin text-[#023e8a] dark:text-white" />
+                </div>
+              )}
             </div>
             <Button
               onClick={handleSelectFolder}
               size="sm"
-              className="text-white border-0 px-4 shadow-md hover:shadow-lg transition-all text-xs"
+              disabled={isSavingPath}
+              className="text-white border-0 px-4 shadow-md hover:shadow-lg transition-all text-xs disabled:opacity-60"
               style={{ backgroundColor: stepColor }}
             >
               <FolderOpenIcon className="w-3.5 h-3.5 mr-1.5" />

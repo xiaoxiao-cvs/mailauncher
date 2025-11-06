@@ -1,4 +1,13 @@
 /**
+ * Tab 页签配置
+ */
+export interface OnboardingTab {
+  id: string
+  label: string
+  component: React.ReactNode
+}
+
+/**
  * 引导步骤类型定义
  */
 export interface OnboardingStep {
@@ -13,6 +22,8 @@ export interface OnboardingStep {
   isSettingsStep?: boolean
   /** 是否为环境检查步骤 */
   isEnvironmentStep?: boolean
+  /** Tabs 配置（如果有则显示 Tabs） */
+  tabs?: OnboardingTab[]
 }
 
 /**

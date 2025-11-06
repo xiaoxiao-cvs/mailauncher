@@ -4,4 +4,6 @@
 export { OnboardingPage } from './OnboardingPage'
 export { ONBOARDING_STEPS } from './constants'
 export { EnvironmentCheck } from './EnvironmentCheck'
-export type { OnboardingStep, OnboardingCallbacks } from '@/types/onboarding'
+export { ConnectivityCheck } from './ConnectivityCheck'
+export { OnboardingTabs } from './OnboardingTabs'
+export type { OnboardingStep, OnboardingCallbacks, OnboardingTab } from '@/types/onboarding'
