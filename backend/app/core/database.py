@@ -8,6 +8,15 @@ import os
 
 from .config import settings
 
+# 延迟导入 logger 以避免循环依赖
+def _get_logger():
+    try:
+        from .logger import logger
+        return logger
+    except ImportError:
+        # 如果 logger 尚未初始化，返回 None
+        return None
+
 
 class Base(DeclarativeBase):
     """SQLAlchemy 基础模型类"""
@@ -30,7 +39,11 @@ def _ensure_db_directory() -> None:
         db_dir = db_file.parent
         if not db_dir.exists():
             db_dir.mkdir(parents=True, exist_ok=True)
-            print(f"✓ 已创建数据库目录: {db_dir.absolute()}")
+            log = _get_logger()
+            if log:
+                log.info(f"已创建数据库目录: {db_dir.absolute()}")
+            else:
+                print(f"✓ 已创建数据库目录: {db_dir.absolute()}")
 
 
 # 在创建引擎之前确保目录存在

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import settings, api_v1_router
 from app.core.database import init_db, close_db
+from app.core.logger import setup_logger, logger
 
 # 创建 FastAPI 应用实例
 app = FastAPI(
@@ -45,22 +46,30 @@ async def root():
 @app.on_event("startup")
 async def startup_event():
     """应用启动时执行"""
+    # 初始化日志系统
+    setup_logger()
+    logger.info("=" * 60)
+    logger.info("MAI Launcher Backend 启动中...")
+    logger.info("=" * 60)
+    
     # 确保必要的目录存在
     instances_path = settings.ensure_instances_dir()
-    print(f"✓ 实例目录已就绪: {instances_path}")
+    logger.info(f"实例目录已就绪: {instances_path}")
     
     # 初始化数据库，创建所有表
     await init_db()
-    print("✓ 数据库初始化完成")
+    logger.success("数据库初始化完成")
 
 
 # 应用关闭事件
 @app.on_event("shutdown")
 async def shutdown_event():
     """应用关闭时执行"""
+    logger.info("MAI Launcher Backend 关闭中...")
     # 关闭数据库连接
     await close_db()
-    print("✓ 数据库连接已关闭")
+    logger.success("数据库连接已关闭")
+    logger.info("=" * 60)
 
 
 if __name__ == "__main__":

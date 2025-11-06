@@ -16,6 +16,7 @@ from ..models import (
     InstanceStatusResponse,
 )
 from ..core import settings
+from ..core.logger import logger
 
 
 class InstanceService:
@@ -38,8 +39,10 @@ class InstanceService:
                     for inst_data in data:
                         instance = Instance(**inst_data)
                         self._instances[instance.id] = instance
+                logger.info(f"已加载 {len(self._instances)} 个实例")
             except Exception as e:
-                print(f"加载实例数据失败: {e}")
+                logger.error(f"加载实例数据失败: {e}")
+                logger.exception("详细错误信息")
     
     def _save_instances(self) -> None:
         """保存实例数据到文件"""

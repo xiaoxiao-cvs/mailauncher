@@ -37,6 +37,9 @@ ENV/
 
 # 日志
 *.log
+data/Log/
+data/Log/*.json
+data/Log/*.zip
 
 # 数据库
 *.db

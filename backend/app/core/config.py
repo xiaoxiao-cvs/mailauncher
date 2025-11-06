@@ -29,7 +29,13 @@ class Settings(BaseSettings):
     INSTANCES_DIR: str = "./deployments"
     
     # 数据库配置
-    DATABASE_URL: str = "sqlite+aiosqlite:///./data/database/mailauncher.db"
+    # 使用绝对路径指向 backend/data/database 目录
+    @property
+    def DATABASE_URL(self) -> str:
+        """获取数据库 URL，使用绝对路径"""
+        backend_dir = Path(__file__).parent.parent.parent  # 从 app/core 返回到 backend
+        db_path = backend_dir / "data" / "database" / "mailauncher.db"
+        return f"sqlite+aiosqlite:///{db_path}"
     
     # Python 环境配置
     # 默认使用系统 Python，如果指定则使用指定路径
