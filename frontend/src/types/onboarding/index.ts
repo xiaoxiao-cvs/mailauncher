@@ -11,6 +11,8 @@ export interface OnboardingStep {
   color: string
   /** 是否为设置步骤（显示表单而非描述列表） */
   isSettingsStep?: boolean
+  /** 是否为环境检查步骤 */
+  isEnvironmentStep?: boolean
 }
 
 /**

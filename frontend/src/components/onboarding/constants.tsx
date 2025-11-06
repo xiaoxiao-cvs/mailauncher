@@ -13,7 +13,7 @@ import type { OnboardingStep } from '@/types/onboarding'
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 1,
-    title: '启动器设置',
+    title: '外观设置',
     subtitle: '个性化你的 MAI Launcher 体验',
     description: [],
     icon: <BotIcon className="w-8 h-8" />,
@@ -23,16 +23,17 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   },
   {
     id: 2,
-    title: '快速部署',
+    title: '环境检查与配置',
     subtitle: '从零到上线只需几分钟',
     description: [
-      '智能配置向导，自动检测系统环境',
-      '一键安装依赖，无需手动配置',
-      '模板化配置，快速创建新实例'
+      '智能配置向导,自动检测系统环境',
+      '一键安装依赖,无需手动配置',
+      '模板化配置,快速创建新实例'
     ],
     icon: <RocketIcon className="w-8 h-8" />,
     gradient: 'from-[#ffafcc] to-[#ffc8dd]',
-    color: '#ffafcc'
+    color: '#ffafcc',
+    isEnvironmentStep: true
   },
   {
     id: 3,

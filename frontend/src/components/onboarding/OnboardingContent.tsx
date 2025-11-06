@@ -2,6 +2,7 @@ import { RefObject } from 'react'
 import { Button } from '@/components/ui/button'
 import { ArrowRightIcon, CheckCircle2Icon } from 'lucide-react'
 import { ThemeSelector } from '@/components/theme'
+import { EnvironmentCheck } from './EnvironmentCheck'
 import type { OnboardingStep } from '@/types/onboarding'
 
 interface OnboardingContentProps {
@@ -64,13 +65,16 @@ export function OnboardingContent({
             </p>
           </div>
 
-          {/* 内容区域 - 设置步骤显示表单，其他步骤显示特性列表 */}
-          <div className="mb-8 h-[252px] flex flex-col">
+          {/* 内容区域 - 根据步骤类型显示不同内容 */}
+          <div className="mb-8 h-[252px] flex flex-col overflow-y-auto">
             {currentStepData.isSettingsStep ? (
               /* 设置表单 */
               <div className="space-y-3">
                 <ThemeSelector />
               </div>
+            ) : currentStepData.isEnvironmentStep ? (
+              /* 环境检查 */
+              <EnvironmentCheck stepColor={currentStepData.color} />
             ) : (
               /* 特性列表 */
               <div className="space-y-3">

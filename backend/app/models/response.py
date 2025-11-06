@@ -38,3 +38,10 @@ class SuccessResponse(BaseModel):
     success: bool = Field(default=True, description="请求是否成功")
     message: str = Field(..., description="成功消息")
     data: Optional[Any] = Field(None, description="响应数据")
+
+
+class APIResponse(BaseModel):
+    """API 通用响应模型"""
+    success: bool = Field(..., description="请求是否成功")
+    message: str = Field(..., description="响应消息")
+    data: Optional[Any] = Field(None, description="响应数据")

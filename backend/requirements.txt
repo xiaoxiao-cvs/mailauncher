@@ -9,5 +9,5 @@ python-multipart==0.0.6
 pydantic==2.5.3
 pydantic-settings==2.1.0
 
-# 测试依赖（可选）
+# 测试依赖
 requests==2.31.0

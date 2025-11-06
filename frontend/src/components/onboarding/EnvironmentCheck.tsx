@@ -1,0 +1,296 @@
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { CheckCircle2Icon, XCircleIcon, LoaderIcon, FolderOpenIcon, AlertCircleIcon } from 'lucide-react'
+
+interface GitInfo {
+  is_available: boolean
+  path: string
+  version: string
+}
+
+interface EnvironmentCheckProps {
+  stepColor: string
+}
+
+/**
+ * 环境检查与配置组件
+ * 负责检查 Git 环境和配置部署路径
+ */
+export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
+  const [gitInfo, setGitInfo] = useState<GitInfo | null>(null)
+  const [deploymentPath, setDeploymentPath] = useState<string>('')
+  const [isCheckingGit, setIsCheckingGit] = useState(false)
+  const [gitError, setGitError] = useState<string>('')
+  const [pathError, setPathError] = useState<string>('')
+
+  // 检查 Git 环境
+  const checkGitEnvironment = async () => {
+    setIsCheckingGit(true)
+    setGitError('')
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/environment/git')
+      const data = await response.json()
+      
+      if (data.success) {
+        setGitInfo(data.data)
+      } else {
+        setGitError('无法获取 Git 信息')
+      }
+    } catch (error) {
+      setGitError('连接后端服务失败，请确保后端正在运行')
+      console.error('Failed to check Git:', error)
+    } finally {
+      setIsCheckingGit(false)
+    }
+  }
+
+  // 获取默认部署路径
+  const loadDeploymentPath = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/environment/config')
+      const data = await response.json()
+      
+      if (data.success) {
+        setDeploymentPath(data.data.instances_dir)
+      }
+    } catch (error) {
+      console.error('Failed to load deployment path:', error)
+    }
+  }
+
+  // 组件加载时自动检查
+  useEffect(() => {
+    checkGitEnvironment()
+    loadDeploymentPath()
+  }, [])
+
+  // 打开文件夹选择器（这需要 Tauri API 或其他方式）
+  const handleSelectFolder = async () => {
+    // 注意：浏览器原生不支持文件夹选择，这里提供一个模拟
+    // 实际使用时需要配合 Electron 或 Tauri 等桌面框架
+    
+    // 如果使用 Tauri，可以这样：
+    // const selected = await open({
+    //   directory: true,
+    //   multiple: false,
+    // })
+    // if (selected) {
+    //   setDeploymentPath(selected as string)
+    // }
+    
+    // 目前先使用 input 手动输入
+    alert('文件夹选择器需要配合桌面应用框架（如 Tauri）实现。\n当前请直接在输入框中粘贴路径。')
+  }
+
+  // 验证路径
+  const handlePathChange = (value: string) => {
+    setDeploymentPath(value)
+    setPathError('')
+    
+    // 简单的路径验证
+    if (value && !value.startsWith('/') && !value.match(/^[A-Z]:\\/i)) {
+      setPathError('请输入有效的绝对路径')
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Git 环境检查 */}
+      <div className="p-4 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a]">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div 
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-white shadow-sm"
+              style={{ backgroundColor: stepColor }}
+            >
+              {isCheckingGit ? (
+                <LoaderIcon className="w-5 h-5 animate-spin" />
+              ) : gitInfo?.is_available ? (
+                <CheckCircle2Icon className="w-5 h-5" />
+              ) : (
+                <XCircleIcon className="w-5 h-5" />
+              )}
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-[#023e8a] dark:text-white">
+                Git 环境
+              </h3>
+              <p className="text-sm text-[#023e8a]/70 dark:text-white/70">
+                克隆和更新 Bot 实例所需
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={checkGitEnvironment}
+            disabled={isCheckingGit}
+            className="bg-white/60 dark:bg-[#3a3a3a] border-[#023e8a]/20 dark:border-[#3a3a3a]"
+          >
+            {isCheckingGit ? '检查中...' : '重新检查'}
+          </Button>
+        </div>
+
+        {gitError ? (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+            <AlertCircleIcon className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-red-700 dark:text-red-300">{gitError}</p>
+          </div>
+        ) : gitInfo ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/40 dark:bg-[#3a3a3a]/50">
+              <span className="text-sm text-[#023e8a]/70 dark:text-white/70">状态</span>
+              <span className="text-sm font-medium text-[#023e8a] dark:text-white">
+                {gitInfo.is_available ? (
+                  <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                    <CheckCircle2Icon className="w-4 h-4" />
+                    已安装
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                    <XCircleIcon className="w-4 h-4" />
+                    未安装
+                  </span>
+                )}
+              </span>
+            </div>
+            
+            {gitInfo.is_available && (
+              <>
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/40 dark:bg-[#3a3a3a]/50">
+                  <span className="text-sm text-[#023e8a]/70 dark:text-white/70">版本</span>
+                  <span className="text-sm font-medium text-[#023e8a] dark:text-white font-mono">
+                    {gitInfo.version}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/40 dark:bg-[#3a3a3a]/50">
+                  <span className="text-sm text-[#023e8a]/70 dark:text-white/70">路径</span>
+                  <span className="text-xs font-mono text-[#023e8a] dark:text-white truncate max-w-xs">
+                    {gitInfo.path}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        ) : null}
+
+        {gitInfo && !gitInfo.is_available && (
+          <div className="mt-3 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
+            <p className="text-sm text-yellow-700 dark:text-yellow-300">
+              未检测到 Git。请先安装 Git：
+              <a 
+                href="https://git-scm.com/downloads" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="ml-1 underline hover:text-yellow-900 dark:hover:text-yellow-100"
+              >
+                下载 Git
+              </a>
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* 部署路径配置 */}
+      <div className="p-4 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a]">
+        <div className="flex items-center gap-3 mb-3">
+          <div 
+            className="w-10 h-10 rounded-lg flex items-center justify-center text-white shadow-sm"
+            style={{ backgroundColor: stepColor }}
+          >
+            <FolderOpenIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-[#023e8a] dark:text-white">
+              部署路径
+            </h3>
+            <p className="text-sm text-[#023e8a]/70 dark:text-white/70">
+              Bot 实例将安装到此目录
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={deploymentPath}
+                onChange={(e) => handlePathChange(e.target.value)}
+                placeholder="/path/to/deployments"
+                className={`w-full px-4 py-2.5 rounded-lg border bg-white dark:bg-[#3a3a3a] text-[#023e8a] dark:text-white placeholder:text-[#023e8a]/40 dark:placeholder:text-white/40 focus:outline-none focus:ring-2 transition-all ${
+                  pathError
+                    ? 'border-red-300 dark:border-red-700 focus:ring-red-200 dark:focus:ring-red-800'
+                    : 'border-[#023e8a]/20 dark:border-[#3a3a3a] focus:ring-[#023e8a]/20'
+                }`}
+              />
+              {pathError && (
+                <p className="absolute -bottom-5 left-0 text-xs text-red-600 dark:text-red-400">
+                  {pathError}
+                </p>
+              )}
+            </div>
+            <Button
+              onClick={handleSelectFolder}
+              className="text-white border-0 px-6 shadow-md hover:shadow-lg transition-all"
+              style={{ backgroundColor: stepColor }}
+            >
+              <FolderOpenIcon className="w-4 h-4 mr-2" />
+              选择文件夹
+            </Button>
+          </div>
+
+          <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+            <p className="text-xs text-blue-700 dark:text-blue-300">
+              💡 提示：可以直接输入路径，或点击按钮选择文件夹。默认路径为后端同目录下的 deployments 文件夹。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 环境状态总结 */}
+      <div className="p-4 rounded-xl bg-gradient-to-r from-white/60 to-white/40 dark:from-[#2e2e2e] dark:to-[#2e2e2e]/80 border border-[#023e8a]/10 dark:border-[#3a3a3a]">
+        <div className="flex items-start gap-3">
+          <div 
+            className="w-10 h-10 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0"
+            style={{ backgroundColor: stepColor }}
+          >
+            {gitInfo?.is_available && deploymentPath ? (
+              <CheckCircle2Icon className="w-5 h-5" />
+            ) : (
+              <AlertCircleIcon className="w-5 h-5" />
+            )}
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-[#023e8a] dark:text-white mb-2">
+              环境准备度
+            </h3>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-sm">
+                {gitInfo?.is_available ? (
+                  <CheckCircle2Icon className="w-4 h-4 text-green-600 dark:text-green-400" />
+                ) : (
+                  <XCircleIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
+                )}
+                <span className="text-[#023e8a]/80 dark:text-white/80">
+                  Git 环境 {gitInfo?.is_available ? '就绪' : '未就绪'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                {deploymentPath && !pathError ? (
+                  <CheckCircle2Icon className="w-4 h-4 text-green-600 dark:text-green-400" />
+                ) : (
+                  <XCircleIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                )}
+                <span className="text-[#023e8a]/80 dark:text-white/80">
+                  部署路径 {deploymentPath && !pathError ? '已配置' : '待配置'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
