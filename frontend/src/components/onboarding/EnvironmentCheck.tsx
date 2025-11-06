@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2Icon, XCircleIcon, LoaderIcon, FolderOpenIcon, AlertCircleIcon } from 'lucide-react'
 import { API_URL } from '@/config/api'
+import { environmentLogger } from '@/utils/logger'
 
 interface GitInfo {
   is_available: boolean
@@ -29,6 +30,7 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
   const checkGitEnvironment = async () => {
     setIsCheckingGit(true)
     setGitError('')
+    environmentLogger.info('开始检查 Git 环境')
     
     try {
       const response = await fetch(`${API_URL}/environment/git`)
@@ -36,27 +38,31 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
       
       if (data.success) {
         setGitInfo(data.data)
+        environmentLogger.success('Git 环境检查完成', data.data)
       } else {
         setGitError('无法获取 Git 信息')
+        environmentLogger.error('无法获取 Git 信息', data)
       }
     } catch (error) {
       setGitError('连接后端服务失败，请确保后端正在运行')
-      console.error('Failed to check Git:', error)
+      environmentLogger.error('检查 Git 环境失败', error)
     } finally {
       setIsCheckingGit(false)
     }
   }
 
   const loadDeploymentPath = async () => {
+    environmentLogger.info('加载部署路径配置')
     try {
       const response = await fetch(`${API_URL}/environment/config`)
       const data = await response.json()
       
       if (data.success) {
         setDeploymentPath(data.data.instances_dir)
+        environmentLogger.success('部署路径加载成功', { path: data.data.instances_dir })
       }
     } catch (error) {
-      console.error('Failed to load deployment path:', error)
+      environmentLogger.error('加载部署路径失败', error)
     }
   }
 
@@ -67,11 +73,11 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
 
   // 打开文件夹选择器
   const handleSelectFolder = async () => {
-    console.log('handleSelectFolder called')
+    environmentLogger.info('打开文件夹选择器')
     try {
       // 动态导入 Tauri API
       const { open } = await import('@tauri-apps/plugin-dialog')
-      console.log('Tauri dialog plugin loaded')
+      environmentLogger.debug('Tauri dialog 插件加载成功')
       
       const selected = await open({
         directory: true,
@@ -79,7 +85,7 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
         title: '选择 Bot 实例部署目录'
       })
       
-      console.log('Selected path:', selected)
+      environmentLogger.info('用户选择的路径', { path: selected })
       
       if (selected) {
         const selectedPath = selected as string
@@ -90,7 +96,7 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
       }
     } catch (error) {
       // 如果不在 Tauri 环境中，回退到提示用户手动输入
-      console.error('File picker error:', error)
+      environmentLogger.error('文件选择器错误', error)
       alert('文件夹选择器仅在桌面应用中可用。\n请直接在输入框中粘贴路径。')
     }
   }
@@ -99,6 +105,7 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
     setIsSavingPath(true)
     setPathError('')
     setPathSuccess('')
+    environmentLogger.info('保存部署路径', { path })
     
     try {
       const response = await fetch(`${API_URL}/config/paths`, {
@@ -119,13 +126,15 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
       
       if (data.success) {
         setPathSuccess('✓ 路径已保存')
+        environmentLogger.success('部署路径保存成功')
         // 3秒后清除成功提示
         setTimeout(() => setPathSuccess(''), 3000)
       } else {
         setPathError('保存路径失败')
+        environmentLogger.error('保存路径失败', data)
       }
     } catch (error) {
-      console.error('Failed to save deployment path:', error)
+      environmentLogger.error('保存路径异常', error)
       setPathError('保存路径失败，请检查后端连接')
     } finally {
       setIsSavingPath(false)

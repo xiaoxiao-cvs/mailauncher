@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, useContext, ReactNode } from 'react'
 import type { Theme, ThemeContextType } from '@/types/theme'
+import { themeLogger } from '@/utils/logger'
 
 /**
  * 主题上下文
@@ -42,10 +43,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     try {
       const stored = localStorage.getItem(THEME_STORAGE_KEY)
       if (stored === 'light' || stored === 'dark' || stored === 'system') {
+        themeLogger.info('加载已保存的主题设置', { theme: stored })
         return stored
       }
     } catch (error) {
-      console.warn('Failed to read theme from localStorage:', error)
+      themeLogger.warn('读取主题设置失败', error)
     }
     return DEFAULT_THEME
   })
@@ -65,8 +67,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     setThemeState(newTheme)
     try {
       localStorage.setItem(THEME_STORAGE_KEY, newTheme)
+      themeLogger.info('主题已更新', { theme: newTheme })
     } catch (error) {
-      console.warn('Failed to save theme to localStorage:', error)
+      themeLogger.warn('保存主题失败', error)
     }
   }
 

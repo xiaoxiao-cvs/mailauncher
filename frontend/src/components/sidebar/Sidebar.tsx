@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react'
 import { SidebarNavItemComponent } from './SidebarNavItem'
 import { SIDEBAR_NAV_ITEMS, SIDEBAR_BOTTOM_ITEMS } from './constants'
 import { cn } from '@/lib/utils'
+import { storageLogger } from '@/utils/logger'
 
 const SIDEBAR_STORAGE_KEY = 'mailauncher-sidebar-collapsed'
 
@@ -33,8 +34,9 @@ export function Sidebar() {
   useEffect(() => {
     try {
       localStorage.setItem(SIDEBAR_STORAGE_KEY, String(isCollapsed))
+      storageLogger.debug('侧边栏状态已保存', { isCollapsed })
     } catch (error) {
-      console.warn('Failed to save sidebar state:', error)
+      storageLogger.warn('保存侧边栏状态失败', error)
     }
   }, [isCollapsed])
 

@@ -4,6 +4,7 @@ import { OnboardingSidebar } from './OnboardingSidebar'
 import { OnboardingContent } from './OnboardingContent'
 import { useOnboardingAnimation } from '@/hooks/useOnboardingAnimation'
 import { ONBOARDING_STEPS } from './constants'
+import { routerLogger } from '@/utils/logger'
 import type { OnboardingCallbacks } from '@/types/onboarding'
 
 /**
@@ -45,7 +46,7 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
   }
 
   const handleComplete = () => {
-    console.log('引导完成！')
+    routerLogger.success('引导完成！')
     onComplete?.()
   }
 

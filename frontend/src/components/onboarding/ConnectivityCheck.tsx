@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2Icon, XCircleIcon, LoaderIcon, AlertCircleIcon, WifiOffIcon, ServerIcon, CheckIcon } from 'lucide-react'
+import { connectivityLogger } from '@/utils/logger'
 
 interface ConnectivityStatus {
   name: string
@@ -62,8 +63,6 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
     url: 'https://gitee.com',
     status: 'pending'
   })
-
-  const [isChecking, setIsChecking] = useState(false)
   
   // 用于跟踪 URL 是否被修改但未保存
   const [tempUrl, setTempUrl] = useState(backendUrl)
@@ -114,6 +113,7 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
   // 检查后端连接
   const checkBackend = async () => {
     setBackendStatus(prev => ({ ...prev, status: 'checking' }))
+    connectivityLogger.info('开始检查后端连接', { url: backendUrl })
     
     const startTime = performance.now()
     try {
@@ -135,6 +135,7 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
             status: 'success',
             latency
           })
+          connectivityLogger.success('后端连接成功', { latency })
         } else {
           setBackendStatus({
             name: '后端服务',
@@ -142,6 +143,7 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
             status: 'error',
             error: '响应格式错误'
           })
+          connectivityLogger.error('后端响应格式错误', { data })
         }
       } else {
         setBackendStatus({
@@ -150,6 +152,7 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
           status: 'error',
           error: `HTTP ${response.status}`
         })
+        connectivityLogger.error('后端连接失败', { status: response.status })
       }
     } catch (error) {
       setBackendStatus({
@@ -158,12 +161,14 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
         status: 'error',
         error: error instanceof Error ? error.message : '连接失败'
       })
+      connectivityLogger.error('后端连接异常', error)
     }
   }
 
   // 检查 GitHub 延迟
   const checkGitHub = async () => {
     setGithubStatus(prev => ({ ...prev, status: 'checking' }))
+    connectivityLogger.info('开始检查 GitHub 连接')
     
     const startTime = performance.now()
     try {
@@ -183,6 +188,7 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
         status: 'success',
         latency
       })
+      connectivityLogger.success('GitHub 连接成功', { latency })
     } catch (error) {
       setGithubStatus({
         name: 'GitHub 发行版',
@@ -190,12 +196,14 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
         status: 'error',
         error: '连接超时或失败'
       })
+      connectivityLogger.error('GitHub 连接失败', error)
     }
   }
 
   // 检查 Gitee 延迟
   const checkGitee = async () => {
     setGiteeStatus(prev => ({ ...prev, status: 'checking' }))
+    connectivityLogger.info('开始检查 Gitee 连接')
     
     const startTime = performance.now()
     try {
@@ -215,6 +223,7 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
         status: 'success',
         latency
       })
+      connectivityLogger.success('Gitee 连接成功', { latency })
     } catch (error) {
       setGiteeStatus({
         name: 'Gitee 发行版',
@@ -222,18 +231,19 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
         status: 'error',
         error: '连接超时或失败'
       })
+      connectivityLogger.error('Gitee 连接失败', error)
     }
   }
 
   // 执行所有检查
   const checkAll = async () => {
-    setIsChecking(true)
+    connectivityLogger.info('开始执行联通性检查')
     await Promise.all([
       checkBackend(),
       checkGitHub(),
       checkGitee()
     ])
-    setIsChecking(false)
+    connectivityLogger.success('联通性检查完成')
   }
 
   // 组件加载时自动检查

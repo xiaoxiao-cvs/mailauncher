@@ -5,6 +5,7 @@ import { HomePage } from '@/pages/HomePage'
 import { InstancesPage } from '@/pages/InstancesPage'
 import { DownloadsPage } from '@/pages/DownloadsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import logger, { routerLogger } from '@/utils/logger'
 import './App.css'
 
 /**
@@ -26,12 +27,12 @@ function AppRoutes() {
   useEffect(() => {
     if (import.meta.env.DEV) {
       (window as any).test1 = () => {
-        console.log('清除引导标记,跳转到引导页...')
+        routerLogger.info('清除引导标记,跳转到引导页...')
         localStorage.removeItem('onboarding_completed')
         // 直接刷新页面，让应用重新加载并进入引导页
         window.location.href = '/onboarding'
       }
-      console.log('开发提示:在控制台执行 test1() 可以跳转到引导页')
+      logger.info('开发提示:在控制台执行 test1() 可以跳转到引导页')
     }
     
     return () => {
@@ -42,14 +43,14 @@ function AppRoutes() {
   }, [navigate])
 
   const handleOnboardingComplete = () => {
-    console.log('引导完成！')
+    routerLogger.success('引导完成！')
     localStorage.setItem('onboarding_completed', 'true')
     setHasCompletedOnboarding(true)
     navigate('/home')
   }
 
   const handleOnboardingSkip = () => {
-    console.log('跳过引导！')
+    routerLogger.info('跳过引导！')
     localStorage.setItem('onboarding_completed', 'true')
     setHasCompletedOnboarding(true)
     navigate('/home')
