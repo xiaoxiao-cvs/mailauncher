@@ -12,6 +12,10 @@ from typing import List, Optional
 class Settings(BaseSettings):
     """应用配置类"""
     
+    # 服务器配置
+    HOST: str = "127.0.0.1"
+    PORT: int = 11111
+    
     # API 配置
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "MAI Launcher API"
@@ -22,7 +26,9 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
-        "http://127.0.0.1:3000"
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001"
     ]
     
     # 实例存储路径配置

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 
 interface Tab {
   id: string
@@ -11,13 +11,14 @@ interface OnboardingTabsProps {
   stepColor: string
   onTabChange?: (tabId: string, tabIndex: number) => void
   currentTab?: number
+  extraProps?: Record<string, any>
 }
 
 /**
  * 引导页 Tabs 组件
  * 用于在同一步骤内切换不同的配置页面
  */
-export function OnboardingTabs({ tabs, stepColor, onTabChange, currentTab = 0 }: OnboardingTabsProps) {
+export function OnboardingTabs({ tabs, stepColor, onTabChange, currentTab = 0, extraProps }: OnboardingTabsProps) {
   const [activeTab, setActiveTab] = useState(currentTab)
 
   // 当父组件的 currentTab 变化时，同步更新内部状态
@@ -61,7 +62,9 @@ export function OnboardingTabs({ tabs, stepColor, onTabChange, currentTab = 0 }:
       {/* Tab 内容 - 固定高度，内部滚动 */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="animate-in fade-in-0 slide-in-from-right-2 duration-300">
-          {tabs[activeTab].component}
+          {extraProps && React.isValidElement(tabs[activeTab].component)
+            ? React.cloneElement(tabs[activeTab].component as React.ReactElement, extraProps)
+            : tabs[activeTab].component}
         </div>
       </div>
     </div>

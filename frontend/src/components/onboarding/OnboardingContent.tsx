@@ -1,4 +1,4 @@
-import { RefObject, useState, useEffect } from 'react'
+import { RefObject, useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { ArrowRightIcon, CheckCircle2Icon } from 'lucide-react'
 import { ThemeSelector } from '@/components/theme'
@@ -30,6 +30,9 @@ export function OnboardingContent({
   onPrevious
 }: OnboardingContentProps) {
   const [currentTabIndex, setCurrentTabIndex] = useState(0)
+  const [isBackendConnected, setIsBackendConnected] = useState(false)
+  const [recheckFn, setRecheckFn] = useState<(() => void) | null>(null)
+  
   const hasTabs = currentStepData.tabs && currentStepData.tabs.length > 0
   const isLastTab = hasTabs && currentTabIndex === (currentStepData.tabs?.length ?? 0) - 1
 
@@ -37,6 +40,16 @@ export function OnboardingContent({
   useEffect(() => {
     setCurrentTabIndex(0)
   }, [currentStep])
+
+  // 处理后端连接状态变化
+  const handleBackendStatusChange = useCallback((connected: boolean) => {
+    setIsBackendConnected(connected)
+  }, [])
+
+  // 注册重新检查功能
+  const handleRecheckRequest = useCallback((checkFn: () => void) => {
+    setRecheckFn(() => checkFn)
+  }, [])
 
   // 处理下一页（Tab）或下一步
   const handleNext = () => {
@@ -107,6 +120,10 @@ export function OnboardingContent({
                 stepColor={currentStepData.color}
                 currentTab={currentTabIndex}
                 onTabChange={(_tabId, tabIndex) => setCurrentTabIndex(tabIndex)}
+                extraProps={{
+                  onStatusChange: handleBackendStatusChange,
+                  onRecheckRequest: handleRecheckRequest
+                }}
               />
             ) : currentStepData.isSettingsStep ? (
               /* 设置表单 */
@@ -144,23 +161,37 @@ export function OnboardingContent({
 
           {/* 底部按钮 */}
           <div className="flex items-center justify-between gap-4 pt-6 border-t border-[#023e8a]/10 dark:border-[#2e2e2e]">
-            {(currentStep > 0 || (hasTabs && currentTabIndex > 0)) ? (
-              <Button
-                variant="outline"
-                onClick={handlePrevious}
-                disabled={isAnimating}
-                className="bg-white/60 dark:bg-[#2e2e2e] border-[#023e8a]/20 dark:border-[#3a3a3a] text-[#023e8a] dark:text-white hover:bg-white dark:hover:bg-[#3a3a3a]"
-              >
-                {hasTabs && currentTabIndex > 0 ? '上一页' : '上一步'}
-              </Button>
-            ) : (
-              <div></div>
-            )}
+            <div className="flex items-center gap-2">
+              {(currentStep > 0 || (hasTabs && currentTabIndex > 0)) && (
+                <Button
+                  variant="outline"
+                  onClick={handlePrevious}
+                  disabled={isAnimating}
+                  className="bg-white/60 dark:bg-[#2e2e2e] border-[#023e8a]/20 dark:border-[#3a3a3a] text-[#023e8a] dark:text-white hover:bg-white dark:hover:bg-[#3a3a3a]"
+                >
+                  {hasTabs && currentTabIndex > 0 ? '上一页' : '上一步'}
+                </Button>
+              )}
+              {/* 重新检查按钮 - 仅在联通性检查标签显示 */}
+              {hasTabs && currentStepData.tabs?.[currentTabIndex]?.id === 'connectivity' && recheckFn && (
+                <Button
+                  variant="outline"
+                  onClick={recheckFn}
+                  disabled={isAnimating}
+                  className="bg-white/60 dark:bg-[#2e2e2e] border-[#023e8a]/20 dark:border-[#3a3a3a] text-[#023e8a] dark:text-white hover:bg-white dark:hover:bg-[#3a3a3a]"
+                >
+                  重新检查
+                </Button>
+              )}
+            </div>
             
             <Button
               onClick={handleNext}
-              disabled={isAnimating}
-              className="step-icon-bg text-white border-0 px-8 py-6 text-base shadow-lg hover:shadow-xl transition-all"
+              disabled={
+                isAnimating || 
+                (hasTabs && currentStepData.tabs?.[currentTabIndex]?.id === 'connectivity' && !isBackendConnected)
+              }
+              className="step-icon-bg text-white border-0 px-8 py-6 text-base shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 ['--icon-color' as string]: currentStepData.color,
                 ['--icon-color-dark' as string]: `${currentStepData.color}dd`

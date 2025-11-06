@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { CheckCircle2Icon, XCircleIcon, LoaderIcon, AlertCircleIcon, WifiIcon, WifiOffIcon, ServerIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { CheckCircle2Icon, XCircleIcon, LoaderIcon, AlertCircleIcon, WifiOffIcon, ServerIcon, CheckIcon } from 'lucide-react'
 
 interface ConnectivityStatus {
   name: string
@@ -13,20 +13,36 @@ interface ConnectivityStatus {
 
 interface ConnectivityCheckProps {
   stepColor: string
+  onStatusChange?: (isBackendConnected: boolean) => void
+  onRecheckRequest?: (checkFn: () => void) => void
 }
 
-// 本地存储的键名
 const BACKEND_URL_KEY = 'mai_launcher_backend_url'
-const DEFAULT_BACKEND_URL = 'http://localhost:23232'
+const DEFAULT_BACKEND_URL = 'http://localhost:11111'
 
 /**
  * 联通性检查组件
  * 检查后端连接、GitHub 和 Gitee 的延迟
  */
-export function ConnectivityCheck({ stepColor }: ConnectivityCheckProps) {
+export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest }: ConnectivityCheckProps) {
   // 从 localStorage 读取保存的后端地址，如果没有则使用默认值
   const [backendUrl, setBackendUrl] = useState(() => {
-    return localStorage.getItem(BACKEND_URL_KEY) || DEFAULT_BACKEND_URL
+    const saved = localStorage.getItem(BACKEND_URL_KEY)
+    // 验证保存的地址格式
+    if (saved) {
+      try {
+        const url = new URL(saved)
+        // 必须是 http 或 https 协议,且有完整的 host
+        if ((url.protocol === 'http:' || url.protocol === 'https:') && url.host) {
+          return saved
+        }
+      } catch {
+        // URL 格式错误,清除并使用默认值
+      }
+    }
+    // 如果没有有效的保存值,使用默认值并保存
+    localStorage.setItem(BACKEND_URL_KEY, DEFAULT_BACKEND_URL)
+    return DEFAULT_BACKEND_URL
   })
 
   const [backendStatus, setBackendStatus] = useState<ConnectivityStatus>({
@@ -48,18 +64,51 @@ export function ConnectivityCheck({ stepColor }: ConnectivityCheckProps) {
   })
 
   const [isChecking, setIsChecking] = useState(false)
+  
+  // 用于跟踪 URL 是否被修改但未保存
+  const [tempUrl, setTempUrl] = useState(backendUrl)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   // 保存后端地址到 localStorage
   const saveBackendUrl = (url: string) => {
     localStorage.setItem(BACKEND_URL_KEY, url)
     setBackendUrl(url)
+    setTempUrl(url)
+    setHasUnsavedChanges(false)
     setBackendStatus(prev => ({ ...prev, url, status: 'pending' }))
   }
 
-  // 处理输入框变化
+  // 当 backendUrl 更新后触发检查
+  useEffect(() => {
+    // 只有当状态是 pending 时才检查（表示刚刚保存）
+    if (backendStatus.status === 'pending' && backendUrl) {
+      const timer = setTimeout(() => {
+        checkBackend()
+      }, 100) // 短暂延迟确保状态已更新
+      return () => clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backendUrl, backendStatus.status])
+
+  // 处理输入框变化 - 仅更新临时状态
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newUrl = e.target.value
-    saveBackendUrl(newUrl)
+    setTempUrl(newUrl)
+    setHasUnsavedChanges(newUrl !== backendUrl)
+  }
+
+  // 处理失焦事件 - 自动保存
+  const handleBlur = () => {
+    if (hasUnsavedChanges && tempUrl.trim()) {
+      saveBackendUrl(tempUrl.trim())
+    }
+  }
+
+  // 处理保存按钮点击
+  const handleSave = () => {
+    if (tempUrl.trim()) {
+      saveBackendUrl(tempUrl.trim())
+    }
   }
 
   // 检查后端连接
@@ -68,7 +117,8 @@ export function ConnectivityCheck({ stepColor }: ConnectivityCheckProps) {
     
     const startTime = performance.now()
     try {
-      const response = await fetch(`${backendUrl}/api/v1/environment/system`, {
+      // 使用根路径健康检查端点,更简单可靠
+      const response = await fetch(`${backendUrl}/`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000) // 5秒超时
       })
@@ -76,12 +126,23 @@ export function ConnectivityCheck({ stepColor }: ConnectivityCheckProps) {
       const latency = Math.round(endTime - startTime)
 
       if (response.ok) {
-        setBackendStatus({
-          name: '后端服务',
-          url: backendUrl,
-          status: 'success',
-          latency
-        })
+        const data = await response.json()
+        // 检查返回的数据格式是否正确
+        if (data.status === 'ok') {
+          setBackendStatus({
+            name: '后端服务',
+            url: backendUrl,
+            status: 'success',
+            latency
+          })
+        } else {
+          setBackendStatus({
+            name: '后端服务',
+            url: backendUrl,
+            status: 'error',
+            error: '响应格式错误'
+          })
+        }
       } else {
         setBackendStatus({
           name: '后端服务',
@@ -178,7 +239,23 @@ export function ConnectivityCheck({ stepColor }: ConnectivityCheckProps) {
   // 组件加载时自动检查
   useEffect(() => {
     checkAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // 注册重新检查功能
+  useEffect(() => {
+    if (onRecheckRequest) {
+      onRecheckRequest(checkAll)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onRecheckRequest])
+
+  // 监听后端状态变化,通知父组件
+  useEffect(() => {
+    if (onStatusChange) {
+      onStatusChange(backendStatus.status === 'success')
+    }
+  }, [backendStatus.status, onStatusChange])
 
   // 渲染状态图标
   const renderStatusIcon = (status: ConnectivityStatus['status']) => {
@@ -209,10 +286,19 @@ export function ConnectivityCheck({ stepColor }: ConnectivityCheckProps) {
       return 'text-red-600 dark:text-red-400'
     }
 
+    // 根据延迟判断网络质量
+    const getNetworkQuality = () => {
+      if (!status.latency) return ''
+      if (status.latency < 200) return '极速'
+      if (status.latency < 500) return '良好'
+      if (status.latency < 1000) return '一般'
+      return '较慢'
+    }
+
     return (
       <div key={status.name} className="relative p-3 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a] hover:bg-white/80 dark:hover:bg-[#3a3a3a] transition-all">
         {/* 图标和标题 */}
-        <div className="flex items-center gap-2.5 mb-2">
+        <div className="flex items-center gap-2 mb-2">
           <div 
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0"
             style={{ backgroundColor: stepColor }}
@@ -220,43 +306,55 @@ export function ConnectivityCheck({ stepColor }: ConnectivityCheckProps) {
             {renderStatusIcon(status.status)}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-[#023e8a] dark:text-white">
+            <h3 className="text-sm font-semibold text-[#023e8a] dark:text-white leading-tight">
               {status.name}
             </h3>
+            <p className="text-xs text-[#023e8a]/50 dark:text-white/50 leading-tight">
+              {status.url.replace('https://', '').replace('http://', '')}
+            </p>
           </div>
         </div>
 
         {/* 状态和延迟 */}
         <div className="flex items-center justify-between pl-11">
           {status.status === 'success' && (
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className={`text-sm font-medium ${getStatusColor()}`}>
-                正常
-              </span>
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                <span className={`text-xs font-medium ${getStatusColor()}`}>
+                  连接正常
+                </span>
+              </div>
+              {status.latency && (
+                <span className="text-xs text-[#023e8a]/40 dark:text-white/40">
+                  {getNetworkQuality()}
+                </span>
+              )}
             </div>
           )}
           {status.status === 'error' && (
             <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-red-500" />
-              <span className={`text-sm font-medium ${getStatusColor()}`}>
-                失败
+              <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+              <span className={`text-xs font-medium ${getStatusColor()}`}>
+                连接失败
               </span>
             </div>
           )}
           {status.status === 'checking' && (
             <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-              <span className={`text-sm font-medium ${getStatusColor()}`}>
-                检查中
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+              <span className={`text-xs font-medium ${getStatusColor()}`}>
+                检查中...
               </span>
             </div>
           )}
           
           {status.latency && (
-            <span className={`text-lg font-bold ${getLatencyColor()}`}>
-              {status.latency}<span className="text-xs ml-0.5">ms</span>
-            </span>
+            <div className="flex flex-col items-end">
+              <span className={`text-lg font-bold ${getLatencyColor()} leading-tight`}>
+                {status.latency}<span className="text-xs ml-0.5">ms</span>
+              </span>
+            </div>
           )}
         </div>
 
@@ -271,57 +369,11 @@ export function ConnectivityCheck({ stepColor }: ConnectivityCheckProps) {
     )
   }
 
-  // 计算整体状态
-  const allSuccess = backendStatus.status === 'success' && 
-                     githubStatus.status === 'success' && 
-                     giteeStatus.status === 'success'
-  
-  const hasError = backendStatus.status === 'error' || 
-                   githubStatus.status === 'error' || 
-                   giteeStatus.status === 'error'
-
   return (
-    <div className="space-y-2.5">
-      {/* 顶部标题和按钮 */}
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-2">
-          <div 
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm"
-            style={{ backgroundColor: stepColor }}
-          >
-            {isChecking ? (
-              <LoaderIcon className="w-4 h-4 animate-spin" />
-            ) : allSuccess ? (
-              <CheckCircle2Icon className="w-4 h-4" />
-            ) : hasError ? (
-              <XCircleIcon className="w-4 h-4" />
-            ) : (
-              <WifiIcon className="w-4 h-4" />
-            )}
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-[#023e8a] dark:text-white">
-              联通性检查
-            </h2>
-            <p className="text-xs text-[#023e8a]/60 dark:text-white/60">
-              {isChecking ? '正在检查服务连接...' : allSuccess ? '✓ 所有服务正常' : hasError ? '⚠ 部分服务异常' : '等待检查'}
-            </p>
-          </div>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={checkAll}
-          disabled={isChecking}
-          className="bg-white/60 dark:bg-[#3a3a3a] border-[#023e8a]/20 dark:border-[#3a3a3a] text-xs h-8 px-3"
-        >
-          {isChecking ? '检查中...' : '重新检查'}
-        </Button>
-      </div>
-
-      {/* 后端地址配置 */}
+    <div className="space-y-2">
+      {/* 后端服务配置和状态 - 合并为一个卡片 */}
       <div className="relative p-3 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a]">
-        <div className="flex items-start gap-2.5 mb-2">
+        <div className="flex items-start gap-2 mb-2.5">
           <div 
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0"
             style={{ backgroundColor: stepColor }}
@@ -329,33 +381,94 @@ export function ConnectivityCheck({ stepColor }: ConnectivityCheckProps) {
             <ServerIcon className="w-4.5 h-4.5" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-[#023e8a] dark:text-white mb-2">
+            <h3 className="text-sm font-semibold text-[#023e8a] dark:text-white mb-1.5 leading-tight">
               后端服务地址
             </h3>
-            <Input
-              type="url"
-              value={backendUrl}
-              onChange={handleUrlChange}
-              placeholder="http://localhost:23232"
-              className="h-9 text-sm bg-white dark:bg-[#1f1f1f] border-[#023e8a]/20 dark:border-[#3a3a3a] focus-visible:ring-offset-0"
-            />
-            <p className="text-xs text-[#023e8a]/50 dark:text-white/50 mt-1.5">
-              默认端口: 23232 | 配置将自动保存
+            <div className="flex items-center gap-2">
+              <Input
+                type="url"
+                value={tempUrl}
+                onChange={handleUrlChange}
+                onBlur={handleBlur}
+                placeholder="http://localhost:11111"
+                className="h-9 text-sm bg-white dark:bg-[#1f1f1f] border-[#023e8a]/20 dark:border-[#3a3a3a] focus-visible:ring-offset-0 flex-1"
+              />
+              {hasUnsavedChanges && (
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  className="h-9 w-9 p-0 bg-green-500 hover:bg-green-600 text-white border-0 flex-shrink-0"
+                >
+                  <CheckIcon className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-[#023e8a]/50 dark:text-white/50 leading-tight mt-1.5">
+              默认端口: 11111 | 修改后点击 ✓ 或失焦自动保存
             </p>
           </div>
         </div>
+
+        {/* 后端服务连接状态 */}
+        <div className="pl-11 flex items-center justify-between">
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5">
+              {backendStatus.status === 'checking' ? (
+                <LoaderIcon className="w-3 h-3 animate-spin text-blue-500" />
+              ) : backendStatus.status === 'success' ? (
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              ) : backendStatus.status === 'error' ? (
+                <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+              ) : (
+                <div className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+              )}
+              <span className={`text-xs font-medium ${
+                backendStatus.status === 'success' ? 'text-green-600 dark:text-green-400' :
+                backendStatus.status === 'error' ? 'text-red-600 dark:text-red-400' :
+                backendStatus.status === 'checking' ? 'text-blue-600 dark:text-blue-400' :
+                'text-[#023e8a]/50 dark:text-white/50'
+              }`}>
+                {backendStatus.status === 'checking' ? '检查中...' :
+                 backendStatus.status === 'success' ? '服务运行正常' :
+                 backendStatus.status === 'error' ? '服务连接失败' :
+                 '等待检查'}
+              </span>
+            </div>
+            {backendStatus.status === 'success' && backendStatus.latency && (
+              <span className="text-xs text-[#023e8a]/40 dark:text-white/40 pl-5">
+                {backendStatus.latency < 100 ? '响应极快' : 
+                 backendStatus.latency < 300 ? '响应良好' : 
+                 backendStatus.latency < 500 ? '响应正常' : '响应较慢'}
+              </span>
+            )}
+          </div>
+          
+          {backendStatus.latency && (
+            <div className="flex flex-col items-end">
+              <span className={`text-lg font-bold leading-tight ${
+                backendStatus.latency < 500 ? 'text-green-600 dark:text-green-400' :
+                backendStatus.latency < 1000 ? 'text-yellow-600 dark:text-yellow-400' :
+                'text-red-600 dark:text-red-400'
+              }`}>
+                {backendStatus.latency}<span className="text-xs ml-0.5">ms</span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* 错误信息 */}
+        {backendStatus.error && (
+          <div className="mt-2.5 pl-11 text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5 p-2 rounded-lg bg-red-50 dark:bg-red-900/10">
+            <AlertCircleIcon className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="truncate">{backendStatus.error}</span>
+          </div>
+        )}
       </div>
 
-      {/* 各项检查结果 */}
-      <div className="space-y-2.5">
-        {/* 后端服务检查 */}
-        {renderCheckItem(backendStatus)}
-        
-        {/* GitHub 和 Gitee 横向排列 */}
-        <div className="grid grid-cols-2 gap-2.5">
-          {renderCheckItem(githubStatus)}
-          {renderCheckItem(giteeStatus)}
-        </div>
+      {/* GitHub 和 Gitee 横向排列 */}
+      <div className="grid grid-cols-2 gap-2">
+        {renderCheckItem(githubStatus)}
+        {renderCheckItem(giteeStatus)}
       </div>
     </div>
   )

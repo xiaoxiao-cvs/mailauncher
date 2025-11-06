@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2Icon, XCircleIcon, LoaderIcon, FolderOpenIcon, AlertCircleIcon } from 'lucide-react'
+import { API_URL } from '@/config/api'
 
 interface GitInfo {
   is_available: boolean
@@ -25,13 +26,12 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
   const [pathSuccess, setPathSuccess] = useState<string>('')
   const [isSavingPath, setIsSavingPath] = useState(false)
 
-  // 检查 Git 环境
   const checkGitEnvironment = async () => {
     setIsCheckingGit(true)
     setGitError('')
     
     try {
-      const response = await fetch('http://localhost:8000/api/v1/environment/git')
+      const response = await fetch(`${API_URL}/environment/git`)
       const data = await response.json()
       
       if (data.success) {
@@ -47,10 +47,9 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
     }
   }
 
-  // 获取默认部署路径
   const loadDeploymentPath = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/v1/environment/config')
+      const response = await fetch(`${API_URL}/environment/config`)
       const data = await response.json()
       
       if (data.success) {
@@ -61,7 +60,6 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
     }
   }
 
-  // 组件加载时自动检查
   useEffect(() => {
     checkGitEnvironment()
     loadDeploymentPath()
@@ -97,14 +95,13 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
     }
   }
 
-  // 保存路径到后端
   const saveDeploymentPath = async (path: string) => {
     setIsSavingPath(true)
     setPathError('')
     setPathSuccess('')
     
     try {
-      const response = await fetch('http://localhost:8000/api/v1/config/paths', {
+      const response = await fetch(`${API_URL}/config/paths`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

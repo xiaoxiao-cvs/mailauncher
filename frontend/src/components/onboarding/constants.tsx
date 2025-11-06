@@ -37,7 +37,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 2,
     title: '环境检查与配置',
-    subtitle: '从零到上线只需几分钟',
+    subtitle: '你也不想Git Not Found吧？',
     description: [
       '智能配置向导,自动检测系统环境',
       '一键安装依赖,无需手动配置',
