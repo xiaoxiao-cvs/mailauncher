@@ -39,6 +39,7 @@ ENV/
 *.log
 data/Log/
 data/Log/*.json
+data/Log/*.jsonl
 data/Log/*.zip
 
 # 数据库

@@ -4,12 +4,38 @@ MAI Launcher Backend
 
 遵循单一职责原则，此文件仅负责应用初始化和路由注册
 """
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import settings, api_v1_router
 from app.core.database import init_db, close_db
 from app.core.logger import setup_logger, logger
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理 - 启动和关闭时执行"""
+    # 启动时执行
+    setup_logger()
+    logger.info("=" * 60)
+    logger.info("MAI Launcher Backend 启动中...")
+    logger.info("=" * 60)
+    
+    instances_path = settings.ensure_instances_dir()
+    logger.info(f"实例目录已就绪: {instances_path}")
+    
+    await init_db()
+    logger.success("数据库初始化完成")
+    
+    yield  # 应用运行期间
+    
+    # 关闭时执行
+    logger.info("MAI Launcher Backend 关闭中...")
+    await close_db()
+    logger.success("数据库连接已关闭")
+    logger.info("=" * 60)
+
 
 # 创建 FastAPI 应用实例
 app = FastAPI(
@@ -18,6 +44,7 @@ app = FastAPI(
     version=settings.VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,  # 使用 lifespan 管理应用生命周期
 )
 
 # 配置 CORS 中间件，允许前端跨域访问
@@ -40,36 +67,6 @@ async def root():
         "status": "ok",
         "message": "MAI Launcher Backend is running"
     }
-
-
-# 应用启动事件
-@app.on_event("startup")
-async def startup_event():
-    """应用启动时执行"""
-    # 初始化日志系统
-    setup_logger()
-    logger.info("=" * 60)
-    logger.info("MAI Launcher Backend 启动中...")
-    logger.info("=" * 60)
-    
-    # 确保必要的目录存在
-    instances_path = settings.ensure_instances_dir()
-    logger.info(f"实例目录已就绪: {instances_path}")
-    
-    # 初始化数据库，创建所有表
-    await init_db()
-    logger.success("数据库初始化完成")
-
-
-# 应用关闭事件
-@app.on_event("shutdown")
-async def shutdown_event():
-    """应用关闭时执行"""
-    logger.info("MAI Launcher Backend 关闭中...")
-    # 关闭数据库连接
-    await close_db()
-    logger.success("数据库连接已关闭")
-    logger.info("=" * 60)
 
 
 if __name__ == "__main__":

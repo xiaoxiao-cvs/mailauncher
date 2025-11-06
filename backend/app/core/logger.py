@@ -25,7 +25,8 @@ class LoggerConfig:
         
     def _compress_previous_logs(self):
         """压缩上一次的日志文件为 zip 格式"""
-        json_files = sorted(self.log_dir.glob("*.json"))
+        # 同时处理 .json 和 .jsonl 文件
+        json_files = sorted(list(self.log_dir.glob("*.json")) + list(self.log_dir.glob("*.jsonl")))
         
         for json_file in json_files:
             # 跳过当前会话的日志文件
@@ -76,8 +77,9 @@ class LoggerConfig:
         )
         
         # 生成当前会话的日志文件名 (时间戳)
+        # 使用 .jsonl 扩展名表示 JSON Lines 格式，避免 IDE 报错
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.current_log_file = self.log_dir / f"app_{timestamp}.json"
+        self.current_log_file = self.log_dir / f"app_{timestamp}.jsonl"
         
         # 压缩上一次的日志
         self._compress_previous_logs()
