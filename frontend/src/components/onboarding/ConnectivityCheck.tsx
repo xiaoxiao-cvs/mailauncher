@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { CheckCircle2Icon, XCircleIcon, LoaderIcon, AlertCircleIcon, WifiIcon, WifiOffIcon } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { CheckCircle2Icon, XCircleIcon, LoaderIcon, AlertCircleIcon, WifiIcon, WifiOffIcon, ServerIcon } from 'lucide-react'
 
 interface ConnectivityStatus {
   name: string
@@ -14,14 +15,23 @@ interface ConnectivityCheckProps {
   stepColor: string
 }
 
+// 本地存储的键名
+const BACKEND_URL_KEY = 'mai_launcher_backend_url'
+const DEFAULT_BACKEND_URL = 'http://localhost:23232'
+
 /**
  * 联通性检查组件
  * 检查后端连接、GitHub 和 Gitee 的延迟
  */
 export function ConnectivityCheck({ stepColor }: ConnectivityCheckProps) {
+  // 从 localStorage 读取保存的后端地址，如果没有则使用默认值
+  const [backendUrl, setBackendUrl] = useState(() => {
+    return localStorage.getItem(BACKEND_URL_KEY) || DEFAULT_BACKEND_URL
+  })
+
   const [backendStatus, setBackendStatus] = useState<ConnectivityStatus>({
     name: '后端服务',
-    url: 'http://localhost:8000',
+    url: backendUrl,
     status: 'pending'
   })
 
@@ -39,13 +49,26 @@ export function ConnectivityCheck({ stepColor }: ConnectivityCheckProps) {
 
   const [isChecking, setIsChecking] = useState(false)
 
+  // 保存后端地址到 localStorage
+  const saveBackendUrl = (url: string) => {
+    localStorage.setItem(BACKEND_URL_KEY, url)
+    setBackendUrl(url)
+    setBackendStatus(prev => ({ ...prev, url, status: 'pending' }))
+  }
+
+  // 处理输入框变化
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUrl = e.target.value
+    saveBackendUrl(newUrl)
+  }
+
   // 检查后端连接
   const checkBackend = async () => {
     setBackendStatus(prev => ({ ...prev, status: 'checking' }))
     
     const startTime = performance.now()
     try {
-      const response = await fetch('http://localhost:8000/api/v1/environment/system', {
+      const response = await fetch(`${backendUrl}/api/v1/environment/system`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000) // 5秒超时
       })
@@ -55,14 +78,14 @@ export function ConnectivityCheck({ stepColor }: ConnectivityCheckProps) {
       if (response.ok) {
         setBackendStatus({
           name: '后端服务',
-          url: 'http://localhost:8000',
+          url: backendUrl,
           status: 'success',
           latency
         })
       } else {
         setBackendStatus({
           name: '后端服务',
-          url: 'http://localhost:8000',
+          url: backendUrl,
           status: 'error',
           error: `HTTP ${response.status}`
         })
@@ -70,7 +93,7 @@ export function ConnectivityCheck({ stepColor }: ConnectivityCheckProps) {
     } catch (error) {
       setBackendStatus({
         name: '后端服务',
-        url: 'http://localhost:8000',
+        url: backendUrl,
         status: 'error',
         error: error instanceof Error ? error.message : '连接失败'
       })
@@ -294,6 +317,33 @@ export function ConnectivityCheck({ stepColor }: ConnectivityCheckProps) {
         >
           {isChecking ? '检查中...' : '重新检查'}
         </Button>
+      </div>
+
+      {/* 后端地址配置 */}
+      <div className="relative p-3 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a]">
+        <div className="flex items-start gap-2.5 mb-2">
+          <div 
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0"
+            style={{ backgroundColor: stepColor }}
+          >
+            <ServerIcon className="w-4.5 h-4.5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-[#023e8a] dark:text-white mb-2">
+              后端服务地址
+            </h3>
+            <Input
+              type="url"
+              value={backendUrl}
+              onChange={handleUrlChange}
+              placeholder="http://localhost:23232"
+              className="h-9 text-sm bg-white dark:bg-[#1f1f1f] border-[#023e8a]/20 dark:border-[#3a3a3a] focus-visible:ring-offset-0"
+            />
+            <p className="text-xs text-[#023e8a]/50 dark:text-white/50 mt-1.5">
+              默认端口: 23232 | 配置将自动保存
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* 各项检查结果 */}

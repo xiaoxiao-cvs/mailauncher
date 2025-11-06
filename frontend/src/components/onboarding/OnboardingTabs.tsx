@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface Tab {
   id: string
@@ -19,6 +19,11 @@ interface OnboardingTabsProps {
  */
 export function OnboardingTabs({ tabs, stepColor, onTabChange, currentTab = 0 }: OnboardingTabsProps) {
   const [activeTab, setActiveTab] = useState(currentTab)
+
+  // 当父组件的 currentTab 变化时，同步更新内部状态
+  useEffect(() => {
+    setActiveTab(currentTab)
+  }, [currentTab])
 
   const handleTabClick = (index: number) => {
     setActiveTab(index)
