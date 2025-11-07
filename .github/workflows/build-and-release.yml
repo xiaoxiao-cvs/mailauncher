@@ -1,9 +1,7 @@
 name: Build and Release (Dev)
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:  # 手动触发
 
 jobs:
   build-macos:
@@ -95,6 +93,43 @@ jobs:
           echo "dmg_path=${DMG_PATH}" >> $GITHUB_OUTPUT
           echo "dmg_name=$(basename ${DMG_PATH})" >> $GITHUB_OUTPUT
 
+      - name: Clean old dev releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 获取所有 dev 标签的 release，按创建时间排序
+          echo "正在检查现有的 Dev 版本..."
+          RELEASES=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/releases" | \
+            jq -r '.[] | select(.tag_name | startswith("dev-")) | {id: .id, tag: .tag_name, created: .created_at} | @json')
+          
+          # 计算现有 dev release 数量
+          COUNT=$(echo "$RELEASES" | wc -l | tr -d ' ')
+          echo "找到 $COUNT 个 Dev 版本"
+          
+          # 如果已经有 3 个或更多，删除最旧的
+          if [ "$COUNT" -ge 3 ]; then
+            echo "Dev 版本数量达到上限，开始删除最旧的版本..."
+            # 获取最旧的 release（按创建时间排序，取第一个）
+            OLDEST=$(echo "$RELEASES" | head -1)
+            RELEASE_ID=$(echo "$OLDEST" | jq -r '.id')
+            TAG_NAME=$(echo "$OLDEST" | jq -r '.tag')
+            
+            echo "删除 Release ID: $RELEASE_ID (Tag: $TAG_NAME)"
+            
+            # 删除 release
+            curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID"
+            
+            # 删除对应的 tag
+            curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$TAG_NAME"
+            
+            echo "已删除旧版本: $TAG_NAME"
+          else
+            echo "当前 Dev 版本数量未超过限制，无需删除"
+          fi
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -102,24 +137,24 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.version.outputs.tag_name }}
-          release_name: Dev Release ${{ steps.version.outputs.version }} (${{ steps.version.outputs.timestamp }})
+          release_name: 开发版本 ${{ steps.version.outputs.version }} (${{ steps.version.outputs.timestamp }})
           body: |
-            ## 🚀 Dev Build - MAI Launcher
+            ## MAI Launcher 开发构建版本
             
-            **Version:** ${{ steps.version.outputs.version }}
-            **Build Time:** ${{ steps.version.outputs.timestamp }}
-            **Platform:** macOS (Apple Silicon & Intel)
+            **版本:** ${{ steps.version.outputs.version }}
+            **构建时间:** ${{ steps.version.outputs.timestamp }}
+            **平台:** macOS (Apple Silicon)
             
-            ### 📝 Changes in this build:
+            ### 更新内容
             ${{ steps.commits.outputs.commits }}
             
-            ### 📦 Installation
-            1. Download the DMG file below
-            2. Open the DMG file
-            3. Drag MAI Launcher to Applications folder
-            4. Launch from Applications
+            ### 安装说明
+            1. 下载下方的 DMG 文件
+            2. 打开 DMG 文件
+            3. 将 MAI Launcher 拖拽到应用程序文件夹
+            4. 从应用程序启动
             
-            > ⚠️ **Note:** This is a development build and may contain bugs.
+            > 注意: 这是开发版本,可能包含未修复的问题。
           draft: false
           prerelease: true
 
