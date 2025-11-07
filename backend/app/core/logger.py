@@ -16,7 +16,8 @@ class LoggerConfig:
     
     def __init__(self):
         self.backend_dir = Path(__file__).parent.parent.parent
-        self.log_dir = self.backend_dir / "data" / "Log"
+        # 后端日志保存到 data/Log/backend 目录
+        self.log_dir = self.backend_dir / "data" / "Log" / "backend"
         self.log_dir.mkdir(parents=True, exist_ok=True)
         
         self.max_log_files = 7
@@ -67,7 +68,8 @@ class LoggerConfig:
             colorize=True,
         )
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.current_log_file = self.log_dir / f"app_{timestamp}.jsonl"
+        # 后端日志文件名前缀为 backend_
+        self.current_log_file = self.log_dir / f"backend_{timestamp}.jsonl"
         
         self._compress_previous_logs()
         self._cleanup_old_logs()

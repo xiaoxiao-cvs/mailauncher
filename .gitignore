@@ -44,3 +44,16 @@ backend/.env
 *.egg-info/
 .venv/
 venv/
+
+# PyInstaller
+backend/build/
+backend/dist/
+backend/*.spec.log
+
+# Tauri build output
+frontend/src-tauri/target/
+frontend/src-tauri/backend-dist/
+
+# Log files (data directory)
+backend/data/Log/**/*.jsonl
+backend/data/Log/**/*.jsonl.gz

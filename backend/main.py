@@ -64,9 +64,15 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+    import sys
+    
+    # 检查是否由 PyInstaller 打包运行
+    is_packaged = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+    
     uvicorn.run(
-        "main:app",
+        "main:app" if not is_packaged else app,
         host=settings.HOST,
         port=settings.PORT,
-        reload=True
+        reload=not is_packaged,  # 只在开发模式启用 reload
+        log_level="info"
     )

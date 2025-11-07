@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build"
+    "beforeBuildCommand": "pnpm build && cd ../backend && /Users/xaoxiao/Repo/mailauncher/.venv/bin/pyinstaller mai-backend.spec --clean --noconfirm --distpath ../frontend/src-tauri/backend-dist"
   },
   "app": {
     "windows": [
@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://localhost:8000; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+      "csp": "default-src 'self'; connect-src *; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
     }
   },
   "bundle": {
@@ -37,7 +37,8 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "Resources/**/*"
+      "Resources/**/*",
+      "backend-dist/mai-backend/**/*"
     ],
     "macOS": {
       "frameworks": [],

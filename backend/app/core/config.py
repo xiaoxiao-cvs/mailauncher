@@ -22,14 +22,7 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     
     # CORS 配置
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001"
-    ]
+    ALLOWED_ORIGINS: List[str] = ["*"]  # 允许所有来源（桌面应用）
     
     # 实例存储路径配置
     # 默认在后端同目录下的 deployments 文件夹
@@ -49,10 +42,13 @@ class Settings(BaseSettings):
         """验证 CORS 配置"""
         if not v:
             raise ValueError('ALLOWED_ORIGINS 不能为空')
+        # 允许 * 表示所有来源
+        if v == ["*"]:
+            return v
         # 验证 URL 格式
         for origin in v:
-            if not origin.startswith(('http://', 'https://')):
-                raise ValueError(f'无效的 origin 格式: {origin}，必须以 http:// 或 https:// 开头')
+            if not origin.startswith(('http://', 'https://', 'tauri://')):
+                raise ValueError(f'无效的 origin 格式: {origin}，必须以 http://, https:// 或 tauri:// 开头')
         return v
     
     # 数据库配置
