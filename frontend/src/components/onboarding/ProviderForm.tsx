@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { EyeIcon, EyeOffIcon, CheckCircle2Icon, LoaderIcon, AlertCircleIcon } from 'lucide-react'
-import { ApiProvider, PRESET_PROVIDERS } from '@/hooks/useApiProviderConfig'
+import { ApiProvider } from '@/hooks/useApiProviderConfig'
 
 interface ProviderFormProps {
   provider: ApiProvider
@@ -14,25 +14,22 @@ interface ProviderFormProps {
  */
 export function ProviderForm({ provider, providerIndex, onUpdate, saveStatus }: ProviderFormProps) {
   const [showKey, setShowKey] = useState(false)
-  const isPreset = PRESET_PROVIDERS.some(p => p.name === provider.name)
 
   return (
     <div className="flex-1 space-y-4">
-      {/* 供应商名称（仅自定义供应商可编辑） */}
-      {!isPreset && (
-        <div>
-          <label className="block text-sm font-medium text-[#03045e] dark:text-white mb-2">
-            供应商名称
-          </label>
-          <input
-            type="text"
-            value={provider.name}
-            onChange={(e) => onUpdate(providerIndex, 'name', e.target.value)}
-            placeholder="输入供应商名称"
-            className="w-full px-4 py-2.5 bg-white dark:bg-[#2e2e2e] border border-[#023e8a]/20 dark:border-[#3a3a3a] rounded-lg outline-none focus:border-[#023e8a] dark:focus:border-white/40 text-[#03045e] dark:text-white placeholder:text-[#023e8a]/40 dark:placeholder:text-white/40"
-          />
-        </div>
-      )}
+      {/* 供应商名称 */}
+      <div>
+        <label className="block text-sm font-medium text-[#03045e] dark:text-white mb-2">
+          供应商名称
+        </label>
+        <input
+          type="text"
+          value={provider.name}
+          onChange={(e) => onUpdate(providerIndex, 'name', e.target.value)}
+          placeholder="输入供应商名称"
+          className="w-full px-4 py-2.5 bg-white dark:bg-[#2e2e2e] border border-[#023e8a]/20 dark:border-[#3a3a3a] rounded-lg outline-none focus:border-[#023e8a] dark:focus:border-white/40 text-[#03045e] dark:text-white placeholder:text-[#023e8a]/40 dark:placeholder:text-white/40"
+        />
+      </div>
 
       {/* API 端点 URL */}
       <div>
@@ -44,8 +41,7 @@ export function ProviderForm({ provider, providerIndex, onUpdate, saveStatus }: 
           value={provider.base_url}
           onChange={(e) => onUpdate(providerIndex, 'base_url', e.target.value)}
           placeholder="https://api.example.com/v1"
-          disabled={isPreset}
-          className="w-full px-4 py-2.5 bg-white dark:bg-[#2e2e2e] border border-[#023e8a]/20 dark:border-[#3a3a3a] rounded-lg outline-none focus:border-[#023e8a] dark:focus:border-white/40 text-[#03045e] dark:text-white placeholder:text-[#023e8a]/40 dark:placeholder:text-white/40 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-2.5 bg-white dark:bg-[#2e2e2e] border border-[#023e8a]/20 dark:border-[#3a3a3a] rounded-lg outline-none focus:border-[#023e8a] dark:focus:border-white/40 text-[#03045e] dark:text-white placeholder:text-[#023e8a]/40 dark:placeholder:text-white/40"
         />
       </div>
 
@@ -74,9 +70,7 @@ export function ProviderForm({ provider, providerIndex, onUpdate, saveStatus }: 
             type={showKey ? 'text' : 'password'}
             value={provider.api_key}
             onChange={(e) => onUpdate(providerIndex, 'api_key', e.target.value)}
-            placeholder={
-              PRESET_PROVIDERS.find(p => p.name === provider.name)?.placeholder_key || 'sk-...'
-            }
+            placeholder="sk-..."
             className={`w-full px-4 py-2.5 pr-20 bg-white dark:bg-[#2e2e2e] border rounded-lg outline-none text-[#03045e] dark:text-white placeholder:text-[#023e8a]/40 dark:placeholder:text-white/40 font-mono transition-colors ${
               provider.isValid
                 ? 'border-green-500 focus:border-green-600'

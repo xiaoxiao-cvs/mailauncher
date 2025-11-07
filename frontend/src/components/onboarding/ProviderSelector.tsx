@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronDownIcon, CheckCircle2Icon, XIcon, PlusIcon } from 'lucide-react'
-import { ApiProvider, PRESET_PROVIDERS } from '@/hooks/useApiProviderConfig'
+import { ApiProvider } from '@/hooks/useApiProviderConfig'
 
 interface ProviderSelectorProps {
   providers: ApiProvider[]
@@ -69,8 +69,8 @@ export function ProviderSelector({
                       <CheckCircle2Icon className="inline-block w-4 h-4 ml-2 text-green-500" />
                     )}
                   </button>
-                  {/* 删除按钮 - 仅对自定义供应商显示 */}
-                  {!PRESET_PROVIDERS.some(p => p.name === provider.name) && (
+                  {/* 删除按钮 - 所有供应商都可删除,但至少保留一个 */}
+                  {providers.length > 1 && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
@@ -79,10 +79,10 @@ export function ProviderSelector({
                           setIsOpen(false)
                         }
                       }}
-                      className="p-1 hover:bg-red-500/10 rounded transition-colors"
+                      className="p-1.5 hover:bg-red-500/10 rounded transition-colors group"
                       title="删除供应商"
                     >
-                      <XIcon className="w-4 h-4 text-red-500" />
+                      <XIcon className="w-4 h-4 text-[#023e8a]/40 dark:text-white/40 group-hover:text-red-500 transition-colors" />
                     </button>
                   )}
                 </div>

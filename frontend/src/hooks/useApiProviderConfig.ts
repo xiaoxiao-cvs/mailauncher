@@ -64,28 +64,16 @@ export function useApiProviderConfig() {
       const response = await fetch(`${apiUrl}/config/api-providers`)
       const data = await response.json()
       
-      if (data.success && data.data.providers && data.data.providers.length > 0) {
+      if (data.success && data.data.providers) {
         setProviders(data.data.providers)
         environmentLogger.success('API 供应商加载成功', data.data.providers)
       } else {
-        // 没有配置时，加载预设供应商
-        setProviders(PRESET_PROVIDERS.map((preset) => ({
-          name: preset.name,
-          base_url: preset.base_url,
-          api_key: '',
-          is_enabled: true
-        })))
-        environmentLogger.info('加载预设供应商')
+        setProviders([])
+        environmentLogger.info('暂无供应商配置')
       }
     } catch (error) {
       environmentLogger.error('加载 API 供应商失败', error)
-      // 失败时也加载预设
-      setProviders(PRESET_PROVIDERS.map((preset) => ({
-        name: preset.name,
-        base_url: preset.base_url,
-        api_key: '',
-        is_enabled: true
-      })))
+      setProviders([])
     } finally {
       setIsLoading(false)
     }
@@ -102,7 +90,39 @@ export function useApiProviderConfig() {
     setSelectedProviderIndex(providers.length)
   }
 
-  const removeProvider = (index: number) => {
+  const removeProvider = async (index: number) => {
+    const provider = providers[index]
+    
+    // 如果供应商有ID（已保存到数据库），则调用后端删除
+    if (provider.id) {
+      try {
+        const apiUrl = getApiUrl()
+        const response = await fetch(`${apiUrl}/config/api-providers/${provider.id}`, {
+          method: 'DELETE'
+        })
+        const data = await response.json()
+        
+        if (!data.success) {
+          environmentLogger.error('删除供应商失败', data)
+          setSaveStatus({
+            success: false,
+            message: data.message || '删除供应商失败'
+          })
+          return
+        }
+        
+        environmentLogger.success('供应商已删除', { name: provider.name, id: provider.id })
+      } catch (error) {
+        environmentLogger.error('删除供应商失败', error)
+        setSaveStatus({
+          success: false,
+          message: '删除供应商失败'
+        })
+        return
+      }
+    }
+    
+    // 从本地状态中移除
     const newProviders = providers.filter((_, i) => i !== index)
     setProviders(newProviders)
     if (selectedProviderIndex >= newProviders.length) {

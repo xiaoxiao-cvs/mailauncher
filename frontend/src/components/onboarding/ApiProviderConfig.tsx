@@ -36,12 +36,7 @@ export function ApiProviderConfig({ stepColor }: ApiProviderConfigProps) {
     <div className="flex flex-col h-full">
       {/* 标题区域 */}
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-[#03045e] dark:text-white">
-          AI 模型供应商
-        </h3>
-        <p className="text-sm text-[#023e8a]/60 dark:text-white/60 mt-1">
-          配置 AI 服务的 API 端点和密钥
-        </p>
+        
       </div>
 
       {/* 供应商选择下拉菜单 */}

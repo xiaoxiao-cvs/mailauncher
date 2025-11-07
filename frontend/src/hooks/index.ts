@@ -8,7 +8,7 @@ export { useTheme } from './useTheme'
 
 // 引导流程相关
 export { useOnboardingAnimation } from './useOnboardingAnimation'
-export { useApiProviderConfig, PRESET_PROVIDERS } from './useApiProviderConfig'
+export { useApiProviderConfig } from './useApiProviderConfig'
 export type { ApiProvider } from './useApiProviderConfig'
 
 // 环境配置相关

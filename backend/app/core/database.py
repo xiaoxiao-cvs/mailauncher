@@ -71,12 +71,65 @@ async def get_db():
             await session.close()
 
 
+async def _init_default_providers() -> None:
+    """
+    初始化默认的 API 供应商
+    如果数据库中没有任何供应商，则添加预设的三个供应商
+    """
+    from sqlalchemy import select
+    from ..models.db_models import ApiProvider
+    
+    async with AsyncSessionLocal() as session:
+        # 检查是否已有供应商
+        result = await session.execute(select(ApiProvider))
+        existing_providers = result.scalars().all()
+        
+        if len(existing_providers) == 0:
+            # 添加默认供应商
+            default_providers = [
+                {
+                    "name": "硅基流动",
+                    "base_url": "https://api.siliconflow.cn/v1",
+                    "api_key": "",
+                    "is_enabled": True,
+                    "priority": 1
+                },
+                {
+                    "name": "阿里百炼",
+                    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                    "api_key": "",
+                    "is_enabled": True,
+                    "priority": 2
+                },
+                {
+                    "name": "DeepSeek",
+                    "base_url": "https://api.deepseek.com/v1",
+                    "api_key": "",
+                    "is_enabled": True,
+                    "priority": 3
+                }
+            ]
+            
+            for provider_data in default_providers:
+                provider = ApiProvider(**provider_data)
+                session.add(provider)
+            
+            await session.commit()
+            
+            log = _get_logger()
+            if log:
+                log.info("已初始化默认 API 供应商")
+
+
 async def init_db() -> None:
     """
-    初始化数据库，创建所有表
+    初始化数据库，创建所有表，并初始化默认数据
     """
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    # 初始化默认供应商
+    await _init_default_providers()
 
 
 async def close_db() -> None:
