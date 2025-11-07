@@ -1,14 +1,6 @@
-import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2Icon, XCircleIcon, LoaderIcon, AlertCircleIcon, FolderOpenIcon } from 'lucide-react'
-import { getApiUrl } from '@/config/api'
-import { environmentLogger } from '@/utils/logger'
-
-interface GitInfo {
-  is_available: boolean
-  path: string
-  version: string
-}
+import { useEnvironmentConfig } from '@/hooks/useEnvironmentConfig'
 
 interface EnvironmentConfigProps {
   stepColor: string
@@ -22,141 +14,19 @@ const iconStyle = (color: string) => ({ backgroundColor: color })
  * 职责：检查 Git 环境并配置部署路径
  */
 export function EnvironmentConfig({ stepColor, onGitStatusChange }: EnvironmentConfigProps) {
-  const [gitInfo, setGitInfo] = useState<GitInfo | null>(null)
-  const [isCheckingGit, setIsCheckingGit] = useState(false)
-  const [gitError, setGitError] = useState<string>('')
-  
-  const [deploymentPath, setDeploymentPath] = useState<string>('')
-  const [pathError, setPathError] = useState<string>('')
-  const [pathSuccess, setPathSuccess] = useState<string>('')
-  const [isSavingPath, setIsSavingPath] = useState(false)
-
-  const checkGitEnvironment = async () => {
-    setIsCheckingGit(true)
-    setGitError('')
-    environmentLogger.info('开始检查 Git 环境')
-    
-    try {
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/environment/git`)
-      const data = await response.json()
-      
-      if (data.success) {
-        setGitInfo(data.data)
-        environmentLogger.success('Git 环境检查完成', data.data)
-        onGitStatusChange?.(data.data.is_available)
-      } else {
-        setGitError('无法获取 Git 信息')
-        environmentLogger.error('无法获取 Git 信息', data)
-        onGitStatusChange?.(false)
-      }
-    } catch (error) {
-      setGitError('连接后端服务失败，请确保后端正在运行')
-      environmentLogger.error('检查 Git 环境失败', error)
-      onGitStatusChange?.(false)
-    } finally {
-      setIsCheckingGit(false)
-    }
-  }
-
-  const loadDeploymentPath = async () => {
-    environmentLogger.info('加载部署路径配置')
-    try {
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/environment/config`)
-      const data = await response.json()
-      
-      if (data.success) {
-        setDeploymentPath(data.data.instances_dir)
-        environmentLogger.success('部署路径加载成功', { path: data.data.instances_dir })
-      }
-    } catch (error) {
-      environmentLogger.error('加载部署路径失败', error)
-    }
-  }
-
-  const handleSelectFolder = async () => {
-    environmentLogger.info('打开文件夹选择器')
-    try {
-      const { open } = await import('@tauri-apps/plugin-dialog')
-      environmentLogger.debug('Tauri dialog 插件加载成功')
-      
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: '选择 Bot 实例部署目录'
-      })
-      
-      environmentLogger.info('用户选择的路径', { path: selected })
-      
-      if (selected) {
-        const selectedPath = selected as string
-        setDeploymentPath(selectedPath)
-        setPathError('')
-        await saveDeploymentPath(selectedPath)
-      }
-    } catch (error) {
-      environmentLogger.error('文件选择器错误', error)
-      alert('文件夹选择器仅在桌面应用中可用。\n请直接在输入框中粘贴路径。')
-    }
-  }
-
-  const saveDeploymentPath = async (path: string) => {
-    setIsSavingPath(true)
-    setPathError('')
-    setPathSuccess('')
-    environmentLogger.info('保存部署路径', { path })
-    
-    try {
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/config/paths`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: 'instances_dir',
-          path: path,
-          path_type: 'directory',
-          is_verified: false,
-          description: 'Bot 实例部署目录'
-        })
-      })
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        setPathSuccess('✓ 路径已保存')
-        environmentLogger.success('部署路径保存成功')
-        setTimeout(() => setPathSuccess(''), 3000)
-      } else {
-        setPathError('保存路径失败')
-        environmentLogger.error('保存路径失败', data)
-      }
-    } catch (error) {
-      environmentLogger.error('保存路径异常', error)
-      setPathError('保存路径失败，请检查后端连接')
-    } finally {
-      setIsSavingPath(false)
-    }
-  }
-
-  const handlePathChange = (value: string) => {
-    setDeploymentPath(value)
-    setPathError('')
-    setPathSuccess('')
-    
-    if (value && !value.startsWith('/') && !value.match(/^[A-Z]:\\/i)) {
-      setPathError('请输入有效的绝对路径')
-    } else if (value) {
-      saveDeploymentPath(value)
-    }
-  }
-
-  useEffect(() => {
-    checkGitEnvironment()
-    loadDeploymentPath()
-  }, [])
+  // 使用自定义 hook 管理环境配置
+  const {
+    gitInfo,
+    isCheckingGit,
+    gitError,
+    checkGitEnvironment,
+    deploymentPath,
+    pathError,
+    pathSuccess,
+    isSavingPath,
+    handleSelectFolder,
+    handlePathChange
+  } = useEnvironmentConfig({ onGitStatusChange })
 
   return (
     <div className="space-y-4 h-full overflow-hidden">
