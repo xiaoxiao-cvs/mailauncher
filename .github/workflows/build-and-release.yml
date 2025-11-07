@@ -39,12 +39,8 @@ jobs:
           source .venv/bin/activate
           pip install --upgrade pip
           pip install -r backend/requirements.txt
-
-      - name: Build backend with PyInstaller
-        run: |
-          source .venv/bin/activate
-          cd backend
-          pyinstaller mai-backend.spec --clean --noconfirm --distpath ../frontend/src-tauri/backend-dist
+          # 确保 pyinstaller 在 PATH 中
+          echo "${PWD}/.venv/bin" >> $GITHUB_PATH
 
       - name: Install frontend dependencies
         working-directory: frontend

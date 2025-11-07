@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     
     # CORS 配置
-    ALLOWED_ORIGINS: List[str] = ["*"]  # 允许所有来源（桌面应用）
+    ALLOWED_ORIGINS: List[str] = ["*"]  # 允许所有来源
     
     # 实例存储路径配置
     # 默认在后端同目录下的 deployments 文件夹
