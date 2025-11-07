@@ -24,9 +24,40 @@ pnpm dev
 
 访问 http://localhost:3000
 
+### 构建应用
+
+```bash
+cd frontend
+pnpm tauri build
+```
+
+#### macOS 用户注意
+
+如果构建后提示"App 已损坏"，运行修复脚本：
+
+```bash
+./fix-app-macos.sh
+```
+
+或手动执行：
+
+```bash
+# 移除隔离属性
+xattr -cr "/Applications/MAI Launcher.app"
+
+# 应用 ad-hoc 签名
+codesign --force --deep --sign - "/Applications/MAI Launcher.app"
+```
+
 ### 后端开发
 
-(待开发)
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
+```
 
 ## 技术栈
 

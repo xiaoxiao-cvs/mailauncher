@@ -62,17 +62,51 @@ async def root():
     }
 
 
-if __name__ == "__main__":
+def main():
+    """主函数:启动 Uvicorn 服务器"""
     import uvicorn
     import sys
     
     # 检查是否由 PyInstaller 打包运行
     is_packaged = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
     
-    uvicorn.run(
-        "main:app" if not is_packaged else app,
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=not is_packaged,  # 只在开发模式启用 reload
-        log_level="info"
-    )
+    logger.info(f"[MAIN] 运行模式: {'打包模式' if is_packaged else '开发模式'}")
+    logger.info(f"[MAIN] __name__ = {__name__}")
+    logger.info(f"[MAIN] sys.frozen = {getattr(sys, 'frozen', False)}")
+    logger.info(f"[MAIN] sys.argv = {sys.argv}")
+    
+    if is_packaged:
+        # 打包模式:直接传递 app 对象
+        logger.info(f"[MAIN] 后端服务启动在 {settings.HOST}:{settings.PORT}")
+        uvicorn.run(
+            app,
+            host=settings.HOST,
+            port=settings.PORT,
+            log_level="info"
+        )
+    else:
+        # 开发模式:使用字符串以支持热重载
+        logger.info(f"[MAIN] 开发服务器启动在 {settings.HOST}:{settings.PORT}")
+        uvicorn.run(
+            "main:app",
+            host=settings.HOST,
+            port=settings.PORT,
+            reload=True,
+            log_level="info"
+        )
+
+
+if __name__ == "__main__":
+    main()
+
+# PyInstaller 打包后的特殊处理
+# 当通过 multiprocessing 启动时,__name__ 可能不是 "__main__"
+import sys
+if getattr(sys, 'frozen', False):
+    # 只在打包环境且不是子进程时执行
+    import multiprocessing
+    if multiprocessing.current_process().name == 'MainProcess':
+        logger.info("[FROZEN] 检测到打包环境,MainProcess,准备启动服务器")
+        # 检查是否已经在运行 (避免重复启动)
+        if not any('uvicorn.run' in str(frame) for frame in sys._current_frames().values()):
+            main()
