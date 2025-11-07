@@ -1,6 +1,6 @@
 /**
  * 下载管理自定义 Hook
- * 职责：管理下载项的状态和操作
+ * 职责:管理下载项的状态和操作
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -239,36 +239,90 @@ export function useDownload() {
 
   /**
    * 开始下载所有项目
+   * @returns 返回任务 ID，如果失败则返回 null
    */
-  const downloadAll = useCallback(async () => {
+  const downloadAll = useCallback(async (): Promise<string | null> => {
     if (!deploymentPath) {
       downloadLogger.error('请先选择部署路径')
-      return
+      return null
+    }
+
+    if (!instanceName || instanceName.trim() === '') {
+      downloadLogger.error('请输入实例名称')
+      return null
     }
 
     if (selectedItems.size === 0) {
       downloadLogger.error('请选择要下载的组件')
-      return
+      return null
     }
 
     setIsDownloading(true)
-    downloadLogger.info('开始批量下载')
+    downloadLogger.info('开始批量下载和安装')
 
     try {
-      // 只下载选中的项目
-      const itemsToDownload = downloadItems.filter(item => selectedItems.has(item.id))
-      for (const item of itemsToDownload) {
-        if (item.status !== 'completed' && item.status !== 'installed') {
-          await downloadItem(item.id)
-        }
+      const apiUrl = getApiUrl()
+      
+      // 构建下载任务数据
+      const selectedItemsArray = Array.from(selectedItems)
+      const taskData = {
+        instance_name: instanceName.trim(),
+        deployment_path: deploymentPath,
+        maibot_version_source: selectedMaibotVersion.source,
+        maibot_version_value: selectedMaibotVersion.value,
+        selected_items: selectedItemsArray.map(itemId => {
+          const item = downloadItems.find(i => i.id === itemId)
+          if (!item) return itemId
+          // 转换前端 ID 到后端枚举值
+          switch (item.type) {
+            case 'maibot': return 'maibot'
+            case 'adapter': return 'napcat-adapter'
+            case 'napcat': return 'napcat'
+            case 'quick-algo': return 'lpmm'
+            default: return item.type
+          }
+        })
       }
-      downloadLogger.success('所有项目下载完成')
+
+      downloadLogger.info('创建下载任务', taskData)
+
+      // 创建下载任务
+      const response = await fetch(`${apiUrl}/downloads`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(taskData)
+      })
+
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.message || '创建下载任务失败')
+      }
+
+      const task = result.data
+      const taskId = task.id
+      downloadLogger.success('下载任务已创建', { taskId })
+
+      // 返回任务 ID 供调用方使用
+      return taskId
+
     } catch (error) {
-      downloadLogger.error('批量下载失败', error)
-    } finally {
+      downloadLogger.error('下载任务执行失败', error)
       setIsDownloading(false)
+      
+      // 将所有选中项标记为失败
+      selectedItems.forEach(itemId => {
+        updateItemStatus(itemId, {
+          status: 'failed',
+          error: error instanceof Error ? error.message : '下载失败'
+        })
+      })
+      
+      return null
     }
-  }, [deploymentPath, downloadItems, downloadItem, selectedItems])
+  }, [deploymentPath, instanceName, downloadItems, selectedMaibotVersion, selectedItems, updateItemStatus])
 
   /**
    * 重试下载

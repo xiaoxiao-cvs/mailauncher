@@ -1,8 +1,15 @@
 import { Icon } from '@iconify/react'
 import { SidebarNavItemComponent } from './SidebarNavItem'
 import { SIDEBAR_NAV_ITEMS, SIDEBAR_BOTTOM_ITEMS } from './constants'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
+import { NotificationPopover } from '@/components/notifications/NotificationPopover'
 import { cn } from '@/lib/utils'
 import { useSidebar } from '@/hooks/useSidebar'
+import { useNotifications } from '@/hooks/useNotifications'
+import { useState, useEffect } from 'react'
+import InstallLogModal from '../install/InstallLogModal'
+import { Notification } from '@/types/notification'
+import { registerNotificationHandlers, setupNotificationTestCommands } from '@/utils/notificationTestTool'
 
 /**
  * 侧边栏组件
@@ -15,10 +22,73 @@ import { useSidebar } from '@/hooks/useSidebar'
  * - 收起时仅显示图标
  * - 当前页面高亮显示
  * - 状态持久化到 localStorage
+ * - 通知中心功能
  */
 export function Sidebar() {
   // 使用自定义 hook 管理侧边栏状态
   const { isCollapsed, toggleSidebar } = useSidebar()
+  
+  // 通知管理
+  const {
+    notifications,
+    unreadCount,
+    isPopoverOpen,
+    removeNotification,
+    clearAllNotifications,
+    togglePopover,
+    closePopover,
+    addMessageNotification,
+    addWarningNotification,
+    addErrorNotification,
+    addTaskNotification,
+    updateTaskProgress,
+  } = useNotifications()
+
+  // 注册测试工具（开发环境）
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      registerNotificationHandlers({
+        addMessageNotification,
+        addWarningNotification,
+        addErrorNotification,
+        addTaskNotification,
+        updateTaskProgress,
+        clearAllNotifications,
+      })
+      setupNotificationTestCommands()
+    }
+  }, [
+    addMessageNotification,
+    addWarningNotification,
+    addErrorNotification,
+    addTaskNotification,
+    updateTaskProgress,
+    clearAllNotifications,
+  ])
+
+  // 调试日志
+  useEffect(() => {
+    console.log('🔔 通知列表更新:', notifications)
+    console.log('🔢 未读数量:', unreadCount)
+  }, [notifications, unreadCount])
+
+  // 日志模态框状态
+  const [logModal, setLogModal] = useState<{
+    isOpen: boolean
+    notification: Notification | null
+  }>({
+    isOpen: false,
+    notification: null,
+  })
+
+  // 处理通知点击 - 所有类型的通知都可以点击查看详情
+  const handleNotificationClick = (notification: Notification) => {
+    setLogModal({
+      isOpen: true,
+      notification,
+    })
+    closePopover()
+  }
 
   return (
     <aside
@@ -67,8 +137,15 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* 底部：设置和折叠按钮 */}
+      {/* 底部：通知、设置和折叠按钮 */}
       <div className="px-3 pb-4 space-y-2 pt-4">
+        {/* 通知铃铛 */}
+        <NotificationBell
+          unreadCount={unreadCount}
+          isCollapsed={isCollapsed}
+          onClick={togglePopover}
+        />
+
         {/* 设置按钮 */}
         {SIDEBAR_BOTTOM_ITEMS.map((item) => (
           <SidebarNavItemComponent
@@ -122,6 +199,23 @@ export function Sidebar() {
           </span>
         </button>
       </div>
+
+      {/* 通知气泡 */}
+      <NotificationPopover
+        isOpen={isPopoverOpen}
+        notifications={notifications}
+        onRemove={removeNotification}
+        onClearAll={clearAllNotifications}
+        onClose={closePopover}
+        onNotificationClick={handleNotificationClick}
+      />
+
+      {/* 通知详情模态框 */}
+      <InstallLogModal
+        isOpen={logModal.isOpen}
+        notification={logModal.notification}
+        onClose={() => setLogModal({ isOpen: false, notification: null })}
+      />
     </aside>
   )
 }

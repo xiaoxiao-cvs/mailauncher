@@ -35,3 +35,13 @@ export { useSidebar } from './useSidebar'
 
 // 下载管理相关
 export { useDownload } from './useDownload'
+
+// WebSocket 相关
+export { useWebSocket } from './useWebSocket'
+export type { WSMessage, WSLogMessage, WSProgressMessage, WSStatusMessage, WSErrorMessage, WSCompleteMessage } from './useWebSocket'
+
+// 通知相关
+export { useNotifications } from './useNotifications'
+
+// 安装概要相关
+export { useInstallOverview } from './useInstallOverview'

@@ -19,6 +19,16 @@ from .deployment import (
     DeploymentLog,
     DeploymentLogResponse,
 )
+from .download import (
+    DownloadTask,
+    DownloadTaskCreate,
+    DownloadStatus,
+    DownloadItemType,
+    DownloadProgress,
+    MaibotVersion,
+    MaibotVersionSource,
+    VersionsResponse,
+)
 from .response import ResponseBase, ErrorResponse, SuccessResponse
 
 __all__ = [
@@ -29,7 +39,7 @@ __all__ = [
     "InstanceStatus",
     "InstanceStatusResponse",
     "InstanceList",
-    "ModLoader",
+    "BotType",
     # Deployment models
     "Deployment",
     "DeploymentCreate",
@@ -38,6 +48,15 @@ __all__ = [
     "DeploymentList",
     "DeploymentLog",
     "DeploymentLogResponse",
+    # Download models
+    "DownloadTask",
+    "DownloadTaskCreate",
+    "DownloadStatus",
+    "DownloadItemType",
+    "DownloadProgress",
+    "MaibotVersion",
+    "MaibotVersionSource",
+    "VersionsResponse",
     # Response models
     "ResponseBase",
     "ErrorResponse",

@@ -8,6 +8,7 @@ from .environment import router as environment_router
 from .config import router as config_router
 from .logger import router as logger_router
 from .api_providers import router as api_providers_router
+from .downloads import router as downloads_router
 
 # 创建 v1 API 路由器
 api_v1_router = APIRouter()
@@ -17,6 +18,7 @@ api_v1_router = APIRouter()
 api_v1_router.include_router(api_providers_router, prefix="/config/api-providers", tags=["API供应商"])
 api_v1_router.include_router(instances_router, prefix="/instances", tags=["实例管理"])
 api_v1_router.include_router(deployments_router, prefix="/deployments", tags=["部署管理"])
+api_v1_router.include_router(downloads_router, prefix="", tags=["下载管理"])
 api_v1_router.include_router(environment_router, prefix="/environment", tags=["环境配置"])
 api_v1_router.include_router(config_router, prefix="/config", tags=["配置管理"])
 api_v1_router.include_router(logger_router, tags=["日志管理"])

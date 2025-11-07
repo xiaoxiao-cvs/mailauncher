@@ -9,8 +9,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Sidebar } from '@/components/sidebar'
-import { useDownload } from '@/hooks'
+import { InstallOverview } from '@/components/install/InstallOverview'
+import { useDownload, useInstallOverview, useNotifications } from '@/hooks'
 import { cn } from '@/lib/utils'
+import { TaskStatus } from '@/types/notification'
 
 /**
  * 下载页面
@@ -34,6 +36,12 @@ export function DownloadsPage() {
     selectedItems
   } = useDownload()
 
+  // 安装概要管理
+  const { state: overviewState, showOverview, updateStatus } = useInstallOverview()
+
+  // 通知管理
+  const { addTaskNotification, updateTaskProgress } = useNotifications()
+
   // 检测平台
   const isMacOS = window.navigator.platform.toLowerCase().includes('mac')
   const isWindows = window.navigator.platform.toLowerCase().includes('win')
@@ -54,6 +62,66 @@ export function DownloadsPage() {
     !isDownloading && 
     selectedItems.size > 0
 
+  // 处理开始安装
+  const handleStartInstall = async () => {
+    console.log('🚀 开始安装流程')
+    
+    // 获取选中的组件名称
+    const components = Array.from(selectedItems)
+    console.log('📦 选中的组件:', components)
+
+    // 调用下载方法获取任务 ID
+    const taskId = await downloadAll()
+    console.log('🆔 获取到任务 ID:', taskId)
+    
+    if (!taskId) {
+      // 下载失败，不显示概要卡片
+      console.error('❌ 任务 ID 为空，取消显示概要卡片')
+      return
+    }
+
+    console.log('📋 显示安装概要卡片')
+    // 显示安装概要卡片
+    showOverview({
+      taskId,
+      instanceName,
+      version: selectedMaibotVersion.label,
+      components,
+      deploymentPath,
+    })
+
+    console.log('🔔 添加任务通知')
+    // 添加任务通知
+    addTaskNotification({
+      taskId,
+      instanceName,
+      version: selectedMaibotVersion.label,
+      components,
+      deploymentPath,
+    })
+
+    console.log('⏱️ 启动模拟进度更新')
+    // TODO: 集成 WebSocket 监听任务进度
+    // 目前使用模拟数据演示
+    setTimeout(() => {
+      console.log('📥 更新状态: DOWNLOADING')
+      updateStatus(TaskStatus.DOWNLOADING)
+      updateTaskProgress(taskId, 30, TaskStatus.DOWNLOADING)
+    }, 1000)
+
+    setTimeout(() => {
+      console.log('⚙️ 更新状态: INSTALLING')
+      updateStatus(TaskStatus.INSTALLING)
+      updateTaskProgress(taskId, 60, TaskStatus.INSTALLING)
+    }, 3000)
+
+    setTimeout(() => {
+      console.log('✅ 更新状态: SUCCESS')
+      updateStatus(TaskStatus.SUCCESS)
+      updateTaskProgress(taskId, 100, TaskStatus.SUCCESS)
+    }, 5000)
+  }
+
   return (
     <div className="flex h-screen bg-[#f8f9fa] dark:bg-[#0a0a0a] transition-colors duration-500">
       {/* 侧边栏 */}
@@ -61,8 +129,12 @@ export function DownloadsPage() {
 
       {/* 主内容区 - 固定高度，无滚动 */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-3xl space-y-4">
+        {/* 根据是否显示概要卡片切换内容 */}
+        {overviewState.visible ? (
+          <InstallOverview state={overviewState} />
+        ) : (
+          <div className="flex-1 flex items-center justify-center p-6">
+            <div className="w-full max-w-3xl space-y-4">
             {/* 页面标题 - 紧凑 */}
             <div className="space-y-1">
               <h1 className="text-2xl font-bold text-[#03045e] dark:text-white">
@@ -359,7 +431,7 @@ export function DownloadsPage() {
 
               {/* 右侧安装按钮 */}
               <Button
-                onClick={downloadAll}
+                onClick={handleStartInstall}
                 disabled={!canStartDownload || hasDownloading}
                 size="lg"
                 className={cn(
@@ -378,6 +450,7 @@ export function DownloadsPage() {
             </div>
           </div>
         </div>
+        )}
       </main>
     </div>
   )
