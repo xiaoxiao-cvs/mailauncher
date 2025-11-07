@@ -49,10 +49,16 @@ venv/
 backend/build/
 backend/dist/
 backend/*.spec.log
+frontend/build/mai-backend/
 
 # Tauri build output
 frontend/src-tauri/target/
 frontend/src-tauri/backend-dist/
+frontend/src-tauri/gen/
+
+# Frontend build output
+frontend/dist/
+frontend/build/
 
 # Log files (data directory)
 backend/data/Log/**/*.jsonl
