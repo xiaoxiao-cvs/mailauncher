@@ -1,6 +1,12 @@
 """
 前端日志 API
 处理前端日志的保存、查询、导出和清理
+
+日志管理策略：
+1. 按天创建日志文件（格式：frontend_YYYYMMDD.jsonl）
+2. 同一天的所有日志写入同一个文件，避免刷新浏览器创建新文件
+3. 每天首次写入时自动压缩昨天及更早的 .jsonl 文件为 .zip
+4. 保留最近 7 个压缩的日志文件，自动删除更旧的文件
 """
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
@@ -36,38 +42,56 @@ class FrontendLogsRequest(BaseModel):
 FRONTEND_LOG_DIR = Path(__file__).parent.parent.parent.parent / "data" / "Log" / "frontend"
 FRONTEND_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-# 当前日志文件
+# 当前日志文件（按天创建，同一天内复用）
 current_log_file: Optional[Path] = None
+# 保留的最大压缩日志文件数量
 MAX_LOG_FILES = 7
 
 
 def _get_current_log_file() -> Path:
-    """获取当前日志文件路径"""
+    """获取当前日志文件路径（按天创建）"""
     global current_log_file
     
-    # 检查当前日志文件是否是今天的
+    # 获取今天的日期
     today = datetime.now().strftime("%Y%m%d")
+    today_log_pattern = f"frontend_{today}"
     
-    if current_log_file is None or not str(current_log_file).endswith(f"{today}.jsonl"):
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        current_log_file = FRONTEND_LOG_DIR / f"frontend_{timestamp}.jsonl"
-        logger.info(f"创建新的前端日志文件: {current_log_file.name}")
+    # 检查当前日志文件是否是今天的
+    if current_log_file is None or not current_log_file.name.startswith(today_log_pattern):
+        # 查找今天是否已经有日志文件
+        existing_today_logs = list(FRONTEND_LOG_DIR.glob(f"{today_log_pattern}*.jsonl"))
         
-        # 压缩旧日志
-        _compress_old_logs()
-        _cleanup_old_logs()
+        if existing_today_logs:
+            # 使用已存在的今天的日志文件
+            current_log_file = existing_today_logs[0]
+            logger.info(f"使用已存在的前端日志文件: {current_log_file.name}")
+        else:
+            # 创建新的日志文件（仅包含日期，不含时间戳）
+            current_log_file = FRONTEND_LOG_DIR / f"frontend_{today}.jsonl"
+            logger.info(f"创建新的前端日志文件: {current_log_file.name}")
+            
+            # 只在新的一天开始时压缩昨天及更早的日志
+            _compress_old_logs()
+            _cleanup_old_logs()
     
     return current_log_file
 
 
 def _compress_old_logs():
-    """压缩旧的 JSON Lines 日志文件"""
+    """压缩昨天及更早的 JSON Lines 日志文件（不压缩今天的日志）"""
+    today = datetime.now().strftime("%Y%m%d")
     jsonl_files = sorted(FRONTEND_LOG_DIR.glob("*.jsonl"))
     
     for jsonl_file in jsonl_files:
+        # 跳过当前正在使用的日志文件
         if jsonl_file == current_log_file:
             continue
         
+        # 检查是否是今天的日志文件
+        if jsonl_file.name.startswith(f"frontend_{today}"):
+            continue
+        
+        # 只压缩昨天及更早的日志
         zip_path = jsonl_file.with_suffix('.zip')
         if not zip_path.exists():
             try:

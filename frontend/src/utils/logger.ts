@@ -5,9 +5,10 @@
  * 功能：
  * 1. 控制台彩色输出
  * 2. 文件保存到后端 data/Log/frontend/ 目录（JSON Lines 格式）
- * 3. 自动压缩历史日志（后端处理）
- * 4. 自动清理旧日志（后端处理）
- * 5. 支持不同模块的标签
+ * 3. 按天创建日志文件（每天一个文件，格式：frontend_YYYYMMDD.jsonl）
+ * 4. 自动压缩历史日志（每天第一次写入时压缩昨天及更早的日志）
+ * 5. 自动清理旧日志（后端保留最近 7 个压缩文件）
+ * 6. 支持不同模块的标签
  */
 
 import { createConsola, LogLevels, LogLevel } from 'consola'
