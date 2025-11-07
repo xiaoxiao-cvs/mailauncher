@@ -76,19 +76,6 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   },
   {
     id: 4,
-    title: '多实例管理',
-    subtitle: '同时管理多个机器人账号',
-    description: [
-      '支持多个 Bot 实例同时运行',
-      '独立的配置和日志管理',
-      '批量操作，提升管理效率'
-    ],
-    icon: <ZapIcon className="w-8 h-8" />,
-    gradient: 'from-[#cdb4db] to-[#ffc8dd]',
-    color: '#cdb4db'
-  },
-  {
-    id: 5,
     title: '安全稳定',
     subtitle: '7×24 小时稳定运行',
     description: [
