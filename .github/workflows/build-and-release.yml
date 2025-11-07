@@ -1,0 +1,138 @@
+name: Build and Release (Dev)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史以便获取提交信息
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Python virtual environment
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Build backend with PyInstaller
+        run: |
+          source .venv/bin/activate
+          cd backend
+          pyinstaller mai-backend.spec --clean --noconfirm --distpath ../frontend/src-tauri/backend-dist
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install
+
+      - name: Build Tauri app
+        working-directory: frontend
+        run: pnpm tauri build
+
+      - name: Get commit messages
+        id: commits
+        run: |
+          # 获取上次发布的标签
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          # 如果没有标签,获取所有提交的第一句
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s" --no-merges)
+          else
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s" --no-merges)
+          fi
+          
+          # 如果没有新提交,使用当前提交
+          if [ -z "$COMMITS" ]; then
+            COMMITS=$(git log -1 --pretty=format:"- %s")
+          fi
+          
+          # 保存到文件并设置输出
+          echo "$COMMITS" > commits.txt
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Get version and timestamp
+        id: version
+        run: |
+          VERSION=$(node -p "require('./frontend/src-tauri/tauri.conf.json').version")
+          TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
+          TAG_NAME="dev-${VERSION}-${TIMESTAMP}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "timestamp=${TIMESTAMP}" >> $GITHUB_OUTPUT
+          echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Find DMG file
+        id: find_dmg
+        run: |
+          DMG_PATH=$(find frontend/src-tauri/target/release/bundle/dmg -name "*.dmg" | head -n 1)
+          if [ -z "$DMG_PATH" ]; then
+            echo "Error: DMG file not found!"
+            exit 1
+          fi
+          echo "dmg_path=${DMG_PATH}" >> $GITHUB_OUTPUT
+          echo "dmg_name=$(basename ${DMG_PATH})" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.tag_name }}
+          release_name: Dev Release ${{ steps.version.outputs.version }} (${{ steps.version.outputs.timestamp }})
+          body: |
+            ## 🚀 Dev Build - MAI Launcher
+            
+            **Version:** ${{ steps.version.outputs.version }}
+            **Build Time:** ${{ steps.version.outputs.timestamp }}
+            **Platform:** macOS (Apple Silicon & Intel)
+            
+            ### 📝 Changes in this build:
+            ${{ steps.commits.outputs.commits }}
+            
+            ### 📦 Installation
+            1. Download the DMG file below
+            2. Open the DMG file
+            3. Drag MAI Launcher to Applications folder
+            4. Launch from Applications
+            
+            > ⚠️ **Note:** This is a development build and may contain bugs.
+          draft: false
+          prerelease: true
+
+      - name: Upload DMG to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.find_dmg.outputs.dmg_path }}
+          asset_name: MAI-Launcher-${{ steps.version.outputs.version }}-dev-${{ steps.version.outputs.timestamp }}.dmg
+          asset_content_type: application/x-apple-diskimage

@@ -32,6 +32,7 @@ export function OnboardingContent({
   const [currentTabIndex, setCurrentTabIndex] = useState(0)
   const [isBackendConnected, setIsBackendConnected] = useState(false)
   const [recheckFn, setRecheckFn] = useState<(() => void) | null>(null)
+  const [isGitAvailable, setIsGitAvailable] = useState(false)
   
   const hasTabs = currentStepData.tabs && currentStepData.tabs.length > 0
   const isLastTab = hasTabs && currentTabIndex === (currentStepData.tabs?.length ?? 0) - 1
@@ -44,6 +45,11 @@ export function OnboardingContent({
   // 处理后端连接状态变化
   const handleBackendStatusChange = useCallback((connected: boolean) => {
     setIsBackendConnected(connected)
+  }, [])
+
+  // 处理 Git 状态变化
+  const handleGitStatusChange = useCallback((available: boolean) => {
+    setIsGitAvailable(available)
   }, [])
 
   // 注册重新检查功能
@@ -122,7 +128,8 @@ export function OnboardingContent({
                 onTabChange={(_tabId, tabIndex) => setCurrentTabIndex(tabIndex)}
                 extraProps={{
                   onStatusChange: handleBackendStatusChange,
-                  onRecheckRequest: handleRecheckRequest
+                  onRecheckRequest: handleRecheckRequest,
+                  onGitStatusChange: handleGitStatusChange
                 }}
               />
             ) : currentStepData.isSettingsStep ? (
@@ -189,7 +196,8 @@ export function OnboardingContent({
               onClick={handleNext}
               disabled={
                 isAnimating || 
-                (hasTabs && currentStepData.tabs?.[currentTabIndex]?.id === 'connectivity' && !isBackendConnected)
+                (hasTabs && currentStepData.tabs?.[currentTabIndex]?.id === 'connectivity' && !isBackendConnected) ||
+                (hasTabs && currentStepData.tabs?.[currentTabIndex]?.id === 'environment' && !isGitAvailable)
               }
               className="step-icon-bg text-white border-0 px-8 py-6 text-base shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               style={{

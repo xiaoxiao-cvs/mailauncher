@@ -7,6 +7,8 @@ import {
 import type { OnboardingStep } from '@/types/onboarding'
 import { ThemeSelector } from '@/components/theme/ThemeSelector'
 import { ConnectivityCheck } from './ConnectivityCheck'
+import { EnvironmentConfig } from './EnvironmentConfig'
+import { PythonEnvironment } from './PythonEnvironment'
 
 /**
  * 引导步骤数据
@@ -38,15 +40,22 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     id: 2,
     title: '环境检查与配置',
     subtitle: '你也不想Git Not Found吧？',
-    description: [
-      '智能配置向导,自动检测系统环境',
-      '一键安装依赖,无需手动配置',
-      '模板化配置,快速创建新实例'
-    ],
+    description: [],
     icon: <RocketIcon className="w-8 h-8" />,
     gradient: 'from-[#ffafcc] to-[#ffc8dd]',
     color: '#ffafcc',
-    isEnvironmentStep: true
+    tabs: [
+      {
+        id: 'environment',
+        label: '环境配置',
+        component: <EnvironmentConfig stepColor="#ffafcc" />
+      },
+      {
+        id: 'python',
+        label: 'Python 环境',
+        component: <PythonEnvironment stepColor="#ffafcc" />
+      }
+    ]
   },
   {
     id: 3,
