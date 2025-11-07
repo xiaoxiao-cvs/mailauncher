@@ -32,3 +32,6 @@ export type { LogFile } from './useLogViewer'
 
 // UI 组件相关
 export { useSidebar } from './useSidebar'
+
+// 下载管理相关
+export { useDownload } from './useDownload'
