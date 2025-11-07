@@ -96,6 +96,7 @@ const MAIBOT_VERSIONS: MaibotVersion[] = [
 
 export function useDownload() {
   const [deploymentPath, setDeploymentPath] = useState<string>('')
+  const [instanceName, setInstanceName] = useState<string>('')
   const [downloadItems, setDownloadItems] = useState<DownloadItem[]>(initializeDownloadItems())
   const [selectedMaibotVersion, setSelectedMaibotVersion] = useState<MaibotVersion>(MAIBOT_VERSIONS[0])
   const [maibotVersions] = useState<MaibotVersion[]>(MAIBOT_VERSIONS)
@@ -284,6 +285,7 @@ export function useDownload() {
 
   return {
     deploymentPath,
+    instanceName,
     downloadItems,
     selectedMaibotVersion,
     maibotVersions,
@@ -291,6 +293,7 @@ export function useDownload() {
     isDownloading,
     selectedItems,
     setDeploymentPath,
+    setInstanceName,
     selectDeploymentPath,
     setSelectedMaibotVersion,
     downloadItem,

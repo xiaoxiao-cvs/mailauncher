@@ -19,12 +19,14 @@ import { cn } from '@/lib/utils'
 export function DownloadsPage() {
   const {
     deploymentPath,
+    instanceName,
     downloadItems,
     selectedMaibotVersion,
     maibotVersions,
     isLoadingPath,
     isDownloading,
     setDeploymentPath,
+    setInstanceName,
     selectDeploymentPath,
     setSelectedMaibotVersion,
     downloadAll,
@@ -45,8 +47,12 @@ export function DownloadsPage() {
   // 检查是否有项目正在下载
   const hasDownloading = downloadItems.some(item => item.status === 'downloading')
 
-  // 检查是否可以开始下载（需要有部署路径）
-  const canStartDownload = deploymentPath.trim() !== '' && !isDownloading && selectedItems.size > 0
+  // 检查是否可以开始下载（需要有部署路径和实例名称）
+  const canStartDownload = 
+    deploymentPath.trim() !== '' && 
+    instanceName.trim() !== '' && 
+    !isDownloading && 
+    selectedItems.size > 0
 
   return (
     <div className="flex h-screen bg-[#f8f9fa] dark:bg-[#0a0a0a] transition-colors duration-500">
@@ -96,6 +102,30 @@ export function DownloadsPage() {
                     MAI 机器人核心框架
                   </p>
                 </div>
+              </div>
+
+              {/* 实例名称输入框 */}
+              <div className="space-y-2 mb-4">
+                <label className="text-sm font-medium text-[#023e8a] dark:text-white">
+                  实例名称
+                </label>
+                <input
+                  type="text"
+                  value={instanceName}
+                  onChange={(e) => setInstanceName(e.target.value)}
+                  placeholder="例如：我的机器人"
+                  disabled={hasDownloading}
+                  className={cn(
+                    'w-full px-3 py-2 text-sm rounded-lg border',
+                    'bg-white dark:bg-[#2a2a2a]',
+                    'text-[#023e8a] dark:text-white',
+                    'placeholder:text-[#023e8a]/40 dark:placeholder:text-white/40',
+                    'border-[#023e8a]/20 dark:border-white/20',
+                    'focus:outline-none focus:ring-2 focus:ring-[#0077b6]/30',
+                    'transition-all',
+                    'disabled:opacity-60 disabled:cursor-not-allowed'
+                  )}
+                />
               </div>
 
               {/* 版本选择下拉框 */}
@@ -305,7 +335,12 @@ export function DownloadsPage() {
             <div className="flex items-center justify-between gap-4 pt-2">
               {/* 左侧提示 */}
               <div className="flex-1 min-w-0">
-                {!deploymentPath ? (
+                {!instanceName.trim() ? (
+                  <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                    <Icon icon="ph:warning" className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs">请先设置实例名称</span>
+                  </div>
+                ) : !deploymentPath ? (
                   <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                     <Icon icon="ph:warning" className="w-4 h-4 flex-shrink-0" />
                     <span className="text-xs">请先设置部署路径</span>
@@ -317,7 +352,7 @@ export function DownloadsPage() {
                   </div>
                 ) : (
                   <div className="text-xs text-[#023e8a]/60 dark:text-white/60">
-                    已选择 {selectedItems.size} 个组件（Maibot 必装）
+                    实例：{instanceName} | 已选择 {selectedItems.size} 个组件
                   </div>
                 )}
               </div>
