@@ -11,7 +11,7 @@
  */
 
 import { createConsola, LogLevels, LogLevel } from 'consola'
-import { API_URL } from '@/config/api'
+import { getApiUrl } from '@/config/api'
 
 interface LogEntry {
   timestamp: string
@@ -83,7 +83,8 @@ class LoggerConfig {
     this.logBuffer = [] // 立即清空缓冲区
 
     try {
-      await fetch(`${API_URL}/logger/frontend`, {
+      const apiUrl = getApiUrl() // 动态获取 API URL
+      await fetch(`${apiUrl}/logger/frontend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -109,11 +110,12 @@ class LoggerConfig {
     window.addEventListener('beforeunload', () => {
       // 使用 sendBeacon API 确保日志能发送出去
       if (this.logBuffer.length > 0) {
+        const apiUrl = getApiUrl() // 动态获取 API URL
         const blob = new Blob(
           [JSON.stringify({ logs: this.logBuffer })],
           { type: 'application/json' }
         )
-        navigator.sendBeacon(`${API_URL}/logger/frontend`, blob)
+        navigator.sendBeacon(`${apiUrl}/logger/frontend`, blob)
         this.logBuffer = []
       }
     })

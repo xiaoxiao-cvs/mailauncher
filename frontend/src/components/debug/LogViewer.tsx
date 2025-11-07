@@ -7,7 +7,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { logManager } from '@/utils/logger'
-import { API_URL } from '@/config/api'
+import { getApiUrl } from '@/config/api'
 import { DownloadIcon, TrashIcon, RefreshCwIcon } from 'lucide-react'
 
 interface LogFile {
@@ -31,7 +31,8 @@ export function LogViewer({ className }: LogViewerProps) {
   const loadLogs = async () => {
     setLoading(true)
     try {
-      const response = await fetch(`${API_URL}/logger/frontend/files`)
+      const apiUrl = getApiUrl() // 动态获取 API URL
+      const response = await fetch(`${apiUrl}/logger/frontend/files`)
       const data = await response.json()
       if (data.success) {
         setLogs(data.data)
@@ -46,7 +47,8 @@ export function LogViewer({ className }: LogViewerProps) {
   const loadLogContent = async (filePath: string) => {
     setLoading(true)
     try {
-      const response = await fetch(`${API_URL}/logger/frontend/content?path=${encodeURIComponent(filePath)}`)
+      const apiUrl = getApiUrl() // 动态获取 API URL
+      const response = await fetch(`${apiUrl}/logger/frontend/content?path=${encodeURIComponent(filePath)}`)
       const data = await response.json()
       if (data.success) {
         setLogContent(data.data)
@@ -74,7 +76,8 @@ export function LogViewer({ className }: LogViewerProps) {
     await logManager.flush()
     
     try {
-      const response = await fetch(`${API_URL}/logger/frontend/export`)
+      const apiUrl = getApiUrl() // 动态获取 API URL
+      const response = await fetch(`${apiUrl}/logger/frontend/export`)
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -91,7 +94,8 @@ export function LogViewer({ className }: LogViewerProps) {
   const handleClear = async () => {
     if (confirm('确定要清除所有前端日志吗？此操作不可恢复。')) {
       try {
-        const response = await fetch(`${API_URL}/logger/frontend/clear`, {
+        const apiUrl = getApiUrl() // 动态获取 API URL
+        const response = await fetch(`${apiUrl}/logger/frontend/clear`, {
           method: 'DELETE'
         })
         const data = await response.json()

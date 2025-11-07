@@ -13,6 +13,8 @@ import type { OnboardingCallbacks } from '@/types/onboarding'
  */
 export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {}) {
   const [currentStep, setCurrentStep] = useState(0)
+  // 记录用户曾经到达过的最远步骤
+  const [maxReachedStep, setMaxReachedStep] = useState(0)
   const { contentRef, isAnimating, animateTransition } = useOnboardingAnimation()
 
   const currentStepData = ONBOARDING_STEPS[currentStep]
@@ -21,7 +23,12 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
     if (isAnimating) return
     
     if (currentStep < ONBOARDING_STEPS.length - 1) {
-      animateTransition(() => setCurrentStep(currentStep + 1), 'next')
+      const nextStep = currentStep + 1
+      animateTransition(() => {
+        setCurrentStep(nextStep)
+        // 更新最远到达步骤
+        setMaxReachedStep(Math.max(maxReachedStep, nextStep))
+      }, 'next')
     } else {
       handleComplete()
     }
@@ -33,7 +40,8 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
   }
 
   const handleStepClick = (index: number) => {
-    if (!isAnimating && index !== currentStep) {
+    // 只允许返回到之前到达过的步骤，不允许跳过未到达的步骤
+    if (!isAnimating && index !== currentStep && index <= maxReachedStep) {
       const direction = index > currentStep ? 'next' : 'prev'
       animateTransition(() => setCurrentStep(index), direction)
     }
@@ -73,6 +81,7 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
         <OnboardingSidebar
           steps={ONBOARDING_STEPS}
           currentStep={currentStep}
+          maxReachedStep={maxReachedStep}
           isAnimating={isAnimating}
           onStepClick={handleStepClick}
         />

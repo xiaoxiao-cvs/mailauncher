@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2Icon, XCircleIcon, LoaderIcon, AlertCircleIcon, WifiOffIcon, ServerIcon, CheckIcon } from 'lucide-react'
 import { connectivityLogger } from '@/utils/logger'
+import { getApiBaseUrl, setApiBaseUrl } from '@/config/api'
 
 interface ConnectivityStatus {
   name: string
@@ -18,33 +19,13 @@ interface ConnectivityCheckProps {
   onRecheckRequest?: (checkFn: () => void) => void
 }
 
-const BACKEND_URL_KEY = 'mai_launcher_backend_url'
-const DEFAULT_BACKEND_URL = 'http://localhost:11111'
-
 /**
  * 联通性检查组件
  * 检查后端连接、GitHub 和 Gitee 的延迟
  */
 export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest }: ConnectivityCheckProps) {
-  // 从 localStorage 读取保存的后端地址，如果没有则使用默认值
-  const [backendUrl, setBackendUrl] = useState(() => {
-    const saved = localStorage.getItem(BACKEND_URL_KEY)
-    // 验证保存的地址格式
-    if (saved) {
-      try {
-        const url = new URL(saved)
-        // 必须是 http 或 https 协议,且有完整的 host
-        if ((url.protocol === 'http:' || url.protocol === 'https:') && url.host) {
-          return saved
-        }
-      } catch {
-        // URL 格式错误,清除并使用默认值
-      }
-    }
-    // 如果没有有效的保存值,使用默认值并保存
-    localStorage.setItem(BACKEND_URL_KEY, DEFAULT_BACKEND_URL)
-    return DEFAULT_BACKEND_URL
-  })
+  // 使用统一的 API 配置管理
+  const [backendUrl, setBackendUrl] = useState(() => getApiBaseUrl())
 
   const [backendStatus, setBackendStatus] = useState<ConnectivityStatus>({
     name: '后端服务',
@@ -68,13 +49,18 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
   const [tempUrl, setTempUrl] = useState(backendUrl)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
-  // 保存后端地址到 localStorage
+  // 保存后端地址 - 使用统一的 API 配置管理
   const saveBackendUrl = (url: string) => {
-    localStorage.setItem(BACKEND_URL_KEY, url)
-    setBackendUrl(url)
-    setTempUrl(url)
-    setHasUnsavedChanges(false)
-    setBackendStatus(prev => ({ ...prev, url, status: 'pending' }))
+    try {
+      setApiBaseUrl(url) // 使用统一的配置管理
+      setBackendUrl(url)
+      setTempUrl(url)
+      setHasUnsavedChanges(false)
+      setBackendStatus(prev => ({ ...prev, url, status: 'pending' }))
+      connectivityLogger.success('后端地址已保存', { url })
+    } catch (error) {
+      connectivityLogger.error('保存后端地址失败', error)
+    }
   }
 
   // 当 backendUrl 更新后触发检查
@@ -112,13 +98,17 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
 
   // 检查后端连接
   const checkBackend = async () => {
-    setBackendStatus(prev => ({ ...prev, status: 'checking' }))
-    connectivityLogger.info('开始检查后端连接', { url: backendUrl })
+    // 每次检查时都从配置中获取最新的地址，确保使用用户设置的地址
+    const currentUrl = getApiBaseUrl()
+    setBackendUrl(currentUrl) // 同步更新状态
+    
+    setBackendStatus(prev => ({ ...prev, status: 'checking', url: currentUrl }))
+    connectivityLogger.info('开始检查后端连接', { url: currentUrl })
     
     const startTime = performance.now()
     try {
       // 使用根路径健康检查端点,更简单可靠
-      const response = await fetch(`${backendUrl}/`, {
+      const response = await fetch(`${currentUrl}/`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000) // 5秒超时
       })
@@ -131,7 +121,7 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
         if (data.status === 'ok') {
           setBackendStatus({
             name: '后端服务',
-            url: backendUrl,
+            url: currentUrl,
             status: 'success',
             latency
           })
@@ -139,7 +129,7 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
         } else {
           setBackendStatus({
             name: '后端服务',
-            url: backendUrl,
+            url: currentUrl,
             status: 'error',
             error: '响应格式错误'
           })
@@ -148,7 +138,7 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
       } else {
         setBackendStatus({
           name: '后端服务',
-          url: backendUrl,
+          url: currentUrl,
           status: 'error',
           error: `HTTP ${response.status}`
         })
@@ -157,7 +147,7 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
     } catch (error) {
       setBackendStatus({
         name: '后端服务',
-        url: backendUrl,
+        url: currentUrl,
         status: 'error',
         error: error instanceof Error ? error.message : '连接失败'
       })

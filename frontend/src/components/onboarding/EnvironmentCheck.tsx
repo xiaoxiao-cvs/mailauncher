@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2Icon, XCircleIcon, LoaderIcon, FolderOpenIcon, AlertCircleIcon } from 'lucide-react'
-import { API_URL } from '@/config/api'
+import { getApiUrl } from '@/config/api'
 import { environmentLogger } from '@/utils/logger'
 
 interface GitInfo {
@@ -33,7 +33,8 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
     environmentLogger.info('开始检查 Git 环境')
     
     try {
-      const response = await fetch(`${API_URL}/environment/git`)
+      const apiUrl = getApiUrl() // 动态获取 API URL
+      const response = await fetch(`${apiUrl}/environment/git`)
       const data = await response.json()
       
       if (data.success) {
@@ -54,7 +55,8 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
   const loadDeploymentPath = async () => {
     environmentLogger.info('加载部署路径配置')
     try {
-      const response = await fetch(`${API_URL}/environment/config`)
+      const apiUrl = getApiUrl() // 动态获取 API URL
+      const response = await fetch(`${apiUrl}/environment/config`)
       const data = await response.json()
       
       if (data.success) {
@@ -108,7 +110,8 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
     environmentLogger.info('保存部署路径', { path })
     
     try {
-      const response = await fetch(`${API_URL}/config/paths`, {
+      const apiUrl = getApiUrl() // 动态获取 API URL
+      const response = await fetch(`${apiUrl}/config/paths`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
