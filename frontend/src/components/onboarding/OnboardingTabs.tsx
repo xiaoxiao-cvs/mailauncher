@@ -21,14 +21,27 @@ interface OnboardingTabsProps {
 export function OnboardingTabs({ tabs, stepColor, onTabChange, currentTab = 0, extraProps }: OnboardingTabsProps) {
   const [activeTab, setActiveTab] = useState(currentTab)
 
+  // 安全检查
+  if (!tabs || tabs.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full text-[#023e8a]/40 dark:text-white/40">
+        <p>暂无配置项</p>
+      </div>
+    )
+  }
+
   // 当父组件的 currentTab 变化时，同步更新内部状态
   useEffect(() => {
-    setActiveTab(currentTab)
-  }, [currentTab])
+    if (currentTab >= 0 && currentTab < tabs.length) {
+      setActiveTab(currentTab)
+    }
+  }, [currentTab, tabs.length])
 
   const handleTabClick = (index: number) => {
-    setActiveTab(index)
-    onTabChange?.(tabs[index].id, index)
+    if (index >= 0 && index < tabs.length) {
+      setActiveTab(index)
+      onTabChange?.(tabs[index].id, index)
+    }
   }
 
   return (
@@ -62,9 +75,11 @@ export function OnboardingTabs({ tabs, stepColor, onTabChange, currentTab = 0, e
       {/* Tab 内容 - 固定高度，内部滚动 */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="animate-in fade-in-0 slide-in-from-right-2 duration-300">
-          {extraProps && React.isValidElement(tabs[activeTab].component)
-            ? React.cloneElement(tabs[activeTab].component as React.ReactElement, extraProps)
-            : tabs[activeTab].component}
+          {tabs[activeTab] && (
+            extraProps && React.isValidElement(tabs[activeTab].component)
+              ? React.cloneElement(tabs[activeTab].component as React.ReactElement, extraProps)
+              : tabs[activeTab].component
+          )}
         </div>
       </div>
     </div>

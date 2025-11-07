@@ -4,120 +4,26 @@
  * 从后端 API 获取日志文件列表和内容
  */
 
-import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { logManager } from '@/utils/logger'
-import { getApiUrl } from '@/config/api'
 import { DownloadIcon, TrashIcon, RefreshCwIcon } from 'lucide-react'
-
-interface LogFile {
-  name: string
-  path: string
-  size: number
-  modified: string
-  compressed: boolean
-}
+import { useLogViewer } from '@/hooks/useLogViewer'
 
 interface LogViewerProps {
   className?: string
 }
 
 export function LogViewer({ className }: LogViewerProps) {
-  const [logs, setLogs] = useState<LogFile[]>([])
-  const [selectedLog, setSelectedLog] = useState<string | null>(null)
-  const [logContent, setLogContent] = useState<string>('')
-  const [loading, setLoading] = useState(false)
-
-  const loadLogs = async () => {
-    setLoading(true)
-    try {
-      const apiUrl = getApiUrl() // 动态获取 API URL
-      const response = await fetch(`${apiUrl}/logger/frontend/files`)
-      const data = await response.json()
-      if (data.success) {
-        setLogs(data.data)
-      }
-    } catch (error) {
-      console.error('加载日志列表失败:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadLogContent = async (filePath: string) => {
-    setLoading(true)
-    try {
-      const apiUrl = getApiUrl() // 动态获取 API URL
-      const response = await fetch(`${apiUrl}/logger/frontend/content?path=${encodeURIComponent(filePath)}`)
-      const data = await response.json()
-      if (data.success) {
-        setLogContent(data.data)
-      }
-    } catch (error) {
-      console.error('加载日志内容失败:', error)
-      setLogContent('加载日志失败')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadLogs()
-  }, [])
-
-  useEffect(() => {
-    if (selectedLog) {
-      loadLogContent(selectedLog)
-    }
-  }, [selectedLog])
-
-  const handleDownload = async () => {
-    // 先刷新当前会话的日志
-    await logManager.flush()
-    
-    try {
-      const apiUrl = getApiUrl() // 动态获取 API URL
-      const response = await fetch(`${apiUrl}/logger/frontend/export`)
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `mai-launcher-frontend-logs-${new Date().toISOString()}.zip`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('导出日志失败:', error)
-      alert('导出日志失败，请检查后端连接')
-    }
-  }
-
-  const handleClear = async () => {
-    if (confirm('确定要清除所有前端日志吗？此操作不可恢复。')) {
-      try {
-        const apiUrl = getApiUrl() // 动态获取 API URL
-        const response = await fetch(`${apiUrl}/logger/frontend/clear`, {
-          method: 'DELETE'
-        })
-        const data = await response.json()
-        if (data.success) {
-          setLogs([])
-          setSelectedLog(null)
-          setLogContent('')
-        }
-      } catch (error) {
-        console.error('清除日志失败:', error)
-        alert('清除日志失败，请检查后端连接')
-      }
-    }
-  }
-
-  const parseLogLine = (line: string) => {
-    try {
-      return JSON.parse(line)
-    } catch {
-      return null
-    }
-  }
+  const {
+    logs,
+    selectedLog,
+    setSelectedLog,
+    logContent,
+    loading,
+    loadLogs,
+    handleDownload,
+    handleClear,
+    getParsedLogs
+  } = useLogViewer()
 
   const renderLogContent = () => {
     if (!logContent) {
@@ -128,8 +34,7 @@ export function LogViewer({ className }: LogViewerProps) {
       )
     }
 
-    const lines = logContent.trim().split('\n')
-    const parsedLogs = lines.map(parseLogLine).filter(Boolean)
+    const parsedLogs = getParsedLogs()
 
     if (parsedLogs.length === 0) {
       return (

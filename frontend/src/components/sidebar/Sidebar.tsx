@@ -1,11 +1,8 @@
-import { useState, useEffect } from 'react'
 import { Icon } from '@iconify/react'
 import { SidebarNavItemComponent } from './SidebarNavItem'
 import { SIDEBAR_NAV_ITEMS, SIDEBAR_BOTTOM_ITEMS } from './constants'
 import { cn } from '@/lib/utils'
-import { storageLogger } from '@/utils/logger'
-
-const SIDEBAR_STORAGE_KEY = 'mailauncher-sidebar-collapsed'
+import { useSidebar } from '@/hooks/useSidebar'
 
 /**
  * 侧边栏组件
@@ -20,29 +17,8 @@ const SIDEBAR_STORAGE_KEY = 'mailauncher-sidebar-collapsed'
  * - 状态持久化到 localStorage
  */
 export function Sidebar() {
-  // 从 localStorage 读取状态，默认为展开（false）
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    try {
-      const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
-      return stored === 'true'
-    } catch {
-      return false
-    }
-  })
-
-  // 保存状态到 localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(isCollapsed))
-      storageLogger.debug('侧边栏状态已保存', { isCollapsed })
-    } catch (error) {
-      storageLogger.warn('保存侧边栏状态失败', error)
-    }
-  }, [isCollapsed])
-
-  const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed)
-  }
+  // 使用自定义 hook 管理侧边栏状态
+  const { isCollapsed, toggleSidebar } = useSidebar()
 
   return (
     <aside

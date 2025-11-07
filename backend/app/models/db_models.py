@@ -75,6 +75,48 @@ class PathConfig(Base):
         return f"<PathConfig(name={self.name}, path={self.path})>"
 
 
+class ApiProvider(Base):
+    """AI 模型供应商配置 - 存储各个 AI 服务商的 API 配置"""
+    __tablename__ = "api_providers"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, index=True)  # 供应商名称
+    base_url = Column(String(500), nullable=False)  # API 端点 URL
+    api_key = Column(Text, nullable=False)  # API Key (加密存储)
+    is_enabled = Column(Boolean, default=True, nullable=False)  # 是否启用
+    priority = Column(Integer, default=0, nullable=False)  # 优先级（数字越小优先级越高）
+    balance = Column(String(100), nullable=True)  # 账户余额
+    balance_updated_at = Column(DateTime, nullable=True)  # 余额更新时间
+    models_updated_at = Column(DateTime, nullable=True)  # 模型列表更新时间
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+    
+    def __repr__(self):
+        return f"<ApiProvider(name={self.name}, is_enabled={self.is_enabled})>"
+
+
+class ApiModel(Base):
+    """AI 模型缓存 - 存储供应商支持的模型列表"""
+    __tablename__ = "api_models"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    provider_id = Column(Integer, nullable=False, index=True)  # 关联的供应商 ID
+    model_id = Column(String(200), nullable=False)  # 模型 ID (如 gpt-4o, claude-3-sonnet)
+    model_name = Column(String(200), nullable=True)  # 模型显示名称
+    owned_by = Column(String(200), nullable=True)  # 模型所有者
+    created = Column(Integer, nullable=True)  # 模型创建时间戳
+    supports_vision = Column(Boolean, default=False, nullable=False)  # 是否支持视觉
+    supports_function_calling = Column(Boolean, default=False, nullable=False)  # 是否支持函数调用
+    context_length = Column(Integer, nullable=True)  # 上下文长度
+    max_output_tokens = Column(Integer, nullable=True)  # 最大输出 tokens
+    input_price = Column(String(50), nullable=True)  # 输入价格（每百万 tokens）
+    output_price = Column(String(50), nullable=True)  # 输出价格（每百万 tokens）
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+    
+    def __repr__(self):
+        return f"<ApiModel(provider_id={self.provider_id}, model_id={self.model_id})>"
+
+
 class InstanceDB(Base):
     """实例数据库模型 - 存储机器人实例信息"""
     __tablename__ = "instances"

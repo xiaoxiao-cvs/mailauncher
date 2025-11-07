@@ -9,6 +9,7 @@ import { ThemeSelector } from '@/components/theme/ThemeSelector'
 import { ConnectivityCheck } from './ConnectivityCheck'
 import { EnvironmentConfig } from './EnvironmentConfig'
 import { PythonEnvironment } from './PythonEnvironment'
+import { ApiProviderConfig } from './ApiProviderConfig'
 
 /**
  * 引导步骤数据
@@ -59,6 +60,22 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   },
   {
     id: 3,
+    title: 'API 配置',
+    subtitle: '配置 AI 模型服务',
+    description: [],
+    icon: <ZapIcon className="w-8 h-8" />,
+    gradient: 'from-[#cdb4db] to-[#ffc8dd]',
+    color: '#cdb4db',
+    tabs: [
+      {
+        id: 'api-providers',
+        label: '模型供应商',
+        component: <ApiProviderConfig stepColor="#cdb4db" />
+      }
+    ]
+  },
+  {
+    id: 4,
     title: '多实例管理',
     subtitle: '同时管理多个机器人账号',
     description: [
@@ -71,7 +88,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     color: '#cdb4db'
   },
   {
-    id: 4,
+    id: 5,
     title: '安全稳定',
     subtitle: '7×24 小时稳定运行',
     description: [
