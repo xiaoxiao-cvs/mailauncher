@@ -208,6 +208,7 @@ export function Sidebar() {
         onClearAll={clearAllNotifications}
         onClose={closePopover}
         onNotificationClick={handleNotificationClick}
+        isCollapsed={isCollapsed}
       />
 
       {/* 通知详情模态框 */}

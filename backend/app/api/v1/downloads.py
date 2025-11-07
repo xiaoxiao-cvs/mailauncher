@@ -1,8 +1,9 @@
 """
 下载相关的 API 端点
 """
-from fastapi import APIRouter, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Depends
 from typing import Dict
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models.download import (
     DownloadTask,
@@ -15,6 +16,7 @@ from ...services.download_manager import get_download_manager
 from ...services.download_service import get_download_service
 from ...core.websocket import get_connection_manager
 from ...core.logger import logger
+from ...core.database import get_db
 
 router = APIRouter()
 
@@ -23,13 +25,22 @@ router = APIRouter()
 async def create_download_task(
     task_data: DownloadTaskCreate,
     background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
 ):
     """
     创建下载任务
 
     创建一个新的下载任务，任务会在后台异步执行。
+    venv_type 会从数据库读取用户在引导页配置的值（venv/uv/conda）。
     """
     try:
+        # 从数据库读取用户配置的虚拟环境类型（引导页保存）
+        # 前端不需要传递此参数，保持单一数据源
+        from ...services.config_service import config_service
+        venv_type = await config_service.get_config(db, "venv_type")
+        task_data.venv_type = venv_type if venv_type else "venv"
+        logger.info(f"使用用户配置的虚拟环境类型: {task_data.venv_type}")
+        
         manager = get_download_manager()
         
         # 创建任务

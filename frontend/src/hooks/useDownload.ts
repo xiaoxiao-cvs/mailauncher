@@ -282,6 +282,7 @@ export function useDownload() {
             default: return item.type
           }
         })
+        // 注意: venv_type 不需要前端传递，后端会从数据库读取用户在引导页配置的值
       }
 
       downloadLogger.info('创建下载任务', taskData)

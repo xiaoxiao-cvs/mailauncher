@@ -52,6 +52,7 @@ class DownloadManager:
             maibot_version_source=task_data.maibot_version_source,
             maibot_version_value=task_data.maibot_version_value,
             selected_items=task_data.selected_items,
+            venv_type=task_data.venv_type or "venv",  # 使用用户配置的虚拟环境类型
             status=DownloadStatus.PENDING,
             progress=DownloadProgress(
                 current=0,
@@ -63,7 +64,7 @@ class DownloadManager:
         )
 
         self.tasks[task_id] = task
-        logger.info(f"创建下载任务: {task_id} - {task_data.instance_name}")
+        logger.info(f"创建下载任务: {task_id} - {task_data.instance_name} (venv: {task.venv_type})")
         
         return task
 
@@ -197,12 +198,14 @@ class DownloadManager:
                 # 创建虚拟环境
                 await self.install_service.create_virtual_environment(
                     maibot_dir,
+                    task.venv_type,
                     progress_callback,
                 )
                 
                 # 安装依赖
                 success = await self.install_service.install_dependencies(
                     maibot_dir,
+                    task.venv_type,
                     progress_callback,
                 )
                 
@@ -266,12 +269,14 @@ class DownloadManager:
                 # 创建虚拟环境
                 await self.install_service.create_virtual_environment(
                     adapter_dir,
+                    task.venv_type,
                     progress_callback,
                 )
                 
                 # 安装依赖
                 success = await self.install_service.install_dependencies(
                     adapter_dir,
+                    task.venv_type,
                     progress_callback,
                 )
                 
@@ -332,8 +337,16 @@ class DownloadManager:
                 
                 lpmm_dir = instance_dir / "MaiMBot-LPMM"
                 
+                # 为 LPMM 创建虚拟环境 (macOS 需要编译 quick_algo)
+                await self.install_service.create_virtual_environment(
+                    lpmm_dir,
+                    task.venv_type,
+                    progress_callback,
+                )
+                
                 success = await self.install_service.install_dependencies(
                     lpmm_dir,
+                    task.venv_type,
                     progress_callback,
                 )
                 
@@ -354,6 +367,7 @@ class DownloadManager:
                 
                 success = await self.install_service.compile_quick_algo(
                     lpmm_dir,
+                    task.venv_type,
                     progress_callback,
                 )
                 

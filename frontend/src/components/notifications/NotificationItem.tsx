@@ -66,51 +66,37 @@ export function NotificationItem({ notification, onRemove, onClick }: Notificati
   return (
     <div
       className={cn(
-        'p-3 rounded-lg shadow-sm border transition-all duration-200',
+        'px-3 py-2 rounded-lg shadow-sm border transition-all duration-200',
         getBgColor(),
         'border-[#023e8a]/10 dark:border-white/10',
-        'cursor-pointer hover:shadow-md hover:scale-[1.02]'
+        'cursor-pointer hover:shadow-md hover:scale-[1.01]'
       )}
       onClick={() => onClick(notification)}
     >
-      <div className="flex items-start gap-3">
-        {/* 图标 */}
-        <div className="flex-shrink-0 mt-0.5">
+      <div className="flex items-center gap-2.5">
+        {/* 图标 - 垂直居中 */}
+        <div className="flex-shrink-0">
           {getIcon()}
         </div>
 
         {/* 内容 */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-1">
-            <h4 className="text-sm font-semibold text-[#03045e] dark:text-white truncate">
-              {title}
-            </h4>
-            
-            {/* 删除按钮 */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onRemove(notification.id)
-              }}
-              className="flex-shrink-0 p-1 rounded hover:bg-[#023e8a]/10 dark:hover:bg-white/10 transition-colors"
-              aria-label="删除通知"
-            >
-              <Icon icon="ph:x" className="w-4 h-4 text-[#023e8a]/50 dark:text-white/50" />
-            </button>
-          </div>
+          <h4 className="text-sm font-medium text-[#03045e] dark:text-white truncate">
+            {title}
+          </h4>
 
-          <p className="text-xs text-[#023e8a]/70 dark:text-white/70 mb-2">
+          <p className="text-xs text-[#023e8a]/70 dark:text-white/70 mt-0.5 line-clamp-1">
             {message}
           </p>
 
           {/* 任务进度条 */}
           {type === NotificationType.TASK && task && (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs text-[#023e8a]/60 dark:text-white/60">
+            <div className="space-y-0.5 mt-1.5">
+              <div className="flex items-center justify-between text-[10px] text-[#023e8a]/60 dark:text-white/60">
                 <span>{getStatusText(task.status)}</span>
                 <span>{task.progress}%</span>
               </div>
-              <div className="h-1.5 bg-[#023e8a]/10 dark:bg-white/10 rounded-full overflow-hidden">
+              <div className="h-1 bg-[#023e8a]/10 dark:bg-white/10 rounded-full overflow-hidden">
                 <div
                   className={cn(
                     'h-full rounded-full transition-all duration-300',
@@ -126,6 +112,18 @@ export function NotificationItem({ notification, onRemove, onClick }: Notificati
             </div>
           )}
         </div>
+
+        {/* 删除按钮 - 垂直居中 */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onRemove(notification.id)
+          }}
+          className="flex-shrink-0 p-0.5 rounded hover:bg-[#023e8a]/10 dark:hover:bg-white/10 transition-colors"
+          aria-label="删除通知"
+        >
+          <Icon icon="ph:x" className="w-3.5 h-3.5 text-[#023e8a]/50 dark:text-white/50" />
+        </button>
       </div>
     </div>
   )

@@ -67,13 +67,15 @@ class InstallService:
     async def create_virtual_environment(
         self,
         project_dir: Path,
+        venv_type: str = "venv",
         progress_callback: Optional[Callable[[str, str], Any]] = None,
     ) -> bool:
         """
-        创建 Python 虚拟环境 (使用 uv)
+        创建虚拟环境
 
         Args:
             project_dir: 项目目录
+            venv_type: 虚拟环境类型 (venv, uv, conda)
             progress_callback: 进度回调 (message, level)
 
         Returns:
@@ -81,31 +83,30 @@ class InstallService:
         """
         try:
             if progress_callback:
-                await progress_callback(f"在 {project_dir.name} 创建虚拟环境", "info")
+                await progress_callback(f"在 {project_dir.name} 创建虚拟环境 (使用 {venv_type})", "info")
 
-            # 检查是否安装了 uv
-            uv_check = await asyncio.create_subprocess_exec(
-                "uv", "--version",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            await uv_check.communicate()
-
-            if uv_check.returncode != 0:
-                # uv 未安装，使用 python venv
-                if progress_callback:
-                    await progress_callback("uv 未安装，使用 python -m venv", "info")
-                
+            # 根据用户配置的 venv_type 创建虚拟环境
+            if venv_type == "uv":
+                # 使用 uv 创建虚拟环境
                 success, _ = await self._run_command(
-                    ["python3", "-m", "venv", ".venv"],
+                    ["uv", "venv"],
+                    project_dir,
+                    progress_callback,
+                )
+                return success
+            elif venv_type == "conda":
+                # 使用 conda 创建虚拟环境
+                venv_name = f"{project_dir.name}_env"
+                success, _ = await self._run_command(
+                    ["conda", "create", "-p", str(project_dir / ".venv"), "python=3.10", "-y"],
                     project_dir,
                     progress_callback,
                 )
                 return success
             else:
-                # 使用 uv 创建虚拟环境
+                # 使用 python venv (默认)
                 success, _ = await self._run_command(
-                    ["uv", "venv"],
+                    ["python3", "-m", "venv", ".venv"],
                     project_dir,
                     progress_callback,
                 )
@@ -121,6 +122,7 @@ class InstallService:
     async def install_dependencies(
         self,
         project_dir: Path,
+        venv_type: str = "venv",
         progress_callback: Optional[Callable[[str, str], Any]] = None,
     ) -> bool:
         """
@@ -128,6 +130,7 @@ class InstallService:
 
         Args:
             project_dir: 项目目录
+            venv_type: 虚拟环境类型 (venv, uv, conda)
             progress_callback: 进度回调 (message, level)
 
         Returns:
@@ -142,25 +145,25 @@ class InstallService:
                 return True
 
             if progress_callback:
-                await progress_callback(f"在 {project_dir.name} 安装依赖", "info")
+                await progress_callback(f"在 {project_dir.name} 安装依赖 (使用 {venv_type})", "info")
 
-            # 检查是否使用 uv
-            uv_check = await asyncio.create_subprocess_exec(
-                "uv", "--version",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            await uv_check.communicate()
-
-            if uv_check.returncode == 0:
+            # 根据用户配置的 venv_type 安装依赖
+            if venv_type == "uv":
                 # 使用 uv pip install
                 success, _ = await self._run_command(
                     ["uv", "pip", "install", "-r", "requirements.txt"],
                     project_dir,
                     progress_callback,
                 )
+            elif venv_type == "conda":
+                # 使用 conda 安装
+                success, _ = await self._run_command(
+                    ["conda", "run", "-p", str(project_dir / ".venv"), "pip", "install", "-r", "requirements.txt"],
+                    project_dir,
+                    progress_callback,
+                )
             else:
-                # 使用传统 pip install
+                # 使用传统 pip install (venv)
                 # 首先激活虚拟环境中的 pip
                 venv_pip = project_dir / ".venv" / "bin" / "pip"
                 if not venv_pip.exists():
@@ -192,6 +195,7 @@ class InstallService:
     async def compile_quick_algo(
         self,
         lpmm_dir: Path,
+        venv_type: str = "venv",
         progress_callback: Optional[Callable[[str, str], Any]] = None,
     ) -> bool:
         """
@@ -199,6 +203,7 @@ class InstallService:
 
         Args:
             lpmm_dir: LPMM 目录
+            venv_type: 虚拟环境类型 (venv, uv, conda)
             progress_callback: 进度回调 (message, level)
 
         Returns:
@@ -212,7 +217,7 @@ class InstallService:
                 return True
 
             if progress_callback:
-                await progress_callback("开始编译 quick_algo", "info")
+                await progress_callback("开始编译 quick_algo (使用虚拟环境中的 Python)", "info")
 
             # 进入 lib/quick_algo 目录
             quick_algo_dir = lpmm_dir / "lib" / "quick_algo"
@@ -223,12 +228,33 @@ class InstallService:
                 logger.error(error_msg)
                 return False
 
-            # 执行编译脚本
-            success, output = await self._run_command(
-                ["python", "build_lib.py", "--cleanup", "--cythonize", "--install"],
-                quick_algo_dir,
-                progress_callback,
-            )
+            # 获取虚拟环境中的 Python 可执行文件
+            venv_python = lpmm_dir / ".venv" / "bin" / "python"
+            if not venv_python.exists():
+                venv_python = lpmm_dir / ".venv" / "Scripts" / "python.exe"  # Windows
+            
+            if not venv_python.exists():
+                error_msg = f"虚拟环境 Python 不存在: {venv_python}"
+                if progress_callback:
+                    await progress_callback(error_msg, "error")
+                logger.error(error_msg)
+                return False
+
+            # 使用虚拟环境中的 Python 执行编译脚本
+            if venv_type == "conda":
+                # conda 需要使用 conda run
+                success, output = await self._run_command(
+                    ["conda", "run", "-p", str(lpmm_dir / ".venv"), "python", "build_lib.py", "--cleanup", "--cythonize", "--install"],
+                    quick_algo_dir,
+                    progress_callback,
+                )
+            else:
+                # venv 和 uv 直接使用虚拟环境中的 Python
+                success, output = await self._run_command(
+                    [str(venv_python), "build_lib.py", "--cleanup", "--cythonize", "--install"],
+                    quick_algo_dir,
+                    progress_callback,
+                )
 
             if success:
                 if progress_callback:

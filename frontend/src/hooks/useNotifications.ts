@@ -123,6 +123,10 @@ export function useNotifications() {
 
   // 删除单个通知
   const removeNotification = useCallback((id: string) => {
+    // 如果删除的是欢迎消息，记录状态防止再次显示
+    if (id === 'welcome_msg') {
+      localStorage.setItem('welcome_notification_dismissed', 'true')
+    }
     setNotifications(prev => prev.filter(n => n.id !== id))
   }, [])
 
@@ -146,15 +150,21 @@ export function useNotifications() {
     setIsPopoverOpen(true)
   }, [])
 
-  // 初始化时添加提示消息
+  // 初始化时添加欢迎消息（用户删除后不再显示）
   useEffect(() => {
     const timer = setTimeout(() => {
+      // 检查用户是否已经删除过欢迎消息
+      const welcomeDismissed = localStorage.getItem('welcome_notification_dismissed')
+      if (welcomeDismissed === 'true') {
+        return // 用户已删除，不再显示
+      }
+
       const hasWelcomeMessage = notifications.some(n => n.id === 'welcome_msg')
       if (!hasWelcomeMessage && notifications.length === 0) {
         const welcomeNotification: Notification = {
           id: 'welcome_msg',
           type: NotificationType.MESSAGE,
-          title: '💡 提示',
+          title: '提示',
           message: '点击任务可查看详细日志',
           createdAt: new Date(),
           read: false,

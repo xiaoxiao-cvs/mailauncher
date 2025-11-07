@@ -58,6 +58,9 @@ class DownloadTask(BaseModel):
         description="选中的下载项"
     )
     
+    # 虚拟环境配置
+    venv_type: str = Field(default="venv", description="虚拟环境类型: venv, uv, conda")
+    
     # 状态信息
     status: DownloadStatus = Field(
         default=DownloadStatus.PENDING,
@@ -116,6 +119,12 @@ class DownloadTaskCreate(BaseModel):
         ...,
         min_length=1,
         description="选中的下载项"
+    )
+    
+    # 虚拟环境配置（已废弃：后端会自动从数据库读取用户在引导页配置的值）
+    venv_type: Optional[str] = Field(
+        default=None, 
+        description="[已废弃] 虚拟环境类型，后端会从数据库读取用户配置"
     )
 
     class Config:

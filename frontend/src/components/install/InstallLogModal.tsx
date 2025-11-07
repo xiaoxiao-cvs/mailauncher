@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@iconify/react'
 import { cn } from '@/lib/utils'
 import { Notification, NotificationType, TaskStatus } from '@/types/notification'
+import { useWebSocket } from '@/hooks'
 
 interface InstallLogModalProps {
   isOpen: boolean
@@ -11,7 +12,7 @@ interface InstallLogModalProps {
 
 interface LogEntry {
   time: string
-  level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG'
+  level: 'info' | 'success' | 'warning' | 'error'
   message: string
 }
 
@@ -45,39 +46,59 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
     }
   }, [isOpen, onClose])
 
+  // 获取任务 ID
+  const taskId = notification?.type === NotificationType.TASK ? notification.task?.taskId || null : null
+
   // WebSocket 连接（仅任务通知）
-  useEffect(() => {
-    if (!isOpen || !notification || notification.type !== NotificationType.TASK) {
-      setLogs([]) // 清空日志
-      return
+  useWebSocket(isOpen ? taskId : null, {
+    onLog: (message) => {
+      const logEntry: LogEntry = {
+        time: new Date(message.timestamp).toLocaleTimeString(),
+        level: message.level,
+        message: message.message
+      }
+      setLogs(prev => [...prev, logEntry])
+    },
+    onProgress: (message) => {
+      const logEntry: LogEntry = {
+        time: new Date(message.timestamp).toLocaleTimeString(),
+        level: 'info',
+        message: `[${message.percentage.toFixed(0)}%] ${message.message}`
+      }
+      setLogs(prev => [...prev, logEntry])
+    },
+    onStatus: (message) => {
+      const logEntry: LogEntry = {
+        time: new Date(message.timestamp).toLocaleTimeString(),
+        level: 'info',
+        message: `状态变更: ${message.message}`
+      }
+      setLogs(prev => [...prev, logEntry])
+    },
+    onError: (message) => {
+      const logEntry: LogEntry = {
+        time: new Date(message.timestamp).toLocaleTimeString(),
+        level: 'error',
+        message: message.message
+      }
+      setLogs(prev => [...prev, logEntry])
+    },
+    onComplete: (message) => {
+      const logEntry: LogEntry = {
+        time: new Date(message.timestamp).toLocaleTimeString(),
+        level: 'success',
+        message: message.message
+      }
+      setLogs(prev => [...prev, logEntry])
     }
-    
-    const taskId = notification.task?.taskId
-    if (!taskId) return
+  })
 
-    // TODO: 连接 WebSocket 接收日志
-    // const ws = new WebSocket(`ws://localhost:11111/api/v1/ws/downloads/${taskId}`)
-    // ws.onmessage = (event) => {
-    //   const data = JSON.parse(event.data)
-    //   // 处理日志、进度、状态等消息
-    // }
-
-    // 模拟日志（测试用）
-    const mockLogs: LogEntry[] = [
-      { time: '12:00:01', level: 'INFO', message: 'Starting installation process...' },
-      { time: '12:00:02', level: 'INFO', message: 'Cloning repository from GitHub...' },
-      { time: '12:00:05', level: 'INFO', message: 'Repository cloned successfully' },
-      { time: '12:00:06', level: 'INFO', message: 'Installing Python dependencies...' },
-      { time: '12:00:10', level: 'INFO', message: 'Dependencies installed' },
-    ]
-
-    setLogs(mockLogs)
-
-    return () => {
-      // ws?.close()
+  // 清空日志
+  useEffect(() => {
+    if (!isOpen) {
       setLogs([])
     }
-  }, [isOpen, notification])
+  }, [isOpen])
 
   if (!isOpen || !notification) return null
 
@@ -137,7 +158,8 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
       <div
         className={cn(
           'relative z-10',
-          'w-full max-w-4xl max-h-[80vh]',
+          'w-full max-w-2xl',
+          isTaskNotification ? 'max-h-[70vh]' : 'max-h-[50vh]',
           'bg-white dark:bg-[#1a1a1a]',
           'rounded-2xl shadow-2xl',
           'border border-[#023e8a]/10 dark:border-white/10',
@@ -216,11 +238,11 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
                     <div key={index} className="flex gap-3">
                       <span className="text-gray-500 flex-shrink-0">{log.time}</span>
                       <span className={cn(
-                        'flex-shrink-0 font-semibold',
-                        log.level === 'ERROR' && 'text-red-400',
-                        log.level === 'WARN' && 'text-yellow-400',
-                        log.level === 'INFO' && 'text-blue-400',
-                        log.level === 'DEBUG' && 'text-gray-400'
+                        'flex-shrink-0 font-semibold uppercase',
+                        log.level === 'error' && 'text-red-400',
+                        log.level === 'warning' && 'text-yellow-400',
+                        log.level === 'success' && 'text-green-400',
+                        log.level === 'info' && 'text-blue-400'
                       )}>
                         [{log.level}]
                       </span>

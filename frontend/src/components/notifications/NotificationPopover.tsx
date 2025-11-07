@@ -17,6 +17,8 @@ interface NotificationPopoverProps {
   onClose: () => void
   /** 点击通知项 */
   onNotificationClick: (notification: Notification) => void
+  /** 侧边栏是否收起 */
+  isCollapsed: boolean
 }
 
 /**
@@ -34,6 +36,7 @@ export function NotificationPopover({
   onClearAll,
   onClose,
   onNotificationClick,
+  isCollapsed,
 }: NotificationPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null)
 
@@ -53,21 +56,26 @@ export function NotificationPopover({
 
   if (!isOpen) return null
 
+  // 根据侧边栏状态计算气泡位置
+  const popoverLeft = isCollapsed ? '4.5rem' : '17rem' // 收起时 72px，展开时 272px
+
   return (
     <div
       ref={popoverRef}
       className={cn(
         'fixed z-50',
-        'w-80 max-h-[32rem]',
+        'w-96', // 横向拉宽：从 w-80 (320px) → w-96 (384px)
+        'h-80', // 竖向压矮：从 h-96 (384px) → h-80 (320px)
         'bg-white dark:bg-[#1a1a1a]',
         'rounded-xl shadow-2xl',
         'border border-[#023e8a]/10 dark:border-white/10',
         'flex flex-col',
-        'animate-in fade-in slide-in-from-left-2 duration-200'
+        'animate-in fade-in slide-in-from-left-2 duration-200',
+        'transition-all duration-300' // 添加过渡动画
       )}
       style={{
-        left: '4.5rem',
-        bottom: '5rem',
+        left: popoverLeft,
+        bottom: '1.2rem', // 气泡底部距离屏幕底部 1.2rem，让箭头对准铃铛
       }}
     >
       {/* 头部 */}
@@ -105,17 +113,6 @@ export function NotificationPopover({
           ))
         )}
       </div>
-
-      {/* 气泡箭头指示器 - 深色模式适配 */}
-      <div
-        className="absolute left-[-8px] bottom-12 w-0 h-0 border-8 border-transparent border-r-white dark:border-r-[#1a1a1a]"
-        style={{
-          borderTopWidth: '8px',
-          borderBottomWidth: '8px',
-          borderLeftWidth: '0',
-          borderRightWidth: '8px',
-        }}
-      />
     </div>
   )
 }

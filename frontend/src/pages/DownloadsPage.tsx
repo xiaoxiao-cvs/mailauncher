@@ -10,9 +10,10 @@ import {
 } from '@/components/ui/select'
 import { Sidebar } from '@/components/sidebar'
 import { InstallOverview } from '@/components/install/InstallOverview'
-import { useDownload, useInstallOverview, useNotifications } from '@/hooks'
+import { useDownload, useInstallOverview, useNotifications, useWebSocket } from '@/hooks'
 import { cn } from '@/lib/utils'
 import { TaskStatus } from '@/types/notification'
+import { useState } from 'react'
 
 /**
  * 下载页面
@@ -42,6 +43,45 @@ export function DownloadsPage() {
   // 通知管理
   const { addTaskNotification, updateTaskProgress } = useNotifications()
 
+  // 当前任务 ID
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null)
+
+  // WebSocket 连接
+  useWebSocket(currentTaskId, {
+    onProgress: (message) => {
+      // 更新安装概要卡片的进度
+      if (message.percentage !== undefined) {
+        const taskStatus = message.status === 'downloading' ? TaskStatus.DOWNLOADING
+          : message.status === 'installing' ? TaskStatus.INSTALLING
+          : message.status === 'configuring' ? TaskStatus.INSTALLING
+          : message.status === 'completed' ? TaskStatus.SUCCESS
+          : message.status === 'failed' ? TaskStatus.FAILED
+          : TaskStatus.PENDING
+        
+        updateStatus(taskStatus)
+        updateTaskProgress(currentTaskId!, message.percentage, taskStatus)
+      }
+    },
+    onStatus: (message) => {
+      const taskStatus = message.status === 'downloading' ? TaskStatus.DOWNLOADING
+        : message.status === 'installing' ? TaskStatus.INSTALLING
+        : message.status === 'configuring' ? TaskStatus.INSTALLING
+        : message.status === 'completed' ? TaskStatus.SUCCESS
+        : message.status === 'failed' ? TaskStatus.FAILED
+        : TaskStatus.PENDING
+      
+      updateStatus(taskStatus)
+    },
+    onComplete: () => {
+      updateStatus(TaskStatus.SUCCESS)
+      updateTaskProgress(currentTaskId!, 100, TaskStatus.SUCCESS)
+    },
+    onError: () => {
+      updateStatus(TaskStatus.FAILED)
+      updateTaskProgress(currentTaskId!, 0, TaskStatus.FAILED)
+    }
+  })
+
   // 检测平台
   const isMacOS = window.navigator.platform.toLowerCase().includes('mac')
   const isWindows = window.navigator.platform.toLowerCase().includes('win')
@@ -64,23 +104,17 @@ export function DownloadsPage() {
 
   // 处理开始安装
   const handleStartInstall = async () => {
-    console.log('🚀 开始安装流程')
-    
     // 获取选中的组件名称
     const components = Array.from(selectedItems)
-    console.log('📦 选中的组件:', components)
 
     // 调用下载方法获取任务 ID
     const taskId = await downloadAll()
-    console.log('🆔 获取到任务 ID:', taskId)
     
     if (!taskId) {
       // 下载失败，不显示概要卡片
-      console.error('❌ 任务 ID 为空，取消显示概要卡片')
       return
     }
 
-    console.log('📋 显示安装概要卡片')
     // 显示安装概要卡片
     showOverview({
       taskId,
@@ -90,7 +124,6 @@ export function DownloadsPage() {
       deploymentPath,
     })
 
-    console.log('🔔 添加任务通知')
     // 添加任务通知
     addTaskNotification({
       taskId,
@@ -100,26 +133,8 @@ export function DownloadsPage() {
       deploymentPath,
     })
 
-    console.log('⏱️ 启动模拟进度更新')
-    // TODO: 集成 WebSocket 监听任务进度
-    // 目前使用模拟数据演示
-    setTimeout(() => {
-      console.log('📥 更新状态: DOWNLOADING')
-      updateStatus(TaskStatus.DOWNLOADING)
-      updateTaskProgress(taskId, 30, TaskStatus.DOWNLOADING)
-    }, 1000)
-
-    setTimeout(() => {
-      console.log('⚙️ 更新状态: INSTALLING')
-      updateStatus(TaskStatus.INSTALLING)
-      updateTaskProgress(taskId, 60, TaskStatus.INSTALLING)
-    }, 3000)
-
-    setTimeout(() => {
-      console.log('✅ 更新状态: SUCCESS')
-      updateStatus(TaskStatus.SUCCESS)
-      updateTaskProgress(taskId, 100, TaskStatus.SUCCESS)
-    }, 5000)
+    // 设置当前任务 ID，WebSocket 会自动连接并接收实时进度
+    setCurrentTaskId(taskId)
   }
 
   return (
