@@ -63,3 +63,7 @@ frontend/build/
 # Log files (data directory)
 backend/data/Log/**/*.jsonl
 backend/data/Log/**/*.jsonl.gz
+
+# Backend build output
+backend/data
+backend/deployments
