@@ -18,6 +18,9 @@ greenlet==3.2.4
 # 日志
 loguru==0.7.2
 
+# 进程管理
+pywinpty==2.0.13; sys_platform == 'win32'  # Windows PTY 支持
+
 # 测试依赖
 requests==2.31.0
 pyinstaller==6.3.0

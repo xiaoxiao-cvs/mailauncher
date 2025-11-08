@@ -211,8 +211,8 @@ async def stop_instance(
 ):
     """停止实例"""
     try:
-        success = await service.stop_instance(db, instance_id)
-        if not success:
+        results = await service.stop_instance(db, instance_id)
+        if "error" in results:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"实例 {instance_id} 不存在",
@@ -228,4 +228,108 @@ async def stop_instance(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"停止实例失败: {str(e)}",
+        )
+
+
+@router.post("/{instance_id}/restart", response_model=SuccessResponse)
+async def restart_instance(
+    instance_id: str,
+    db: AsyncSession = Depends(get_db),
+    service: InstanceService = Depends(get_instance_service),
+):
+    """重启实例"""
+    try:
+        results = await service.restart_instance(db, instance_id)
+        if "error" in results:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"实例 {instance_id} 不存在",
+            )
+        return SuccessResponse(
+            success=True,
+            message=f"实例 {instance_id} 已重启",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"重启实例失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"重启实例失败: {str(e)}",
+        )
+
+
+@router.post("/{instance_id}/component/{component}/start", response_model=SuccessResponse)
+async def start_component(
+    instance_id: str,
+    component: str,
+    db: AsyncSession = Depends(get_db),
+    service: InstanceService = Depends(get_instance_service),
+):
+    """启动实例的指定组件 (main, napcat, napcat-ada)"""
+    try:
+        success = await service.start_component(db, instance_id, component)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"组件 {component} 启动失败",
+            )
+        return SuccessResponse(
+            success=True,
+            message=f"组件 {component} 已启动",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"启动组件失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"启动组件失败: {str(e)}",
+        )
+
+
+@router.post("/{instance_id}/component/{component}/stop", response_model=SuccessResponse)
+async def stop_component(
+    instance_id: str,
+    component: str,
+    db: AsyncSession = Depends(get_db),
+    service: InstanceService = Depends(get_instance_service),
+):
+    """停止实例的指定组件 (main, napcat, napcat-ada)"""
+    try:
+        success = await service.stop_component(db, instance_id, component)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"组件 {component} 停止失败",
+            )
+        return SuccessResponse(
+            success=True,
+            message=f"组件 {component} 已停止",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"停止组件失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"停止组件失败: {str(e)}",
+        )
+
+
+@router.get("/{instance_id}/component/{component}/status")
+async def get_component_status(
+    instance_id: str,
+    component: str,
+    service: InstanceService = Depends(get_instance_service),
+):
+    """获取组件状态"""
+    try:
+        status_info = await service.get_component_status(instance_id, component)
+        return status_info
+    except Exception as e:
+        logger.error(f"获取组件状态失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取组件状态失败: {str(e)}",
         )

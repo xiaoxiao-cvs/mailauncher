@@ -2,7 +2,7 @@
 实例服务
 处理机器人实例相关的业务逻辑
 """
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 import uuid
 from pathlib import Path
@@ -20,6 +20,7 @@ from ..models import (
 from ..models.db_models import InstanceDB
 from ..core import settings
 from ..core.logger import logger
+from .process_manager import get_process_manager
 
 
 class InstanceService:
@@ -260,6 +261,8 @@ class InstanceService:
         Returns:
             实例状态信息，不存在则返回 None
         """
+        process_manager = get_process_manager()
+        
         try:
             result = await db.execute(
                 select(InstanceDB).where(InstanceDB.id == instance_id)
@@ -269,27 +272,59 @@ class InstanceService:
             if not db_instance:
                 return None
             
-            # TODO: 实现进程状态检查
+            # 检查进程状态
+            processes = process_manager.get_instance_processes(instance_id)
+            
+            # 获取主进程信息
+            main_process = processes.get("main")
+            pid = main_process.pid if main_process else None
+            uptime = main_process.get_uptime() if main_process else None
+            
+            # 同步数据库状态与实际进程状态
+            is_running = process_manager.is_instance_running(instance_id)
+            current_db_status = InstanceStatus(db_instance.status)
+            
+            if is_running and current_db_status == InstanceStatus.STOPPED:
+                # 进程在运行但数据库显示已停止,更新数据库
+                db_instance.status = InstanceStatus.RUNNING.value
+                await db.commit()
+                logger.info(f"同步实例 {instance_id} 状态: STOPPED -> RUNNING")
+            elif not is_running and current_db_status == InstanceStatus.RUNNING:
+                # 进程已停止但数据库显示运行中,更新数据库
+                db_instance.status = InstanceStatus.STOPPED.value
+                await db.commit()
+                logger.info(f"同步实例 {instance_id} 状态: RUNNING -> STOPPED")
+            
             return InstanceStatusResponse(
                 id=instance_id,
                 status=InstanceStatus(db_instance.status),
-                pid=None,
-                uptime=None,
+                pid=pid,
+                uptime=uptime,
             )
         except Exception as e:
             logger.error(f"获取实例状态失败 {instance_id}: {e}")
             raise
     
-    async def start_instance(self, db: AsyncSession, instance_id: str) -> bool:
+    async def start_instance(
+        self,
+        db: AsyncSession,
+        instance_id: str,
+        components: Optional[List[str]] = None,
+    ) -> Dict[str, bool]:
         """启动机器人实例
         
         Args:
             db: 数据库会话
             instance_id: 实例 ID
+            components: 要启动的组件列表,None 表示启动所有组件
+                       可选值: "main", "napcat", "napcat-ada"
             
         Returns:
-            启动是否成功
+            字典,键为组件名称,值为是否启动成功
         """
+        process_manager = get_process_manager()
+        results = {}
+        
         try:
             result = await db.execute(
                 select(InstanceDB).where(InstanceDB.id == instance_id)
@@ -298,38 +333,211 @@ class InstanceService:
             
             if not db_instance:
                 logger.warning(f"实例 {instance_id} 不存在")
-                return False
+                return {"error": False}
             
-            if db_instance.status == InstanceStatus.RUNNING.value:
-                logger.info(f"实例 {instance_id} 已经在运行中")
-                return True
+            # 获取实例路径
+            instance_path = self.instances_dir / instance_id
+            if not instance_path.exists():
+                logger.error(f"实例路径不存在: {instance_path}")
+                return {"error": False}
             
+            # 更新状态为启动中
             db_instance.status = InstanceStatus.STARTING.value
             await db.commit()
             
-            # TODO: 实现机器人进程启动逻辑
-            db_instance.status = InstanceStatus.RUNNING.value
-            db_instance.last_run = datetime.now()
-            await db.commit()
+            # 确定要启动的组件
+            if components is None:
+                # 默认启动主程序
+                components_to_start = ["main"]
+                
+                # 检查是否存在其他组件
+                if (instance_path / "napcat").exists():
+                    components_to_start.append("napcat")
+                if (instance_path / "napcat-ada").exists():
+                    components_to_start.append("napcat-ada")
+            else:
+                components_to_start = components
             
-            logger.info(f"成功启动实例: {instance_id}")
-            return True
+            logger.info(f"启动实例 {instance_id} 的组件: {components_to_start}")
+            
+            # 启动各个组件
+            for component in components_to_start:
+                try:
+                    success = await process_manager.start_process(
+                        instance_id=instance_id,
+                        instance_path=instance_path,
+                        component=component,
+                        python_path=db_instance.python_path,
+                    )
+                    results[component] = success
+                    
+                    if success:
+                        logger.info(f"组件 {component} 启动成功")
+                    else:
+                        logger.warning(f"组件 {component} 启动失败")
+                        
+                except FileNotFoundError as e:
+                    logger.warning(f"组件 {component} 不存在: {e}")
+                    results[component] = False
+                except Exception as e:
+                    logger.error(f"启动组件 {component} 时出错: {e}", exc_info=True)
+                    results[component] = False
+            
+            # 检查是否有任何组件启动成功
+            any_success = any(results.values())
+            
+            if any_success:
+                db_instance.status = InstanceStatus.RUNNING.value
+                db_instance.last_run = datetime.now()
+                logger.info(f"实例 {instance_id} 启动成功")
+            else:
+                db_instance.status = InstanceStatus.ERROR.value
+                logger.error(f"实例 {instance_id} 所有组件启动失败")
+            
+            await db.commit()
+            return results
             
         except Exception as e:
             await db.rollback()
-            logger.error(f"启动实例 {instance_id} 失败: {e}")
+            db_instance.status = InstanceStatus.ERROR.value
+            await db.commit()
+            logger.error(f"启动实例 {instance_id} 失败: {e}", exc_info=True)
             raise
     
-    async def stop_instance(self, db: AsyncSession, instance_id: str) -> bool:
+    async def stop_instance(
+        self,
+        db: AsyncSession,
+        instance_id: str,
+        force: bool = False,
+    ) -> Dict[str, bool]:
         """停止机器人实例
+        
+        Args:
+            db: 数据库会话
+            instance_id: 实例 ID
+            force: 是否强制停止
+            
+        Returns:
+            字典,键为组件名称,值为是否停止成功
+        """
+        process_manager = get_process_manager()
+        
+        try:
+            result = await db.execute(
+                select(InstanceDB).where(InstanceDB.id == instance_id)
+            )
+            db_instance = result.scalar_one_or_none()
+            
+            if not db_instance:
+                logger.warning(f"实例 {instance_id} 不存在")
+                return {"error": False}
+            
+            if db_instance.status == InstanceStatus.STOPPED.value:
+                logger.info(f"实例 {instance_id} 已经停止")
+                return {"already_stopped": True}
+            
+            # 更新状态为停止中
+            db_instance.status = InstanceStatus.STOPPING.value
+            await db.commit()
+            
+            # 停止所有进程
+            logger.info(f"停止实例 {instance_id} 的所有进程 (force={force})")
+            results = await process_manager.stop_all_instance_processes(instance_id)
+            
+            # 计算运行时间
+            if db_instance.last_run:
+                run_duration = int((datetime.now() - db_instance.last_run).total_seconds())
+                db_instance.run_time += run_duration
+                logger.info(f"实例 {instance_id} 本次运行时长: {run_duration}秒")
+            
+            # 更新状态为已停止
+            db_instance.status = InstanceStatus.STOPPED.value
+            await db.commit()
+            
+            logger.info(f"成功停止实例: {instance_id}")
+            return results
+            
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"停止实例 {instance_id} 失败: {e}", exc_info=True)
+            raise
+    
+    async def restart_instance(
+        self,
+        db: AsyncSession,
+        instance_id: str,
+    ) -> Dict[str, bool]:
+        """重启机器人实例
         
         Args:
             db: 数据库会话
             instance_id: 实例 ID
             
         Returns:
-            停止是否成功
+            字典,键为组件名称,值为是否重启成功
         """
+        try:
+            logger.info(f"重启实例: {instance_id}")
+            
+            # 先停止实例
+            stop_results = await self.stop_instance(db, instance_id, force=False)
+            logger.info(f"停止结果: {stop_results}")
+            
+            # 等待一小段时间
+            import asyncio
+            await asyncio.sleep(2)
+            
+            # 重新启动实例
+            start_results = await self.start_instance(db, instance_id)
+            logger.info(f"启动结果: {start_results}")
+            
+            return start_results
+            
+        except Exception as e:
+            logger.error(f"重启实例 {instance_id} 失败: {e}", exc_info=True)
+            raise
+    
+    async def start_component(
+        self,
+        db: AsyncSession,
+        instance_id: str,
+        component: str,
+    ) -> bool:
+        """启动实例的指定组件
+        
+        Args:
+            db: 数据库会话
+            instance_id: 实例 ID
+            component: 组件名称 (main, napcat, napcat-ada)
+            
+        Returns:
+            是否启动成功
+        """
+        try:
+            results = await self.start_instance(db, instance_id, components=[component])
+            return results.get(component, False)
+        except Exception as e:
+            logger.error(f"启动组件 {instance_id}/{component} 失败: {e}", exc_info=True)
+            raise
+    
+    async def stop_component(
+        self,
+        db: AsyncSession,
+        instance_id: str,
+        component: str,
+    ) -> bool:
+        """停止实例的指定组件
+        
+        Args:
+            db: 数据库会话
+            instance_id: 实例 ID
+            component: 组件名称 (main, napcat, napcat-ada)
+            
+        Returns:
+            是否停止成功
+        """
+        process_manager = get_process_manager()
+        
         try:
             result = await db.execute(
                 select(InstanceDB).where(InstanceDB.id == instance_id)
@@ -340,24 +548,56 @@ class InstanceService:
                 logger.warning(f"实例 {instance_id} 不存在")
                 return False
             
-            if db_instance.status == InstanceStatus.STOPPED.value:
-                logger.info(f"实例 {instance_id} 已经停止")
-                return True
+            # 停止指定组件
+            success = await process_manager.stop_process(instance_id, component, force=False)
             
-            db_instance.status = InstanceStatus.STOPPING.value
-            await db.commit()
+            if success:
+                logger.info(f"组件 {instance_id}/{component} 已停止")
             
-            # TODO: 实现机器人进程停止逻辑
-            db_instance.status = InstanceStatus.STOPPED.value
-            await db.commit()
+            # 检查是否还有其他组件在运行
+            is_running = process_manager.is_instance_running(instance_id)
+            if not is_running and db_instance.status == InstanceStatus.RUNNING.value:
+                db_instance.status = InstanceStatus.STOPPED.value
+                await db.commit()
+                logger.info(f"实例 {instance_id} 所有组件已停止,更新状态为 STOPPED")
             
-            logger.info(f"成功停止实例: {instance_id}")
-            return True
+            return success
             
         except Exception as e:
-            await db.rollback()
-            logger.error(f"停止实例 {instance_id} 失败: {e}")
+            logger.error(f"停止组件 {instance_id}/{component} 失败: {e}", exc_info=True)
             raise
+    
+    async def get_component_status(
+        self,
+        instance_id: str,
+        component: str,
+    ) -> Dict[str, any]:
+        """获取组件状态
+        
+        Args:
+            instance_id: 实例 ID
+            component: 组件名称
+            
+        Returns:
+            组件状态信息字典
+        """
+        process_manager = get_process_manager()
+        process_info = process_manager.get_process_info(instance_id, component)
+        
+        if not process_info:
+            return {
+                "component": component,
+                "running": False,
+                "pid": None,
+                "uptime": None,
+            }
+        
+        return {
+            "component": component,
+            "running": process_info.is_alive(),
+            "pid": process_info.pid,
+            "uptime": process_info.get_uptime(),
+        }
 
 
 # 依赖注入函数
