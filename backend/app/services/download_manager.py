@@ -7,6 +7,7 @@ from typing import Dict, Optional
 from pathlib import Path
 from datetime import datetime
 import asyncio
+import platform
 
 from ..core.logger import logger
 from ..core.websocket import get_connection_manager
@@ -115,20 +116,34 @@ class DownloadManager:
             logger.error(f"任务不存在: {task_id}")
             return False
 
-        # 等待 WebSocket 连接建立
+        # 🔥 立即发送初始状态（不等待 WebSocket 连接）
+        task.status = DownloadStatus.PENDING
+        self._update_progress(task, 0, 100, "准备开始安装...")
+        logger.info(f"[{task_id}] 任务准备开始")
+        
+        # 🔥 尝试发送初始进度（如果 WebSocket 已连接）
+        try:
+            await self.ws_manager.send_progress(task_id, 0, 100, "准备开始安装...", "pending")
+        except Exception as e:
+            logger.warning(f"[{task_id}] 发送初始进度失败（WebSocket 可能未连接）: {e}")
+
+        # 等待 WebSocket 连接建立（缩短等待时间为 5 秒）
         await self._add_log(task, "等待客户端连接...")
         
-        # 等待最多 30 秒，直到有 WebSocket 连接
+        # 等待最多 5 秒，直到有 WebSocket 连接
         wait_start = datetime.now()
         while not self.ws_manager.has_connections(task_id):
-            await asyncio.sleep(0.5)
-            if (datetime.now() - wait_start).seconds > 30:
-                await self._add_log(task, "等待客户端连接超时", "error")
-                task.status = DownloadStatus.FAILED
-                task.error_message = "等待客户端连接超时"
-                return False
+            await asyncio.sleep(0.2)  # 减少等待间隔
+            if (datetime.now() - wait_start).seconds > 5:  # 缩短超时时间
+                # 🔥 即使没有 WebSocket 连接也继续执行（日志会保存在任务中）
+                logger.warning(f"[{task_id}] WebSocket 连接超时，继续执行任务")
+                await self._add_log(task, "WebSocket 连接超时，继续执行（日志将保存在任务中）", "warning")
+                break
         
-        await self._add_log(task, "客户端已连接，开始安装...", "success")
+        if self.ws_manager.has_connections(task_id):
+            await self._add_log(task, "客户端已连接，开始安装...", "success")
+        else:
+            await self._add_log(task, "继续执行任务...", "info")
 
         try:
             # 更新状态为下载中
@@ -141,6 +156,31 @@ class DownloadManager:
             instance_dir = Path(task.deployment_path) / task.instance_name
             instance_dir.mkdir(parents=True, exist_ok=True)
             await self._add_log(task, f"创建实例目录: {instance_dir}")
+            
+            # 在实例根目录创建共享虚拟环境
+            await self._add_log(task, f"创建共享虚拟环境 (使用 {task.venv_type})...", "info")
+            venv_success = await self.install_service.create_virtual_environment(
+                instance_dir,
+                task.venv_type,
+                None,  # 不需要进度回调，后面会统一输出
+            )
+            
+            if venv_success:
+                await self._add_log(task, "虚拟环境创建成功", "success")
+                
+                # 在虚拟环境内升级 pip、setuptools、wheel
+                await self._add_log(task, "升级 pip、setuptools、wheel...", "info")
+                upgrade_success = await self.install_service.upgrade_venv_pip(
+                    instance_dir,
+                    task.venv_type,
+                )
+                if upgrade_success:
+                    await self._add_log(task, "pip 升级成功", "success")
+                else:
+                    await self._add_log(task, "pip 升级失败，继续安装", "warning")
+            else:
+                await self._add_log(task, "虚拟环境创建失败", "error")
+                raise Exception("虚拟环境创建失败")
 
             # 计算总步骤数
             total_steps = len(task.selected_items)
@@ -157,8 +197,84 @@ class DownloadManager:
             async def progress_callback(message: str, level: str = "info"):
                 await self._add_log(task, message, level)
 
-            # 下载 Maibot
+            # 步骤 1: 下载 LPMM (macOS 需要先编译 quick_algo)
+            if DownloadItemType.LPMM in task.selected_items:
+                current_step += 1
+                self._update_progress(
+                    task,
+                    current_step,
+                    total_steps,
+                    "下载 LPMM...",
+                )
+                await self.ws_manager.send_progress(
+                    task_id, current_step, total_steps, "下载 LPMM...", "downloading"
+                )
+                
+                success = await self.download_service.download_lpmm(
+                    instance_dir,
+                    progress_callback,
+                )
+                
+                if not success:
+                    raise Exception("LPMM 下载失败")
+
+                # 创建虚拟环境并安装依赖
+                task.status = DownloadStatus.INSTALLING
+                current_step += 1
+                self._update_progress(
+                    task,
+                    current_step,
+                    total_steps,
+                    "创建虚拟环境并安装 LPMM 依赖...",
+                )
+                await self.ws_manager.send_progress(
+                    task_id, current_step, total_steps, "创建虚拟环境并安装 LPMM 依赖...", "installing"
+                )
+                
+                lpmm_dir = instance_dir / "MaiMBot-LPMM"
+                
+                # 使用共享虚拟环境安装依赖
+                success = await self.install_service.install_dependencies(
+                    lpmm_dir,
+                    task.venv_type,
+                    progress_callback,
+                    venv_dir=instance_dir,  # 使用实例根目录的虚拟环境
+                )
+                
+                if not success:
+                    await self._add_log(task, "警告: LPMM 依赖安装失败", "warning")
+
+                # 编译 quick_algo
+                current_step += 1
+                self._update_progress(
+                    task,
+                    current_step,
+                    total_steps,
+                    "编译 quick_algo (这可能需要几分钟)...",
+                )
+                await self.ws_manager.send_progress(
+                    task_id, current_step, total_steps, "编译 quick_algo...", "installing"
+                )
+                
+                success = await self.install_service.compile_quick_algo(
+                    lpmm_dir,
+                    task.venv_type,
+                    progress_callback,
+                    venv_dir=instance_dir,  # 使用实例根目录的虚拟环境
+                )
+                
+                if not success:
+                    await self._add_log(task, "警告: quick_algo 编译失败，请手动编译", "warning")
+
+            # 步骤 2: 下载 MaiBot
             if DownloadItemType.MAIBOT in task.selected_items:
+                # 在 macOS 上检查编译工具
+                if platform.system() == "Darwin":
+                    build_tools_ok, build_error = await self.install_service.check_build_tools()
+                    if not build_tools_ok:
+                        await self._add_log(task, f"[警告] {build_error}", "warning")
+                        await self._add_log(task, "MaiBot 依赖可能无法正常安装", "warning")
+                
                 current_step += 1
                 self._update_progress(
                     task,
@@ -195,22 +311,21 @@ class DownloadManager:
                 
                 maibot_dir = instance_dir / "MaiBot"
                 
-                # 创建虚拟环境
-                await self.install_service.create_virtual_environment(
-                    maibot_dir,
-                    task.venv_type,
-                    progress_callback,
-                )
-                
-                # 安装依赖
+                # 使用共享虚拟环境安装依赖
                 success = await self.install_service.install_dependencies(
                     maibot_dir,
                     task.venv_type,
                     progress_callback,
+                    venv_dir=instance_dir,  # 使用实例根目录的虚拟环境
                 )
                 
                 if not success:
-                    await self._add_log(task, "警告: MaiBot 依赖安装失败，请手动安装", "warning")
+                    error_msg = "MaiBot 依赖安装失败"
+                    if platform.system() == "Darwin":
+                        error_msg += "\n可能缺少 Xcode Command Line Tools"
+                        error_msg += "\n请运行: xcode-select --install"
+                    await self._add_log(task, error_msg, "error")
+                    await self._add_log(task, "您可以稍后手动安装依赖: cd MaiBot && .venv/bin/pip install -r requirements.txt", "info")
 
                 # 配置
                 task.status = DownloadStatus.CONFIGURING
@@ -230,7 +345,7 @@ class DownloadManager:
                     progress_callback,
                 )
 
-            # 下载 Napcat Adapter
+            # 步骤 3: 下载 Napcat Adapter
             if DownloadItemType.NAPCAT_ADAPTER in task.selected_items:
                 current_step += 1
                 self._update_progress(
@@ -266,18 +381,12 @@ class DownloadManager:
                 
                 adapter_dir = instance_dir / "MaiBot-Napcat-Adapter"
                 
-                # 创建虚拟环境
-                await self.install_service.create_virtual_environment(
-                    adapter_dir,
-                    task.venv_type,
-                    progress_callback,
-                )
-                
-                # 安装依赖
+                # 使用共享虚拟环境安装依赖
                 success = await self.install_service.install_dependencies(
                     adapter_dir,
                     task.venv_type,
                     progress_callback,
+                    venv_dir=instance_dir,  # 使用实例根目录的虚拟环境
                 )
                 
                 if not success:
@@ -301,80 +410,7 @@ class DownloadManager:
                     progress_callback,
                 )
 
-            # 下载 LPMM (仅 macOS)
-            if DownloadItemType.LPMM in task.selected_items:
-                current_step += 1
-                self._update_progress(
-                    task,
-                    current_step,
-                    total_steps,
-                    "下载 LPMM...",
-                )
-                await self.ws_manager.send_progress(
-                    task_id, current_step, total_steps, "下载 LPMM...", "downloading"
-                )
-                
-                success = await self.download_service.download_lpmm(
-                    instance_dir,
-                    progress_callback,
-                )
-                
-                if not success:
-                    raise Exception("LPMM 下载失败")
-
-                # 安装依赖
-                task.status = DownloadStatus.INSTALLING
-                current_step += 1
-                self._update_progress(
-                    task,
-                    current_step,
-                    total_steps,
-                    "安装 LPMM 依赖...",
-                )
-                await self.ws_manager.send_progress(
-                    task_id, current_step, total_steps, "安装 LPMM 依赖...", "installing"
-                )
-                
-                lpmm_dir = instance_dir / "MaiMBot-LPMM"
-                
-                # 为 LPMM 创建虚拟环境 (macOS 需要编译 quick_algo)
-                await self.install_service.create_virtual_environment(
-                    lpmm_dir,
-                    task.venv_type,
-                    progress_callback,
-                )
-                
-                success = await self.install_service.install_dependencies(
-                    lpmm_dir,
-                    task.venv_type,
-                    progress_callback,
-                )
-                
-                if not success:
-                    await self._add_log(task, "警告: LPMM 依赖安装失败", "warning")
-
-                # 编译 quick_algo
-                current_step += 1
-                self._update_progress(
-                    task,
-                    current_step,
-                    total_steps,
-                    "编译 quick_algo...",
-                )
-                await self.ws_manager.send_progress(
-                    task_id, current_step, total_steps, "编译 quick_algo...", "installing"
-                )
-                
-                success = await self.install_service.compile_quick_algo(
-                    lpmm_dir,
-                    task.venv_type,
-                    progress_callback,
-                )
-                
-                if not success:
-                    await self._add_log(task, "警告: quick_algo 编译失败，请手动编译", "warning")
-
-            # 下载 Napcat
+            # 步骤 4: 下载 Napcat
             if DownloadItemType.NAPCAT in task.selected_items:
                 current_step += 1
                 self._update_progress(
@@ -425,6 +461,13 @@ class DownloadManager:
         Args:
             task_id: 任务ID
         """
+        # 立即发送任务开始消息（即使 WebSocket 未连接也记录日志）
+        task = self.get_task(task_id)
+        if task:
+            logger.info(f"[{task_id}] 任务已加入执行队列")
+            task.status = DownloadStatus.PENDING
+            self._update_progress(task, 0, 100, "任务已加入队列，准备开始...")
+        
         # 在后台执行任务
         asyncio.create_task(self.execute_task(task_id))
 

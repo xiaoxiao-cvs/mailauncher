@@ -18,6 +18,110 @@ class InstallService:
         """初始化安装服务"""
         logger.info("安装服务已初始化")
 
+    async def upgrade_venv_pip(
+        self,
+        venv_dir: Path,
+        venv_type: str = "venv",
+    ) -> bool:
+        """
+        在虚拟环境内升级 pip、setuptools、wheel
+        
+        Args:
+            venv_dir: 虚拟环境所在目录
+            venv_type: 虚拟环境类型
+            
+        Returns:
+            是否成功
+        """
+        try:
+            logger.info(f"在虚拟环境 {venv_dir} 中升级 pip")
+            
+            if venv_type == "venv":
+                # 使用虚拟环境中的 pip
+                venv_pip = venv_dir / ".venv" / "bin" / "pip"
+                if not venv_pip.exists():
+                    venv_pip = venv_dir / ".venv" / "Scripts" / "pip.exe"  # Windows
+                
+                if not venv_pip.exists():
+                    logger.error(f"找不到虚拟环境的 pip: {venv_pip}")
+                    return False
+                
+                process = await asyncio.create_subprocess_exec(
+                    str(venv_pip), "install", "--upgrade", "pip", "setuptools", "wheel",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, stderr = await process.communicate()
+                
+                if process.returncode == 0:
+                    logger.info("虚拟环境 pip 升级成功")
+                    return True
+                else:
+                    logger.warning(f"虚拟环境 pip 升级失败: {stderr.decode()}")
+                    return False
+                    
+            elif venv_type == "uv":
+                # uv 自动使用最新的 pip
+                logger.info("uv 环境自动使用最新 pip")
+                return True
+                
+            elif venv_type == "conda":
+                # conda 环境升级
+                process = await asyncio.create_subprocess_exec(
+                    "conda", "run", "-p", str(venv_dir / ".venv"), 
+                    "pip", "install", "--upgrade", "pip", "setuptools", "wheel",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, stderr = await process.communicate()
+                
+                if process.returncode == 0:
+                    logger.info("conda 环境 pip 升级成功")
+                    return True
+                else:
+                    logger.warning(f"conda 环境 pip 升级失败: {stderr.decode()}")
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"升级虚拟环境 pip 失败: {str(e)}")
+            return False
+
+    async def check_build_tools(self) -> tuple[bool, str]:
+        """
+        检查编译工具是否可用 (macOS)
+        
+        Returns:
+            (是否可用, 错误信息)
+        """
+        if platform.system() != "Darwin":
+            return True, ""
+        
+        try:
+            # 检查 xcode-select 是否安装
+            process = await asyncio.create_subprocess_exec(
+                "xcode-select", "-p",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await process.communicate()
+            
+            if process.returncode == 0:
+                logger.info(f"检测到 Xcode Command Line Tools: {stdout.decode().strip()}")
+                return True, ""
+            else:
+                error_msg = "未检测到 Xcode Command Line Tools\n请运行: xcode-select --install"
+                logger.warning(error_msg)
+                return False, error_msg
+                
+        except FileNotFoundError:
+            error_msg = "未检测到 xcode-select 命令\n请运行: xcode-select --install"
+            logger.warning(error_msg)
+            return False, error_msg
+        except Exception as e:
+            error_msg = f"检查编译工具失败: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg
+
     async def _run_command(
         self,
         cmd: list[str],
@@ -124,6 +228,7 @@ class InstallService:
         project_dir: Path,
         venv_type: str = "venv",
         progress_callback: Optional[Callable[[str, str], Any]] = None,
+        venv_dir: Optional[Path] = None,
     ) -> bool:
         """
         安装项目依赖
@@ -132,10 +237,14 @@ class InstallService:
             project_dir: 项目目录
             venv_type: 虚拟环境类型 (venv, uv, conda)
             progress_callback: 进度回调 (message, level)
+            venv_dir: 虚拟环境目录 (如果为 None 则使用 project_dir)
 
         Returns:
             是否成功
         """
+        # 如果没有指定虚拟环境目录,使用项目目录
+        if venv_dir is None:
+            venv_dir = project_dir
         try:
             requirements_file = project_dir / "requirements.txt"
             if not requirements_file.exists():
@@ -164,24 +273,23 @@ class InstallService:
                 )
             else:
                 # 使用传统 pip install (venv)
-                # 首先激活虚拟环境中的 pip
-                venv_pip = project_dir / ".venv" / "bin" / "pip"
+                # 使用指定虚拟环境目录中的 pip
+                venv_pip = venv_dir / ".venv" / "bin" / "pip"
                 if not venv_pip.exists():
-                    venv_pip = project_dir / ".venv" / "Scripts" / "pip.exe"  # Windows
+                    venv_pip = venv_dir / ".venv" / "Scripts" / "pip.exe"  # Windows
                 
                 if venv_pip.exists():
                     success, _ = await self._run_command(
-                        [str(venv_pip), "install", "-r", "requirements.txt"],
+                        [str(venv_pip), "install", "-r", str(requirements_file)],
                         project_dir,
                         progress_callback,
                     )
                 else:
-                    # 使用系统 pip
-                    success, _ = await self._run_command(
-                        ["pip3", "install", "-r", "requirements.txt"],
-                        project_dir,
-                        progress_callback,
-                    )
+                    error_msg = f"找不到虚拟环境的 pip: {venv_pip}"
+                    logger.error(error_msg)
+                    if progress_callback:
+                        await progress_callback(error_msg, "error")
+                    return False
 
             return success
 
@@ -197,6 +305,7 @@ class InstallService:
         lpmm_dir: Path,
         venv_type: str = "venv",
         progress_callback: Optional[Callable[[str, str], Any]] = None,
+        venv_dir: Optional[Path] = None,
     ) -> bool:
         """
         编译 quick_algo (仅限 macOS)
@@ -205,10 +314,14 @@ class InstallService:
             lpmm_dir: LPMM 目录
             venv_type: 虚拟环境类型 (venv, uv, conda)
             progress_callback: 进度回调 (message, level)
+            venv_dir: 虚拟环境目录 (如果为 None 则使用 lpmm_dir)
 
         Returns:
             是否成功
         """
+        # 如果没有指定虚拟环境目录,使用 LPMM 目录
+        if venv_dir is None:
+            venv_dir = lpmm_dir
         try:
             # 检查操作系统
             if platform.system() != "Darwin":
@@ -229,9 +342,9 @@ class InstallService:
                 return False
 
             # 获取虚拟环境中的 Python 可执行文件
-            venv_python = lpmm_dir / ".venv" / "bin" / "python"
+            venv_python = venv_dir / ".venv" / "bin" / "python"
             if not venv_python.exists():
-                venv_python = lpmm_dir / ".venv" / "Scripts" / "python.exe"  # Windows
+                venv_python = venv_dir / ".venv" / "Scripts" / "python.exe"  # Windows
             
             if not venv_python.exists():
                 error_msg = f"虚拟环境 Python 不存在: {venv_python}"
@@ -244,7 +357,7 @@ class InstallService:
             if venv_type == "conda":
                 # conda 需要使用 conda run
                 success, output = await self._run_command(
-                    ["conda", "run", "-p", str(lpmm_dir / ".venv"), "python", "build_lib.py", "--cleanup", "--cythonize", "--install"],
+                    ["conda", "run", "-p", str(venv_dir / ".venv"), "python", "build_lib.py", "--cleanup", "--cythonize", "--install"],
                     quick_algo_dir,
                     progress_callback,
                 )

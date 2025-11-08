@@ -210,8 +210,8 @@ class DownloadService:
         progress_callback: Optional[Callable[[str, str], Any]] = None,
     ) -> bool:
         """
-        下载 Napcat
-        注意: Napcat 的安装需要根据官方文档另行处理
+        下载并安装 Napcat
+        使用内置的 shell 脚本自动安装
 
         Args:
             instance_dir: 实例目录
@@ -220,16 +220,81 @@ class DownloadService:
         Returns:
             是否成功
         """
-        if progress_callback:
-            await progress_callback(
-                "Napcat 需要按照官方文档手动安装 (Shell版或Framework版)",
-                "info"
+        try:
+            if progress_callback:
+                await progress_callback("开始安装 Napcat...", "info")
+            
+            logger.info("开始执行 Napcat 安装")
+            
+            # 获取脚本路径
+            script_path = Path(__file__).parent.parent.parent / "scripts" / "install_napcat_macos.sh"
+            
+            if not script_path.exists():
+                logger.error(f"安装脚本不存在: {script_path}")
+                if progress_callback:
+                    await progress_callback("安装脚本不存在", "error")
+                return False
+            
+            # 设置脚本权限
+            import os
+            os.chmod(script_path, 0o755)
+            
+            # 执行安装脚本,传入实例目录作为安装路径
+            napcat_install_dir = instance_dir / "Napcat"
+            
+            if progress_callback:
+                await progress_callback("执行 Napcat 安装脚本...", "info")
+            
+            process = await asyncio.create_subprocess_exec(
+                "bash",
+                str(script_path),
+                str(napcat_install_dir),  # 传入自定义安装目录
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=str(instance_dir),
             )
-        logger.info("Napcat 需要按照官方文档手动安装")
-        
-        # TODO: 实现 Napcat 的自动下载和安装
-        # 参考文档: https://www.napcat.wiki/guide/boot/Shell
-        return True
+            
+            # 实时读取输出
+            async def read_output(stream, level):
+                while True:
+                    line = await stream.readline()
+                    if not line:
+                        break
+                    message = line.decode().strip()
+                    if message:
+                        # 只通过 progress_callback 输出,避免重复日志
+                        if progress_callback:
+                            await progress_callback(message, level)
+            
+            # 并发读取 stdout 和 stderr
+            await asyncio.gather(
+                read_output(process.stdout, "info"),
+                read_output(process.stderr, "warning"),
+            )
+            
+            # 等待进程结束
+            await process.wait()
+            
+            if process.returncode == 0:
+                logger.info("Napcat 安装成功")
+                if progress_callback:
+                    await progress_callback("Napcat 安装完成！", "success")
+                return True
+            else:
+                logger.error(f"Napcat 安装失败，返回码: {process.returncode}")
+                if progress_callback:
+                    await progress_callback(
+                        f"Napcat 安装失败 (代码: {process.returncode})",
+                        "error"
+                    )
+                return False
+                
+        except Exception as e:
+            error_msg = f"Napcat 安装异常: {str(e)}"
+            logger.error(error_msg)
+            if progress_callback:
+                await progress_callback(error_msg, "error")
+            return False
 
     async def get_available_versions(self, repo_type: DownloadItemType) -> Dict[str, List[str]]:
         """

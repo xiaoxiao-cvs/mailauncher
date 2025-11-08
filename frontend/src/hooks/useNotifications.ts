@@ -27,6 +27,8 @@ export function useNotifications() {
     components: string[]
     deploymentPath: string
   }) => {
+    console.log('[useNotifications] 添加任务通知', data)
+    
     const notification: Notification = {
       id: `task_${data.taskId}`,
       type: NotificationType.TASK,
@@ -45,11 +47,16 @@ export function useNotifications() {
       },
     }
 
-    setNotifications(prev => [notification, ...prev])
+    console.log('[useNotifications] 创建的通知对象:', notification)
+    setNotifications(prev => {
+      const newNotifications = [notification, ...prev]
+      console.log('[useNotifications] 更新后的通知列表:', newNotifications)
+      return newNotifications
+    })
   }, [])
 
   // 更新任务进度
-  const updateTaskProgress = useCallback((taskId: string, progress: number, status: TaskStatus) => {
+  const updateTaskProgress = useCallback((taskId: string, progress: number, status: TaskStatus, message?: string) => {
     setNotifications(prev =>
       prev.map(n => {
         if (n.id === `task_${taskId}` && n.task) {
@@ -65,6 +72,26 @@ export function useNotifications() {
               : status === TaskStatus.FAILED
               ? `安装失败 ${n.task.instanceName}`
               : `正在安装 ${n.task.instanceName}`,
+            message: message || n.message, // 更新进度消息
+          }
+        }
+        return n
+      })
+    )
+  }, [])
+
+  // 更新任务 ID（用于从临时 ID 切换到真实 ID）
+  const updateTaskId = useCallback((oldTaskId: string, newTaskId: string) => {
+    setNotifications(prev =>
+      prev.map(n => {
+        if (n.id === `task_${oldTaskId}` && n.task) {
+          return {
+            ...n,
+            id: `task_${newTaskId}`,
+            task: {
+              ...n.task,
+              taskId: newTaskId,
+            },
           }
         }
         return n
@@ -182,6 +209,7 @@ export function useNotifications() {
     isPopoverOpen,
     addTaskNotification,
     updateTaskProgress,
+    updateTaskId,
     addMessageNotification,
     addWarningNotification,
     addErrorNotification,

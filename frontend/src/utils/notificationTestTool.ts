@@ -32,7 +32,7 @@ let lastTaskId = ''
 
 export function registerNotificationHandlers(handlers: NotificationHandlers) {
   notificationHandlers = handlers
-  console.log('✅ 通知测试工具已注册')
+  console.log('[Notification Test] 通知测试工具已注册')
 }
 
 // 创建全局测试接口
@@ -46,10 +46,10 @@ export function setupNotificationTestCommands() {
      */
     info: (title: string, message: string) => {
       if (!notificationHandlers) {
-        console.error('❌ 通知系统未初始化')
+        console.error('[Test] 通知系统未初始化')
         return
       }
-      console.log(`📨 发送消息通知: ${title} - ${message}`)
+      console.log(`[Test] 发送消息通知: ${title} - ${message}`)
       notificationHandlers.addMessageNotification(title, message)
     },
 
@@ -59,10 +59,10 @@ export function setupNotificationTestCommands() {
      */
     warning: (title: string, message: string) => {
       if (!notificationHandlers) {
-        console.error('❌ 通知系统未初始化')
+        console.error('[Test] 通知系统未初始化')
         return
       }
-      console.log(`⚠️ 发送警告通知: ${title} - ${message}`)
+      console.log(`[Test] 发送警告通知: ${title} - ${message}`)
       notificationHandlers.addWarningNotification(title, message)
     },
 
@@ -72,10 +72,10 @@ export function setupNotificationTestCommands() {
      */
     error: (title: string, message: string) => {
       if (!notificationHandlers) {
-        console.error('❌ 通知系统未初始化')
+        console.error('[Test] 通知系统未初始化')
         return
       }
-      console.log(`🚨 发送错误通知: ${title} - ${message}`)
+      console.log(`[Test] 发送错误通知: ${title} - ${message}`)
       notificationHandlers.addErrorNotification(title, message)
     },
 
@@ -85,12 +85,12 @@ export function setupNotificationTestCommands() {
      */
     task: (instanceName: string, version: string, components: string[]) => {
       if (!notificationHandlers) {
-        console.error('❌ 通知系统未初始化')
+        console.error('[Test] 通知系统未初始化')
         return
       }
       const taskId = `test_task_${Date.now()}`
       lastTaskId = taskId
-      console.log(`📦 创建任务通知: ${instanceName} (${taskId})`)
+      console.log(`[Notification Test] 创建任务通知: ${instanceName} (${taskId})`)
       notificationHandlers.addTaskNotification({
         taskId,
         instanceName,
@@ -98,7 +98,7 @@ export function setupNotificationTestCommands() {
         components,
         deploymentPath: '/test/path',
       })
-      console.log(`💡 提示: 使用 testNotification.updateTask('${taskId}', 进度, '状态') 更新进度`)
+      console.log(`[Test] 提示: 使用 testNotification.updateTask('${taskId}', 进度, '状态') 更新进度`)
       return taskId
     },
 
@@ -109,12 +109,12 @@ export function setupNotificationTestCommands() {
      */
     updateTask: (taskId: string | undefined, progress: number, status: string) => {
       if (!notificationHandlers) {
-        console.error('❌ 通知系统未初始化')
+        console.error('[Test] 通知系统未初始化')
         return
       }
       const id = taskId || lastTaskId
       if (!id) {
-        console.error('❌ 没有任务 ID，请先创建任务或提供任务 ID')
+        console.error('[Test] 没有任务 ID，请先创建任务或提供任务 ID')
         return
       }
       
@@ -127,7 +127,7 @@ export function setupNotificationTestCommands() {
       }
       
       const taskStatus = statusMap[status.toLowerCase()] || TaskStatus.PENDING
-      console.log(`🔄 更新任务进度: ${id} - ${progress}% (${status})`)
+      console.log(`[Test] 更新任务进度: ${id} - ${progress}% (${status})`)
       notificationHandlers.updateTaskProgress(id, progress, taskStatus)
     },
 
@@ -137,10 +137,10 @@ export function setupNotificationTestCommands() {
      */
     clearAll: () => {
       if (!notificationHandlers) {
-        console.error('❌ 通知系统未初始化')
+        console.error('[Test] 通知系统未初始化')
         return
       }
-      console.log('🗑️ 清空所有通知')
+      console.log('[Test] 清空所有通知')
       notificationHandlers.clearAllNotifications()
     },
 
@@ -150,10 +150,10 @@ export function setupNotificationTestCommands() {
      */
     demo: () => {
       if (!notificationHandlers) {
-        console.error('❌ 通知系统未初始化')
+        console.error('[Test] 通知系统未初始化')
         return
       }
-      console.log('🎬 开始演示完整安装流程...')
+      console.log('[Test] 开始演示完整安装流程...')
       
       const taskId = testNotification.task('演示机器人', 'v2.0.0', ['Maibot', 'Napcat', 'Adapter'])
       
@@ -175,7 +175,7 @@ export function setupNotificationTestCommands() {
       
       setTimeout(() => {
         testNotification.updateTask(taskId, 100, 'success')
-        console.log('✅ 演示完成！')
+        console.log('[Notification Test] 演示完成！')
       }, 5000)
     },
 

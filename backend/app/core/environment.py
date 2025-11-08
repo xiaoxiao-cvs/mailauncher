@@ -131,6 +131,31 @@ class EnvironmentManager:
         
         return None
     
+    def _is_venv_python(self, path: str) -> bool:
+        """
+        检查 Python 是否在虚拟环境中
+        
+        Args:
+            path: Python 可执行文件路径
+            
+        Returns:
+            是否为虚拟环境中的 Python
+        """
+        # 常见的虚拟环境路径标识
+        venv_indicators = [
+            "/.venv/",
+            "/venv/",
+            "/env/",
+            "/.virtualenv/",
+            "/virtualenv/",
+            "/.pyenv/",
+            "/anaconda",
+            "/miniconda",
+            "/conda/",
+        ]
+        
+        return any(indicator in path for indicator in venv_indicators)
+    
     def _search_python_installations(self) -> List[PythonVersion]:
         """
         在系统常见位置搜索 Python 安装
@@ -154,7 +179,11 @@ class EnvironmentManager:
                 if os.path.exists(base_path):
                     for entry in os.listdir(base_path):
                         if entry.startswith("python3."):
-                            py_ver = self._check_python_executable(os.path.join(base_path, entry))
+                            full_path = os.path.join(base_path, entry)
+                            # 跳过虚拟环境中的 Python
+                            if self._is_venv_python(full_path):
+                                continue
+                            py_ver = self._check_python_executable(full_path)
                             if py_ver:
                                 versions.append(py_ver)
             
@@ -165,6 +194,9 @@ class EnvironmentManager:
                     if version_dir.replace(".", "").isdigit():
                         py_path = os.path.join(framework_path, version_dir, "bin", "python3")
                         if os.path.exists(py_path):
+                            # 跳过虚拟环境中的 Python
+                            if self._is_venv_python(py_path):
+                                continue
                             py_ver = self._check_python_executable(py_path)
                             if py_ver:
                                 versions.append(py_ver)
@@ -183,6 +215,9 @@ class EnvironmentManager:
                         for entry in os.listdir(base_path):
                             if entry.startswith("python3."):
                                 py_path = os.path.join(base_path, entry)
+                                # 跳过虚拟环境中的 Python
+                                if self._is_venv_python(py_path):
+                                    continue
                                 py_ver = self._check_python_executable(py_path)
                                 if py_ver:
                                     versions.append(py_ver)

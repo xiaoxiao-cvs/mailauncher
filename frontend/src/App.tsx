@@ -5,6 +5,8 @@ import { HomePage } from '@/pages/HomePage'
 import { InstancesPage } from '@/pages/InstancesPage'
 import { DownloadsPage } from '@/pages/DownloadsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { InstallTaskProvider } from '@/contexts/InstallTaskContext'
+import { GlobalWebSocketManager } from '@/components/GlobalWebSocketManager'
 import logger, { routerLogger } from '@/utils/logger'
 import './App.css'
 
@@ -88,7 +90,11 @@ function AppRoutes() {
 function App() {
   return (
     <Router>
-      <AppRoutes />
+      <InstallTaskProvider>
+        {/* 全局 WebSocket 管理器 - 在任何页面都保持连接 */}
+        <GlobalWebSocketManager />
+        <AppRoutes />
+      </InstallTaskProvider>
     </Router>
   )
 }

@@ -68,8 +68,8 @@ export function Sidebar() {
 
   // 调试日志
   useEffect(() => {
-    console.log('🔔 通知列表更新:', notifications)
-    console.log('🔢 未读数量:', unreadCount)
+    console.log('[Notification] 通知列表更新:', notifications)
+    console.log('[Notification] 未读数量:', unreadCount)
   }, [notifications, unreadCount])
 
   // 日志模态框状态

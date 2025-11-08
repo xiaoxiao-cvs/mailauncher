@@ -10,10 +10,11 @@ import {
 } from '@/components/ui/select'
 import { Sidebar } from '@/components/sidebar'
 import { InstallOverview } from '@/components/install/InstallOverview'
-import { useDownload, useInstallOverview, useNotifications, useWebSocket } from '@/hooks'
+import { useDownload, useInstallOverview, useNotifications } from '@/hooks'
+import { useInstallTask } from '@/contexts/InstallTaskContext'
 import { cn } from '@/lib/utils'
 import { TaskStatus } from '@/types/notification'
-import { useState } from 'react'
+import { useEffect } from 'react'
 
 /**
  * 下载页面
@@ -41,46 +42,36 @@ export function DownloadsPage() {
   const { state: overviewState, showOverview, updateStatus } = useInstallOverview()
 
   // 通知管理
-  const { addTaskNotification, updateTaskProgress } = useNotifications()
+  const { addTaskNotification, updateTaskProgress, updateTaskId } = useNotifications()
 
-  // 当前任务 ID
-  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null)
+  // 全局任务状态管理
+  const { currentTask, startTask, hasActiveTask } = useInstallTask()
 
-  // WebSocket 连接
-  useWebSocket(currentTaskId, {
-    onProgress: (message) => {
-      // 更新安装概要卡片的进度
-      if (message.percentage !== undefined) {
-        const taskStatus = message.status === 'downloading' ? TaskStatus.DOWNLOADING
-          : message.status === 'installing' ? TaskStatus.INSTALLING
-          : message.status === 'configuring' ? TaskStatus.INSTALLING
-          : message.status === 'completed' ? TaskStatus.SUCCESS
-          : message.status === 'failed' ? TaskStatus.FAILED
-          : TaskStatus.PENDING
-        
-        updateStatus(taskStatus)
-        updateTaskProgress(currentTaskId!, message.percentage, taskStatus)
-      }
-    },
-    onStatus: (message) => {
-      const taskStatus = message.status === 'downloading' ? TaskStatus.DOWNLOADING
-        : message.status === 'installing' ? TaskStatus.INSTALLING
-        : message.status === 'configuring' ? TaskStatus.INSTALLING
-        : message.status === 'completed' ? TaskStatus.SUCCESS
-        : message.status === 'failed' ? TaskStatus.FAILED
-        : TaskStatus.PENDING
+  // 页面加载时恢复任务状态
+  useEffect(() => {
+    if (currentTask && currentTask.isActive) {
+      console.log('[DownloadsPage] 恢复活跃任务:', currentTask)
       
-      updateStatus(taskStatus)
-    },
-    onComplete: () => {
-      updateStatus(TaskStatus.SUCCESS)
-      updateTaskProgress(currentTaskId!, 100, TaskStatus.SUCCESS)
-    },
-    onError: () => {
-      updateStatus(TaskStatus.FAILED)
-      updateTaskProgress(currentTaskId!, 0, TaskStatus.FAILED)
+      // 恢复概览显示
+      showOverview({
+        taskId: currentTask.taskId,
+        instanceName: currentTask.instanceName,
+        version: currentTask.version,
+        components: currentTask.components,
+        deploymentPath: currentTask.deploymentPath,
+      })
+      
+      // 恢复任务状态
+      updateStatus(currentTask.status)
     }
-  })
+  }, []) // 只在组件挂载时执行
+
+  // 监听全局任务状态变化，同步到本地概览
+  useEffect(() => {
+    if (currentTask && currentTask.isActive) {
+      updateStatus(currentTask.status)
+    }
+  }, [currentTask?.status])
 
   // 检测平台
   const isMacOS = window.navigator.platform.toLowerCase().includes('mac')
@@ -107,13 +98,42 @@ export function DownloadsPage() {
     // 获取选中的组件名称
     const components = Array.from(selectedItems)
 
-    // 调用下载方法获取任务 ID
+    // 生成临时任务 ID
+    const tempTaskId = `temp_${Date.now()}`
+
+    // 立即添加通知（状态为 PENDING）- 给用户即时反馈
+    console.log('[Install] 立即添加任务通知...')
+    addTaskNotification({
+      taskId: tempTaskId,
+      instanceName,
+      version: selectedMaibotVersion.label,
+      components,
+      deploymentPath,
+    })
+
+    // 调用下载方法获取真实任务 ID
+    console.log('[Install] 开始创建下载任务...')
     const taskId = await downloadAll()
     
     if (!taskId) {
-      // 下载失败，不显示概要卡片
+      // 下载失败，更新通知状态
+      console.error('[Install] 创建下载任务失败')
+      updateTaskProgress(tempTaskId, 0, TaskStatus.FAILED, '创建任务失败')
       return
     }
+
+    // 成功获取任务 ID，更新通知
+    console.log('[Install] 任务 ID 获取成功:', taskId)
+    updateTaskId(tempTaskId, taskId)
+
+    // 启动全局任务（持久化状态）
+    startTask({
+      taskId,
+      instanceName,
+      version: selectedMaibotVersion.label,
+      components,
+      deploymentPath,
+    })
 
     // 显示安装概要卡片
     showOverview({
@@ -124,17 +144,7 @@ export function DownloadsPage() {
       deploymentPath,
     })
 
-    // 添加任务通知
-    addTaskNotification({
-      taskId,
-      instanceName,
-      version: selectedMaibotVersion.label,
-      components,
-      deploymentPath,
-    })
-
-    // 设置当前任务 ID，WebSocket 会自动连接并接收实时进度
-    setCurrentTaskId(taskId)
+    console.log('[Install] 任务已提交,任务 ID:', taskId)
   }
 
   return (
