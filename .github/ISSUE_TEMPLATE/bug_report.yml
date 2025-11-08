@@ -18,8 +18,6 @@ body:
           required: true
         - label: 我确认在 Issues 列表中并无其他人已经提出与此问题相同或相似的问题
           required: true
-        - label: 我使用了 Docker
-          required: false
 
   - type: dropdown
     id: branch
