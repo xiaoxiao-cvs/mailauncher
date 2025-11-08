@@ -14,23 +14,25 @@ from app.core.logger import setup_logger, logger
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    setup_logger()
+    # 启动时
     logger.info("=" * 60)
     logger.info("MAI Launcher Backend 启动中...")
     logger.info("=" * 60)
     
-    instances_path = settings.ensure_instances_dir()
-    logger.info(f"实例目录已就绪: {instances_path}")
+    # 确保实例目录存在
+    instances_dir = settings.ensure_instances_dir()
+    logger.info(f"实例目录已就绪: {instances_dir}")
     
+    # 初始化数据库
     await init_db()
     logger.info("数据库初始化完成")
     
-    yield
+    yield  # 应用运行期间
     
-    logger.info("MAI Launcher Backend 关闭中...")
+    # 关闭时
+    logger.info("MAI Launcher Backend 正在关闭...")
     await close_db()
     logger.info("数据库连接已关闭")
-    logger.info("=" * 60)
 
 
 app = FastAPI(
@@ -66,6 +68,13 @@ def main():
     """主函数:启动 Uvicorn 服务器"""
     import uvicorn
     import sys
+    from app.core.data_dir import init_data_directories
+    
+    # 初始化数据目录
+    init_data_directories()
+    
+    # 初始化日志系统 (必须在数据目录初始化之后)
+    setup_logger()
     
     # 检查是否由 PyInstaller 打包运行
     is_packaged = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
@@ -97,16 +106,15 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
-
-# PyInstaller 打包后的特殊处理
-# 当通过 multiprocessing 启动时,__name__ 可能不是 "__main__"
-import sys
-if getattr(sys, 'frozen', False):
-    # 只在打包环境且不是子进程时执行
-    import multiprocessing
-    if multiprocessing.current_process().name == 'MainProcess':
-        logger.info("[FROZEN] 检测到打包环境,MainProcess,准备启动服务器")
-        # 检查是否已经在运行 (避免重复启动)
-        if not any('uvicorn.run' in str(frame) for frame in sys._current_frames().values()):
-            main()
+    # 检查是否是 multiprocessing 的子进程
+    # 子进程的 sys.argv 会包含 '-c' 参数,用于执行 Python 代码
+    import sys
+    is_subprocess = any('-c' in str(arg) for arg in sys.argv)
+    
+    if is_subprocess:
+        # 这是 multiprocessing 的子进程 (如 resource_tracker)
+        # 不启动服务器,让 Python 执行 -c 后面的代码
+        logger.debug(f"[子进程] 检测到 multiprocessing 子进程,跳过服务器启动: {sys.argv}")
+    else:
+        # 正常的主进程,启动服务器
+        main()

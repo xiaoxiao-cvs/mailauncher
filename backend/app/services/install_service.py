@@ -294,7 +294,7 @@ class InstallService:
 
             # 创建 config 目录
             config_dir = maibot_dir / "config"
-            config_dir.mkdir(exist_ok=True)
+            config_dir.mkdir(parents=True, exist_ok=True)
 
             template_dir = maibot_dir / "template"
             if not template_dir.exists():

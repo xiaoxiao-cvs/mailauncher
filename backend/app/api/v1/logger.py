@@ -19,6 +19,7 @@ import zipfile
 import os
 
 from app.core.logger import logger
+from app.core.data_dir import get_frontend_log_dir
 
 router = APIRouter(prefix="/logger", tags=["logger"])
 
@@ -38,9 +39,8 @@ class FrontendLogsRequest(BaseModel):
     logs: List[LogEntry]
 
 
-# 前端日志目录
-FRONTEND_LOG_DIR = Path(__file__).parent.parent.parent.parent / "data" / "Log" / "frontend"
-FRONTEND_LOG_DIR.mkdir(parents=True, exist_ok=True)
+# 前端日志目录 - 使用统一的数据目录管理
+FRONTEND_LOG_DIR = get_frontend_log_dir()
 
 # 当前日志文件（按天创建，同一天内复用）
 current_log_file: Optional[Path] = None
@@ -225,6 +225,9 @@ async def export_frontend_logs():
     """
     try:
         export_path = FRONTEND_LOG_DIR.parent / f"frontend_logs_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        
+        # 确保导出目录存在
+        export_path.parent.mkdir(parents=True, exist_ok=True)
         
         with zipfile.ZipFile(export_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for file_path in FRONTEND_LOG_DIR.iterdir():

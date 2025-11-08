@@ -52,12 +52,11 @@ class Settings(BaseSettings):
         return v
     
     # 数据库配置
-    # 使用绝对路径指向 backend/data/database 目录
     @property
     def DATABASE_URL(self) -> str:
-        """获取数据库 URL，使用绝对路径"""
-        backend_dir = Path(__file__).parent.parent.parent  # 从 app/core 返回到 backend
-        db_path = backend_dir / "data" / "database" / "mailauncher.db"
+        """获取数据库 URL，使用统一的数据目录"""
+        from app.core.data_dir import get_database_dir
+        db_path = get_database_dir() / "mailauncher.db"
         return f"sqlite+aiosqlite:///{db_path}"
     
     # Python 环境配置
@@ -78,15 +77,13 @@ class Settings(BaseSettings):
     def get_instances_path(self) -> Path:
         """
         获取实例存储路径的绝对路径
+        使用统一的数据目录管理
         
         Returns:
             实例存储路径的 Path 对象
         """
-        # 如果是相对路径，则相对于后端根目录
-        if not os.path.isabs(self.INSTANCES_DIR):
-            backend_root = Path(__file__).parent.parent.parent
-            return backend_root / self.INSTANCES_DIR
-        return Path(self.INSTANCES_DIR)
+        from app.core.data_dir import get_deployments_dir
+        return get_deployments_dir()
     
     def ensure_instances_dir(self) -> Path:
         """

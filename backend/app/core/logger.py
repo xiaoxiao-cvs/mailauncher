@@ -15,17 +15,21 @@ class LoggerConfig:
     """日志配置类"""
     
     def __init__(self):
-        self.backend_dir = Path(__file__).parent.parent.parent
-        # 后端日志保存到 data/Log/backend 目录
-        self.log_dir = self.backend_dir / "data" / "Log" / "backend"
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        
+        self.log_dir = None  # 延迟初始化
         self.max_log_files = 7
         self.current_log_file = None
+    
+    def _ensure_log_dir(self):
+        """确保日志目录存在 (延迟初始化)"""
+        if self.log_dir is None:
+            from app.core.data_dir import get_log_dir
+            self.log_dir = get_log_dir()
+        return self.log_dir
         
     def _compress_previous_logs(self):
         """压缩历史日志文件"""
-        json_files = sorted(list(self.log_dir.glob("*.json")) + list(self.log_dir.glob("*.jsonl")))
+        log_dir = self._ensure_log_dir()
+        json_files = sorted(list(log_dir.glob("*.json")) + list(log_dir.glob("*.jsonl")))
         
         for json_file in json_files:
             if self.current_log_file and json_file.name == self.current_log_file.name:
@@ -42,9 +46,10 @@ class LoggerConfig:
                     logger.error(f"压缩日志文件失败 {json_file.name}: {e}")
     
     def _cleanup_old_logs(self):
-        """清理旧日志文件"""
+        """清理旧的日志文件"""
+        log_dir = self._ensure_log_dir()
         zip_files = sorted(
-            self.log_dir.glob("*.zip"),
+            log_dir.glob("*.zip"),
             key=lambda x: x.stat().st_mtime,
             reverse=True
         )
@@ -67,9 +72,13 @@ class LoggerConfig:
             level="DEBUG",
             colorize=True,
         )
+        
+        # 确保日志目录存在
+        log_dir = self._ensure_log_dir()
+        
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         # 后端日志文件名前缀为 backend_
-        self.current_log_file = self.log_dir / f"backend_{timestamp}.jsonl"
+        self.current_log_file = log_dir / f"backend_{timestamp}.jsonl"
         
         self._compress_previous_logs()
         self._cleanup_old_logs()
@@ -85,7 +94,7 @@ class LoggerConfig:
         )
         
         logger.info("日志系统初始化完成")
-        logger.info(f"日志目录: {self.log_dir}")
+        logger.info(f"日志目录: {log_dir}")
         logger.info(f"当前日志文件: {self.current_log_file.name}")
         logger.info(f"日志保留数量: {self.max_log_files}")
         
