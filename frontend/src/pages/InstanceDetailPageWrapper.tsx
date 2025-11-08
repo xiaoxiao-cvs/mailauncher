@@ -1,19 +1,19 @@
 import { Sidebar } from '@/components/sidebar'
-import { InstanceListPage } from './InstanceListPage'
+import { InstanceDetailPage } from './InstanceDetailPage'
 
 /**
- * 实例管理页面
- * 职责：管理 MaiBot、NapCat 等实例
+ * 实例详情页面包装器
+ * 包含侧边栏的详情页面布局
  */
-export function InstancesPage() {
+export function InstanceDetailPageWrapper() {
   return (
     <div className="flex h-screen bg-[#f8f9fa] dark:bg-[#0a0a0a] transition-colors duration-500">
       {/* 侧边栏 */}
       <Sidebar />
 
       {/* 主内容区 */}
-      <main className="flex-1 overflow-auto">
-        <InstanceListPage />
+      <main className="flex-1 overflow-hidden">
+        <InstanceDetailPage />
       </main>
     </div>
   )

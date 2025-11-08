@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'r
 import { OnboardingPage } from '@/components/onboarding'
 import { HomePage } from '@/pages/HomePage'
 import { InstancesPage } from '@/pages/InstancesPage'
+import { InstanceDetailPageWrapper } from '@/pages/InstanceDetailPageWrapper'
 import { DownloadsPage } from '@/pages/DownloadsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { InstallTaskProvider } from '@/contexts/InstallTaskContext'
@@ -72,6 +73,7 @@ function AppRoutes() {
       />
       <Route path="/home" element={<HomePage />} />
       <Route path="/instances" element={<InstancesPage />} />
+      <Route path="/instances/:id" element={<InstanceDetailPageWrapper />} />
       <Route path="/downloads" element={<DownloadsPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route 
