@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📚 项目文档
+    url: https://github.com/xiaoxiao-cvs/mailauncher/blob/main/README.md
+    about: 查看项目文档和使用说明
+  - name: 💬 讨论区
+    url: https://github.com/xiaoxiao-cvs/mailauncher/discussions
+    about: 在讨论区交流想法和问题

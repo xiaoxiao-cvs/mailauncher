@@ -264,7 +264,7 @@ export function DownloadsPage() {
                 依赖组件
               </h2>
 
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 {/* Adapter */}
                 {adapterItem && (
                   <div className="flex items-start gap-3 p-3 rounded-lg border border-[#023e8a]/10 dark:border-white/10 hover:border-[#0077b6]/30 dark:hover:border-[#00b4d8]/30 transition-all">
@@ -321,12 +321,15 @@ export function DownloadsPage() {
 
                 {/* Quick-algo (macOS 必需, Windows 禁用) */}
                 {quickAlgoItem && (
-                  <div className={cn(
-                    'flex items-start gap-3 p-3 rounded-lg border transition-all',
-                    isWindows 
-                      ? 'border-[#023e8a]/5 dark:border-white/5 bg-gray-50 dark:bg-[#1a1a1a]/50 opacity-60'
-                      : 'border-[#023e8a]/10 dark:border-white/10 hover:border-[#0077b6]/30 dark:hover:border-[#00b4d8]/30'
-                  )}>
+                  <div 
+                    className={cn(
+                      'flex items-start gap-3 p-3 rounded-lg border transition-all',
+                      isWindows 
+                        ? 'border-[#023e8a]/5 dark:border-white/5 bg-gray-50 dark:bg-[#1a1a1a]/50 opacity-60'
+                        : 'border-[#023e8a]/10 dark:border-white/10 hover:border-[#0077b6]/30 dark:hover:border-[#00b4d8]/30'
+                    )}
+                    title={isMacOS ? 'macOS 系统必需安装此组件' : isWindows ? 'Windows 平台有预编译包，无需编译' : ''}
+                  >
                     <Checkbox
                       id="quick-algo"
                       checked={isMacOS ? true : selectedItems.has(quickAlgoItem.id)}
@@ -339,23 +342,12 @@ export function DownloadsPage() {
                         <h3 className="text-sm font-semibold text-[#03045e] dark:text-white">
                           {quickAlgoItem.name}
                         </h3>
-                        {isMacOS && (
-                          <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-                            macOS 必需
-                          </span>
-                        )}
-                        {isWindows && (
-                          <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                            有预编译包
-                          </span>
-                        )}
                         {quickAlgoItem.status === 'completed' && (
                           <Icon icon="ph:check-circle-fill" className="w-4 h-4 text-green-500" />
                         )}
                       </div>
                       <p className="text-xs text-[#023e8a]/70 dark:text-white/70">
                         {quickAlgoItem.description}
-                        {isWindows && ' - Windows 平台有预编译包，无需编译'}
                       </p>
                     </label>
                   </div>
