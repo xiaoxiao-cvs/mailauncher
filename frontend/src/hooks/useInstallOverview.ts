@@ -48,11 +48,14 @@ export function useInstallOverview() {
 
   // 更新任务状态
   const updateStatus = useCallback((status: TaskStatus) => {
+    console.log('[useInstallOverview] 更新状态:', status)
     setState(prev => ({ ...prev, status }))
 
     // 如果任务完成或失败，1.5 秒后隐藏概要卡片
     if (status === TaskStatus.SUCCESS || status === TaskStatus.FAILED) {
+      console.log('[useInstallOverview] 任务完成,1.5秒后隐藏概览')
       setTimeout(() => {
+        console.log('[useInstallOverview] 隐藏概览')
         setState(prev => ({ ...prev, visible: false }))
       }, 1500)
     }

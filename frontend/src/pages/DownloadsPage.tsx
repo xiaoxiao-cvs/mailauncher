@@ -10,8 +10,9 @@ import {
 } from '@/components/ui/select'
 import { Sidebar } from '@/components/sidebar'
 import { InstallOverview } from '@/components/install/InstallOverview'
-import { useDownload, useInstallOverview, useNotifications } from '@/hooks'
+import { useDownload, useInstallOverview } from '@/hooks'
 import { useInstallTask } from '@/contexts/InstallTaskContext'
+import { useNotificationContext } from '@/contexts/NotificationContext'
 import { cn } from '@/lib/utils'
 import { TaskStatus } from '@/types/notification'
 import { useEffect } from 'react'
@@ -42,10 +43,10 @@ export function DownloadsPage() {
   const { state: overviewState, showOverview, updateStatus } = useInstallOverview()
 
   // 通知管理
-  const { addTaskNotification, updateTaskProgress, updateTaskId } = useNotifications()
+  const { addTaskNotification, updateTaskProgress, updateTaskId } = useNotificationContext()
 
   // 全局任务状态管理
-  const { currentTask, startTask, hasActiveTask } = useInstallTask()
+  const { currentTask, startTask } = useInstallTask()
 
   // 页面加载时恢复任务状态
   useEffect(() => {
@@ -68,10 +69,14 @@ export function DownloadsPage() {
 
   // 监听全局任务状态变化，同步到本地概览
   useEffect(() => {
-    if (currentTask && currentTask.isActive) {
+    if (currentTask) {
+      console.log('[DownloadsPage] 任务状态更新:', {
+        status: currentTask.status,
+        isActive: currentTask.isActive
+      })
       updateStatus(currentTask.status)
     }
-  }, [currentTask?.status])
+  }, [currentTask?.status, currentTask?.isActive, updateStatus])
 
   // 检测平台
   const isMacOS = window.navigator.platform.toLowerCase().includes('mac')

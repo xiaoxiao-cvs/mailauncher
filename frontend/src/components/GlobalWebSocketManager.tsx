@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useWebSocket } from '@/hooks'
 import { useInstallTask } from '@/contexts/InstallTaskContext'
-import { useNotifications } from '@/hooks/useNotifications'
+import { useNotificationContext } from '@/contexts/NotificationContext'
 import { TaskStatus } from '@/types/notification'
 
 /**
@@ -13,7 +13,7 @@ import { TaskStatus } from '@/types/notification'
  */
 export function GlobalWebSocketManager() {
   const { currentTask, updateTaskStatus, completeTask } = useInstallTask()
-  const { updateTaskProgress } = useNotifications()
+  const { updateTaskProgress } = useNotificationContext()
 
   const taskId = currentTask?.taskId || null
 

@@ -5,7 +5,7 @@ import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { NotificationPopover } from '@/components/notifications/NotificationPopover'
 import { cn } from '@/lib/utils'
 import { useSidebar } from '@/hooks/useSidebar'
-import { useNotifications } from '@/hooks/useNotifications'
+import { useNotificationContext } from '@/contexts/NotificationContext'
 import { useState, useEffect } from 'react'
 import InstallLogModal from '../install/InstallLogModal'
 import { Notification } from '@/types/notification'
@@ -42,7 +42,7 @@ export function Sidebar() {
     addErrorNotification,
     addTaskNotification,
     updateTaskProgress,
-  } = useNotifications()
+  } = useNotificationContext()
 
   // 注册测试工具（开发环境）
   useEffect(() => {

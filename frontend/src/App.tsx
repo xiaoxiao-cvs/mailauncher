@@ -6,6 +6,7 @@ import { InstancesPage } from '@/pages/InstancesPage'
 import { DownloadsPage } from '@/pages/DownloadsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { InstallTaskProvider } from '@/contexts/InstallTaskContext'
+import { NotificationProvider } from '@/contexts/NotificationContext'
 import { GlobalWebSocketManager } from '@/components/GlobalWebSocketManager'
 import logger, { routerLogger } from '@/utils/logger'
 import './App.css'
@@ -90,11 +91,13 @@ function AppRoutes() {
 function App() {
   return (
     <Router>
-      <InstallTaskProvider>
-        {/* 全局 WebSocket 管理器 - 在任何页面都保持连接 */}
-        <GlobalWebSocketManager />
-        <AppRoutes />
-      </InstallTaskProvider>
+      <NotificationProvider>
+        <InstallTaskProvider>
+          {/* 全局 WebSocket 管理器 - 在任何页面都保持连接 */}
+          <GlobalWebSocketManager />
+          <AppRoutes />
+        </InstallTaskProvider>
+      </NotificationProvider>
     </Router>
   )
 }
