@@ -157,6 +157,73 @@ class InstanceService:
             logger.error(f"创建实例失败: {e}")
             raise
     
+    async def create_instance_from_path(
+        self, 
+        db: AsyncSession, 
+        instance_data: InstanceCreate,
+        instance_path: Path,
+    ) -> Instance:
+        """从已存在的路径创建实例记录（用于下载任务完成后）
+        
+        Args:
+            db: 数据库会话
+            instance_data: 实例创建数据
+            instance_path: 已存在的实例路径
+            
+        Returns:
+            创建的实例对象
+            
+        Raises:
+            ValueError: 当实例名称已存在或路径无效时
+        """
+        try:
+            # 检查实例名称是否已存在
+            result = await db.execute(
+                select(InstanceDB).where(InstanceDB.name == instance_data.name)
+            )
+            if result.scalar_one_or_none():
+                raise ValueError(f"实例名称 '{instance_data.name}' 已存在")
+            
+            # 验证路径存在
+            if not instance_path.exists():
+                raise ValueError(f"实例路径不存在: {instance_path}")
+            
+            # 生成实例 ID（使用目录名作为 hash 的一部分）
+            instance_id = f"inst_{uuid.uuid4().hex[:12]}"
+            now = datetime.now()
+            
+            logger.info(f"从路径创建实例记录: {instance_path} -> {instance_id}")
+            
+            db_instance = InstanceDB(
+                id=instance_id,
+                name=instance_data.name,
+                bot_type=instance_data.bot_type,
+                bot_version=instance_data.bot_version,
+                description=instance_data.description,
+                status=InstanceStatus.STOPPED.value,
+                python_path=instance_data.python_path,
+                config_path=instance_data.config_path,
+                created_at=now,
+                updated_at=now,
+                run_time=0,
+            )
+            
+            db.add(db_instance)
+            await db.commit()
+            await db.refresh(db_instance)
+            
+            logger.info(f"成功创建实例记录: {instance_id} ({instance_data.name})")
+            return self._db_to_model(db_instance)
+            
+        except ValueError as e:
+            await db.rollback()
+            logger.warning(f"创建实例记录失败: {e}")
+            raise
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"创建实例记录失败: {e}")
+            raise
+    
     async def update_instance(
         self, db: AsyncSession, instance_id: str, update_data: InstanceUpdate
     ) -> Optional[Instance]:

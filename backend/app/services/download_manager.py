@@ -11,6 +11,7 @@ import platform
 
 from ..core.logger import logger
 from ..core.websocket import get_connection_manager
+from ..core.database import get_db
 from ..models.download import (
     DownloadTask,
     DownloadTaskCreate,
@@ -19,8 +20,10 @@ from ..models.download import (
     DownloadProgress,
     MaibotVersionSource,
 )
+from ..models.instance import InstanceCreate, BotType
 from .download_service import get_download_service
 from .install_service import get_install_service
+from .instance_service import get_instance_service
 
 
 class DownloadManager:
@@ -428,6 +431,55 @@ class DownloadManager:
                     progress_callback,
                 )
 
+            # 完成安装，创建实例记录
+            await self._add_log(task, "正在创建实例记录...", "info")
+            
+            # 获取数据库会话
+            async for db in get_db():
+                try:
+                    instance_service = get_instance_service()
+                    
+                    # 确定 bot_type
+                    bot_type = BotType.MAIBOT if DownloadItemType.MAIBOT in task.selected_items else BotType.OTHER
+                    
+                    # 确定 bot_version
+                    bot_version = None
+                    if DownloadItemType.MAIBOT in task.selected_items:
+                        if task.maibot_version_source == MaibotVersionSource.TAG:
+                            bot_version = task.maibot_version_value
+                        elif task.maibot_version_source == MaibotVersionSource.BRANCH:
+                            bot_version = f"branch:{task.maibot_version_value}"
+                        else:
+                            bot_version = "latest"
+                    
+                    # 创建实例记录（使用已存在的路径）
+                    instance_data = InstanceCreate(
+                        name=task.instance_name,
+                        bot_type=bot_type,
+                        bot_version=bot_version,
+                        description=f"通过下载任务创建于 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                        python_path=None,  # 使用共享虚拟环境
+                        config_path=str(instance_dir / "MaiBot" / "config.json") if DownloadItemType.MAIBOT in task.selected_items else None,
+                    )
+                    
+                    created_instance = await instance_service.create_instance_from_path(
+                        db, 
+                        instance_data,
+                        instance_dir
+                    )
+                    
+                    # 更新任务的实例ID
+                    task.instance_id = created_instance.id
+                    
+                    await self._add_log(task, f"实例记录已创建: {created_instance.id}", "success")
+                    logger.info(f"任务 {task_id} 创建实例记录: {created_instance.id}")
+                    
+                except Exception as e:
+                    await self._add_log(task, f"创建实例记录失败: {str(e)}", "warning")
+                    logger.error(f"创建实例记录失败: {e}", exc_info=True)
+                
+                break  # 只使用第一个数据库会话
+            
             # 完成
             task.status = DownloadStatus.COMPLETED
             task.completed_at = datetime.now()

@@ -2,7 +2,7 @@
  * 实例管理 API 客户端
  */
 
-import { API_BASE_URL } from '@/config/api';
+import { getApiUrl } from '@/config/api';
 
 // ==================== 类型定义 ====================
 
@@ -70,7 +70,7 @@ export interface SuccessResponse {
 class InstanceApiClient {
   private baseUrl: string;
 
-  constructor(baseUrl: string = API_BASE_URL) {
+  constructor(baseUrl: string = getApiUrl()) {
     this.baseUrl = baseUrl;
   }
 

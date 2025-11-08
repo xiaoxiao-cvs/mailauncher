@@ -82,6 +82,9 @@ class DownloadTask(BaseModel):
     # 错误信息
     error_message: Optional[str] = Field(default=None, description="错误消息")
     
+    # 实例关联
+    instance_id: Optional[str] = Field(default=None, description="关联的实例ID（安装完成后创建）")
+    
     # 日志
     logs: List[str] = Field(default_factory=list, description="任务日志")
 
