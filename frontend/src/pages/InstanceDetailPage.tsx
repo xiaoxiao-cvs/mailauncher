@@ -26,8 +26,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // 组件显示名称映射
 const componentLabels: Record<ComponentType, string> = {
@@ -57,6 +60,7 @@ export const InstanceDetailPage: React.FC = () => {
   const [selectedComponent, setSelectedComponent] = useState<ComponentType>('main');
   const [componentLoading, setComponentLoading] = useState<ComponentType | null>(null);
   const [actionLoading, setActionLoading] = useState<'start' | 'stop' | 'restart' | null>(null);
+  const [selectedStartTarget, setSelectedStartTarget] = useState<ComponentType | 'all'>('all');
   
   const instance = selectedInstance || instances.find((i) => i.id === id);
   
@@ -95,6 +99,33 @@ export const InstanceDetailPage: React.FC = () => {
     }
   }, [id, instance, fetchComponentStatus]);
   
+  // 自动更新 selectedStartTarget - 当当前选中的组件启动后，切换到下一个未启动的组件
+  useEffect(() => {
+    if (!instance) return;
+    
+    const components: ComponentType[] = ['main', 'napcat', 'napcat-ada'];
+    const anyRunning = components.some(comp => getComponentStatus(comp)?.running);
+    
+    // 只在当前选中的组件已经在运行时才自动切换
+    if (selectedStartTarget !== 'all' && 
+        getComponentStatus(selectedStartTarget as ComponentType)?.running) {
+      // 查找第一个未运行的组件
+      const nextComponent = components.find(comp => !getComponentStatus(comp)?.running);
+      
+      if (nextComponent) {
+        setSelectedStartTarget(nextComponent);
+      } else {
+        // 所有组件都在运行
+        setSelectedStartTarget('all');
+      }
+    }
+    
+    // 如果没有任何组件运行，确保显示 'all'
+    if (!anyRunning && selectedStartTarget !== 'all') {
+      setSelectedStartTarget('all');
+    }
+  }, [componentStatuses, instance]);
+  
   if (!instance) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -131,9 +162,14 @@ export const InstanceDetailPage: React.FC = () => {
     try {
       await fetchInstance(instance.id);
       if (component) {
+        // 启动单个组件
         await startComponent(instance.id, component);
+        // 启动单个组件后不改变选择状态，保持启动按钮可见
       } else {
+        // 启动所有组件
         await startInstance(instance.id);
+        // 启动所有组件后重置选择
+        setSelectedStartTarget('all');
       }
     } catch (error) {
       console.error('启动失败:', error);
@@ -233,6 +269,16 @@ export const InstanceDetailPage: React.FC = () => {
   const isRunning = instance.status === 'running';
   const isStopped = instance.status === 'stopped';
   
+  // 检查是否有任何组件在运行
+  const hasAnyComponentRunning = ['main', 'napcat', 'napcat-ada'].some(
+    (comp) => componentStatuses[instance.id]?.[comp as ComponentType]?.running
+  );
+  
+  // 检查是否所有组件都在运行
+  const allComponentsRunning = ['main', 'napcat', 'napcat-ada'].every(
+    (comp) => componentStatuses[instance.id]?.[comp as ComponentType]?.running
+  );
+  
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900">
       {/* 头部 */}
@@ -278,105 +324,172 @@ export const InstanceDetailPage: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            {isStopped && (
+            {/* 启动按钮 - 只要有未启动的组件就显示 */}
+            {!allComponentsRunning && (
+              <div className="inline-flex divide-x divide-white/30 rounded-lg shadow-sm overflow-hidden">
+              <Button
+                onClick={async () => {
+                  if (selectedStartTarget === 'all') {
+                    await handleStartInstance();
+                  } else {
+                    await handleStartInstance(selectedStartTarget as ComponentType);
+                  }
+                }}
+                disabled={actionLoading === 'start'}
+                className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10
+                         bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700
+                         text-white font-medium gap-2"
+              >
+                {actionLoading === 'start' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4" />
+                )}
+                {selectedStartTarget === 'all' 
+                  ? '启动所有' 
+                  : selectedStartTarget === 'main'
+                  ? '启动 Maibot'
+                  : selectedStartTarget === 'napcat'
+                  ? '启动 NapCat'
+                  : '启动 Ada'
+                }
+              </Button>
+              
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    disabled={actionLoading === 'start'}
-                    className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 
-                             hover:from-green-700 hover:to-emerald-700 text-white"
+                    size="icon"
+                    className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10
+                             bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                    aria-label="选择组件"
                   >
-                    {actionLoading === 'start' ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Play className="w-4 h-4" />
-                    )}
-                    启动
-                    <ChevronDown className="w-4 h-4 ml-1 opacity-70" />
+                    <ChevronDown className="w-4 h-4" aria-hidden="true" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => handleStartInstance()}>
-                    所有组件
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleStartInstance('main')}>
-                    Maibot 主程序
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleStartInstance('napcat')}>
-                    NapCat 服务
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleStartInstance('napcat-ada')}>
-                    NapCat 适配器
-                  </DropdownMenuItem>
+                  <DropdownMenuRadioGroup
+                    value={selectedStartTarget}
+                    onValueChange={(value) => {
+                      setSelectedStartTarget(value as ComponentType | 'all');
+                    }}
+                  >
+                    {/* 只显示未运行的组件 */}
+                    {!hasAnyComponentRunning && (
+                      <DropdownMenuRadioItem value="all">
+                        所有组件
+                      </DropdownMenuRadioItem>
+                    )}
+                    {!getComponentStatus('main')?.running && (
+                      <DropdownMenuRadioItem value="main">
+                        Maibot 主程序
+                      </DropdownMenuRadioItem>
+                    )}
+                    {!getComponentStatus('napcat')?.running && (
+                      <DropdownMenuRadioItem value="napcat">
+                        NapCat 服务
+                      </DropdownMenuRadioItem>
+                    )}
+                    {!getComponentStatus('napcat-ada')?.running && (
+                      <DropdownMenuRadioItem value="napcat-ada">
+                        NapCat 适配器
+                      </DropdownMenuRadioItem>
+                    )}
+                  </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </div>
             )}
             
-            {isRunning && (
+            {/* 停止和重启按钮 - 仅当有组件运行时显示 */}
+            {hasAnyComponentRunning && (
               <>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      disabled={actionLoading === 'stop'}
-                      className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 
-                               hover:from-red-700 hover:to-rose-700 text-white"
-                    >
-                      {actionLoading === 'stop' ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Square className="w-4 h-4" />
-                      )}
-                      停止
-                      <ChevronDown className="w-4 h-4 ml-1 opacity-70" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={() => handleStopInstance()}>
-                      所有组件
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleStopInstance('main')}>
-                      Maibot 主程序
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleStopInstance('napcat')}>
-                      NapCat 服务
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleStopInstance('napcat-ada')}>
-                      NapCat 适配器
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="inline-flex divide-x divide-white/30 rounded-lg shadow-sm overflow-hidden">
+                  <Button
+                    onClick={() => handleStopInstance()}
+                    disabled={actionLoading === 'stop'}
+                    className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10
+                             bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700
+                             text-white font-medium gap-2"
+                  >
+                    {actionLoading === 'stop' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Square className="w-4 h-4" />
+                    )}
+                    停止
+                  </Button>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10
+                                 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700"
+                        aria-label="选择组件"
+                      >
+                        <ChevronDown className="w-4 h-4" aria-hidden="true" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => handleStopInstance()}>
+                        所有组件
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleStopInstance('main')}>
+                        Maibot 主程序
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleStopInstance('napcat')}>
+                        NapCat 服务
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleStopInstance('napcat-ada')}>
+                        NapCat 适配器
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      disabled={actionLoading === 'restart'}
-                      className="flex items-center gap-2 bg-gradient-to-r from-honolulu_blue-600 to-blue_green-600 
-                               hover:from-honolulu_blue-700 hover:to-blue_green-700 text-white"
-                    >
-                      {actionLoading === 'restart' ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <RotateCw className="w-4 h-4" />
-                      )}
-                      重启
-                      <ChevronDown className="w-4 h-4 ml-1 opacity-70" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={() => handleRestartInstance()}>
-                      所有组件
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleRestartInstance('main')}>
-                      Maibot 主程序
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleRestartInstance('napcat')}>
-                      NapCat 服务
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleRestartInstance('napcat-ada')}>
-                      NapCat 适配器
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="inline-flex divide-x divide-white/30 rounded-lg shadow-sm overflow-hidden">
+                  <Button
+                    onClick={() => handleRestartInstance()}
+                    disabled={actionLoading === 'restart'}
+                    className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10
+                             bg-gradient-to-r from-honolulu_blue-600 to-blue_green-600 hover:from-honolulu_blue-700 hover:to-blue_green-700
+                             text-white font-medium gap-2"
+                  >
+                    {actionLoading === 'restart' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <RotateCw className="w-4 h-4" />
+                    )}
+                    重启
+                  </Button>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10
+                                 bg-gradient-to-r from-honolulu_blue-600 to-blue_green-600 hover:from-honolulu_blue-700 hover:to-blue_green-700"
+                        aria-label="选择组件"
+                      >
+                        <ChevronDown className="w-4 h-4" aria-hidden="true" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => handleRestartInstance()}>
+                        所有组件
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleRestartInstance('main')}>
+                        Maibot 主程序
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleRestartInstance('napcat')}>
+                        NapCat 服务
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleRestartInstance('napcat-ada')}>
+                        NapCat 适配器
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </>
             )}
           </div>
@@ -386,179 +499,239 @@ export const InstanceDetailPage: React.FC = () => {
       {/* 主内容区 */}
       <div className="flex-1 overflow-hidden flex">
         {/* 左侧信息面板 */}
-        <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
-          <div className="p-6 space-y-6">
-            {/* 基本信息 */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                <Activity className="w-4 h-4" />
-                基本信息
+        <div className="w-[45%] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 overflow-y-auto">
+          <div className="p-6 space-y-4">
+            {/* 统计信息卡片 */}
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl p-6 
+                          border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
+              <h3 className="text-lg font-bold text-federal_blue-500 dark:text-white mb-4 flex items-center gap-2">
+                <Activity className="w-5 h-5" />
+                实例统计
               </h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">版本</span>
-                  <span className="text-gray-900 dark:text-gray-100">
-                    {instance.bot_version || 'N/A'}
+              
+              <div className="space-y-4">
+                {/* Maibot 版本 */}
+                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-uranian_blue-100 to-light_sky_blue-100 
+                              dark:from-marian_blue-900/30 dark:to-honolulu_blue-900/30 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-honolulu_blue-500" />
+                    <span className="text-sm font-medium text-federal_blue-600 dark:text-gray-300">
+                      Maibot 版本
+                    </span>
+                  </div>
+                  <span className="text-sm font-semibold text-federal_blue-700 dark:text-white">
+                    {instance.bot_version || '未知'}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">类型</span>
-                  <span className="text-gray-900 dark:text-gray-100">{instance.bot_type}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">创建时间</span>
-                  <span className="text-gray-900 dark:text-gray-100">
-                    {formatTime(instance.created_at)}
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            {/* 运行信息 */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                运行信息
-              </h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">最后启动</span>
-                  <span className="text-gray-900 dark:text-gray-100">
-                    {formatTime(instance.last_run)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">累计运行</span>
-                  <span className="text-gray-900 dark:text-gray-100">
+                
+                {/* 运行时长 */}
+                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-uranian_blue-100 to-light_sky_blue-100 
+                              dark:from-marian_blue-900/30 dark:to-honolulu_blue-900/30 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-blue_green-500" />
+                    <span className="text-sm font-medium text-federal_blue-600 dark:text-gray-300">
+                      累计运行时长
+                    </span>
+                  </div>
+                  <span className="text-sm font-semibold text-federal_blue-700 dark:text-white">
                     {formatDuration(instance.run_time)}
                   </span>
                 </div>
+                
+                {/* 最后启动时间 */}
+                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-uranian_blue-100 to-light_sky_blue-100 
+                              dark:from-marian_blue-900/30 dark:to-honolulu_blue-900/30 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-pacific_cyan-500" />
+                    <span className="text-sm font-medium text-federal_blue-600 dark:text-gray-300">
+                      最后启动
+                    </span>
+                  </div>
+                  <span className="text-sm font-semibold text-federal_blue-700 dark:text-white">
+                    {formatTime(instance.last_run)}
+                  </span>
+                </div>
               </div>
             </div>
             
-            {/* 组件列表 */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                <Server className="w-4 h-4" />
-                组件管理
+            {/* 配置管理卡片 */}
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl p-6 
+                          border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
+              <h3 className="text-lg font-bold text-federal_blue-500 dark:text-white mb-4 flex items-center gap-2">
+                <Server className="w-5 h-5" />
+                配置管理
               </h3>
-              <div className="space-y-2">
-                {(['main', 'napcat', 'napcat-ada'] as ComponentType[]).map((component) => {
-                  const status = getComponentStatus(component);
-                  const isComponentRunning = status?.running || false;
-                  const isComponentLoading = componentLoading === component;
-                  
-                  return (
-                    <div
-                      key={component}
-                      className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={`w-2 h-2 rounded-full ${
-                              isComponentRunning ? 'bg-green-500' : 'bg-gray-400'
-                            }`}
-                          />
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {componentLabels[component]}
-                          </span>
-                        </div>
-                        
-                        {status?.pid && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            PID: {status.pid}
-                          </span>
-                        )}
-                      </div>
-                      
-                      {/* NapCat 首次启动提示 */}
-                      {component === 'napcat' && !isComponentRunning && (
-                        <div className="mb-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-xs text-yellow-800 dark:text-yellow-200">
-                          <p className="font-medium mb-1">💡 首次启动提示</p>
-                          <p className="text-yellow-700 dark:text-yellow-300">
-                            首次启动时需要扫码登录，请在终端查看二维码。登录成功后，后续可以使用 QQ 号快速启动。
-                          </p>
-                        </div>
-                      )}
-                      
-                      <div className="flex gap-2">
-                        {isComponentRunning ? (
-                          <button
-                            onClick={() => handleComponentAction(component, 'stop')}
-                            disabled={isComponentLoading}
-                            className="flex-1 px-2 py-1 text-xs bg-red-600 text-white rounded 
-                                     hover:bg-red-700 disabled:opacity-50 transition-colors"
-                          >
-                            停止
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleComponentAction(component, 'start')}
-                            disabled={isComponentLoading}
-                            className="flex-1 px-2 py-1 text-xs bg-green-600 text-white rounded 
-                                     hover:bg-green-700 disabled:opacity-50 transition-colors"
-                          >
-                            启动
-                          </button>
-                        )}
-                        
-                        {status?.uptime && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
-                            {formatDuration(status.uptime)}
-                          </span>
-                        )}
-                      </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                {/* Bot 配置 */}
+                <button
+                  className="group p-4 bg-gradient-to-br from-honolulu_blue-50 to-blue_green-50 
+                           dark:from-honolulu_blue-900/20 dark:to-blue_green-900/20 
+                           hover:from-honolulu_blue-100 hover:to-blue_green-100
+                           dark:hover:from-honolulu_blue-900/30 dark:hover:to-blue_green-900/30
+                           rounded-lg border border-honolulu_blue-200/50 dark:border-honolulu_blue-700/50
+                           transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <Server className="w-5 h-5 text-honolulu_blue-600 dark:text-honolulu_blue-400" />
+                    <div className="text-sm font-semibold text-federal_blue-600 dark:text-white">
+                      Bot 配置
                     </div>
-                  );
-                })}
+                  </div>
+                </button>
+                
+                {/* 自动计划 */}
+                <button
+                  className="group p-4 bg-gradient-to-br from-pacific_cyan-50 to-vivid_sky_blue-50 
+                           dark:from-pacific_cyan-900/20 dark:to-vivid_sky_blue-900/20 
+                           hover:from-pacific_cyan-100 hover:to-vivid_sky_blue-100
+                           dark:hover:from-pacific_cyan-900/30 dark:hover:to-vivid_sky_blue-900/30
+                           rounded-lg border border-pacific_cyan-200/50 dark:border-pacific_cyan-700/50
+                           transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <Clock className="w-5 h-5 text-pacific_cyan-600 dark:text-pacific_cyan-400" />
+                    <div className="text-sm font-semibold text-federal_blue-600 dark:text-white">
+                      自动计划
+                    </div>
+                  </div>
+                </button>
+                
+                {/* 日志查看 */}
+                <button
+                  className="group p-4 bg-gradient-to-br from-thistle-50 to-fairy_tale-50 
+                           dark:from-thistle-900/20 dark:to-fairy_tale-900/20 
+                           hover:from-thistle-100 hover:to-fairy_tale-100
+                           dark:hover:from-thistle-900/30 dark:hover:to-fairy_tale-900/30
+                           rounded-lg border border-thistle-200/50 dark:border-thistle-700/50
+                           transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <Activity className="w-5 h-5 text-thistle-600 dark:text-thistle-400" />
+                    <div className="text-sm font-semibold text-federal_blue-600 dark:text-white">
+                      日志查看
+                    </div>
+                  </div>
+                </button>
+                
+                {/* 高级设置 */}
+                <button
+                  className="group p-4 bg-gradient-to-br from-carnation_pink-50 to-light_sky_blue-50 
+                           dark:from-carnation_pink-900/20 dark:to-light_sky_blue-900/20 
+                           hover:from-carnation_pink-100 hover:to-light_sky_blue-100
+                           dark:hover:from-carnation_pink-900/30 dark:hover:to-light_sky_blue-900/30
+                           rounded-lg border border-carnation_pink-200/50 dark:border-carnation_pink-700/50
+                           transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <RotateCw className="w-5 h-5 text-carnation_pink-600 dark:text-carnation_pink-400" />
+                    <div className="text-sm font-semibold text-federal_blue-600 dark:text-white">
+                      高级设置
+                    </div>
+                  </div>
+                </button>
               </div>
             </div>
           </div>
         </div>
         
         {/* 右侧终端区域 */}
-        <div className="flex-1 flex flex-col">
-          {/* 终端工具栏 */}
-          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
-            <div className="flex items-center gap-4">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                选择组件终端:
-              </label>
-              <Select
-                value={selectedComponent}
-                onValueChange={(value) => setSelectedComponent(value as ComponentType)}
-              >
-                <SelectTrigger className="w-64">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="main">{componentLabels.main}</SelectItem>
-                  <SelectItem value="napcat">{componentLabels.napcat}</SelectItem>
-                  <SelectItem value="napcat-ada">{componentLabels['napcat-ada']}</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <div className="flex-1" />
-              
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                当前: {componentLabels[selectedComponent]}
-              </div>
+        <div className="flex-1 flex flex-col bg-white/50 dark:bg-gray-800/50 backdrop-blur-md">
+          <Tabs 
+            value={selectedComponent} 
+            onValueChange={(value) => setSelectedComponent(value as ComponentType)}
+            className="flex-1 flex flex-col"
+          >
+            {/* Tab 栏 */}
+            <div className="border-b border-gray-200 dark:border-gray-700 px-4 pt-3">
+              <TabsList className="bg-transparent h-auto p-0 gap-1">
+                <TabsTrigger 
+                  value="main"
+                  className="relative px-4 py-2 data-[state=active]:bg-white/80 dark:data-[state=active]:bg-gray-700/80 
+                           data-[state=active]:shadow-sm rounded-t-lg border-b-2 border-transparent 
+                           data-[state=active]:border-honolulu_blue-500 transition-all"
+                >
+                  <span className="flex items-center gap-2">
+                    Maibot
+                    <span 
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        getComponentStatus('main')?.running 
+                          ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' 
+                          : 'bg-gray-400'
+                      }`}
+                    />
+                  </span>
+                </TabsTrigger>
+                
+                <TabsTrigger 
+                  value="napcat-ada"
+                  className="relative px-4 py-2 data-[state=active]:bg-white/80 dark:data-[state=active]:bg-gray-700/80 
+                           data-[state=active]:shadow-sm rounded-t-lg border-b-2 border-transparent 
+                           data-[state=active]:border-honolulu_blue-500 transition-all"
+                >
+                  <span className="flex items-center gap-2">
+                    ada
+                    <span 
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        getComponentStatus('napcat-ada')?.running 
+                          ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' 
+                          : 'bg-gray-400'
+                      }`}
+                    />
+                  </span>
+                </TabsTrigger>
+                
+                <TabsTrigger 
+                  value="napcat"
+                  className="relative px-4 py-2 data-[state=active]:bg-white/80 dark:data-[state=active]:bg-gray-700/80 
+                           data-[state=active]:shadow-sm rounded-t-lg border-b-2 border-transparent 
+                           data-[state=active]:border-honolulu_blue-500 transition-all"
+                >
+                  <span className="flex items-center gap-2">
+                    Napcat
+                    <span 
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        getComponentStatus('napcat')?.running 
+                          ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' 
+                          : 'bg-gray-400'
+                      }`}
+                    />
+                  </span>
+                </TabsTrigger>
+              </TabsList>
             </div>
-          </div>
-          
-          {/* 终端内容 */}
-          <div className="flex-1 p-4 overflow-hidden">
-            <TerminalComponent
-              key={`${instance.id}-${selectedComponent}`}
-              instanceId={instance.id}
-              component={selectedComponent}
-              className="h-full"
-              isRunning={
-                componentStatuses[instance.id]?.[selectedComponent]?.running === true
-              }
-            />
-          </div>
+            
+            {/* 终端内容 */}
+            <TabsContent value="main" className="flex-1 p-4 m-0">
+              <TerminalComponent
+                key={`${instance.id}-main`}
+                instanceId={instance.id}
+                component="main"
+                className="h-full"
+                isRunning={getComponentStatus('main')?.running === true}
+              />
+            </TabsContent>
+            
+            <TabsContent value="napcat-ada" className="flex-1 p-4 m-0">
+              <TerminalComponent
+                key={`${instance.id}-napcat-ada`}
+                instanceId={instance.id}
+                component="napcat-ada"
+                className="h-full"
+                isRunning={getComponentStatus('napcat-ada')?.running === true}
+              />
+            </TabsContent>
+            
+            <TabsContent value="napcat" className="flex-1 p-4 m-0">
+              <TerminalComponent
+                key={`${instance.id}-napcat`}
+                instanceId={instance.id}
+                component="napcat"
+                className="h-full"
+                isRunning={getComponentStatus('napcat')?.running === true}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>

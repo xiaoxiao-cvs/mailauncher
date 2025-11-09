@@ -150,8 +150,8 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     // 使用统一的 API 配置获取后端地址
     const apiBaseUrl = getApiBaseUrl();
     const wsUrl = apiBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
-    // 添加查询参数请求历史日志 (默认300条)
-    const ws = new WebSocket(`${wsUrl}/api/v1/instances/${instanceId}/component/${component}/terminal?history=300`);
+    // 添加查询参数请求历史日志 (500条)
+    const ws = new WebSocket(`${wsUrl}/api/v1/instances/${instanceId}/component/${component}/terminal?history=500`);
     
     wsRef.current = ws;
     
@@ -213,14 +213,20 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     };
     
     ws.onerror = (error) => {
-      term.writeln('');
-      term.writeln('\x1b[1;31m✗ 终端连接错误\x1b[0m');
+      // 只在 WebSocket 已经打开过的情况下显示错误
+      if (ws.readyState !== WebSocket.CONNECTING) {
+        term.writeln('');
+        term.writeln('\x1b[1;31m✗ 终端连接错误\x1b[0m');
+      }
       console.error('WebSocket 错误:', error);
     };
     
-    ws.onclose = () => {
-      term.writeln('');
-      term.writeln('\x1b[1;33m○ 终端连接已关闭\x1b[0m');
+    ws.onclose = (event) => {
+      // 只在正常连接后关闭时显示消息（避免开发模式重复挂载产生的噪音）
+      if (event.wasClean && wsRef.current === ws) {
+        term.writeln('');
+        term.writeln('\x1b[1;33m○ 终端连接已关闭\x1b[0m');
+      }
     };
     
     // 发送用户输入到 WebSocket
@@ -251,19 +257,39 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     // 清理
     return () => {
       if (wsRef.current) {
-        wsRef.current.close();
+        // 标记为已清理,避免 onclose 回调显示消息
+        const currentWs = wsRef.current;
         wsRef.current = null;
+        
+        // 只在连接已建立时关闭
+        if (currentWs.readyState === WebSocket.OPEN || 
+            currentWs.readyState === WebSocket.CONNECTING) {
+          currentWs.close();
+        }
       }
     };
   }, [instanceId, component, isRunning]); // 添加 isRunning 到依赖项
   
   return (
-    <div className={`terminal-container ${className}`}>
+    <div className={`terminal-container ${className} px-4 py-3`}>
       <div 
         ref={terminalRef} 
         className="h-full w-full rounded-lg overflow-hidden"
-        style={{ backgroundColor: '#1e1e1e' }}
+        style={{ 
+          backgroundColor: '#1e1e1e',
+        }}
       />
+      <style>{`
+        /* 隐藏 xterm.js 滚动条 */
+        .terminal-container .xterm-viewport {
+          overflow-y: scroll !important;
+          scrollbar-width: none; /* Firefox */
+          -ms-overflow-style: none; /* IE/Edge */
+        }
+        .terminal-container .xterm-viewport::-webkit-scrollbar {
+          display: none; /* Chrome/Safari/Opera */
+        }
+      `}</style>
     </div>
   );
 };
