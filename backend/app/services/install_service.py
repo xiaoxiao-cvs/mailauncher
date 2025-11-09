@@ -173,6 +173,7 @@ class InstallService:
         project_dir: Path,
         venv_type: str = "venv",
         progress_callback: Optional[Callable[[str, str], Any]] = None,
+        python_path: Optional[str] = None,
     ) -> bool:
         """
         创建虚拟环境
@@ -181,6 +182,7 @@ class InstallService:
             project_dir: 项目目录
             venv_type: 虚拟环境类型 (venv, uv, conda)
             progress_callback: 进度回调 (message, level)
+            python_path: Python 可执行文件路径（用户选择的版本）
 
         Returns:
             是否成功
@@ -189,28 +191,53 @@ class InstallService:
             if progress_callback:
                 await progress_callback(f"在 {project_dir.name} 创建虚拟环境 (使用 {venv_type})", "info")
 
+            # 确定使用的 Python 命令
+            python_cmd = python_path if python_path else "python3"
+
             # 根据用户配置的 venv_type 创建虚拟环境
             if venv_type == "uv":
                 # 使用 uv 创建虚拟环境
-                success, _ = await self._run_command(
-                    ["uv", "venv"],
-                    project_dir,
-                    progress_callback,
-                )
+                # uv 可以指定 Python 版本
+                if python_path:
+                    success, _ = await self._run_command(
+                        ["uv", "venv", "--python", python_cmd],
+                        project_dir,
+                        progress_callback,
+                    )
+                else:
+                    success, _ = await self._run_command(
+                        ["uv", "venv"],
+                        project_dir,
+                        progress_callback,
+                    )
                 return success
             elif venv_type == "conda":
                 # 使用 conda 创建虚拟环境
-                venv_name = f"{project_dir.name}_env"
+                # 从 python_path 提取版本号
+                python_version = "3.11"  # 默认版本
+                if python_path:
+                    try:
+                        # 运行 python --version 获取版本
+                        import subprocess
+                        result = subprocess.run([python_cmd, "--version"], capture_output=True, text=True)
+                        version_str = result.stdout.strip() or result.stderr.strip()
+                        # 解析版本号（例如：Python 3.11.0 -> 3.11）
+                        parts = version_str.split()[1].split(".")
+                        python_version = f"{parts[0]}.{parts[1]}"
+                    except:
+                        pass
+                
                 success, _ = await self._run_command(
-                    ["conda", "create", "-p", str(project_dir / ".venv"), "python=3.10", "-y"],
+                    ["conda", "create", "-p", str(project_dir / ".venv"), f"python={python_version}", "-y"],
                     project_dir,
                     progress_callback,
                 )
                 return success
             else:
                 # 使用 python venv (默认)
+                # 使用用户指定的 Python 版本
                 success, _ = await self._run_command(
-                    ["python3", "-m", "venv", ".venv"],
+                    [python_cmd, "-m", "venv", ".venv"],
                     project_dir,
                     progress_callback,
                 )

@@ -437,8 +437,11 @@ class InstanceService:
                 components_to_start = ["main"]
                 
                 # 检查是否存在其他组件（使用实际的目录名）
-                if (instance_path / "Napcat").exists():
+                # NapCat: 检查 NapCat/start.sh 是否存在
+                napcat_start = instance_path / "NapCat" / "start.sh"
+                if napcat_start.exists():
                     components_to_start.append("napcat")
+                # Adapter: 检查 MaiBot-Napcat-Adapter/main.py 是否存在
                 if (instance_path / "MaiBot-Napcat-Adapter").exists():
                     components_to_start.append("napcat-ada")
             else:

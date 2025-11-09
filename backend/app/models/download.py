@@ -60,6 +60,7 @@ class DownloadTask(BaseModel):
     
     # 虚拟环境配置
     venv_type: str = Field(default="venv", description="虚拟环境类型: venv, uv, conda")
+    python_path: Optional[str] = Field(default=None, description="Python 可执行文件路径（用户选择的版本）")
     
     # 状态信息
     status: DownloadStatus = Field(
@@ -128,6 +129,10 @@ class DownloadTaskCreate(BaseModel):
     venv_type: Optional[str] = Field(
         default=None, 
         description="[已废弃] 虚拟环境类型，后端会从数据库读取用户配置"
+    )
+    python_path: Optional[str] = Field(
+        default=None,
+        description="[已废弃] Python路径，后端会从数据库读取用户配置"
     )
 
     class Config:

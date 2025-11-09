@@ -34,12 +34,19 @@ async def create_download_task(
     venv_type 会从数据库读取用户在引导页配置的值（venv/uv/conda）。
     """
     try:
-        # 从数据库读取用户配置的虚拟环境类型（引导页保存）
+        # 从数据库读取用户配置的虚拟环境类型和 Python 路径（引导页保存）
         # 前端不需要传递此参数，保持单一数据源
         from ...services.config_service import config_service
+        
+        # 读取虚拟环境类型配置
         venv_type = await config_service.get_config(db, "venv_type")
         task_data.venv_type = venv_type if venv_type else "venv"
-        logger.info(f"使用用户配置的虚拟环境类型: {task_data.venv_type}")
+        
+        # 读取用户选择的 Python 环境（从 PythonEnvironment 表）
+        selected_python = await config_service.get_selected_python(db)
+        task_data.python_path = selected_python.path if selected_python else None
+        
+        logger.info(f"使用用户配置: venv_type={task_data.venv_type}, python_path={task_data.python_path}")
         
         manager = get_download_manager()
         

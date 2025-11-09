@@ -57,6 +57,7 @@ class DownloadManager:
             maibot_version_value=task_data.maibot_version_value,
             selected_items=task_data.selected_items,
             venv_type=task_data.venv_type or "venv",  # 使用用户配置的虚拟环境类型
+            python_path=task_data.python_path,  # 使用用户配置的 Python 路径
             status=DownloadStatus.PENDING,
             progress=DownloadProgress(
                 current=0,
@@ -68,7 +69,7 @@ class DownloadManager:
         )
 
         self.tasks[task_id] = task
-        logger.info(f"创建下载任务: {task_id} - {task_data.instance_name} (venv: {task.venv_type})")
+        logger.info(f"创建下载任务: {task_id} - {task_data.instance_name} (venv: {task.venv_type}, python: {task.python_path or 'default'})")
         
         return task
 
@@ -161,11 +162,13 @@ class DownloadManager:
             await self._add_log(task, f"创建实例目录: {instance_dir}")
             
             # 在实例根目录创建共享虚拟环境
-            await self._add_log(task, f"创建共享虚拟环境 (使用 {task.venv_type})...", "info")
+            python_info = f" using {task.python_path}" if task.python_path else ""
+            await self._add_log(task, f"创建共享虚拟环境 (使用 {task.venv_type}{python_info})...", "info")
             venv_success = await self.install_service.create_virtual_environment(
                 instance_dir,
                 task.venv_type,
                 None,  # 不需要进度回调，后面会统一输出
+                task.python_path,  # 使用用户选择的 Python 版本
             )
             
             if venv_success:

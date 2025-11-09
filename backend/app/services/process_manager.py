@@ -126,13 +126,23 @@ class ProcessManager:
             command = f"{python_cmd} bot.py"
             
         elif component == "napcat":
-            # NapCat 服务 - 在 Napcat 子目录下
-            cwd = str(instance_path / "Napcat")
-            napcat_script = Path(cwd) / "napcat.mjs"
-            if not napcat_script.exists():
-                raise FileNotFoundError(f"NapCat 启动脚本不存在: {napcat_script}")
-            # NapCat 使用 node 启动
-            command = f"node napcat.mjs"
+            # NapCat 服务 - 使用启动脚本
+            cwd = str(instance_path / "NapCat")
+            start_script = Path(cwd) / "start.sh"
+            
+            if not start_script.exists():
+                raise FileNotFoundError(f"NapCat 启动脚本不存在: {start_script}")
+            
+            # 从环境变量或配置读取 QQ 账号
+            # TODO: 后续可以从实例配置中读取
+            qq_account = os.environ.get("QQ_ACCOUNT", "")
+            
+            if not qq_account:
+                logger.warning("未设置 QQ_ACCOUNT 环境变量，NapCat 可能无法启动")
+                logger.warning("请设置: export QQ_ACCOUNT=<你的QQ号>")
+            
+            # 使用 bash 执行启动脚本
+            command = f"bash start.sh {qq_account}" if qq_account else "bash start.sh"
             
         elif component == "napcat-ada":
             # NapCat 适配器 - 在 MaiBot-Napcat-Adapter 子目录下
