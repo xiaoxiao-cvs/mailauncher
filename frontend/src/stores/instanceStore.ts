@@ -188,7 +188,7 @@ export const useInstanceStore = create<InstanceStore>((set, get) => ({
       await instanceApi.startComponent(instanceId, component);
       
       // 更新组件状态缓存
-      const status = await get().fetchComponentStatus(instanceId, component);
+      await get().fetchComponentStatus(instanceId, component);
       
       // 延迟刷新实例状态
       setTimeout(() => get().fetchInstance(instanceId), 1000);
@@ -238,7 +238,7 @@ export const useInstanceStore = create<InstanceStore>((set, get) => ({
   },
   
   // 获取实例的组件列表（基于目录结构推断）
-  getInstanceComponents: (instanceId: string) => {
+  getInstanceComponents: () => {
     // 基础组件总是包含 main
     const components: ComponentType[] = ['main'];
     
