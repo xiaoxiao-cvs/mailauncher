@@ -353,6 +353,16 @@ export const InstanceDetailPage: React.FC = () => {
                         )}
                       </div>
                       
+                      {/* NapCat 首次启动提示 */}
+                      {component === 'napcat' && !isComponentRunning && (
+                        <div className="mb-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-xs text-yellow-800 dark:text-yellow-200">
+                          <p className="font-medium mb-1">💡 首次启动提示</p>
+                          <p className="text-yellow-700 dark:text-yellow-300">
+                            首次启动时需要扫码登录，请在终端查看二维码。登录成功后，后续可以使用 QQ 号快速启动。
+                          </p>
+                        </div>
+                      )}
+                      
                       <div className="flex gap-2">
                         {isComponentRunning ? (
                           <button

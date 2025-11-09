@@ -120,12 +120,12 @@ class DownloadManager:
             logger.error(f"任务不存在: {task_id}")
             return False
 
-        # 🔥 立即发送初始状态（不等待 WebSocket 连接）
+        # 立即发送初始状态（不等待 WebSocket 连接）
         task.status = DownloadStatus.PENDING
         self._update_progress(task, 0, 100, "准备开始安装...")
         logger.info(f"[{task_id}] 任务准备开始")
         
-        # 🔥 尝试发送初始进度（如果 WebSocket 已连接）
+        # 尝试发送初始进度（如果 WebSocket 已连接）
         try:
             await self.ws_manager.send_progress(task_id, 0, 100, "准备开始安装...", "pending")
         except Exception as e:
@@ -139,7 +139,7 @@ class DownloadManager:
         while not self.ws_manager.has_connections(task_id):
             await asyncio.sleep(0.2)  # 减少等待间隔
             if (datetime.now() - wait_start).seconds > 5:  # 缩短超时时间
-                # 🔥 即使没有 WebSocket 连接也继续执行（日志会保存在任务中）
+                # 即使没有 WebSocket 连接也继续执行（日志会保存在任务中）
                 logger.warning(f"[{task_id}] WebSocket 连接超时，继续执行任务")
                 await self._add_log(task, "WebSocket 连接超时，继续执行（日志将保存在任务中）", "warning")
                 break

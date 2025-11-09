@@ -115,7 +115,20 @@ class ProcessManager:
             (command, cwd) 元组
         """
         # 确定 Python 命令
-        python_cmd = python_path if python_path else sys.executable
+        # 优先使用虚拟环境中的 Python
+        if not python_path:
+            venv_python = instance_path / ".venv" / "bin" / "python"
+            if not venv_python.exists():
+                venv_python = instance_path / ".venv" / "Scripts" / "python.exe"  # Windows
+            
+            if venv_python.exists():
+                python_cmd = str(venv_python)
+                logger.info(f"使用虚拟环境 Python: {python_cmd}")
+            else:
+                python_cmd = sys.executable
+                logger.warning(f"未找到虚拟环境 Python，使用系统 Python: {python_cmd}")
+        else:
+            python_cmd = python_path
         
         if component == "main":
             # MaiBot 主程序 - 在 MaiBot 子目录下
@@ -129,6 +142,7 @@ class ProcessManager:
             # NapCat 服务 - 使用启动脚本
             cwd = str(instance_path / "NapCat")
             start_script = Path(cwd) / "start.sh"
+            login_flag = Path(cwd) / ".logged_in"
             
             if not start_script.exists():
                 raise FileNotFoundError(f"NapCat 启动脚本不存在: {start_script}")
@@ -137,12 +151,20 @@ class ProcessManager:
             # TODO: 后续可以从实例配置中读取
             qq_account = os.environ.get("QQ_ACCOUNT", "")
             
-            if not qq_account:
-                logger.warning("未设置 QQ_ACCOUNT 环境变量，NapCat 可能无法启动")
-                logger.warning("请设置: export QQ_ACCOUNT=<你的QQ号>")
-            
-            # 使用 bash 执行启动脚本
-            command = f"bash start.sh {qq_account}" if qq_account else "bash start.sh"
+            # 检查是否首次启动
+            if not login_flag.exists():
+                logger.info("检测到 NapCat 首次启动，将启动 WebUI 和二维码登录")
+                logger.info("请在终端中扫描二维码完成登录")
+                # 首次启动不带账号
+                command = "bash start.sh"
+            else:
+                # 已登录过，使用 QQ 账号快速启动
+                if qq_account:
+                    logger.info(f"使用 QQ 账号快速启动: {qq_account}")
+                    command = f"bash start.sh {qq_account}"
+                else:
+                    logger.info("未设置 QQ_ACCOUNT，使用默认启动模式")
+                    command = "bash start.sh"
             
         elif component == "napcat-ada":
             # NapCat 适配器 - 在 MaiBot-Napcat-Adapter 子目录下

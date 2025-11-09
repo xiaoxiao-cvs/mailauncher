@@ -109,17 +109,17 @@ export function InstallOverview({ state }: InstallOverviewProps) {
 function getStatusIcon(status: TaskStatus): string {
   switch (status) {
     case TaskStatus.PENDING:
-      return '⏳'
+      return '[等待]'
     case TaskStatus.DOWNLOADING:
-      return '📥'
+      return '[下载]'
     case TaskStatus.INSTALLING:
-      return '⚙️'
+      return '[安装]'
     case TaskStatus.SUCCESS:
-      return '✅'
+      return '[成功]'
     case TaskStatus.FAILED:
-      return '❌'
+      return '[失败]'
     default:
-      return '🔄'
+      return '[处理中]'
   }
 }
 
