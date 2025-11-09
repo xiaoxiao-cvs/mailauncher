@@ -235,6 +235,105 @@
             "description": "停止正在运行的实例"
           },
           "response": []
+        },
+        {
+          "name": "重启实例",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/instances/:instance_id/restart",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "instances", ":instance_id", "restart"],
+              "variable": [
+                {
+                  "key": "instance_id",
+                  "value": "",
+                  "description": "实例唯一标识符"
+                }
+              ]
+            },
+            "description": "重启指定的实例"
+          },
+          "response": []
+        },
+        {
+          "name": "启动实例组件",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/instances/:instance_id/component/:component/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "instances", ":instance_id", "component", ":component", "start"],
+              "variable": [
+                {
+                  "key": "instance_id",
+                  "value": "",
+                  "description": "实例唯一标识符"
+                },
+                {
+                  "key": "component",
+                  "value": "",
+                  "description": "组件名称（如 maibot, napcat 等）"
+                }
+              ]
+            },
+            "description": "启动实例的特定组件"
+          },
+          "response": []
+        },
+        {
+          "name": "停止实例组件",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/instances/:instance_id/component/:component/stop",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "instances", ":instance_id", "component", ":component", "stop"],
+              "variable": [
+                {
+                  "key": "instance_id",
+                  "value": "",
+                  "description": "实例唯一标识符"
+                },
+                {
+                  "key": "component",
+                  "value": "",
+                  "description": "组件名称（如 maibot, napcat 等）"
+                }
+              ]
+            },
+            "description": "停止实例的特定组件"
+          },
+          "response": []
+        },
+        {
+          "name": "获取组件状态",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/instances/:instance_id/component/:component/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "instances", ":instance_id", "component", ":component", "status"],
+              "variable": [
+                {
+                  "key": "instance_id",
+                  "value": "",
+                  "description": "实例唯一标识符"
+                },
+                {
+                  "key": "component",
+                  "value": "",
+                  "description": "组件名称（如 maibot, napcat 等）"
+                }
+              ]
+            },
+            "description": "获取实例特定组件的运行状态"
+          },
+          "response": []
         }
       ]
     },
@@ -1114,6 +1213,502 @@
             "description": "清除所有前端日志文件"
           },
           "response": []
+        }
+      ]
+    },
+    {
+      "name": "MAIBot 配置管理",
+      "description": "MAIBot 的 bot_config.toml 和 model_config.toml 配置文件管理，支持保留注释的增删改查",
+      "item": [
+        {
+          "name": "Bot 配置",
+          "item": [
+            {
+              "name": "获取 Bot 配置",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/bot-config?instance_id=&include_comments=true",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "bot-config"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选），为空则使用默认配置"
+                    },
+                    {
+                      "key": "include_comments",
+                      "value": "true",
+                      "description": "是否包含注释信息"
+                    }
+                  ]
+                },
+                "description": "获取 MAIBot 的 bot_config.toml 配置，包含所有配置数据和注释信息"
+              },
+              "response": []
+            },
+            {
+              "name": "更新 Bot 配置",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"key_path\": \"bot.nickname\",\n  \"value\": \"新麦麦\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/bot-config?instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "bot-config"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "更新 Bot 配置中的某个值。key_path 支持嵌套键如 'bot.nickname' 或数组索引如 'personality.states[0]'"
+              },
+              "response": []
+            },
+            {
+              "name": "添加 Bot 配置键",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"section\": \"bot\",\n  \"key\": \"new_feature\",\n  \"value\": true,\n  \"comment\": \"# 新功能开关\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/bot-config?instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "bot-config"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "添加新的 Bot 配置键，可选择添加注释"
+              },
+              "response": []
+            },
+            {
+              "name": "删除 Bot 配置键",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"key_path\": \"bot.some_old_setting\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/bot-config?instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "bot-config"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "删除 Bot 配置中的某个键"
+              },
+              "response": []
+            },
+            {
+              "name": "添加 Bot 配置数组项",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"array_path\": \"personality.states\",\n  \"item\": \"是一个喜欢音乐的学生。\",\n  \"comment\": \"# 新的人格状态\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/bot-config/array-item?instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "bot-config", "array-item"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "向 Bot 配置的数组中添加新项，如添加新的人格状态、别名等"
+              },
+              "response": []
+            },
+            {
+              "name": "更新 Bot 配置数组项",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"array_path\": \"personality.states\",\n  \"index\": 0,\n  \"updates\": {\n    \"value\": \"更新后的人格描述\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/bot-config/array-item?instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "bot-config", "array-item"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "更新 Bot 配置数组中的某一项"
+              },
+              "response": []
+            },
+            {
+              "name": "删除 Bot 配置数组项",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"array_path\": \"personality.states\",\n  \"index\": 2\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/bot-config/array-item?instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "bot-config", "array-item"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "删除 Bot 配置数组中的某一项"
+              },
+              "response": []
+            },
+            {
+              "name": "获取 Bot 配置所有节",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/bot-config/sections?instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "bot-config", "sections"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "获取 Bot 配置文件中的所有顶层节名称，如 bot、personality、chat 等"
+              },
+              "response": []
+            },
+            {
+              "name": "获取 Bot 配置特定值",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/bot-config/value?key_path=bot.nickname&instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "bot-config", "value"],
+                  "query": [
+                    {
+                      "key": "key_path",
+                      "value": "bot.nickname",
+                      "description": "配置键路径"
+                    },
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "获取 Bot 配置中特定路径的值和注释"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "模型配置",
+          "item": [
+            {
+              "name": "获取模型配置",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/model-config?instance_id=&include_comments=true",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "model-config"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    },
+                    {
+                      "key": "include_comments",
+                      "value": "true",
+                      "description": "是否包含注释信息"
+                    }
+                  ]
+                },
+                "description": "获取 MAIBot 的 model_config.toml 配置，包含 API 提供商、模型列表和任务配置"
+              },
+              "response": []
+            },
+            {
+              "name": "更新模型配置",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"key_path\": \"models[0].price_in\",\n  \"value\": 2.5\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/model-config?instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "model-config"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "更新模型配置中的某个值，支持数组索引如 'models[0].price_in'"
+              },
+              "response": []
+            },
+            {
+              "name": "删除模型配置键",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"key_path\": \"model_task_config.some_old_config\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/model-config?instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "model-config"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "删除模型配置中的某个键"
+              },
+              "response": []
+            },
+            {
+              "name": "添加 API 提供商",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"array_path\": \"api_providers\",\n  \"item\": {\n    \"name\": \"OpenAI\",\n    \"base_url\": \"https://api.openai.com/v1\",\n    \"api_key\": \"your-openai-key\",\n    \"client_type\": \"openai\",\n    \"max_retry\": 3,\n    \"timeout\": 60,\n    \"retry_interval\": 5\n  },\n  \"comment\": \"# OpenAI API 配置\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/model-config/array-item?instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "model-config", "array-item"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "向模型配置中添加新的 API 提供商"
+              },
+              "response": []
+            },
+            {
+              "name": "添加模型",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"array_path\": \"models\",\n  \"item\": {\n    \"model_identifier\": \"gpt-4\",\n    \"name\": \"gpt4-turbo\",\n    \"api_provider\": \"OpenAI\",\n    \"price_in\": 10.0,\n    \"price_out\": 30.0\n  },\n  \"comment\": \"# GPT-4 模型配置\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/model-config/array-item?instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "model-config", "array-item"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "向模型配置中添加新的模型"
+              },
+              "response": []
+            },
+            {
+              "name": "更新模型配置数组项",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"array_path\": \"models\",\n  \"index\": 0,\n  \"updates\": {\n    \"price_in\": 2.5,\n    \"price_out\": 9.0\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/model-config/array-item?instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "model-config", "array-item"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "更新模型配置数组中的某一项，如更新模型价格"
+              },
+              "response": []
+            },
+            {
+              "name": "删除模型配置数组项",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"array_path\": \"api_providers\",\n  \"index\": 2\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/model-config/array-item?instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "model-config", "array-item"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "删除模型配置数组中的某一项，如删除不再使用的 API 提供商或模型"
+              },
+              "response": []
+            },
+            {
+              "name": "获取模型配置所有节",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maibot/model-config/sections?instance_id=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "maibot", "model-config", "sections"],
+                  "query": [
+                    {
+                      "key": "instance_id",
+                      "value": "",
+                      "description": "实例ID（可选）"
+                    }
+                  ]
+                },
+                "description": "获取模型配置文件中的所有顶层节名称"
+              },
+              "response": []
+            }
+          ]
         }
       ]
     }
