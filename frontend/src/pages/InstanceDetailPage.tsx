@@ -32,13 +32,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-// 组件显示名称映射
-const componentLabels: Record<ComponentType, string> = {
-  main: 'MaiBot 主程序',
-  napcat: 'NapCat 服务',
-  'napcat-ada': 'NapCat 适配器',
-};
-
 export const InstanceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -58,7 +51,6 @@ export const InstanceDetailPage: React.FC = () => {
   } = useInstanceStore();
   
   const [selectedComponent, setSelectedComponent] = useState<ComponentType>('main');
-  const [componentLoading, setComponentLoading] = useState<ComponentType | null>(null);
   const [actionLoading, setActionLoading] = useState<'start' | 'stop' | 'restart' | null>(null);
   const [selectedStartTarget, setSelectedStartTarget] = useState<ComponentType | 'all'>('all');
   
@@ -212,29 +204,6 @@ export const InstanceDetailPage: React.FC = () => {
       console.error('重启失败:', error);
     } finally {
       setActionLoading(null);
-    }
-  };
-  
-  // 处理组件操作
-  const handleComponentAction = async (
-    component: ComponentType,
-    action: 'start' | 'stop'
-  ) => {
-    setComponentLoading(component);
-    try {
-      // 先查询一次状态确保正确
-      await fetchComponentStatus(instance.id, component);
-      
-      if (action === 'start') {
-        await startComponent(instance.id, component);
-      } else {
-        await stopComponent(instance.id, component);
-      }
-      // 注意：startComponent/stopComponent 内部已经会查询状态，这里不需要再查询
-    } catch (error) {
-      console.error(`${action} 组件失败:`, error);
-    } finally {
-      setComponentLoading(null);
     }
   };
   
