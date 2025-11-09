@@ -63,10 +63,10 @@ export const InstanceDetailPage: React.FC = () => {
     if (id) {
       fetchInstance(id);
       
-      // 设置自动刷新
+      // 设置自动刷新（每10秒）
       const interval = setInterval(() => {
         fetchInstance(id);
-      }, 5000);
+      }, 10000);
       
       return () => clearInterval(interval);
     }
@@ -82,12 +82,12 @@ export const InstanceDetailPage: React.FC = () => {
         fetchComponentStatus(id, component).catch(console.error);
       });
       
-      // 设置定时刷新组件状态
+      // 设置定时刷新组件状态（每10秒）
       const interval = setInterval(() => {
         components.forEach((component) => {
           fetchComponentStatus(id, component).catch(console.error);
         });
-      }, 3000); // 每3秒刷新一次组件状态
+      }, 10000);
       
       return () => clearInterval(interval);
     }
@@ -123,6 +123,42 @@ export const InstanceDetailPage: React.FC = () => {
     return componentStatuses[instance.id]?.[component];
   };
   
+  // 处理实例启动
+  const handleStartInstance = async () => {
+    try {
+      // 先查询一次状态确保正确
+      await fetchInstance(instance.id);
+      await startInstance(instance.id);
+      // 注意：startInstance 内部已经有延迟查询，这里不需要再查询
+    } catch (error) {
+      console.error('启动实例失败:', error);
+    }
+  };
+  
+  // 处理实例停止
+  const handleStopInstance = async () => {
+    try {
+      // 先查询一次状态确保正确
+      await fetchInstance(instance.id);
+      await stopInstance(instance.id);
+      // 注意：stopInstance 内部已经有延迟查询，这里不需要再查询
+    } catch (error) {
+      console.error('停止实例失败:', error);
+    }
+  };
+  
+  // 处理实例重启
+  const handleRestartInstance = async () => {
+    try {
+      // 先查询一次状态确保正确
+      await fetchInstance(instance.id);
+      await restartInstance(instance.id);
+      // 注意：restartInstance 内部已经有延迟查询，这里不需要再查询
+    } catch (error) {
+      console.error('重启实例失败:', error);
+    }
+  };
+  
   // 处理组件操作
   const handleComponentAction = async (
     component: ComponentType,
@@ -130,11 +166,15 @@ export const InstanceDetailPage: React.FC = () => {
   ) => {
     setComponentLoading(component);
     try {
+      // 先查询一次状态确保正确
+      await fetchComponentStatus(instance.id, component);
+      
       if (action === 'start') {
         await startComponent(instance.id, component);
       } else {
         await stopComponent(instance.id, component);
       }
+      // 注意：startComponent/stopComponent 内部已经会查询状态，这里不需要再查询
     } catch (error) {
       console.error(`${action} 组件失败:`, error);
     } finally {
@@ -220,7 +260,7 @@ export const InstanceDetailPage: React.FC = () => {
           <div className="flex items-center gap-2">
             {isStopped && (
               <button
-                onClick={() => startInstance(instance.id)}
+                onClick={handleStartInstance}
                 disabled={loading}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg 
                          hover:bg-green-700 disabled:opacity-50 transition-colors"
@@ -233,7 +273,7 @@ export const InstanceDetailPage: React.FC = () => {
             {isRunning && (
               <>
                 <button
-                  onClick={() => stopInstance(instance.id)}
+                  onClick={handleStopInstance}
                   disabled={loading}
                   className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg 
                            hover:bg-red-700 disabled:opacity-50 transition-colors"
@@ -243,7 +283,7 @@ export const InstanceDetailPage: React.FC = () => {
                 </button>
                 
                 <button
-                  onClick={() => restartInstance(instance.id)}
+                  onClick={handleRestartInstance}
                   disabled={loading}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg 
                            hover:bg-blue-700 disabled:opacity-50 transition-colors"

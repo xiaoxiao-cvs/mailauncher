@@ -39,7 +39,10 @@ export const InstanceListPage: React.FC = () => {
   const handleStart = async (id: string) => {
     setActionLoading(id);
     try {
+      // 先查询一次状态确保正确
+      await fetchInstances();
       await startInstance(id);
+      // 注意：startInstance 内部已经有延迟查询，这里不需要再查询
     } catch (error) {
       console.error('启动实例失败:', error);
     } finally {
@@ -51,7 +54,10 @@ export const InstanceListPage: React.FC = () => {
   const handleStop = async (id: string) => {
     setActionLoading(id);
     try {
+      // 先查询一次状态确保正确
+      await fetchInstances();
       await stopInstance(id);
+      // 注意：stopInstance 内部已经有延迟查询，这里不需要再查询
     } catch (error) {
       console.error('停止实例失败:', error);
     } finally {
@@ -63,7 +69,10 @@ export const InstanceListPage: React.FC = () => {
   const handleRestart = async (id: string) => {
     setActionLoading(id);
     try {
+      // 先查询一次状态确保正确
+      await fetchInstances();
       await restartInstance(id);
+      // 注意：restartInstance 内部已经有延迟查询，这里不需要再查询
     } catch (error) {
       console.error('重启实例失败:', error);
     } finally {
