@@ -13,20 +13,21 @@ import {
   Play,
   Square,
   RotateCw,
-  Settings,
   Activity,
   Clock,
   Server,
+  ChevronDown,
+  Loader2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 
 // 组件显示名称映射
 const componentLabels: Record<ComponentType, string> = {
@@ -55,6 +56,7 @@ export const InstanceDetailPage: React.FC = () => {
   
   const [selectedComponent, setSelectedComponent] = useState<ComponentType>('main');
   const [componentLoading, setComponentLoading] = useState<ComponentType | null>(null);
+  const [actionLoading, setActionLoading] = useState<'start' | 'stop' | 'restart' | null>(null);
   
   const instance = selectedInstance || instances.find((i) => i.id === id);
   
@@ -124,38 +126,56 @@ export const InstanceDetailPage: React.FC = () => {
   };
   
   // 处理实例启动
-  const handleStartInstance = async () => {
+  const handleStartInstance = async (component?: ComponentType) => {
+    setActionLoading('start');
     try {
-      // 先查询一次状态确保正确
       await fetchInstance(instance.id);
-      await startInstance(instance.id);
-      // 注意：startInstance 内部已经有延迟查询，这里不需要再查询
+      if (component) {
+        await startComponent(instance.id, component);
+      } else {
+        await startInstance(instance.id);
+      }
     } catch (error) {
-      console.error('启动实例失败:', error);
+      console.error('启动失败:', error);
+    } finally {
+      setActionLoading(null);
     }
   };
   
   // 处理实例停止
-  const handleStopInstance = async () => {
+  const handleStopInstance = async (component?: ComponentType) => {
+    setActionLoading('stop');
     try {
-      // 先查询一次状态确保正确
       await fetchInstance(instance.id);
-      await stopInstance(instance.id);
-      // 注意：stopInstance 内部已经有延迟查询，这里不需要再查询
+      if (component) {
+        await stopComponent(instance.id, component);
+      } else {
+        await stopInstance(instance.id);
+      }
     } catch (error) {
-      console.error('停止实例失败:', error);
+      console.error('停止失败:', error);
+    } finally {
+      setActionLoading(null);
     }
   };
   
   // 处理实例重启
-  const handleRestartInstance = async () => {
+  const handleRestartInstance = async (component?: ComponentType) => {
+    setActionLoading('restart');
     try {
-      // 先查询一次状态确保正确
       await fetchInstance(instance.id);
-      await restartInstance(instance.id);
-      // 注意：restartInstance 内部已经有延迟查询，这里不需要再查询
+      if (component) {
+        // 重启单个组件：先停止再启动
+        await stopComponent(instance.id, component);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await startComponent(instance.id, component);
+      } else {
+        await restartInstance(instance.id);
+      }
     } catch (error) {
-      console.error('重启实例失败:', error);
+      console.error('重启失败:', error);
+    } finally {
+      setActionLoading(null);
     }
   };
   
@@ -259,47 +279,106 @@ export const InstanceDetailPage: React.FC = () => {
           
           <div className="flex items-center gap-2">
             {isStopped && (
-              <button
-                onClick={handleStartInstance}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg 
-                         hover:bg-green-700 disabled:opacity-50 transition-colors"
-              >
-                <Play className="w-4 h-4" />
-                启动
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    disabled={actionLoading === 'start'}
+                    className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 
+                             hover:from-green-700 hover:to-emerald-700 text-white"
+                  >
+                    {actionLoading === 'start' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Play className="w-4 h-4" />
+                    )}
+                    启动
+                    <ChevronDown className="w-4 h-4 ml-1 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => handleStartInstance()}>
+                    所有组件
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStartInstance('main')}>
+                    Maibot 主程序
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStartInstance('napcat')}>
+                    NapCat 服务
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStartInstance('napcat-ada')}>
+                    NapCat 适配器
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             
             {isRunning && (
               <>
-                <button
-                  onClick={handleStopInstance}
-                  disabled={loading}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg 
-                           hover:bg-red-700 disabled:opacity-50 transition-colors"
-                >
-                  <Square className="w-4 h-4" />
-                  停止
-                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      disabled={actionLoading === 'stop'}
+                      className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 
+                               hover:from-red-700 hover:to-rose-700 text-white"
+                    >
+                      {actionLoading === 'stop' ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Square className="w-4 h-4" />
+                      )}
+                      停止
+                      <ChevronDown className="w-4 h-4 ml-1 opacity-70" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => handleStopInstance()}>
+                      所有组件
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleStopInstance('main')}>
+                      Maibot 主程序
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleStopInstance('napcat')}>
+                      NapCat 服务
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleStopInstance('napcat-ada')}>
+                      NapCat 适配器
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 
-                <button
-                  onClick={handleRestartInstance}
-                  disabled={loading}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg 
-                           hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                >
-                  <RotateCw className="w-4 h-4" />
-                  重启
-                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      disabled={actionLoading === 'restart'}
+                      className="flex items-center gap-2 bg-gradient-to-r from-honolulu_blue-600 to-blue_green-600 
+                               hover:from-honolulu_blue-700 hover:to-blue_green-700 text-white"
+                    >
+                      {actionLoading === 'restart' ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RotateCw className="w-4 h-4" />
+                      )}
+                      重启
+                      <ChevronDown className="w-4 h-4 ml-1 opacity-70" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => handleRestartInstance()}>
+                      所有组件
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleRestartInstance('main')}>
+                      Maibot 主程序
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleRestartInstance('napcat')}>
+                      NapCat 服务
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleRestartInstance('napcat-ada')}>
+                      NapCat 适配器
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
-            
-            <button
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              title="设置"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
           </div>
         </div>
       </div>
