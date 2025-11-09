@@ -101,8 +101,8 @@ export const InstanceListPage: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
               实例管理
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">
-              管理您的 MaiBot 实例、NapCat 和适配器
+            <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+              总实例数 {instances.length} | 运行中 <span className="text-green-600 dark:text-green-400">{instances.filter(i => i.status === 'running').length}</span> | 已停止 {instances.filter(i => i.status === 'stopped').length} | 错误 <span className="text-red-600 dark:text-red-400">{instances.filter(i => i.status === 'error').length}</span>
             </p>
           </div>
           
@@ -153,37 +153,6 @@ export const InstanceListPage: React.FC = () => {
         </div>
       )}
       
-      {/* 实例统计 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">总实例数</div>
-          <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {instances.length}
-          </div>
-        </div>
-        
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">运行中</div>
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {instances.filter(i => i.status === 'running').length}
-          </div>
-        </div>
-        
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">已停止</div>
-          <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">
-            {instances.filter(i => i.status === 'stopped').length}
-          </div>
-        </div>
-        
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">错误</div>
-          <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-            {instances.filter(i => i.status === 'error').length}
-          </div>
-        </div>
-      </div>
-      
       {/* 实例卡片网格 */}
       {loading && instances.length === 0 ? (
         <div className="flex items-center justify-center py-20">
@@ -201,7 +170,7 @@ export const InstanceListPage: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {instances.map((instance) => (
             <InstanceCard
               key={instance.id}

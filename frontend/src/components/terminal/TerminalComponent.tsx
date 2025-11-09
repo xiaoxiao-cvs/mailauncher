@@ -13,17 +13,20 @@ interface TerminalComponentProps {
   instanceId: string;
   component: 'main' | 'napcat' | 'napcat-ada';
   className?: string;
+  isRunning?: boolean; // 组件是否正在运行
 }
 
 export const TerminalComponent: React.FC<TerminalComponentProps> = ({
   instanceId,
   component,
   className = '',
+  isRunning = false,
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstance = useRef<Terminal | null>(null);
   const fitAddon = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -61,6 +64,9 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
       convertEol: true,
     });
     
+    // 打开终端（必须先打开才能加载插件）
+    term.open(terminalRef.current);
+    
     // 创建自适应插件
     const fit = new FitAddon();
     fitAddon.current = fit;
@@ -70,9 +76,14 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     const webLinks = new WebLinksAddon();
     term.loadAddon(webLinks);
     
-    // 打开终端
-    term.open(terminalRef.current);
-    fit.fit();
+    // 适配终端大小
+    setTimeout(() => {
+      try {
+        fit.fit();
+      } catch (e) {
+        console.warn('初始 fit 失败:', e);
+      }
+    }, 0);
     
     terminalInstance.current = term;
     
@@ -85,47 +96,84 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     term.writeln('\x1b[1;32m正在连接终端...\x1b[0m');
     term.writeln('');
     
-    // 连接 WebSocket
-    // TODO: 实现 WebSocket 连接到后端
-    // const ws = new WebSocket(`ws://localhost:23456/api/v1/instances/${instanceId}/component/${component}/terminal`);
-    
-    // wsRef.current = ws;
-    
-    // ws.onopen = () => {
-    //   term.writeln('\x1b[1;32m终端已连接\x1b[0m');
-    //   term.writeln('');
-    // };
-    
-    // ws.onmessage = (event) => {
-    //   term.write(event.data);
-    // };
-    
-    // ws.onerror = () => {
-    //   term.writeln('');
-    //   term.writeln('\x1b[1;31m终端连接错误\x1b[0m');
-    // };
-    
-    // ws.onclose = () => {
-    //   term.writeln('');
-    //   term.writeln('\x1b[1;33m终端连接已关闭\x1b[0m');
-    // };
-    
-    // // 发送用户输入到 WebSocket
-    // term.onData((data) => {
-    //   if (ws.readyState === WebSocket.OPEN) {
-    //     ws.send(data);
-    //   }
-    // });
-    
-    // 模拟输出（临时）
-    setTimeout(() => {
-      term.writeln('\x1b[1;33m[注意] WebSocket 连接功能待实现\x1b[0m');
+    // 连接 WebSocket（仅当组件运行时）
+    if (!isRunning) {
+      term.writeln('\x1b[1;33m组件未运行\x1b[0m');
       term.writeln('');
-      term.writeln('\x1b[90m这是一个终端模拟器演示\x1b[0m');
-      term.writeln('\x1b[90m实际输出将通过 WebSocket 从后端获取\x1b[0m');
+      term.writeln('\x1b[90m请先启动组件才能查看终端输出\x1b[0m');
+      return; // 不连接 WebSocket
+    }
+    
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:23456/api/v1';
+    const wsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+    const ws = new WebSocket(`${wsUrl}/instances/${instanceId}/component/${component}/terminal`);
+    
+    wsRef.current = ws;
+    
+    ws.onopen = () => {
+      term.writeln('\x1b[1;32m终端已连接\x1b[0m');
       term.writeln('');
-      term.write('$ ');
-    }, 500);
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        
+        switch (message.type) {
+          case 'connected':
+            term.writeln(`\x1b[1;32m${message.message}\x1b[0m`);
+            term.writeln(`\x1b[90mPID: ${message.pid}\x1b[0m`);
+            term.writeln('');
+            break;
+            
+          case 'output':
+            term.write(message.data);
+            break;
+            
+          case 'error':
+            term.writeln('');
+            term.writeln(`\x1b[1;31m错误: ${message.message}\x1b[0m`);
+            break;
+            
+          default:
+            console.warn('未知消息类型:', message);
+        }
+      } catch (error) {
+        console.error('解析消息失败:', error);
+      }
+    };
+    
+    ws.onerror = (error) => {
+      term.writeln('');
+      term.writeln('\x1b[1;31m终端连接错误\x1b[0m');
+      console.error('WebSocket 错误:', error);
+    };
+    
+    ws.onclose = () => {
+      term.writeln('');
+      term.writeln('\x1b[1;33m终端连接已关闭\x1b[0m');
+    };
+    
+    // 发送用户输入到 WebSocket
+    term.onData((data) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'input',
+          data: data
+        }));
+      }
+    });
+    
+    // 监听终端大小变化
+    term.onResize(({ rows, cols }) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'resize',
+          rows: rows,
+          cols: cols
+        }));
+      }
+    });
     
     // 窗口大小改变时重新适配
     const handleResize = () => {

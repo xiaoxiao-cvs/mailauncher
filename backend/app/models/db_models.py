@@ -123,6 +123,7 @@ class InstanceDB(Base):
     
     id = Column(String(50), primary_key=True)  # 实例唯一标识符
     name = Column(String(100), nullable=False, index=True)  # 实例名称
+    instance_path = Column(String(500), nullable=True)  # 实例目录路径（相对于 instances_dir）
     bot_type = Column(String(20), nullable=False)  # 机器人类型 (maibot, napcat, other)
     bot_version = Column(String(50), nullable=True)  # 机器人版本
     description = Column(Text, nullable=True)  # 实例描述

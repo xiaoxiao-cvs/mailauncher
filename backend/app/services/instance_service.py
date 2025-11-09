@@ -26,11 +26,25 @@ from .process_manager import get_process_manager
 class InstanceService:
     """机器人实例服务类 - 遵循单一职责原则"""
     
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls):
+        """单例模式"""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
     def __init__(self):
         """初始化实例服务"""
-        self.instances_dir = Path(settings.INSTANCES_DIR)
-        self.instances_dir.mkdir(parents=True, exist_ok=True)
+        # 避免重复初始化
+        if self.__class__._initialized:
+            return
+            
+        # 使用配置中的方法获取正确的实例目录（数据目录）
+        self.instances_dir = settings.ensure_instances_dir()
         logger.info(f"实例服务已初始化，实例目录: {self.instances_dir}")
+        self.__class__._initialized = True
     
     def _generate_instance_id(self) -> str:
         """生成唯一的实例 ID"""
@@ -41,6 +55,7 @@ class InstanceService:
         return Instance(
             id=db_instance.id,
             name=db_instance.name,
+            instance_path=db_instance.instance_path,
             bot_type=db_instance.bot_type,
             bot_version=db_instance.bot_version,
             description=db_instance.description,
@@ -123,13 +138,15 @@ class InstanceService:
             instance_id = self._generate_instance_id()
             now = datetime.now()
             
-            instance_path = self.instances_dir / instance_id
+            # 使用实例名称作为目录名
+            instance_path = self.instances_dir / instance_data.name
             instance_path.mkdir(parents=True, exist_ok=True)
             logger.info(f"创建实例目录: {instance_path}")
             
             db_instance = InstanceDB(
                 id=instance_id,
                 name=instance_data.name,
+                instance_path=instance_data.name,  # 保存相对路径
                 bot_type=instance_data.bot_type,
                 bot_version=instance_data.bot_version,
                 description=instance_data.description,
@@ -197,6 +214,7 @@ class InstanceService:
             db_instance = InstanceDB(
                 id=instance_id,
                 name=instance_data.name,
+                instance_path=instance_path.name,  # 保存相对路径（目录名）
                 bot_type=instance_data.bot_type,
                 bot_version=instance_data.bot_version,
                 description=instance_data.description,
@@ -402,8 +420,9 @@ class InstanceService:
                 logger.warning(f"实例 {instance_id} 不存在")
                 return {"error": False}
             
-            # 获取实例路径
-            instance_path = self.instances_dir / instance_id
+            # 获取实例路径：优先使用 instance_path，否则使用 name
+            instance_dir = db_instance.instance_path or db_instance.name
+            instance_path = self.instances_dir / instance_dir
             if not instance_path.exists():
                 logger.error(f"实例路径不存在: {instance_path}")
                 return {"error": False}
@@ -667,7 +686,7 @@ class InstanceService:
         }
 
 
-# 依赖注入函数
+# 依赖注入函数（单例）
 def get_instance_service() -> InstanceService:
-    """获取实例服务的依赖注入"""
+    """获取实例服务的依赖注入（单例）"""
     return InstanceService()

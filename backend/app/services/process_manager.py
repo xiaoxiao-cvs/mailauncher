@@ -69,12 +69,26 @@ class ProcessInfo:
 class ProcessManager:
     """进程管理器 - 管理所有实例的进程"""
     
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls):
+        """单例模式"""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
     def __init__(self):
+        # 避免重复初始化
+        if self.__class__._initialized:
+            return
+            
         self.processes: Dict[str, ProcessInfo] = {}  # session_id -> ProcessInfo
         self.is_windows = platform.system() == "Windows"
         self.pty_rows = int(os.environ.get("PTY_ROWS", 24))
         self.pty_cols = int(os.environ.get("PTY_COLS", 80))
         logger.info(f"进程管理器初始化 - 平台: {platform.system()}")
+        self.__class__._initialized = True
     
     def _get_session_id(self, instance_id: str, component: str) -> str:
         """生成会话 ID"""
@@ -203,7 +217,7 @@ class ProcessManager:
         cwd: str,
     ) -> bool:
         """
-        在 Unix 系统上启动进程
+        在 Unix 系统上启动进程（使用 PTY）
         
         Args:
             instance_id: 实例 ID
@@ -224,26 +238,67 @@ class ProcessManager:
         try:
             logger.info(f"启动 Unix 进程: {session_id}, 命令: {command}, 工作目录: {cwd}")
             
-            # 使用 asyncio.subprocess 启动进程
-            process = await asyncio.create_subprocess_shell(
-                command,
-                cwd=cwd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                stdin=asyncio.subprocess.PIPE,
-            )
-            
-            process_info = ProcessInfo(
-                instance_id=instance_id,
-                component=component,
-                process=process,
-                pid=process.pid,
-                start_time=datetime.now(),
-            )
-            
-            self.processes[session_id] = process_info
-            logger.info(f"Unix 进程启动成功: {session_id}, PID: {process.pid}")
-            return True
+            if HAS_PTY:
+                # 使用 PTY 启动进程（更好的终端支持）
+                import subprocess
+                import shlex
+                
+                # 创建 PTY
+                master, slave = pty.openpty()
+                
+                # 启动进程
+                process = subprocess.Popen(
+                    shlex.split(command),
+                    cwd=cwd,
+                    stdin=slave,
+                    stdout=slave,
+                    stderr=slave,
+                    close_fds=True,
+                    preexec_fn=os.setsid,
+                )
+                
+                # 关闭子进程端的 fd
+                os.close(slave)
+                
+                # 设置主端为非阻塞
+                fcntl.fcntl(master, fcntl.F_SETFL, os.O_NONBLOCK)
+                
+                # 包装进程对象添加必要的属性
+                process.master_fd = master
+                process.is_pty = True
+                
+                process_info = ProcessInfo(
+                    instance_id=instance_id,
+                    component=component,
+                    process=process,
+                    pid=process.pid,
+                    start_time=datetime.now(),
+                )
+                
+                self.processes[session_id] = process_info
+                logger.info(f"Unix PTY 进程启动成功: {session_id}, PID: {process.pid}")
+                return True
+            else:
+                # 回退到普通 subprocess
+                process = await asyncio.create_subprocess_shell(
+                    command,
+                    cwd=cwd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.STDOUT,  # 合并 stderr 到 stdout
+                    stdin=asyncio.subprocess.PIPE,
+                )
+                
+                process_info = ProcessInfo(
+                    instance_id=instance_id,
+                    component=component,
+                    process=process,
+                    pid=process.pid,
+                    start_time=datetime.now(),
+                )
+                
+                self.processes[session_id] = process_info
+                logger.info(f"Unix 进程启动成功: {session_id}, PID: {process.pid}")
+                return True
             
         except Exception as e:
             logger.error(f"启动 Unix 进程失败 {session_id}: {e}", exc_info=True)
@@ -313,16 +368,30 @@ class ProcessManager:
         try:
             logger.info(f"停止进程: {session_id}, 强制: {force}")
             
-            if hasattr(process_info.process, 'terminate'):
-                # winpty PtyProcess
-                process_info.process.terminate(force=force)
-            elif hasattr(process_info.process, 'kill'):
-                # asyncio subprocess
+            process = process_info.process
+            
+            # Unix PTY 进程
+            if hasattr(process, 'master_fd') and hasattr(process, 'is_pty'):
                 if force:
-                    process_info.process.kill()
+                    process.kill()
                 else:
-                    process_info.process.terminate()
-                await process_info.process.wait()
+                    process.terminate()
+                process.wait(timeout=5)
+                # 关闭 master fd
+                try:
+                    os.close(process.master_fd)
+                except:
+                    pass
+            # Windows winpty
+            elif hasattr(process, 'terminate'):
+                process.terminate(force=force)
+            # asyncio subprocess
+            elif hasattr(process, 'kill'):
+                if force:
+                    process.kill()
+                else:
+                    process.terminate()
+                await process.wait()
             
             # 等待一小段时间确认进程已停止
             await asyncio.sleep(0.5)
@@ -406,13 +475,7 @@ class ProcessManager:
         logger.info("进程清理完成")
 
 
-# 全局进程管理器实例
-_process_manager: Optional[ProcessManager] = None
-
-
+# 全局进程管理器实例（单例）
 def get_process_manager() -> ProcessManager:
-    """获取全局进程管理器实例"""
-    global _process_manager
-    if _process_manager is None:
-        _process_manager = ProcessManager()
-    return _process_manager
+    """获取全局进程管理器实例（单例）"""
+    return ProcessManager()

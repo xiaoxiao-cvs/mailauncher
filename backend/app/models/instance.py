@@ -49,6 +49,7 @@ class InstanceUpdate(BaseModel):
 class Instance(InstanceBase):
     """实例完整信息"""
     id: str = Field(..., description="实例唯一标识符")
+    instance_path: Optional[str] = Field(None, description="实例目录路径")
     status: InstanceStatus = Field(default=InstanceStatus.STOPPED, description="实例状态")
     python_path: Optional[str] = None
     config_path: Optional[str] = None
