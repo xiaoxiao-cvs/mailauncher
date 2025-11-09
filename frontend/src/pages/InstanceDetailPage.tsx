@@ -76,9 +76,20 @@ export const InstanceDetailPage: React.FC = () => {
   useEffect(() => {
     if (id && instance) {
       const components: ComponentType[] = ['main', 'napcat', 'napcat-ada'];
+      
+      // 立即加载一次
       components.forEach((component) => {
         fetchComponentStatus(id, component).catch(console.error);
       });
+      
+      // 设置定时刷新组件状态
+      const interval = setInterval(() => {
+        components.forEach((component) => {
+          fetchComponentStatus(id, component).catch(console.error);
+        });
+      }, 3000); // 每3秒刷新一次组件状态
+      
+      return () => clearInterval(interval);
     }
   }, [id, instance, fetchComponentStatus]);
   
@@ -414,6 +425,9 @@ export const InstanceDetailPage: React.FC = () => {
               instanceId={instance.id}
               component={selectedComponent}
               className="h-full"
+              isRunning={
+                componentStatuses[instance.id]?.[selectedComponent]?.running === true
+              }
             />
           </div>
         </div>

@@ -433,13 +433,13 @@ class InstanceService:
             
             # 确定要启动的组件
             if components is None:
-                # 默认启动主程序
+                # 默认启动主程序和适配器
                 components_to_start = ["main"]
                 
-                # 检查是否存在其他组件
-                if (instance_path / "napcat").exists():
+                # 检查是否存在其他组件（使用实际的目录名）
+                if (instance_path / "Napcat").exists():
                     components_to_start.append("napcat")
-                if (instance_path / "napcat-ada").exists():
+                if (instance_path / "MaiBot-Napcat-Adapter").exists():
                     components_to_start.append("napcat-ada")
             else:
                 components_to_start = components

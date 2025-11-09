@@ -42,12 +42,15 @@ class ProcessInfo:
         process: Optional[any] = None,
         pid: Optional[int] = None,
         start_time: Optional[datetime] = None,
+        buffer_size: int = 300,  # 历史日志缓冲行数
     ):
         self.instance_id = instance_id
         self.component = component
         self.process = process
         self.pid = pid
         self.start_time = start_time or datetime.now()
+        self.output_buffer: list[str] = []  # 输出缓冲区
+        self.buffer_size = buffer_size  # 最大缓冲行数
         self.session_id = f"{instance_id}_{component}"
     
     def is_alive(self) -> bool:
@@ -115,27 +118,28 @@ class ProcessManager:
         python_cmd = python_path if python_path else sys.executable
         
         if component == "main":
-            # MaiBot 主程序
-            cwd = str(instance_path)
-            bot_script = instance_path / "bot.py"
+            # MaiBot 主程序 - 在 MaiBot 子目录下
+            cwd = str(instance_path / "MaiBot")
+            bot_script = Path(cwd) / "bot.py"
             if not bot_script.exists():
                 raise FileNotFoundError(f"MaiBot 启动脚本不存在: {bot_script}")
             command = f"{python_cmd} bot.py"
             
         elif component == "napcat":
-            # NapCat 服务
-            cwd = str(instance_path / "napcat")
-            napcat_script = Path(cwd) / "napcat.py"
+            # NapCat 服务 - 在 Napcat 子目录下
+            cwd = str(instance_path / "Napcat")
+            napcat_script = Path(cwd) / "napcat.mjs"
             if not napcat_script.exists():
                 raise FileNotFoundError(f"NapCat 启动脚本不存在: {napcat_script}")
-            command = f"{python_cmd} napcat.py"
+            # NapCat 使用 node 启动
+            command = f"node napcat.mjs"
             
         elif component == "napcat-ada":
-            # NapCat 适配器
-            cwd = str(instance_path / "napcat-ada")
+            # NapCat 适配器 - 在 MaiBot-Napcat-Adapter 子目录下
+            cwd = str(instance_path / "MaiBot-Napcat-Adapter")
             ada_script = Path(cwd) / "main.py"
             if not ada_script.exists():
-                raise FileNotFoundError(f"NapCat-ada 启动脚本不存在: {ada_script}")
+                raise FileNotFoundError(f"NapCat 适配器启动脚本不存在: {ada_script}")
             command = f"{python_cmd} main.py"
             
         else:
@@ -461,6 +465,22 @@ class ProcessManager:
         """检查实例是否有任何组件在运行"""
         processes = self.get_instance_processes(instance_id)
         return any(p.is_alive() for p in processes.values())
+    
+    def add_output_to_buffer(self, instance_id: str, component: str, output: str):
+        """添加输出到缓冲区"""
+        process_info = self.get_process_info(instance_id, component)
+        if process_info:
+            process_info.output_buffer.append(output)
+            # 保持缓冲区大小限制
+            if len(process_info.output_buffer) > process_info.buffer_size:
+                process_info.output_buffer = process_info.output_buffer[-process_info.buffer_size:]
+    
+    def get_output_history(self, instance_id: str, component: str, lines: int = 300) -> list[str]:
+        """获取历史输出"""
+        process_info = self.get_process_info(instance_id, component)
+        if process_info:
+            return process_info.output_buffer[-lines:]
+        return []
     
     async def cleanup(self):
         """清理所有进程"""

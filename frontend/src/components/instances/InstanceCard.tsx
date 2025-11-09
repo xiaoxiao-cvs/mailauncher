@@ -162,43 +162,61 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
         
         {/* 操作按钮 */}
         <div className="flex items-center gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
-          {isStopped && (
+          {/* 启动/停止按钮 - 固定显示，使用 loading 表示过渡状态 */}
+          {isStopped || instance.status === 'error' ? (
             <button
               onClick={(e) => handleButtonClick(e, () => onStart(instance.id))}
               disabled={loading || isTransitioning}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg 
+              className="flex items-center justify-center gap-2 min-w-[100px] px-4 py-2 bg-green-600 text-white rounded-lg 
                        hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed
                        transition-colors duration-200 text-sm font-medium"
             >
-              <Play className="w-4 h-4" />
-              启动
+              {loading || isTransitioning ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  <span>启动中</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4" />
+                  <span>启动</span>
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={(e) => handleButtonClick(e, () => onStop(instance.id))}
+              disabled={loading || isTransitioning}
+              className="flex items-center justify-center gap-2 min-w-[100px] px-4 py-2 bg-red-600 text-white rounded-lg 
+                       hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed
+                       transition-colors duration-200 text-sm font-medium"
+            >
+              {loading || isTransitioning ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  <span>停止中</span>
+                </>
+              ) : (
+                <>
+                  <Square className="w-4 h-4" />
+                  <span>停止</span>
+                </>
+              )}
             </button>
           )}
           
+          {/* 重启按钮 - 仅在运行时显示 */}
           {isRunning && (
-            <>
-              <button
-                onClick={(e) => handleButtonClick(e, () => onStop(instance.id))}
-                disabled={loading || isTransitioning}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg 
-                         hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed
-                         transition-colors duration-200 text-sm font-medium"
-              >
-                <Square className="w-4 h-4" />
-                停止
-              </button>
-              
-              <button
-                onClick={(e) => handleButtonClick(e, () => onRestart(instance.id))}
-                disabled={loading || isTransitioning}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg 
-                         hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
-                         transition-colors duration-200 text-sm font-medium"
-              >
-                <RotateCw className="w-4 h-4" />
-                重启
-              </button>
-            </>
+            <button
+              onClick={(e) => handleButtonClick(e, () => onRestart(instance.id))}
+              disabled={loading || isTransitioning}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg 
+                       hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+                       transition-colors duration-200 text-sm font-medium"
+            >
+              <RotateCw className={`w-4 h-4 ${loading || isTransitioning ? 'animate-spin' : ''}`} />
+              重启
+            </button>
           )}
           
           <div className="flex-1" />

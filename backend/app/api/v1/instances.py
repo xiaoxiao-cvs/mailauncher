@@ -342,16 +342,18 @@ async def terminal_websocket(
     websocket: WebSocket,
     instance_id: str,
     component: str,
+    history: int = 300,  # 默认返回300行历史记录
 ):
     """
     终端 WebSocket 端点
     提供实时的终端输出和输入交互
+    支持查询参数 history 指定返回的历史日志行数
     """
     process_manager = get_process_manager()
     
     try:
         await websocket.accept()
-        logger.info(f"终端 WebSocket 已连接: {instance_id}/{component}")
+        logger.info(f"终端 WebSocket 已连接: {instance_id}/{component}, 请求历史: {history} 行")
         
         # 获取进程信息
         process_info = process_manager.get_process_info(instance_id, component)
@@ -379,6 +381,16 @@ async def terminal_websocket(
             "pid": process_info.pid
         })
         
+        # 发送历史日志
+        if history > 0:
+            history_lines = process_manager.get_output_history(instance_id, component, history)
+            if history_lines:
+                await websocket.send_json({
+                    "type": "history",
+                    "lines": history_lines
+                })
+                logger.debug(f"已发送 {len(history_lines)} 行历史日志")
+        
         # 创建读取进程输出的任务
         async def read_output():
             """持续读取进程输出并发送到前端"""
@@ -399,6 +411,11 @@ async def terminal_websocket(
                                 continue
                             
                             text = data.decode('utf-8', errors='replace')
+                            
+                            # 添加到缓冲区
+                            process_manager.add_output_to_buffer(instance_id, component, text)
+                            
+                            # 发送给前端
                             await websocket.send_json({
                                 "type": "output",
                                 "data": text
@@ -418,6 +435,11 @@ async def terminal_websocket(
                                 break
                             
                             text = line.decode('utf-8', errors='replace')
+                            
+                            # 添加到缓冲区
+                            process_manager.add_output_to_buffer(instance_id, component, text)
+                            
+                            # 发送给前端
                             await websocket.send_json({
                                 "type": "output",
                                 "data": text
@@ -435,6 +457,10 @@ async def terminal_websocket(
                                 await asyncio.sleep(0.1)
                                 continue
                             
+                            # 添加到缓冲区
+                            process_manager.add_output_to_buffer(instance_id, component, data)
+                            
+                            # 发送给前端
                             await websocket.send_json({
                                 "type": "output",
                                 "data": data

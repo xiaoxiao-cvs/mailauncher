@@ -36,13 +36,11 @@ async def migrate():
             ADD COLUMN instance_path VARCHAR(500)
         """))
         
-        # 为现有记录填充 instance_path（使用 name 作为默认值）
-        logger.info("更新现有记录的 instance_path...")
-        await conn.execute(text("""
-            UPDATE instances
-            SET instance_path = name
-            WHERE instance_path IS NULL
-        """))
+        # 为现有记录填充 instance_path
+        # 注意：这里不自动填充，因为实际目录名可能与实例名不同
+        # 需要手动检查并更新每个实例的正确路径
+        logger.info("迁移完成 - 请手动检查并更新现有实例的 instance_path")
+        logger.warning("现有实例的 instance_path 为 NULL，需要根据实际目录名手动更新")
         
         logger.info("迁移完成！")
 
@@ -58,6 +56,6 @@ async def main():
         sys.exit(1)
     finally:
         await engine.dispose()
-        
+
 if __name__ == "__main__":
     asyncio.run(main())
