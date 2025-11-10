@@ -8,6 +8,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { ComponentType } from '@/services/instanceApi';
 import { TerminalComponent } from '@/components/terminal/TerminalComponent';
+import { ConfigModal } from '@/components/ConfigModal';
 import {
   ArrowLeft,
   Play,
@@ -53,6 +54,7 @@ export const InstanceDetailPage: React.FC = () => {
   const [selectedComponent, setSelectedComponent] = useState<ComponentType>('main');
   const [actionLoading, setActionLoading] = useState<'start' | 'stop' | 'restart' | null>(null);
   const [selectedStartTarget, setSelectedStartTarget] = useState<ComponentType | 'all'>('all');
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   
   const instance = selectedInstance || instances.find((i) => i.id === id);
   
@@ -534,6 +536,7 @@ export const InstanceDetailPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 {/* Bot 配置 */}
                 <button
+                  onClick={() => setIsConfigModalOpen(true)}
                   className="group p-4 bg-gradient-to-br from-honolulu_blue-50 to-blue_green-50 
                            dark:from-honolulu_blue-900/20 dark:to-blue_green-900/20 
                            hover:from-honolulu_blue-100 hover:to-blue_green-100
@@ -703,6 +706,13 @@ export const InstanceDetailPage: React.FC = () => {
           </Tabs>
         </div>
       </div>
+
+      {/* 配置模态框 */}
+      <ConfigModal
+        isOpen={isConfigModalOpen}
+        onClose={() => setIsConfigModalOpen(false)}
+        instanceId={instance.id}
+      />
     </div>
   );
 };

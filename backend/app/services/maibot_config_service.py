@@ -86,6 +86,68 @@ class MAIBotConfigService:
     
     # ==================== Bot Config ====================
     
+    async def get_bot_config_raw_text(
+        self,
+        db: AsyncSession,
+        instance_id: Optional[str] = None
+    ) -> str:
+        """获取 bot 配置原始文本
+        
+        Args:
+            db: 数据库会话
+            instance_id: 实例ID
+            
+        Returns:
+            TOML 原始文本内容
+        """
+        config_dir = await self._get_instance_config_dir(db, instance_id)
+        config_path = config_dir / "bot_config.toml"
+        
+        if not config_path.exists():
+            raise HTTPException(status_code=404, detail=f"Bot config file not found: {config_path}")
+        
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to read bot config: {str(e)}")
+    
+    async def save_bot_config_raw_text(
+        self,
+        db: AsyncSession,
+        content: str,
+        instance_id: Optional[str] = None
+    ) -> None:
+        """保存 bot 配置原始文本
+        
+        Args:
+            db: 数据库会话
+            content: TOML 文本内容
+            instance_id: 实例ID
+        """
+        config_dir = await self._get_instance_config_dir(db, instance_id)
+        config_path = config_dir / "bot_config.toml"
+        
+        try:
+            # 首先验证 TOML 格式是否正确（使用tomlkit更宽容）
+            try:
+                import tomlkit
+                tomlkit.loads(content)
+            except ImportError:
+                # 如果没有tomlkit，使用标准toml库
+                import toml
+                toml.loads(content)
+            
+            # 保存文件
+            with open(config_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+                
+            logger.info(f"Bot config saved to {config_path}")
+        except Exception as e:
+            if 'toml' in str(type(e).__name__).lower() or 'parse' in str(type(e).__name__).lower():
+                raise HTTPException(status_code=400, detail=f"Invalid TOML format: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to save bot config: {str(e)}")
+    
     async def get_bot_config(
         self,
         db: AsyncSession,
@@ -240,6 +302,63 @@ class MAIBotConfigService:
             raise HTTPException(status_code=500, detail=f"Failed to add bot config key: {str(e)}")
     
     # ==================== Model Config ====================
+    
+    async def get_model_config_raw_text(
+        self,
+        db: AsyncSession,
+        instance_id: Optional[str] = None
+    ) -> str:
+        """获取模型配置原始文本
+        
+        Args:
+            db: 数据库会话
+            instance_id: 实例ID
+            
+        Returns:
+            TOML 原始文本内容
+        """
+        config_dir = await self._get_instance_config_dir(db, instance_id)
+        config_path = config_dir / "model_config.toml"
+        
+        if not config_path.exists():
+            raise HTTPException(status_code=404, detail=f"Model config file not found: {config_path}")
+        
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to read model config: {str(e)}")
+    
+    async def save_model_config_raw_text(
+        self,
+        db: AsyncSession,
+        content: str,
+        instance_id: Optional[str] = None
+    ) -> None:
+        """保存模型配置原始文本
+        
+        Args:
+            db: 数据库会话
+            content: TOML 文本内容
+            instance_id: 实例ID
+        """
+        config_dir = await self._get_instance_config_dir(db, instance_id)
+        config_path = config_dir / "model_config.toml"
+        
+        try:
+            # 首先验证 TOML 格式是否正确
+            import toml
+            toml.loads(content)
+            
+            # 保存文件
+            with open(config_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+                
+            logger.info(f"Model config saved to {config_path}")
+        except toml.TomlDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid TOML format: {str(e)}")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save model config: {str(e)}")
     
     async def get_model_config(
         self,

@@ -2,8 +2,8 @@
 MAIBot 配置 API 路由
 """
 from typing import Optional
-from fastapi import APIRouter, Query, HTTPException, Depends
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Query, HTTPException, Depends, Body, Request
+from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models.maibot_config import (
@@ -114,6 +114,42 @@ async def add_bot_config_key(
     return await maibot_config_service.add_bot_config_key(db, request, instance_id)
 
 
+@router.get("/bot-config/raw", response_class=PlainTextResponse, summary="获取 Bot 配置原始文本")
+async def get_bot_config_raw(
+    db: AsyncSession = Depends(get_db),
+    instance_id: Optional[str] = Query(None, description="实例ID")
+):
+    """
+    获取 Bot 配置的原始 TOML 文本内容（包含注释）
+    
+    - **instance_id**: 实例ID（可选）
+    
+    返回原始的 TOML 文件内容字符串
+    """
+    content = await maibot_config_service.get_bot_config_raw_text(db, instance_id)
+    return PlainTextResponse(content=content)
+
+
+@router.put("/bot-config/raw", summary="保存 Bot 配置原始文本")
+async def save_bot_config_raw(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    instance_id: Optional[str] = Query(None, description="实例ID")
+):
+    """
+    保存 Bot 配置的原始 TOML 文本内容
+    
+    - **content**: TOML 文本内容（Request Body as plain text）
+    - **instance_id**: 实例ID（可选）
+    
+    直接保存用户编辑的 TOML 文本，保留注释和格式
+    """
+    content = await request.body()
+    content_str = content.decode('utf-8')
+    await maibot_config_service.save_bot_config_raw_text(db, content_str, instance_id)
+    return {"message": "保存成功"}
+
+
 # ==================== Model Config ====================
 
 @router.get("/model-config", response_model=ConfigWithComments, summary="获取模型配置")
@@ -170,6 +206,42 @@ async def delete_model_config_key(
     - **instance_id**: 实例ID（可选）
     """
     return await maibot_config_service.delete_model_config_key(db, request, instance_id)
+
+
+@router.get("/model-config/raw", response_class=PlainTextResponse, summary="获取模型配置原始文本")
+async def get_model_config_raw(
+    db: AsyncSession = Depends(get_db),
+    instance_id: Optional[str] = Query(None, description="实例ID")
+):
+    """
+    获取模型配置的原始 TOML 文本内容（包含注释）
+    
+    - **instance_id**: 实例ID（可选）
+    
+    返回原始的 TOML 文件内容字符串
+    """
+    content = await maibot_config_service.get_model_config_raw_text(db, instance_id)
+    return PlainTextResponse(content=content)
+
+
+@router.put("/model-config/raw", summary="保存模型配置原始文本")
+async def save_model_config_raw(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    instance_id: Optional[str] = Query(None, description="实例ID")
+):
+    """
+    保存模型配置的原始 TOML 文本内容
+    
+    - **content**: TOML 文本内容（Request Body as plain text）
+    - **instance_id**: 实例ID（可选）
+    
+    直接保存用户编辑的 TOML 文本，保留注释和格式
+    """
+    content = await request.body()
+    content_str = content.decode('utf-8')
+    await maibot_config_service.save_model_config_raw_text(db, content_str, instance_id)
+    return {"message": "保存成功"}
 
 
 # ==================== 数组操作 ====================

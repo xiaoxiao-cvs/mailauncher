@@ -39,11 +39,27 @@ class TOMLWithComments:
     
     def _parse(self):
         """解析 TOML 内容，保留注释和结构"""
-        import toml
+        def to_plain_dict(obj):
+            """递归转换tomlkit对象为普通Python对象"""
+            if isinstance(obj, dict):
+                return {k: to_plain_dict(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [to_plain_dict(item) for item in obj]
+            else:
+                return obj
         
-        # 使用标准 toml 库解析数据
-        with open(self.file_path, 'r', encoding='utf-8') as f:
-            self.data = toml.load(f)
+        try:
+            # 优先使用 tomlkit，它更宽容且保留格式
+            import tomlkit
+            with open(self.file_path, 'r', encoding='utf-8') as f:
+                doc = tomlkit.load(f)
+                # 递归转换为普通字典
+                self.data = to_plain_dict(doc)
+        except ImportError:
+            # 回退到标准 toml 库
+            import toml
+            with open(self.file_path, 'r', encoding='utf-8') as f:
+                self.data = toml.load(f)
         
         # 解析结构和注释
         current_section = ""
@@ -257,7 +273,10 @@ class TOMLWithComments:
         Args:
             output_path: 输出路径，如果为 None 则覆盖原文件
         """
-        import toml
+        try:
+            import tomlkit as toml
+        except ImportError:
+            import toml
         
         output_file = Path(output_path) if output_path else self.file_path
         
