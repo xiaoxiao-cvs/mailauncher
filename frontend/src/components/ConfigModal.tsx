@@ -341,13 +341,13 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     })
   }
 
-  // 按功能模块分组Bot配置（带子分组）
+  // 按功能模块分组Bot配置（扁平化，减少不必要的嵌套）
   const groupBotConfig = (data: Record<string, any>): TreeNode[] => {
     const groups: TreeNode[] = []
 
-    // 1. 基础配置
+    // 1. 基础配置 - 直接展开 bot 的子项
     if (data.bot) {
-      const botChildren = buildTreeData({ bot: data.bot }, '')[0]?.children || []
+      const botChildren = buildTreeData(data.bot, 'bot')
       groups.push({
         id: 'group-basic',
         name: '基础配置',
@@ -355,425 +355,187 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
       })
     }
 
-    // 2. 人格与表达（增加子分组）
-    const personalityChildren: TreeNode[] = []
-    
-    // 2.1 人格配置子分组（细分为更小的类别）
+    // 2. 人格配置 - 扁平化展示
     if (data.personality) {
-      const personalityData = data.personality
-      const personalitySubGroups: TreeNode[] = []
-      
-      // 2.1.1 基础人格
-      const basicPersonality: Record<string, any> = {}
-      if (personalityData.personality !== undefined) basicPersonality.personality = personalityData.personality
-      if (personalityData.nickname !== undefined) basicPersonality.nickname = personalityData.nickname
-      if (personalityData.alias_names !== undefined) basicPersonality.alias_names = personalityData.alias_names
-      
-      if (Object.keys(basicPersonality).length > 0) {
-        const basicItems = buildTreeData(basicPersonality, 'personality')
-        personalitySubGroups.push({
-          id: 'personality-basic',
-          name: '基础人格',
-          children: basicItems,
-        })
-      }
-      
-      // 2.1.2 风格设定
-      const styleSettings: Record<string, any> = {}
-      if (personalityData.reply_style !== undefined) styleSettings.reply_style = personalityData.reply_style
-      if (personalityData.interest !== undefined) styleSettings.interest = personalityData.interest
-      if (personalityData.visual_style !== undefined) styleSettings.visual_style = personalityData.visual_style
-      
-      if (Object.keys(styleSettings).length > 0) {
-        const styleItems = buildTreeData(styleSettings, 'personality')
-        personalitySubGroups.push({
-          id: 'personality-style',
-          name: '风格设定',
-          children: styleItems,
-        })
-      }
-      
-      // 2.1.3 行为规则
-      const behaviorRules: Record<string, any> = {}
-      if (personalityData.plan_style !== undefined) behaviorRules.plan_style = personalityData.plan_style
-      if (personalityData.private_plan_style !== undefined) behaviorRules.private_plan_style = personalityData.private_plan_style
-      
-      if (Object.keys(behaviorRules).length > 0) {
-        const behaviorItems = buildTreeData(behaviorRules, 'personality')
-        personalitySubGroups.push({
-          id: 'personality-behavior',
-          name: '行为规则',
-          children: behaviorItems,
-        })
-      }
-      
-      // 2.1.4 人格状态池
-      const statePool: Record<string, any> = {}
-      if (personalityData.states !== undefined) statePool.states = personalityData.states
-      if (personalityData.state_probability !== undefined) statePool.state_probability = personalityData.state_probability
-      
-      if (Object.keys(statePool).length > 0) {
-        const stateItems = buildTreeData(statePool, 'personality')
-        personalitySubGroups.push({
-          id: 'personality-states',
-          name: '人格状态池',
-          children: stateItems,
-        })
-      }
-      
-      // 2.1.5 其他人格配置
-      const otherPersonality: Record<string, any> = {}
-      const personalityGroupedKeys = new Set([
-        'personality', 'nickname', 'alias_names', 'reply_style', 'interest', 
-        'visual_style', 'plan_style', 'private_plan_style', 'states', 'state_probability'
-      ])
-      Object.keys(personalityData).forEach(key => {
-        if (!personalityGroupedKeys.has(key)) {
-          otherPersonality[key] = personalityData[key]
-        }
+      const personalityItems = buildTreeData(data.personality, 'personality')
+      groups.push({
+        id: 'group-personality',
+        name: '人格配置',
+        children: personalityItems,
       })
-      
-      if (Object.keys(otherPersonality).length > 0) {
-        const otherItems = buildTreeData(otherPersonality, 'personality')
-        personalitySubGroups.push({
-          id: 'personality-other',
-          name: '其他配置',
-          children: otherItems,
-        })
-      }
-      
-      if (personalitySubGroups.length > 0) {
-        personalityChildren.push({
-          id: 'subgroup-personality',
-          name: '人格配置',
-          children: personalitySubGroups,
-        })
-      }
     }
     
-    // 2.2 表达学习子分组
+    // 3. 表达学习 - 独立展示
     if (data.expression) {
-      const expressionItems = buildTreeData({ expression: data.expression }, '')[0]?.children || []
-      personalityChildren.push({
-        id: 'subgroup-expression',
+      const expressionItems = buildTreeData(data.expression, 'expression')
+      groups.push({
+        id: 'group-expression',
         name: '表达学习',
         children: expressionItems,
       })
     }
-    
-    if (personalityChildren.length > 0) {
-      groups.push({
-        id: 'group-personality',
-        name: '人格与表达',
-        children: personalityChildren,
-      })
-    }
 
-    // 3. 聊天行为（增加子分组）
-    const chatChildren: TreeNode[] = []
-    
-    // 3.1 聊天设置子分组（细分）
+    // 4. 聊天设置 - 扁平化展示
     if (data.chat) {
-      const chatData = data.chat
-      const chatSubGroups: TreeNode[] = []
-      
-      // 3.1.1 基础聊天配置
-      const basicChat: Record<string, any> = {}
-      if (chatData.talk_value !== undefined) basicChat.talk_value = chatData.talk_value
-      if (chatData.mentioned_bot_reply !== undefined) basicChat.mentioned_bot_reply = chatData.mentioned_bot_reply
-      if (chatData.max_context_size !== undefined) basicChat.max_context_size = chatData.max_context_size
-      if (chatData.planner_smooth !== undefined) basicChat.planner_smooth = chatData.planner_smooth
-      
-      if (Object.keys(basicChat).length > 0) {
-        const basicChatItems = buildTreeData(basicChat, 'chat')
-        chatSubGroups.push({
-          id: 'chat-basic',
-          name: '基础聊天',
-          children: basicChatItems,
-        })
-      }
-      
-      // 3.1.2 主动聊天配置
-      const autoChat: Record<string, any> = {}
-      if (chatData.auto_chat_value !== undefined) autoChat.auto_chat_value = chatData.auto_chat_value
-      if (chatData.enable_auto_chat_value_rules !== undefined) autoChat.enable_auto_chat_value_rules = chatData.enable_auto_chat_value_rules
-      if (chatData.auto_chat_value_rules !== undefined) autoChat.auto_chat_value_rules = chatData.auto_chat_value_rules
-      
-      if (Object.keys(autoChat).length > 0) {
-        const autoChatItems = buildTreeData(autoChat, 'chat')
-        chatSubGroups.push({
-          id: 'chat-auto',
-          name: '主动聊天',
-          children: autoChatItems,
-        })
-      }
-      
-      // 3.1.3 动态发言规则
-      const talkRules: Record<string, any> = {}
-      if (chatData.enable_talk_value_rules !== undefined) talkRules.enable_talk_value_rules = chatData.enable_talk_value_rules
-      if (chatData.talk_value_rules !== undefined) talkRules.talk_value_rules = chatData.talk_value_rules
-      
-      if (Object.keys(talkRules).length > 0) {
-        const talkRulesItems = buildTreeData(talkRules, 'chat')
-        chatSubGroups.push({
-          id: 'chat-rules',
-          name: '动态发言规则',
-          children: talkRulesItems,
-        })
-      }
-      
-      // 3.1.4 其他聊天配置
-      const otherChat: Record<string, any> = {}
-      const chatGroupedKeys = new Set([
-        'talk_value', 'mentioned_bot_reply', 'max_context_size', 'planner_smooth',
-        'auto_chat_value', 'enable_auto_chat_value_rules', 'auto_chat_value_rules',
-        'enable_talk_value_rules', 'talk_value_rules'
-      ])
-      Object.keys(chatData).forEach(key => {
-        if (!chatGroupedKeys.has(key)) {
-          otherChat[key] = chatData[key]
-        }
+      const chatItems = buildTreeData(data.chat, 'chat')
+      groups.push({
+        id: 'group-chat',
+        name: '聊天设置',
+        children: chatItems,
       })
-      
-      if (Object.keys(otherChat).length > 0) {
-        const otherChatItems = buildTreeData(otherChat, 'chat')
-        chatSubGroups.push({
-          id: 'chat-other',
-          name: '其他配置',
-          children: otherChatItems,
-        })
-      }
-      
-      if (chatSubGroups.length > 0) {
-        chatChildren.push({
-          id: 'subgroup-chat-settings',
-          name: '聊天设置',
-          children: chatSubGroups,
-        })
-      }
     }
     
-    // 3.2 关键词触发子分组
+    // 5. 关键词触发 - 独立展示
     if (data.keyword_reaction) {
-      const keywordItems = buildTreeData({ keyword_reaction: data.keyword_reaction }, '')[0]?.children || []
-      chatChildren.push({
-        id: 'subgroup-keyword',
+      const keywordItems = buildTreeData(data.keyword_reaction, 'keyword_reaction')
+      groups.push({
+        id: 'group-keyword',
         name: '关键词触发',
         children: keywordItems,
       })
     }
-    
-    if (chatChildren.length > 0) {
-      groups.push({
-        id: 'group-chat',
-        name: '聊天行为',
-        children: chatChildren,
-      })
-    }
 
-    // 4. 功能模块（增加子分组）
-    const featuresChildren: TreeNode[] = []
-    
-    // 4.1 智能功能子分组
-    const smartFeatures: TreeNode[] = []
+    // 6. 记忆系统 - 独立展示
     if (data.memory) {
-      const memoryItems = buildTreeData({ memory: data.memory }, '')[0]?.children || []
-      smartFeatures.push({
-        id: 'subgroup-memory',
+      const memoryItems = buildTreeData(data.memory, 'memory')
+      groups.push({
+        id: 'group-memory',
         name: '记忆系统',
         children: memoryItems,
       })
     }
+    
+    // 7. 工具系统 - 独立展示
     if (data.tool) {
-      const toolItems = buildTreeData({ tool: data.tool }, '')[0]?.children || []
-      smartFeatures.push({
-        id: 'subgroup-tool',
+      const toolItems = buildTreeData(data.tool, 'tool')
+      groups.push({
+        id: 'group-tool',
         name: '工具系统',
         children: toolItems,
       })
     }
+    
+    // 8. 情绪系统 - 独立展示
     if (data.mood) {
-      const moodItems = buildTreeData({ mood: data.mood }, '')[0]?.children || []
-      smartFeatures.push({
-        id: 'subgroup-mood',
+      const moodItems = buildTreeData(data.mood, 'mood')
+      groups.push({
+        id: 'group-mood',
         name: '情绪系统',
         children: moodItems,
       })
     }
+    
+    // 9. 知识库 - 独立展示
     if (data.lpmm_knowledge) {
-      const knowledgeItems = buildTreeData({ lpmm_knowledge: data.lpmm_knowledge }, '')[0]?.children || []
-      smartFeatures.push({
-        id: 'subgroup-knowledge',
+      const knowledgeItems = buildTreeData(data.lpmm_knowledge, 'lpmm_knowledge')
+      groups.push({
+        id: 'group-knowledge',
         name: '知识库',
         children: knowledgeItems,
       })
     }
     
-    if (smartFeatures.length > 0) {
-      featuresChildren.push({
-        id: 'subgroup-smart-features',
-        name: '智能功能',
-        children: smartFeatures,
-      })
-    }
-    
-    // 4.2 多媒体功能子分组
-    const mediaFeatures: TreeNode[] = []
+    // 10. 表情包 - 独立展示
     if (data.emoji) {
-      const emojiItems = buildTreeData({ emoji: data.emoji }, '')[0]?.children || []
-      mediaFeatures.push({
-        id: 'subgroup-emoji',
+      const emojiItems = buildTreeData(data.emoji, 'emoji')
+      groups.push({
+        id: 'group-emoji',
         name: '表情包',
         children: emojiItems,
       })
     }
+    
+    // 11. 语音识别 - 独立展示
     if (data.voice) {
-      const voiceItems = buildTreeData({ voice: data.voice }, '')[0]?.children || []
-      mediaFeatures.push({
-        id: 'subgroup-voice',
+      const voiceItems = buildTreeData(data.voice, 'voice')
+      groups.push({
+        id: 'group-voice',
         name: '语音识别',
         children: voiceItems,
       })
     }
-    
-    if (mediaFeatures.length > 0) {
-      featuresChildren.push({
-        id: 'subgroup-media-features',
-        name: '多媒体功能',
-        children: mediaFeatures,
-      })
-    }
-    
-    if (featuresChildren.length > 0) {
-      groups.push({
-        id: 'group-features',
-        name: '功能模块',
-        children: featuresChildren,
-      })
-    }
 
-    // 5. 消息处理（增加子分组）
-    const messageChildren: TreeNode[] = []
-    
-    // 5.1 消息过滤子分组
+    // 12. 消息过滤 - 独立展示
     if (data.message_receive) {
-      const receiveItems = buildTreeData({ message_receive: data.message_receive }, '')[0]?.children || []
-      messageChildren.push({
-        id: 'subgroup-message-filter',
+      const receiveItems = buildTreeData(data.message_receive, 'message_receive')
+      groups.push({
+        id: 'group-message-receive',
         name: '消息过滤',
         children: receiveItems,
       })
     }
     
-    // 5.2 回复处理子分组
-    const replyProcessing: TreeNode[] = []
+    // 13. 回复后处理 - 独立展示
     if (data.response_post_process) {
-      const postProcessItems = buildTreeData({ response_post_process: data.response_post_process }, '')[0]?.children || []
-      replyProcessing.push({
-        id: 'subgroup-post-process',
-        name: '后处理总开关',
+      const postProcessItems = buildTreeData(data.response_post_process, 'response_post_process')
+      groups.push({
+        id: 'group-post-process',
+        name: '回复后处理',
         children: postProcessItems,
       })
     }
+    
+    // 14. 错别字生成 - 独立展示
     if (data.chinese_typo) {
-      const typoItems = buildTreeData({ chinese_typo: data.chinese_typo }, '')[0]?.children || []
-      replyProcessing.push({
-        id: 'subgroup-typo',
+      const typoItems = buildTreeData(data.chinese_typo, 'chinese_typo')
+      groups.push({
+        id: 'group-typo',
         name: '错别字生成',
         children: typoItems,
       })
     }
+    
+    // 15. 回复分割 - 独立展示
     if (data.response_splitter) {
-      const splitterItems = buildTreeData({ response_splitter: data.response_splitter }, '')[0]?.children || []
-      replyProcessing.push({
-        id: 'subgroup-splitter',
+      const splitterItems = buildTreeData(data.response_splitter, 'response_splitter')
+      groups.push({
+        id: 'group-splitter',
         name: '回复分割',
         children: splitterItems,
       })
     }
-    
-    if (replyProcessing.length > 0) {
-      messageChildren.push({
-        id: 'subgroup-reply-processing',
-        name: '回复处理',
-        children: replyProcessing,
-      })
-    }
-    
-    if (messageChildren.length > 0) {
-      groups.push({
-        id: 'group-message',
-        name: '消息处理',
-        children: messageChildren,
-      })
-    }
 
-    // 6. 系统配置（增加子分组）
-    const systemChildren: TreeNode[] = []
-    
-    // 6.1 运行配置子分组
-    const runtimeConfig: TreeNode[] = []
+    // 16. 日志配置 - 独立展示
     if (data.log) {
-      const logItems = buildTreeData({ log: data.log }, '')[0]?.children || []
-      runtimeConfig.push({
-        id: 'subgroup-log',
+      const logItems = buildTreeData(data.log, 'log')
+      groups.push({
+        id: 'group-log',
         name: '日志配置',
         children: logItems,
       })
     }
+    
+    // 17. 调试选项 - 独立展示
     if (data.debug) {
-      const debugItems = buildTreeData({ debug: data.debug }, '')[0]?.children || []
-      runtimeConfig.push({
-        id: 'subgroup-debug',
+      const debugItems = buildTreeData(data.debug, 'debug')
+      groups.push({
+        id: 'group-debug',
         name: '调试选项',
         children: debugItems,
       })
     }
     
-    if (runtimeConfig.length > 0) {
-      systemChildren.push({
-        id: 'subgroup-runtime',
-        name: '运行配置',
-        children: runtimeConfig,
-      })
-    }
-    
-    // 6.2 服务配置子分组
-    const serviceConfig: TreeNode[] = []
+    // 18. MAIM消息服务 - 独立展示
     if (data.maim_message) {
-      const maimItems = buildTreeData({ maim_message: data.maim_message }, '')[0]?.children || []
-      serviceConfig.push({
-        id: 'subgroup-maim',
+      const maimItems = buildTreeData(data.maim_message, 'maim_message')
+      groups.push({
+        id: 'group-maim',
         name: 'MAIM消息服务',
         children: maimItems,
       })
     }
+    
+    // 19. 遥测统计 - 独立展示
     if (data.telemetry) {
-      const telemetryItems = buildTreeData({ telemetry: data.telemetry }, '')[0]?.children || []
-      serviceConfig.push({
-        id: 'subgroup-telemetry',
+      const telemetryItems = buildTreeData(data.telemetry, 'telemetry')
+      groups.push({
+        id: 'group-telemetry',
         name: '遥测统计',
         children: telemetryItems,
       })
     }
-    
-    if (serviceConfig.length > 0) {
-      systemChildren.push({
-        id: 'subgroup-service',
-        name: '服务配置',
-        children: serviceConfig,
-      })
-    }
-    
-    if (systemChildren.length > 0) {
-      groups.push({
-        id: 'group-system',
-        name: '系统配置',
-        children: systemChildren,
-      })
-    }
 
-    // 7. 其他配置（未分类的）
+    // 20. 其他配置（未分类的）
     const otherData: Record<string, any> = {}
     const groupedKeys = new Set([
       'bot', 'personality', 'expression', 'chat', 'keyword_reaction',
@@ -789,10 +551,11 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     })
     
     if (Object.keys(otherData).length > 0) {
+      const otherItems = buildTreeData(otherData, '')
       groups.push({
         id: 'group-other',
         name: '其他配置',
-        children: buildTreeData(otherData, ''),
+        children: otherItems,
       })
     }
 
@@ -1025,14 +788,14 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
           </Label>
           
           {valueType === 'string' && (
-            editValue && editValue.length > 100 ? (
+            editValue && editValue.length > 50 ? (
               <Textarea
                 value={editValue}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
                   setEditValue(e.target.value)
                   setHasChanges(true)
                 }}
-                className="mt-1 min-h-[120px] font-mono text-sm"
+                className="mt-1 min-h-[200px] font-mono text-sm"
                 placeholder="输入字符串值"
               />
             ) : (
@@ -1043,7 +806,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                   setEditValue(e.target.value)
                   setHasChanges(true)
                 }}
-                className="mt-1"
+                className="mt-1 h-12"
                 placeholder="输入字符串值"
               />
             )
@@ -1057,7 +820,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                 setEditValue(Number(e.target.value))
                 setHasChanges(true)
               }}
-              className="mt-1"
+              className="mt-1 h-12"
               placeholder="输入数字"
             />
           )}
@@ -1086,7 +849,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                   // 保持原值
                 }
               }}
-              className="mt-1 min-h-[200px] font-mono text-sm"
+              className="mt-1 min-h-[300px] font-mono text-sm"
               placeholder="JSON 数组格式"
             />
           )}
@@ -1102,7 +865,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                   // 保持原值
                 }
               }}
-              className="mt-1 min-h-[200px] font-mono text-sm"
+              className="mt-1 min-h-[300px] font-mono text-sm"
               placeholder="JSON 对象格式"
             />
           )}
