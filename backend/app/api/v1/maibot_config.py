@@ -2,8 +2,9 @@
 MAIBot 配置 API 路由
 """
 from typing import Optional
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models.maibot_config import (
     ConfigWithComments,
@@ -15,6 +16,7 @@ from ...models.maibot_config import (
     ArrayItemDeleteRequest
 )
 from ...services.maibot_config_service import maibot_config_service
+from ...core.database import get_db
 
 router = APIRouter()
 
@@ -23,6 +25,7 @@ router = APIRouter()
 
 @router.get("/bot-config", response_model=ConfigWithComments, summary="获取 Bot 配置")
 async def get_bot_config(
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID，为空则使用默认配置"),
     include_comments: bool = Query(True, description="是否包含注释")
 ):
@@ -34,12 +37,13 @@ async def get_bot_config(
     
     返回配置数据和注释信息
     """
-    return await maibot_config_service.get_bot_config(instance_id, include_comments)
+    return await maibot_config_service.get_bot_config(db, instance_id, include_comments)
 
 
 @router.put("/bot-config", response_model=ConfigWithComments, summary="更新 Bot 配置")
 async def update_bot_config(
     request: ConfigUpdateRequest,
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
     """
@@ -57,12 +61,13 @@ async def update_bot_config(
     }
     ```
     """
-    return await maibot_config_service.update_bot_config(request, instance_id)
+    return await maibot_config_service.update_bot_config(db, request, instance_id)
 
 
 @router.delete("/bot-config", response_model=ConfigWithComments, summary="删除 Bot 配置键")
 async def delete_bot_config_key(
     request: ConfigDeleteRequest,
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
     """
@@ -71,19 +76,20 @@ async def delete_bot_config_key(
     - **key_path**: 要删除的配置键路径
     - **instance_id**: 实例ID（可选）
     
-    示例：
+    示例:
     ```json
     {
         "key_path": "bot.alias_names[0]"
     }
     ```
     """
-    return await maibot_config_service.delete_bot_config_key(request, instance_id)
+    return await maibot_config_service.delete_bot_config_key(db, request, instance_id)
 
 
 @router.post("/bot-config", response_model=ConfigWithComments, summary="添加 Bot 配置键")
 async def add_bot_config_key(
     request: ConfigAddRequest,
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
     """
@@ -105,13 +111,14 @@ async def add_bot_config_key(
     }
     ```
     """
-    return await maibot_config_service.add_bot_config_key(request, instance_id)
+    return await maibot_config_service.add_bot_config_key(db, request, instance_id)
 
 
 # ==================== Model Config ====================
 
 @router.get("/model-config", response_model=ConfigWithComments, summary="获取模型配置")
 async def get_model_config(
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID"),
     include_comments: bool = Query(True, description="是否包含注释")
 ):
@@ -123,12 +130,13 @@ async def get_model_config(
     
     返回模型配置数据和注释信息
     """
-    return await maibot_config_service.get_model_config(instance_id, include_comments)
+    return await maibot_config_service.get_model_config(db, instance_id, include_comments)
 
 
 @router.put("/model-config", response_model=ConfigWithComments, summary="更新模型配置")
 async def update_model_config(
     request: ConfigUpdateRequest,
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
     """
@@ -146,12 +154,13 @@ async def update_model_config(
     }
     ```
     """
-    return await maibot_config_service.update_model_config(request, instance_id)
+    return await maibot_config_service.update_model_config(db, request, instance_id)
 
 
 @router.delete("/model-config", response_model=ConfigWithComments, summary="删除模型配置键")
 async def delete_model_config_key(
     request: ConfigDeleteRequest,
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
     """
@@ -160,7 +169,7 @@ async def delete_model_config_key(
     - **key_path**: 要删除的配置键路径
     - **instance_id**: 实例ID（可选）
     """
-    return await maibot_config_service.delete_model_config_key(request, instance_id)
+    return await maibot_config_service.delete_model_config_key(db, request, instance_id)
 
 
 # ==================== 数组操作 ====================
@@ -168,6 +177,7 @@ async def delete_model_config_key(
 @router.post("/bot-config/array-item", response_model=ConfigWithComments, summary="添加 Bot 配置数组项")
 async def add_bot_config_array_item(
     request: ArrayItemAddRequest,
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
     """
@@ -186,12 +196,13 @@ async def add_bot_config_array_item(
     }
     ```
     """
-    return await maibot_config_service.add_array_item(request, 'bot', instance_id)
+    return await maibot_config_service.add_array_item(db, request, 'bot', instance_id)
 
 
 @router.put("/bot-config/array-item", response_model=ConfigWithComments, summary="更新 Bot 配置数组项")
 async def update_bot_config_array_item(
     request: ArrayItemUpdateRequest,
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
     """
@@ -201,12 +212,13 @@ async def update_bot_config_array_item(
     - **index**: 数组索引
     - **updates**: 要更新的字段
     """
-    return await maibot_config_service.update_array_item(request, 'bot', instance_id)
+    return await maibot_config_service.update_array_item(db, request, 'bot', instance_id)
 
 
 @router.delete("/bot-config/array-item", response_model=ConfigWithComments, summary="删除 Bot 配置数组项")
 async def delete_bot_config_array_item(
     request: ArrayItemDeleteRequest,
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
     """
@@ -215,12 +227,13 @@ async def delete_bot_config_array_item(
     - **array_path**: 数组路径
     - **index**: 要删除的数组索引
     """
-    return await maibot_config_service.delete_array_item(request, 'bot', instance_id)
+    return await maibot_config_service.delete_array_item(db, request, 'bot', instance_id)
 
 
 @router.post("/model-config/array-item", response_model=ConfigWithComments, summary="添加模型配置数组项")
 async def add_model_config_array_item(
     request: ArrayItemAddRequest,
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
     """
@@ -262,12 +275,13 @@ async def add_model_config_array_item(
     }
     ```
     """
-    return await maibot_config_service.add_array_item(request, 'model', instance_id)
+    return await maibot_config_service.add_array_item(db, request, 'model', instance_id)
 
 
 @router.put("/model-config/array-item", response_model=ConfigWithComments, summary="更新模型配置数组项")
 async def update_model_config_array_item(
     request: ArrayItemUpdateRequest,
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
     """
@@ -289,12 +303,13 @@ async def update_model_config_array_item(
     }
     ```
     """
-    return await maibot_config_service.update_array_item(request, 'model', instance_id)
+    return await maibot_config_service.update_array_item(db, request, 'model', instance_id)
 
 
 @router.delete("/model-config/array-item", response_model=ConfigWithComments, summary="删除模型配置数组项")
 async def delete_model_config_array_item(
     request: ArrayItemDeleteRequest,
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
     """
@@ -311,13 +326,14 @@ async def delete_model_config_array_item(
     }
     ```
     """
-    return await maibot_config_service.delete_array_item(request, 'model', instance_id)
+    return await maibot_config_service.delete_array_item(db, request, 'model', instance_id)
 
 
 # ==================== 辅助端点 ====================
 
 @router.get("/bot-config/sections", summary="获取 Bot 配置的所有节")
 async def get_bot_config_sections(
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
     """
@@ -330,13 +346,14 @@ async def get_bot_config_sections(
     }
     ```
     """
-    config = await maibot_config_service.get_bot_config(instance_id, include_comments=False)
+    config = await maibot_config_service.get_bot_config(db, instance_id, include_comments=False)
     sections = list(config.data.keys())
     return {"sections": sections}
 
 
 @router.get("/model-config/sections", summary="获取模型配置的所有节")
 async def get_model_config_sections(
+    db: AsyncSession = Depends(get_db),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
     """
@@ -349,13 +366,14 @@ async def get_model_config_sections(
     }
     ```
     """
-    config = await maibot_config_service.get_model_config(instance_id, include_comments=False)
+    config = await maibot_config_service.get_model_config(db, instance_id, include_comments=False)
     sections = list(config.data.keys())
     return {"sections": sections}
 
 
 @router.get("/bot-config/value", summary="获取 Bot 配置的特定值")
 async def get_bot_config_value(
+    db: AsyncSession = Depends(get_db),
     key_path: str = Query(..., description="配置键路径"),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
@@ -373,7 +391,7 @@ async def get_bot_config_value(
     }
     ```
     """
-    config = await maibot_config_service.get_bot_config(instance_id)
+    config = await maibot_config_service.get_bot_config(db, instance_id)
     
     # 简单的路径解析（需要改进以支持数组索引）
     keys = key_path.split('.')
@@ -396,6 +414,7 @@ async def get_bot_config_value(
 
 @router.get("/model-config/value", summary="获取模型配置的特定值")
 async def get_model_config_value(
+    db: AsyncSession = Depends(get_db),
     key_path: str = Query(..., description="配置键路径"),
     instance_id: Optional[str] = Query(None, description="实例ID")
 ):
@@ -404,7 +423,7 @@ async def get_model_config_value(
     
     - **key_path**: 配置键路径，如 "models[0].name"
     """
-    config = await maibot_config_service.get_model_config(instance_id)
+    config = await maibot_config_service.get_model_config(db, instance_id)
     
     # 这里需要更复杂的路径解析来处理数组索引
     # 暂时简化处理

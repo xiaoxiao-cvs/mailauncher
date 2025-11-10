@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from fastapi import HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..utils.toml_handler import TOMLWithComments, merge_toml_data
 from ..models.maibot_config import (
@@ -19,6 +21,9 @@ from ..models.maibot_config import (
     BotConfigResponse,
     ModelConfigResponse
 )
+from ..models.db_models import InstanceDB
+from ..core import settings
+from ..core.logger import logger
 
 
 class MAIBotConfigService:
@@ -38,41 +43,66 @@ class MAIBotConfigService:
         
         self.bot_config_path = self.config_dir / "bot_config.toml"
         self.model_config_path = self.config_dir / "model_config.toml"
+        
+        # 获取实例目录
+        self.instances_dir = settings.ensure_instances_dir()
     
-    def _get_instance_config_dir(self, instance_id: Optional[str] = None) -> Path:
+    async def _get_instance_config_dir(
+        self, 
+        db: AsyncSession,
+        instance_id: Optional[str] = None
+    ) -> Path:
         """获取实例配置目录
         
         Args:
+            db: 数据库会话
             instance_id: 实例ID，如果为 None 则使用默认配置
             
         Returns:
             配置目录路径
         """
         if instance_id:
-            # 实例配置目录
-            instance_dir = Path(f"./data/instances/{instance_id}/config")
-            if instance_dir.exists():
-                return instance_dir
+            # 查询实例信息
+            result = await db.execute(
+                select(InstanceDB).where(InstanceDB.id == instance_id)
+            )
+            db_instance = result.scalar_one_or_none()
+            
+            if db_instance:
+                # 获取实例路径：优先使用 instance_path，否则使用 name
+                instance_dir = db_instance.instance_path or db_instance.name
+                # 实例配置目录：{instances_dir}/{instance_path}/MaiBot/config/
+                instance_config_dir = self.instances_dir / instance_dir / "MaiBot" / "config"
+                
+                if instance_config_dir.exists():
+                    logger.info(f"使用实例配置目录: {instance_config_dir}")
+                    return instance_config_dir
+                else:
+                    logger.warning(f"实例配置目录不存在: {instance_config_dir}")
         
+        # 如果没有找到实例配置，返回默认配置目录
+        logger.info(f"使用默认配置目录: {self.config_dir}")
         return self.config_dir
     
     # ==================== Bot Config ====================
     
     async def get_bot_config(
-        self, 
+        self,
+        db: AsyncSession,
         instance_id: Optional[str] = None,
         include_comments: bool = True
     ) -> ConfigWithComments:
         """获取 bot 配置
         
         Args:
+            db: 数据库会话
             instance_id: 实例ID
             include_comments: 是否包含注释
             
         Returns:
             配置数据
         """
-        config_dir = self._get_instance_config_dir(instance_id)
+        config_dir = await self._get_instance_config_dir(db, instance_id)
         config_path = config_dir / "bot_config.toml"
         
         if not config_path.exists():
@@ -92,20 +122,22 @@ class MAIBotConfigService:
             raise HTTPException(status_code=500, detail=f"Failed to load bot config: {str(e)}")
     
     async def update_bot_config(
-        self, 
+        self,
+        db: AsyncSession,
         update_request: ConfigUpdateRequest,
         instance_id: Optional[str] = None
     ) -> ConfigWithComments:
         """更新 bot 配置
         
         Args:
+            db: 数据库会话
             update_request: 更新请求
             instance_id: 实例ID
             
         Returns:
             更新后的配置
         """
-        config_dir = self._get_instance_config_dir(instance_id)
+        config_dir = await self._get_instance_config_dir(db, instance_id)
         config_path = config_dir / "bot_config.toml"
         
         if not config_path.exists():
@@ -127,19 +159,21 @@ class MAIBotConfigService:
     
     async def delete_bot_config_key(
         self,
+        db: AsyncSession,
         delete_request: ConfigDeleteRequest,
         instance_id: Optional[str] = None
     ) -> ConfigWithComments:
         """删除 bot 配置键
         
         Args:
+            db: 数据库会话
             delete_request: 删除请求
             instance_id: 实例ID
             
         Returns:
             更新后的配置
         """
-        config_dir = self._get_instance_config_dir(instance_id)
+        config_dir = await self._get_instance_config_dir(db, instance_id)
         config_path = config_dir / "bot_config.toml"
         
         if not config_path.exists():
@@ -161,19 +195,21 @@ class MAIBotConfigService:
     
     async def add_bot_config_key(
         self,
+        db: AsyncSession,
         add_request: ConfigAddRequest,
         instance_id: Optional[str] = None
     ) -> ConfigWithComments:
         """添加 bot 配置键
         
         Args:
+            db: 数据库会话
             add_request: 添加请求
             instance_id: 实例ID
             
         Returns:
             更新后的配置
         """
-        config_dir = self._get_instance_config_dir(instance_id)
+        config_dir = await self._get_instance_config_dir(db, instance_id)
         config_path = config_dir / "bot_config.toml"
         
         if not config_path.exists():
@@ -207,19 +243,21 @@ class MAIBotConfigService:
     
     async def get_model_config(
         self,
+        db: AsyncSession,
         instance_id: Optional[str] = None,
         include_comments: bool = True
     ) -> ConfigWithComments:
         """获取模型配置
         
         Args:
+            db: 数据库会话
             instance_id: 实例ID
             include_comments: 是否包含注释
             
         Returns:
             配置数据
         """
-        config_dir = self._get_instance_config_dir(instance_id)
+        config_dir = await self._get_instance_config_dir(db, instance_id)
         config_path = config_dir / "model_config.toml"
         
         if not config_path.exists():
@@ -240,19 +278,21 @@ class MAIBotConfigService:
     
     async def update_model_config(
         self,
+        db: AsyncSession,
         update_request: ConfigUpdateRequest,
         instance_id: Optional[str] = None
     ) -> ConfigWithComments:
         """更新模型配置
         
         Args:
+            db: 数据库会话
             update_request: 更新请求
             instance_id: 实例ID
             
         Returns:
             更新后的配置
         """
-        config_dir = self._get_instance_config_dir(instance_id)
+        config_dir = await self._get_instance_config_dir(db, instance_id)
         config_path = config_dir / "model_config.toml"
         
         if not config_path.exists():
@@ -274,19 +314,21 @@ class MAIBotConfigService:
     
     async def delete_model_config_key(
         self,
+        db: AsyncSession,
         delete_request: ConfigDeleteRequest,
         instance_id: Optional[str] = None
     ) -> ConfigWithComments:
         """删除模型配置键
         
         Args:
+            db: 数据库会话
             delete_request: 删除请求
             instance_id: 实例ID
             
         Returns:
             更新后的配置
         """
-        config_dir = self._get_instance_config_dir(instance_id)
+        config_dir = await self._get_instance_config_dir(db, instance_id)
         config_path = config_dir / "model_config.toml"
         
         if not config_path.exists():
@@ -310,6 +352,7 @@ class MAIBotConfigService:
     
     async def add_array_item(
         self,
+        db: AsyncSession,
         request: ArrayItemAddRequest,
         config_type: str,  # 'bot' or 'model'
         instance_id: Optional[str] = None
@@ -317,6 +360,7 @@ class MAIBotConfigService:
         """添加数组项
         
         Args:
+            db: 数据库会话
             request: 添加请求
             config_type: 配置类型
             instance_id: 实例ID
@@ -324,7 +368,7 @@ class MAIBotConfigService:
         Returns:
             更新后的配置
         """
-        config_dir = self._get_instance_config_dir(instance_id)
+        config_dir = await self._get_instance_config_dir(db, instance_id)
         
         if config_type == 'bot':
             config_path = config_dir / "bot_config.toml"
@@ -364,6 +408,7 @@ class MAIBotConfigService:
     
     async def update_array_item(
         self,
+        db: AsyncSession,
         request: ArrayItemUpdateRequest,
         config_type: str,
         instance_id: Optional[str] = None
@@ -371,6 +416,7 @@ class MAIBotConfigService:
         """更新数组项
         
         Args:
+            db: 数据库会话
             request: 更新请求
             config_type: 配置类型
             instance_id: 实例ID
@@ -378,7 +424,7 @@ class MAIBotConfigService:
         Returns:
             更新后的配置
         """
-        config_dir = self._get_instance_config_dir(instance_id)
+        config_dir = await self._get_instance_config_dir(db, instance_id)
         
         if config_type == 'bot':
             config_path = config_dir / "bot_config.toml"
@@ -420,6 +466,7 @@ class MAIBotConfigService:
     
     async def delete_array_item(
         self,
+        db: AsyncSession,
         request: ArrayItemDeleteRequest,
         config_type: str,
         instance_id: Optional[str] = None
@@ -427,6 +474,7 @@ class MAIBotConfigService:
         """删除数组项
         
         Args:
+            db: 数据库会话
             request: 删除请求
             config_type: 配置类型
             instance_id: 实例ID
@@ -434,7 +482,7 @@ class MAIBotConfigService:
         Returns:
             更新后的配置
         """
-        config_dir = self._get_instance_config_dir(instance_id)
+        config_dir = await self._get_instance_config_dir(db, instance_id)
         
         if config_type == 'bot':
             config_path = config_dir / "bot_config.toml"
