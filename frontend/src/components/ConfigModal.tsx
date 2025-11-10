@@ -115,8 +115,13 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     }
   }
   
-  // 当切换配置类型时，更新rawText
+  // 当切换配置类型时，更新rawText并清除选中状态
   useEffect(() => {
+    // 清除选中的路径和编辑值
+    setSelectedPath(null)
+    setEditValue(null)
+    setHasChanges(false)
+    
     if (activeConfig === 'bot' && botConfig) {
       getBotConfigRaw(instanceId).then(text => {
         setRawText(text)

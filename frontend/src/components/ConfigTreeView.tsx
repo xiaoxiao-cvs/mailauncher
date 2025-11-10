@@ -2,7 +2,7 @@
  * 配置树视图组件
  * 用于显示和选择配置项的树形结构
  */
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   hotkeysCoreFeature,
   searchFeature,
@@ -35,9 +35,6 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({
   onSelect,
   selectedId,
 }) => {
-  const initialExpandedItems = useMemo(() => data.map((node) => node.id), [data])
-  const [state, setState] = useState<Partial<TreeState<TreeNode>>>({})
-
   // 将树节点转换为Record格式，并添加到root
   const itemsRecord = useMemo(() => {
     const record: Record<string, TreeNode> = {}
@@ -65,6 +62,26 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({
 
     return record
   }, [data])
+  
+  const initialExpandedItems = useMemo(() => data.map((node) => node.id), [data])
+  
+  const [state, setState] = useState<Partial<TreeState<TreeNode>>>({})
+  
+  // 当数据改变时，清理不存在的展开项，并添加新的顶层项
+  useEffect(() => {
+    setState(prevState => {
+      const currentExpanded = prevState.expandedItems || []
+      // 过滤出仍然存在的项
+      const validExpanded = currentExpanded.filter(id => itemsRecord[id] !== undefined)
+      // 合并新的顶层项
+      const newExpanded = [...new Set([...validExpanded, ...initialExpandedItems])]
+      
+      return {
+        ...prevState,
+        expandedItems: newExpanded,
+      }
+    })
+  }, [itemsRecord, initialExpandedItems])
 
   const rootId = 'root'
 
@@ -89,8 +106,9 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({
       getItem: (itemId) => {
         const node = itemsRecord[itemId]
         if (!node) {
-          console.warn(`Node not found for id: ${itemId}`)
-          return { id: itemId, name: 'Unknown', isLeaf: true }
+          // 静默处理不存在的节点，返回一个虚拟节点
+          // 这通常发生在数据切换的瞬间
+          return { id: itemId, name: '', isLeaf: true }
         }
         return node
       },
