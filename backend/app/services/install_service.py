@@ -23,6 +23,7 @@ class InstallService:
         self,
         venv_dir: Path,
         venv_type: str = "venv",
+        progress_callback: Optional[Callable[[str, str], Any]] = None,
     ) -> bool:
         """
         在虚拟环境内升级 pip、setuptools、wheel
@@ -30,6 +31,7 @@ class InstallService:
         Args:
             venv_dir: 虚拟环境所在目录
             venv_type: 虚拟环境类型
+            progress_callback: 进度回调 (message, level)
             
         Returns:
             是否成功
@@ -54,38 +56,50 @@ class InstallService:
                 
                 # 根据操作系统选择不同的执行方式
                 if platform.system() == "Windows":
-                    success, output = await self._upgrade_pip_windows(venv_pip)
+                    success, output = await self._upgrade_pip_windows(venv_pip, progress_callback)
                 else:
-                    success, output = await self._upgrade_pip_unix(venv_pip)
+                    success, output = await self._upgrade_pip_unix(venv_pip, progress_callback)
                 
                 logger.info(f"{'='*60}")
                 if success:
                     logger.info("虚拟环境 pip 升级成功")
+                    if progress_callback:
+                        await progress_callback("✓ pip 升级成功", "success")
                 else:
                     logger.warning(f"虚拟环境 pip 升级失败")
+                    if progress_callback:
+                        await progress_callback("✗ pip 升级失败", "warning")
                 logger.info(f"{'='*60}")
                 return success
                     
             elif venv_type == "uv":
                 # uv 自动使用最新的 pip
                 logger.info("uv 环境自动使用最新 pip")
+                if progress_callback:
+                    await progress_callback("uv 环境自动使用最新 pip", "info")
                 logger.info(f"{'='*60}")
                 return True
                 
             elif venv_type == "conda":
                 # conda 环境升级
                 logger.info("使用 conda 升级 pip")
+                if progress_callback:
+                    await progress_callback("使用 conda 升级 pip...", "info")
                 
                 if platform.system() == "Windows":
-                    success, output = await self._upgrade_pip_conda_windows(venv_dir)
+                    success, output = await self._upgrade_pip_conda_windows(venv_dir, progress_callback)
                 else:
-                    success, output = await self._upgrade_pip_conda_unix(venv_dir)
+                    success, output = await self._upgrade_pip_conda_unix(venv_dir, progress_callback)
                 
                 logger.info(f"{'='*60}")
                 if success:
                     logger.info("conda 环境 pip 升级成功")
+                    if progress_callback:
+                        await progress_callback("✓ conda 环境 pip 升级成功", "success")
                 else:
                     logger.warning("conda 环境 pip 升级失败")
+                    if progress_callback:
+                        await progress_callback("✗ conda 环境 pip 升级失败", "warning")
                 logger.info(f"{'='*60}")
                 return success
                     
@@ -95,8 +109,12 @@ class InstallService:
             logger.error(f"{'='*60}")
             return False
 
-    async def _upgrade_pip_windows(self, venv_pip: Path) -> tuple[bool, str]:
-        """Windows 下升级 pip (使用 python -m pip 方式)"""
+    async def _upgrade_pip_windows(
+        self, 
+        venv_pip: Path,
+        progress_callback: Optional[Callable[[str, str], Any]] = None,
+    ) -> tuple[bool, str]:
+        """Windows 下升级 pip (使用 python -m pip 方式) - 实时输出"""
         import subprocess
         
         # Windows 需要使用 python -m pip 来升级 pip 自身
@@ -105,42 +123,65 @@ class InstallService:
         if not venv_python.exists():
             error_msg = f"找不到虚拟环境的 Python: {venv_python}"
             logger.error(error_msg)
+            if progress_callback:
+                await progress_callback(error_msg, "error")
             return False, error_msg
         
-        logger.info("执行命令: python -m pip install --upgrade pip setuptools wheel")
+        cmd_str = f"{venv_python} -m pip install --upgrade pip setuptools wheel"
+        logger.info(f"执行命令: {cmd_str}")
+        if progress_callback:
+            await progress_callback(f"$ {cmd_str}", "info")
         
         try:
+            # 创建子进程（无缓冲）
+            proc = subprocess.Popen(
+                [str(venv_python), "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=0,
+            )
+            
+            output_lines = []
             loop = asyncio.get_event_loop()
             
-            def run_subprocess():
-                proc = subprocess.Popen(
-                    [str(venv_python), "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    encoding='utf-8',
-                    errors='replace',
-                )
-                output_lines = []
-                for line in proc.stdout:
-                    line = line.rstrip()
-                    if line:
-                        logger.info(f"  {line}")
-                        output_lines.append(line)
-                proc.wait()
-                return proc.returncode, '\n'.join(output_lines)
+            # 实时逐行读取
+            while True:
+                line_bytes = await loop.run_in_executor(None, proc.stdout.readline)
+                if not line_bytes:
+                    break
+                
+                try:
+                    line = line_bytes.decode('utf-8').rstrip()
+                except UnicodeDecodeError:
+                    line = line_bytes.decode('utf-8', errors='replace').rstrip()
+                
+                if line:
+                    logger.info(f"  {line}")
+                    output_lines.append(line)
+                    # 实时推送 ⭐
+                    if progress_callback:
+                        await progress_callback(line, "info")
             
-            returncode, output = await loop.run_in_executor(None, run_subprocess)
-            return returncode == 0, output
+            returncode = await loop.run_in_executor(None, proc.wait)
+            return returncode == 0, '\n'.join(output_lines)
             
         except Exception as e:
             error_msg = f"Windows pip 升级异常: {str(e)}"
             logger.error(error_msg, exc_info=True)
+            if progress_callback:
+                await progress_callback(error_msg, "error")
             return False, error_msg
 
-    async def _upgrade_pip_unix(self, venv_pip: Path) -> tuple[bool, str]:
-        """Unix (macOS/Linux) 下升级 pip"""
-        logger.info("执行命令: pip install --upgrade pip setuptools wheel")
+    async def _upgrade_pip_unix(
+        self, 
+        venv_pip: Path,
+        progress_callback: Optional[Callable[[str, str], Any]] = None,
+    ) -> tuple[bool, str]:
+        """Unix (macOS/Linux) 下升级 pip - 实时输出"""
+        cmd_str = f"{venv_pip} install --upgrade pip setuptools wheel"
+        logger.info(f"执行命令: {cmd_str}")
+        if progress_callback:
+            await progress_callback(f"$ {cmd_str}", "info")
         
         try:
             process = await asyncio.create_subprocess_exec(
@@ -163,6 +204,9 @@ class InstallService:
                 if line:
                     logger.info(f"  {line}")
                     output_lines.append(line)
+                    # 实时推送 ⭐
+                    if progress_callback:
+                        await progress_callback(line, "info")
             
             await process.wait()
             output = '\n'.join(output_lines)
@@ -171,47 +215,74 @@ class InstallService:
         except Exception as e:
             error_msg = f"Unix pip 升级异常: {str(e)}"
             logger.error(error_msg, exc_info=True)
+            if progress_callback:
+                await progress_callback(error_msg, "error")
             return False, error_msg
 
-    async def _upgrade_pip_conda_windows(self, venv_dir: Path) -> tuple[bool, str]:
-        """Windows conda 环境下升级 pip (使用 python -m pip 方式)"""
+    async def _upgrade_pip_conda_windows(
+        self, 
+        venv_dir: Path,
+        progress_callback: Optional[Callable[[str, str], Any]] = None,
+    ) -> tuple[bool, str]:
+        """Windows conda 环境下升级 pip (使用 python -m pip 方式) - 实时输出"""
         import subprocess
         
-        logger.info("执行命令: conda run -p <venv> python -m pip install --upgrade pip setuptools wheel")
+        cmd_str = f"conda run -p {venv_dir / '.venv'} python -m pip install --upgrade pip setuptools wheel"
+        logger.info(f"执行命令: {cmd_str}")
+        if progress_callback:
+            await progress_callback(f"$ {cmd_str}", "info")
         
         try:
+            # 创建子进程（无缓冲）
+            proc = subprocess.Popen(
+                ["conda", "run", "-p", str(venv_dir / ".venv"), 
+                 "python", "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=0,
+            )
+            
+            output_lines = []
             loop = asyncio.get_event_loop()
             
-            def run_subprocess():
-                proc = subprocess.Popen(
-                    ["conda", "run", "-p", str(venv_dir / ".venv"), 
-                     "python", "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    encoding='utf-8',
-                    errors='replace',
-                )
-                output_lines = []
-                for line in proc.stdout:
-                    line = line.rstrip()
-                    if line:
-                        logger.info(f"  {line}")
-                        output_lines.append(line)
-                proc.wait()
-                return proc.returncode, '\n'.join(output_lines)
+            # 实时逐行读取
+            while True:
+                line_bytes = await loop.run_in_executor(None, proc.stdout.readline)
+                if not line_bytes:
+                    break
+                
+                try:
+                    line = line_bytes.decode('utf-8').rstrip()
+                except UnicodeDecodeError:
+                    line = line_bytes.decode('utf-8', errors='replace').rstrip()
+                
+                if line:
+                    logger.info(f"  {line}")
+                    output_lines.append(line)
+                    # 实时推送 ⭐
+                    if progress_callback:
+                        await progress_callback(line, "info")
             
-            returncode, output = await loop.run_in_executor(None, run_subprocess)
-            return returncode == 0, output
+            returncode = await loop.run_in_executor(None, proc.wait)
+            return returncode == 0, '\n'.join(output_lines)
             
         except Exception as e:
             error_msg = f"Windows conda pip 升级异常: {str(e)}"
             logger.error(error_msg, exc_info=True)
+            if progress_callback:
+                await progress_callback(error_msg, "error")
             return False, error_msg
 
-    async def _upgrade_pip_conda_unix(self, venv_dir: Path) -> tuple[bool, str]:
-        """Unix conda 环境下升级 pip"""
-        logger.info("执行命令: conda run -p <venv> pip install --upgrade pip setuptools wheel")
+    async def _upgrade_pip_conda_unix(
+        self, 
+        venv_dir: Path,
+        progress_callback: Optional[Callable[[str, str], Any]] = None,
+    ) -> tuple[bool, str]:
+        """Unix conda 环境下升级 pip - 实时输出"""
+        cmd_str = f"conda run -p {venv_dir / '.venv'} pip install --upgrade pip setuptools wheel"
+        logger.info(f"执行命令: {cmd_str}")
+        if progress_callback:
+            await progress_callback(f"$ {cmd_str}", "info")
         
         try:
             process = await asyncio.create_subprocess_exec(
@@ -235,6 +306,9 @@ class InstallService:
                 if line:
                     logger.info(f"  {line}")
                     output_lines.append(line)
+                    # 实时推送 ⭐
+                    if progress_callback:
+                        await progress_callback(line, "info")
             
             await process.wait()
             output = '\n'.join(output_lines)
@@ -243,6 +317,8 @@ class InstallService:
         except Exception as e:
             error_msg = f"Unix conda pip 升级异常: {str(e)}"
             logger.error(error_msg, exc_info=True)
+            if progress_callback:
+                await progress_callback(error_msg, "error")
             return False, error_msg
 
     async def check_build_tools(self) -> tuple[bool, str]:
@@ -310,7 +386,7 @@ class InstallService:
         progress_callback: Optional[Callable[[str, str], Any]] = None,
     ) -> tuple[bool, str]:
         """
-        Windows 下运行命令并实时输出所有日志
+        Windows 下运行命令并实时输出所有日志 (真正的实时推送)
 
         Args:
             cmd: 命令列表
@@ -334,39 +410,43 @@ class InstallService:
             if progress_callback:
                 await progress_callback(f"$ {cmd_str}", "info")
 
-            # 使用 run_in_executor 在线程池中运行同步的 subprocess
+            # 创建子进程（注意：不使用 text=True 来更好地控制输出）
+            proc = subprocess.Popen(
+                cmd,
+                cwd=str(cwd),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=0,  # 无缓冲，立即输出
+            )
+            
+            output_lines = []
             loop = asyncio.get_event_loop()
             
-            def run_subprocess():
-                """在单独的线程中运行子进程"""
+            # 使用异步方式逐行读取并实时推送
+            while True:
+                # 在线程池中读取一行（避免阻塞事件循环）
+                line_bytes = await loop.run_in_executor(None, proc.stdout.readline)
+                
+                if not line_bytes:
+                    break
+                
+                # 解码
                 try:
-                    proc = subprocess.Popen(
-                        cmd,
-                        cwd=str(cwd),
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        text=True,
-                        encoding='utf-8',
-                        errors='replace',
-                    )
-                    output_lines = []
-                    for line in proc.stdout:
-                        line = line.rstrip()
-                        if line:
-                            output_lines.append(line)
-                    proc.wait()
-                    return proc.returncode, output_lines
-                except Exception as e:
-                    return -1, [f"执行异常: {str(e)}"]
+                    line = line_bytes.decode('utf-8').rstrip()
+                except UnicodeDecodeError:
+                    line = line_bytes.decode('utf-8', errors='replace').rstrip()
+                
+                if line:
+                    # 立即记录到日志
+                    logger.info(f"  {line}")
+                    output_lines.append(line)
+                    
+                    # 立即推送到前端 ⭐ 实时推送！
+                    if progress_callback:
+                        await progress_callback(line, "info")
             
-            # 在线程池中执行
-            returncode, output_lines = await loop.run_in_executor(None, run_subprocess)
-            
-            # 输出所有日志
-            for line in output_lines:
-                logger.info(f"  {line}")
-                if progress_callback:
-                    await progress_callback(line, "info")
+            # 等待进程结束
+            returncode = await loop.run_in_executor(None, proc.wait)
             
             full_output = '\n'.join(output_lines)
             

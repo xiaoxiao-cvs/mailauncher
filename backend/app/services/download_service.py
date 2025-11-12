@@ -101,7 +101,7 @@ class DownloadService:
         target_dir: Path,
         progress_callback: Optional[Callable[[str, str], Any]] = None,
     ) -> bool:
-        """Windows 下克隆仓库"""
+        """Windows 下克隆仓库 (实时推送输出)"""
         import subprocess
         
         cmd_str = ' '.join(cmd)
@@ -110,32 +110,41 @@ class DownloadService:
         logger.info(f"{'='*60}")
 
         try:
+            # 创建子进程（无缓冲，实时输出）
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=0,  # 无缓冲
+            )
+            
+            output_lines = []
             loop = asyncio.get_event_loop()
             
-            def run_subprocess():
-                proc = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    encoding='utf-8',
-                    errors='replace',
-                )
-                output_lines = []
-                for line in proc.stdout:
-                    line = line.rstrip()
-                    if line:
-                        output_lines.append(line)
-                proc.wait()
-                return proc.returncode, output_lines
+            # 实时逐行读取并推送
+            while True:
+                line_bytes = await loop.run_in_executor(None, proc.stdout.readline)
+                
+                if not line_bytes:
+                    break
+                
+                # 解码
+                try:
+                    line = line_bytes.decode('utf-8').rstrip()
+                except UnicodeDecodeError:
+                    line = line_bytes.decode('utf-8', errors='replace').rstrip()
+                
+                if line:
+                    # 立即记录和推送
+                    logger.info(f"  {line}")
+                    output_lines.append(line)
+                    
+                    # 实时推送到前端 ⭐
+                    if progress_callback:
+                        await progress_callback(line, "info")
             
-            returncode, output_lines = await loop.run_in_executor(None, run_subprocess)
-            
-            # 输出所有日志
-            for line in output_lines:
-                logger.info(f"  {line}")
-                if progress_callback:
-                    await progress_callback(line, "info")
+            # 等待进程结束
+            returncode = await loop.run_in_executor(None, proc.wait)
             
             logger.info(f"{'='*60}")
             logger.info(f"[Windows] 克隆完成: 返回码 {returncode}")

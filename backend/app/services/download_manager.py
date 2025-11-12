@@ -11,6 +11,7 @@ import platform
 
 from ..core.logger import logger
 from ..core.websocket import get_connection_manager
+from ..core.terminal_stream import get_terminal_stream_manager
 from ..core.database import get_db
 from ..models.download import (
     DownloadTask,
@@ -35,6 +36,7 @@ class DownloadManager:
         self.download_service = get_download_service()
         self.install_service = get_install_service()
         self.ws_manager = get_connection_manager()
+        self.terminal_stream = get_terminal_stream_manager()
         logger.info("下载管理器已初始化")
 
     def create_task(self, task_data: DownloadTaskCreate) -> DownloadTask:
@@ -179,6 +181,7 @@ class DownloadManager:
                 upgrade_success = await self.install_service.upgrade_venv_pip(
                     instance_dir,
                     task.venv_type,
+                    progress_callback,  # 传递回调，实时输出 ⭐
                 )
                 if upgrade_success:
                     await self._add_log(task, "pip 升级成功", "success")
@@ -199,9 +202,8 @@ class DownloadManager:
 
             current_step = 0
 
-            # 进度回调函数
-            async def progress_callback(message: str, level: str = "info"):
-                await self._add_log(task, message, level)
+            # 创建终端输出回调 - 实时推送到前端
+            progress_callback = self.terminal_stream.create_callback(task_id)
 
             # 步骤 1: 下载 LPMM (macOS 需要先编译 quick_algo)
             if DownloadItemType.LPMM in task.selected_items:
