@@ -35,12 +35,11 @@ from ..core.logger import logger
 class NapCatInstaller:
     """NapCat 安装器"""
     
-    # Linux QQ 版本
-    LINUX_QQ_VERSION = "3.2.12_240808"
-    LINUX_QQ_URL = f"https://dldir1.qq.com/qqfile/qq/QQNT/Linux/QQ_{LINUX_QQ_VERSION}_amd64_01.deb"
-    
     # NapCat 下载地址
-    NAPCAT_URL = "https://github.com/NapNeko/NapCatQQ/releases/latest/download/NapCat.Shell.zip"
+    # macOS/Linux: 通用Shell包
+    NAPCAT_SHELL_URL = "https://github.com/NapNeko/NapCatQQ/releases/latest/download/NapCat.Shell.zip"
+    # Windows: 一键部署包 (包含QQ和NapCat)
+    NAPCAT_WINDOWS_ONEKEY_URL = "https://github.com/NapNeko/NapCatQQ/releases/latest/download/NapCat.Shell.Windows.OneKey.zip"
     
     def __init__(self):
         """初始化安装器"""
@@ -82,27 +81,7 @@ class NapCatInstaller:
             napcat_dir.mkdir(parents=True, exist_ok=True)
             config_dir.mkdir(parents=True, exist_ok=True)
             
-            if self.system == "Linux":
-                # Linux 系统：下载并安装 Linux QQ
-                qq_dir = napcat_dir / "QQ"
-                
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    temp_path = Path(temp_dir)
-                    
-                    # 1. 下载和安装 Linux QQ
-                    await self._install_linux_qq(
-                        temp_path, qq_dir, progress_callback
-                    )
-                    
-                    # 2. 下载和安装 NapCat
-                    await self._install_napcat(
-                        temp_path, napcat_plugin_dir, qq_dir, progress_callback
-                    )
-                
-                # 3. 创建启动脚本
-                await self._create_start_script(napcat_dir, qq_dir, progress_callback)
-                
-            elif self.system == "Darwin":
+            if self.system == "Darwin":
                 # macOS 系统：使用系统 QQ
                 if progress_callback:
                     await progress_callback("[检测] 检测 macOS QQ 安装...", "info")
@@ -130,6 +109,23 @@ class NapCatInstaller:
                 
                 # 创建 macOS 启动脚本
                 await self._create_start_script_macos(napcat_dir, qq_app_path, progress_callback)
+                
+            elif self.system == "Windows":
+                # Windows 系统：使用官方一键部署包 (内置QQ和NapCat)
+                if progress_callback:
+                    await progress_callback("[下载] 下载 NapCat Windows 一键包...", "info")
+                
+                logger.info("Windows 使用官方一键部署包")
+                
+                # 下载和安装 NapCat 一键包
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    temp_path = Path(temp_dir)
+                    await self._install_napcat_windows_onekey(
+                        temp_path, napcat_dir, progress_callback
+                    )
+                
+                # 创建 Windows 启动脚本
+                await self._create_start_script_windows(napcat_dir, progress_callback)
                 
             else:
                 error_msg = f"暂不支持的操作系统: {self.system}"
@@ -496,6 +492,59 @@ class NapCatInstaller:
         
         if progress_callback:
             await progress_callback("[完成] NapCat 配置完成", "success")
+    
+    async def _install_napcat_windows_onekey(
+        self,
+        temp_path: Path,
+        napcat_dir: Path,
+        progress_callback: Optional[Callable[[str, str], Any]] = None,
+    ):
+        """下载并安装 NapCat Windows 一键包 (内置QQ和NapCat)"""
+        if progress_callback:
+            await progress_callback("[下载] 下载 NapCat Windows 一键包...", "info")
+        
+        napcat_zip = temp_path / "napcat_windows_onekey.zip"
+        
+        # 创建 SSL 上下文，禁用证书验证
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
+        # 下载 NapCat Windows 一键包
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.get(self.NAPCAT_WINDOWS_ONEKEY_URL, allow_redirects=True) as response:
+                if response.status != 200:
+                    raise Exception(f"下载 NapCat Windows 一键包失败: HTTP {response.status}")
+                
+                with open(napcat_zip, 'wb') as f:
+                    downloaded = 0
+                    total = int(response.headers.get('content-length', 0))
+                    async for chunk in response.content.iter_chunked(8192):
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total > 0 and progress_callback:
+                            percent = (downloaded / total) * 100
+                            if int(percent) % 10 == 0:
+                                await progress_callback(
+                                    f"下载进度: {percent:.0f}%", "info"
+                                )
+        
+        if progress_callback:
+            await progress_callback("[完成] NapCat Windows 一键包下载完成", "success")
+        
+        # 解压 NapCat 一键包
+        if progress_callback:
+            await progress_callback("[解压] 解压 NapCat 一键包...", "info")
+        
+        # 直接解压到 napcat_dir
+        with zipfile.ZipFile(napcat_zip, 'r') as zip_ref:
+            zip_ref.extractall(napcat_dir)
+        
+        if progress_callback:
+            await progress_callback("[完成] NapCat Windows 一键包解压完成", "success")
+        
+        logger.info(f"Windows 一键包安装完成: {napcat_dir}")
     
     async def _create_start_script_macos(
         self,
@@ -908,6 +957,119 @@ export QQ_ACCOUNT=<你的QQ号>
         
         if progress_callback:
             await progress_callback("[完成] 启动脚本和说明文档创建完成", "success")
+    
+    async def _create_start_script_windows(
+        self,
+        napcat_dir: Path,
+        progress_callback: Optional[Callable[[str, str], Any]] = None,
+    ):
+        """创建 Windows 启动脚本 (使用官方一键包的bat脚本)"""
+        if progress_callback:
+            await progress_callback("[创建] 创建 Windows 启动脚本...", "info")
+        
+        # Windows 一键包已经包含了启动脚本
+        # 检查是否存在launcher.bat
+        launcher_bat = napcat_dir / "launcher.bat"
+        
+        if not launcher_bat.exists():
+            # 如果一键包中没有启动脚本，创建一个简单的
+            logger.warning(f"未找到官方启动脚本 launcher.bat，创建自定义启动脚本")
+            
+            # 创建启动脚本 (参考官方脚本)
+            start_bat = napcat_dir / "start.bat"
+            start_bat.write_text(f"""@echo off
+chcp 65001
+echo ========================================
+echo NapCat Windows 启动器
+echo ========================================
+echo.
+
+REM 设置环境变量
+set NAPCAT_DIR=%~dp0
+
+REM 检查是否存在launcher.bat
+if exist "%NAPCAT_DIR%launcher.bat" (
+    echo [启动] 使用官方 launcher.bat
+    cd /d "%NAPCAT_DIR%"
+    call launcher.bat %1
+) else if exist "%NAPCAT_DIR%launcher-win10.bat" (
+    echo [启动] 使用 launcher-win10.bat (Windows 10+)
+    cd /d "%NAPCAT_DIR%"
+    call launcher-win10.bat %1
+) else (
+    echo [错误] 未找到启动脚本
+    echo 请确保 NapCat 一键包已正确解压
+    pause
+    exit /b 1
+)
+""", encoding='gbk')  # Windows批处理使用GBK编码
+            
+            logger.info(f"创建了启动包装脚本: {start_bat}")
+        else:
+            logger.info("使用官方一键包的启动脚本")
+        
+        # 创建 README 说明文件
+        readme = napcat_dir / "README_启动说明.txt"
+        readme.write_text(f"""# NapCat Windows 使用说明 (一键包)
+
+## 目录说明
+本目录包含 NapCat Windows 一键部署包，已内置 QQ 和 NapCat。
+
+## 启动方式
+
+### 方式 1: 使用官方启动脚本
+双击运行以下任一脚本：
+- launcher.bat (标准版)
+- launcher-win10.bat (Windows 10+ 版本)
+
+### 方式 2: 使用启动器集成
+在麦麦启动器的实例管理界面点击"启动"按钮。
+
+### 方式 3: 快速登录
+如需指定QQ账号快速登录，可以：
+1. 右键编辑 launcher.bat
+2. 在文件末尾添加你的QQ号作为参数
+
+或者使用命令行：
+```
+launcher.bat 你的QQ号
+```
+
+## 首次启动
+首次启动时，将自动：
+1. 启动内置的 QQ
+2. 显示二维码或WebUI登录界面
+3. 使用手机QQ扫描二维码完成登录
+
+## 配置文件
+配置文件位于 config/ 目录下，可根据需要修改。
+
+## 常见问题
+
+Q: 启动失败，提示缺少DLL?
+A: 安装 Visual C++ 运行库: https://aka.ms/vs/17/release/vc_redist.x64.exe
+
+Q: 如何重新登录或切换账号?
+A: 删除 .logged_in 标记文件（如果存在），然后重新启动。
+
+Q: 无法连接WebUI?
+A: 检查 config/ 目录下的配置文件，确认WebUI端口设置。
+
+## 注意事项
+
+1. Windows Defender 可能会误报，请添加信任
+2. 确保安装了 Visual C++ 运行库
+3. 推荐使用 QQ 9.9.22-40990 或更高版本
+4. 一键包已内置QQ，无需单独安装
+
+## 技术支持
+- NapCat 项目: https://github.com/NapNeko/NapCatQQ
+- 使用文档: https://napneko.github.io/
+- 问题反馈: https://github.com/NapNeko/NapCatQQ/issues
+""", encoding='utf-8')
+        
+        if progress_callback:
+            await progress_callback("[完成] Windows 启动脚本配置完成", "success")
 
 
 # 单例实例

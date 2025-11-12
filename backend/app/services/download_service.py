@@ -82,16 +82,126 @@ class DownloadService:
             if progress_callback:
                 await progress_callback(f"正在克隆 {repo_url}", "info")
 
-            logger.info(f"执行命令: {' '.join(cmd)}")
+            # 根据操作系统选择不同的克隆方法
+            if platform.system() == "Windows":
+                return await self._clone_repository_windows(cmd, target_dir, progress_callback)
+            else:
+                return await self._clone_repository_unix(cmd, target_dir, progress_callback)
 
+        except Exception as e:
+            error_msg = f"克隆仓库异常: {str(e)}"
+            if progress_callback:
+                await progress_callback(error_msg, "error")
+            logger.error(error_msg, exc_info=True)
+            return False
+
+    async def _clone_repository_windows(
+        self,
+        cmd: list[str],
+        target_dir: Path,
+        progress_callback: Optional[Callable[[str, str], Any]] = None,
+    ) -> bool:
+        """Windows 下克隆仓库"""
+        import subprocess
+        
+        cmd_str = ' '.join(cmd)
+        logger.info(f"{'='*60}")
+        logger.info(f"[Windows] 执行命令: {cmd_str}")
+        logger.info(f"{'='*60}")
+
+        try:
+            loop = asyncio.get_event_loop()
+            
+            def run_subprocess():
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding='utf-8',
+                    errors='replace',
+                )
+                output_lines = []
+                for line in proc.stdout:
+                    line = line.rstrip()
+                    if line:
+                        output_lines.append(line)
+                proc.wait()
+                return proc.returncode, output_lines
+            
+            returncode, output_lines = await loop.run_in_executor(None, run_subprocess)
+            
+            # 输出所有日志
+            for line in output_lines:
+                logger.info(f"  {line}")
+                if progress_callback:
+                    await progress_callback(line, "info")
+            
+            logger.info(f"{'='*60}")
+            logger.info(f"[Windows] 克隆完成: 返回码 {returncode}")
+            logger.info(f"{'='*60}")
+
+            if returncode == 0:
+                if progress_callback:
+                    await progress_callback(f"成功克隆到 {target_dir.name}", "success")
+                logger.info(f"成功克隆仓库到 {target_dir}")
+                return True
+            else:
+                error_msg = '\n'.join(output_lines) if output_lines else "未知错误"
+                if progress_callback:
+                    await progress_callback(f"克隆失败: {error_msg}", "error")
+                logger.error(f"克隆仓库失败: {error_msg}")
+                return False
+
+        except Exception as e:
+            error_msg = f"[Windows] 克隆异常: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            if progress_callback:
+                await progress_callback(error_msg, "error")
+            return False
+
+    async def _clone_repository_unix(
+        self,
+        cmd: list[str],
+        target_dir: Path,
+        progress_callback: Optional[Callable[[str, str], Any]] = None,
+    ) -> bool:
+        """Unix (macOS/Linux) 下克隆仓库"""
+        cmd_str = ' '.join(cmd)
+        logger.info(f"{'='*60}")
+        logger.info(f"[Unix] 执行命令: {cmd_str}")
+        logger.info(f"{'='*60}")
+
+        try:
             # 执行 git clone
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
             )
 
-            stdout, stderr = await process.communicate()
+            output_lines = []
+            while True:
+                line_bytes = await process.stdout.readline()
+                if not line_bytes:
+                    break
+                
+                try:
+                    line = line_bytes.decode('utf-8').rstrip()
+                except UnicodeDecodeError:
+                    line = line_bytes.decode('utf-8', errors='replace').rstrip()
+                
+                if line:
+                    logger.info(f"  {line}")
+                    output_lines.append(line)
+                    if progress_callback:
+                        await progress_callback(line, "info")
+
+            await process.wait()
+            
+            logger.info(f"{'='*60}")
+            logger.info(f"[Unix] 克隆完成: 返回码 {process.returncode}")
+            logger.info(f"{'='*60}")
 
             if process.returncode == 0:
                 if progress_callback:
@@ -99,17 +209,17 @@ class DownloadService:
                 logger.info(f"成功克隆仓库到 {target_dir}")
                 return True
             else:
-                error_msg = stderr.decode() if stderr else "未知错误"
+                error_msg = '\n'.join(output_lines) if output_lines else "未知错误"
                 if progress_callback:
                     await progress_callback(f"克隆失败: {error_msg}", "error")
                 logger.error(f"克隆仓库失败: {error_msg}")
                 return False
 
         except Exception as e:
-            error_msg = f"克隆仓库异常: {str(e)}"
+            error_msg = f"[Unix] 克隆异常: {str(e)}"
+            logger.error(error_msg, exc_info=True)
             if progress_callback:
                 await progress_callback(error_msg, "error")
-            logger.error(error_msg)
             return False
 
     async def download_maibot(

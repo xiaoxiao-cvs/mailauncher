@@ -1,9 +1,21 @@
 """
 数据目录管理模块
 负责根据系统和运行模式管理数据目录
-- macOS: 保存到用户目录 ~/mailauncher-data
-- Windows: 保存到应用安装目录
-- 开发环境: 使用 backend/ 目录
+
+目录策略 (与 macOS 保持同步):
+- macOS 打包: 应用同级目录 mailauncher-data/
+- macOS 开发: 用户目录 ~/mailauncher-data/
+- Windows 打包: 应用同级目录 mailauncher-data/
+- Windows 开发: 项目同级目录 (例: D:\Repo\mailauncher-data)
+
+数据结构:
+mailauncher-data/
+├── deployments/     # 部署实例目录
+└── data/           # 数据目录
+    ├── database/   # 数据库文件
+    └── Log/        # 日志文件
+        ├── backend/
+        └── frontend/
 """
 import sys
 import platform
@@ -18,10 +30,18 @@ def get_data_root() -> Path:
     """
     获取数据根目录 (带缓存)
     
-    策略:
-    1. macOS (无论是否打包): 使用用户目录 ~/mailauncher-data
-    2. Windows 打包: 使用可执行文件所在目录
-    3. 开发环境: 使用 backend/ 目录
+    策略 (与 macOS 同步):
+    1. macOS (打包): 使用应用同级目录 mailauncher-data
+    2. macOS (开发): 使用用户目录 ~/mailauncher-data
+    3. Windows (打包): 使用应用同级目录 mailauncher-data
+    4. Windows (开发): 使用项目同级目录 (例: D:\Repo\mailauncher-data)
+    
+    目录结构:
+    - mailauncher-data/
+      - deployments/  (部署目录)
+      - data/        (数据目录)
+        - database/  (数据库)
+        - Log/       (日志)
     
     Returns:
         数据根目录的 Path 对象
@@ -36,14 +56,27 @@ def get_data_root() -> Path:
     system = platform.system()
     
     if system == 'Darwin':
-        # macOS: 统一使用用户目录 (避免应用 bundle 只读问题)
-        user_home = Path.home()
-        data_root = user_home / "mailauncher-data"
-        data_root.mkdir(parents=True, exist_ok=True)
-        
+        # macOS
         if is_packaged:
-            logger.info(f"[数据目录] macOS 打包环境,使用用户目录: {data_root}")
+            # macOS 打包: 使用应用同级目录 (避免应用 bundle 只读问题)
+            exe_path = Path(sys.executable)
+            # 如果是 .app bundle，找到 .app 的父目录
+            if '.app/Contents/MacOS/' in str(exe_path):
+                # 从 /path/to/MAILauncher.app/Contents/MacOS/mailauncher
+                # 到 /path/to/mailauncher-data
+                app_bundle = exe_path.parent.parent.parent
+                data_root = app_bundle.parent / "mailauncher-data"
+            else:
+                # 如果不是 bundle，使用可执行文件的同级目录
+                data_root = exe_path.parent / "mailauncher-data"
+            
+            data_root.mkdir(parents=True, exist_ok=True)
+            logger.info(f"[数据目录] macOS 打包环境,使用应用同级目录: {data_root}")
         else:
+            # macOS 开发: 使用用户目录
+            user_home = Path.home()
+            data_root = user_home / "mailauncher-data"
+            data_root.mkdir(parents=True, exist_ok=True)
             logger.info(f"[数据目录] macOS 开发环境,使用用户目录: {data_root}")
         
         _data_root_cache = data_root
@@ -51,19 +84,22 @@ def get_data_root() -> Path:
     
     elif system == 'Windows':
         if is_packaged:
-            # Windows 打包: 使用可执行文件所在目录
+            # Windows 打包: 使用可执行文件同级目录的 mailauncher-data
             exe_dir = Path(sys.executable).parent
             data_root = exe_dir / "mailauncher-data"
             data_root.mkdir(parents=True, exist_ok=True)
-            logger.info(f"[数据目录] Windows 打包环境,使用应用目录: {data_root}")
+            logger.info(f"[数据目录] Windows 打包环境,使用应用同级目录: {data_root}")
             _data_root_cache = data_root
             return data_root
         else:
-            # Windows 开发: 使用 backend 目录
-            backend_root = Path(__file__).parent.parent.parent
-            logger.info(f"[数据目录] Windows 开发环境,使用应用目录: {backend_root}")
-            _data_root_cache = backend_root
-            return backend_root
+            # Windows 开发: 使用项目根目录的同级目录 (D:\Repo\mailauncher-data)
+            backend_root = Path(__file__).parent.parent.parent  # backend/
+            project_root = backend_root.parent  # mailauncher/
+            data_root = project_root.parent / "mailauncher-data"  # D:\Repo\mailauncher-data
+            data_root.mkdir(parents=True, exist_ok=True)
+            logger.info(f"[数据目录] Windows 开发环境,使用项目同级目录: {data_root}")
+            _data_root_cache = data_root
+            return data_root
     
     else:
         # Linux 或其他系统
@@ -71,12 +107,12 @@ def get_data_root() -> Path:
             exe_dir = Path(sys.executable).parent
             data_root = exe_dir / "mailauncher-data"
             data_root.mkdir(parents=True, exist_ok=True)
-            logger.info(f"[数据目录] {system} 打包环境,使用应用目录: {data_root}")
+            logger.info(f"[数据目录] {system} 打包环境,使用应用同级目录: {data_root}")
             _data_root_cache = data_root
             return data_root
         else:
             backend_root = Path(__file__).parent.parent.parent
-            logger.info(f"[数据目录] {system} 开发环境,使用应用目录: {backend_root}")
+            logger.info(f"[数据目录] {system} 开发环境,使用项目根目录: {backend_root}")
             _data_root_cache = backend_root
             return backend_root
 

@@ -51,17 +51,27 @@ class EnvironmentManager:
             return self._python_versions
             
         versions = []
+        system = platform.system()
         
-        # 检查默认 python3
-        default_python = self._check_python_executable("python3")
-        if default_python:
-            default_python.is_default = True
-            versions.append(default_python)
-        
-        # 检查 python（可能是 python2 或 python3）
-        python_cmd = self._check_python_executable("python")
-        if python_cmd and (not default_python or python_cmd.path != default_python.path):
-            versions.append(python_cmd)
+        # Windows 使用 python 命令,Unix 使用 python3
+        if system == "Windows":
+            # Windows: 检查 python 命令
+            default_python = self._check_python_executable("python")
+            if default_python and not self._is_venv_python(default_python.path):
+                default_python.is_default = True
+                versions.append(default_python)
+        else:
+            # Unix: 检查 python3
+            default_python = self._check_python_executable("python3")
+            if default_python and not self._is_venv_python(default_python.path):
+                default_python.is_default = True
+                versions.append(default_python)
+            
+            # 检查 python（可能是 python2 或 python3）
+            python_cmd = self._check_python_executable("python")
+            if python_cmd and not self._is_venv_python(python_cmd.path):
+                if not default_python or python_cmd.path != default_python.path:
+                    versions.append(python_cmd)
         
         # 在常见位置搜索其他 Python 版本
         versions.extend(self._search_python_installations())
@@ -141,6 +151,9 @@ class EnvironmentManager:
         Returns:
             是否为虚拟环境中的 Python
         """
+        # 标准化路径分隔符,统一使用 /
+        normalized_path = path.replace("\\", "/")
+        
         # 常见的虚拟环境路径标识
         venv_indicators = [
             "/.venv/",
@@ -152,9 +165,10 @@ class EnvironmentManager:
             "/anaconda",
             "/miniconda",
             "/conda/",
+            "/envs/",  # conda environments
         ]
         
-        return any(indicator in path for indicator in venv_indicators)
+        return any(indicator in normalized_path for indicator in venv_indicators)
     
     def _search_python_installations(self) -> List[PythonVersion]:
         """
@@ -225,9 +239,38 @@ class EnvironmentManager:
                         continue
         
         elif system == "Windows":
-            # Windows Python 位置
+            # Windows: 首先尝试使用 py launcher 查找所有已安装的 Python
+            try:
+                result = subprocess.run(
+                    ["py", "-0p"],  # 列出所有 Python 版本及其路径
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                if result.returncode == 0:
+                    # 解析 py -0p 的输出
+                    # 格式: " -3.11-64        C:\Users\xxx\AppData\Local\Programs\Python\Python311\python.exe"
+                    for line in result.stdout.strip().split('\n'):
+                        if '*' in line:  # 跳过当前活动的标记
+                            line = line.replace('*', ' ')
+                        parts = line.strip().split()
+                        if len(parts) >= 2:
+                            py_path = parts[-1]  # 最后一部分是路径
+                            if os.path.exists(py_path):
+                                # 跳过虚拟环境中的 Python
+                                if self._is_venv_python(py_path):
+                                    continue
+                                py_ver = self._check_python_executable(py_path)
+                                if py_ver:
+                                    versions.append(py_ver)
+            except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
+                pass
+            
+            # 如果 py launcher 不可用,搜索常见的 Windows Python 安装位置
             search_paths = [
                 os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Python"),
+                os.path.join(os.environ.get("APPDATA", ""), "Programs", "Python"),
                 "C:\\Python",
                 "C:\\Program Files\\Python",
             ]
@@ -239,6 +282,9 @@ class EnvironmentManager:
                             if entry.startswith("Python3"):
                                 py_path = os.path.join(base_path, entry, "python.exe")
                                 if os.path.exists(py_path):
+                                    # 跳过虚拟环境中的 Python
+                                    if self._is_venv_python(py_path):
+                                        continue
                                     py_ver = self._check_python_executable(py_path)
                                     if py_ver:
                                         versions.append(py_ver)
