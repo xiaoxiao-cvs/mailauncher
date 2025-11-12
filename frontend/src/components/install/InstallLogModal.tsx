@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react'
 import { cn } from '@/lib/utils'
 import { Notification, NotificationType, TaskStatus } from '@/types/notification'
 import { useWebSocket } from '@/hooks'
+import { useNotificationContext } from '@/contexts/NotificationContext'
 
 interface InstallLogModalProps {
   isOpen: boolean
@@ -23,6 +24,12 @@ interface LogEntry {
 export default function InstallLogModal({ isOpen, notification, onClose }: InstallLogModalProps) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const logsEndRef = useRef<HTMLDivElement>(null)
+  const { updateTaskProgress, notifications } = useNotificationContext()
+  
+  // 🎯 从 context 中实时获取最新的通知数据（包含最新进度）
+  const currentNotification = notification 
+    ? notifications.find(n => n.id === notification.id) || notification
+    : null
 
   // 自动滚动到最新日志
   useEffect(() => {
@@ -46,8 +53,8 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
     }
   }, [isOpen, onClose])
 
-  // 获取任务 ID
-  const taskId = notification?.type === NotificationType.TASK ? notification.task?.taskId || null : null
+  // 获取任务 ID（使用实时的 currentNotification）
+  const taskId = currentNotification?.type === NotificationType.TASK ? currentNotification.task?.taskId || null : null
 
   // WebSocket 连接（仅任务通知）
   useWebSocket(isOpen ? taskId : null, {
@@ -66,6 +73,17 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
         message: `[${message.percentage.toFixed(0)}%] ${message.message}`
       }
       setLogs(prev => [...prev, logEntry])
+      
+      // 更新通知的进度 ⭐ 实时更新进度条
+      if (taskId) {
+        const statusMap: Record<string, TaskStatus> = {
+          'pending': TaskStatus.PENDING,
+          'downloading': TaskStatus.DOWNLOADING,
+          'installing': TaskStatus.INSTALLING,
+        }
+        const status = statusMap[message.status] || TaskStatus.DOWNLOADING
+        updateTaskProgress(taskId, message.percentage, status, message.message)
+      }
     },
     onStatus: (message) => {
       const logEntry: LogEntry = {
@@ -74,6 +92,17 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
         message: `状态变更: ${message.message}`
       }
       setLogs(prev => [...prev, logEntry])
+      
+      // 更新通知的状态 ⭐
+      if (taskId && currentNotification?.task) {
+        const statusMap: Record<string, TaskStatus> = {
+          'pending': TaskStatus.PENDING,
+          'downloading': TaskStatus.DOWNLOADING,
+          'installing': TaskStatus.INSTALLING,
+        }
+        const status = statusMap[message.status] || currentNotification.task.status
+        updateTaskProgress(taskId, currentNotification.task.progress, status, message.message)
+      }
     },
     onError: (message) => {
       const logEntry: LogEntry = {
@@ -82,6 +111,11 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
         message: message.message
       }
       setLogs(prev => [...prev, logEntry])
+      
+      // 更新为失败状态 ⭐
+      if (taskId && currentNotification?.task) {
+        updateTaskProgress(taskId, currentNotification.task.progress, TaskStatus.FAILED, message.message)
+      }
     },
     onComplete: (message) => {
       const logEntry: LogEntry = {
@@ -90,6 +124,11 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
         message: message.message
       }
       setLogs(prev => [...prev, logEntry])
+      
+      // 更新为成功状态 ⭐
+      if (taskId) {
+        updateTaskProgress(taskId, 100, TaskStatus.SUCCESS, message.message)
+      }
     }
   })
 
@@ -100,25 +139,25 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
     }
   }, [isOpen])
 
-  if (!isOpen || !notification) return null
+  if (!isOpen || !currentNotification) return null
 
   // 根据通知类型获取标题
   const getTitle = () => {
-    switch (notification.type) {
+    switch (currentNotification.type) {
       case NotificationType.TASK:
-        return notification.task?.instanceName || '安装任务'
+        return currentNotification.task?.instanceName || '安装任务'
       case NotificationType.MESSAGE:
-        return notification.title
+        return currentNotification.title
       case NotificationType.WARNING:
-        return notification.title
+        return currentNotification.title
       case NotificationType.ERROR:
-        return notification.title
+        return currentNotification.title
     }
   }
 
   // 根据通知类型获取图标
   const getIcon = () => {
-    switch (notification.type) {
+    switch (currentNotification.type) {
       case NotificationType.TASK:
         return 'ph:terminal-window'
       case NotificationType.MESSAGE:
@@ -132,7 +171,7 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
 
   // 根据通知类型获取图标颜色
   const getIconColor = () => {
-    switch (notification.type) {
+    switch (currentNotification.type) {
       case NotificationType.TASK:
         return 'from-[#0077b6] to-[#00b4d8]'
       case NotificationType.MESSAGE:
@@ -144,7 +183,7 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
     }
   }
 
-  const isTaskNotification = notification.type === NotificationType.TASK
+  const isTaskNotification = currentNotification.type === NotificationType.TASK
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -181,7 +220,7 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
                 {getTitle()}
               </h3>
               <p className="text-sm text-[#023e8a]/70 dark:text-white/70">
-                {notification.createdAt.toLocaleString('zh-CN')}
+                {currentNotification.createdAt.toLocaleString('zh-CN')}
               </p>
             </div>
           </div>
@@ -197,34 +236,38 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
         </div>
 
         {/* 任务通知：显示进度条 */}
-        {isTaskNotification && notification.task && (
+        {isTaskNotification && currentNotification.task && (
           <div className="px-6 pt-4 pb-2">
             <div className="flex items-center justify-between text-sm mb-2">
               <span className="font-medium text-[#023e8a] dark:text-white">
-                {getStatusText(notification.task.status)}
+                {getStatusText(currentNotification.task.status)}
               </span>
               <span className="text-[#023e8a]/60 dark:text-white/60">
-                {notification.task.progress}%
+                {currentNotification.task.progress}%
               </span>
             </div>
             <div className="h-2 bg-[#023e8a]/10 dark:bg-white/10 rounded-full overflow-hidden">
               <div
                 className={cn(
                   'h-full rounded-full transition-all duration-300',
-                  notification.task.status === TaskStatus.FAILED 
+                  currentNotification.task.status === TaskStatus.FAILED 
                     ? 'bg-red-500' 
-                    : notification.task.status === TaskStatus.SUCCESS
+                    : currentNotification.task.status === TaskStatus.SUCCESS
                     ? 'bg-green-500'
                     : 'bg-gradient-to-r from-[#0077b6] to-[#00b4d8]'
                 )}
-                style={{ width: `${notification.task.progress}%` }}
+                style={{ width: `${currentNotification.task.progress}%` }}
               />
             </div>
           </div>
         )}
 
         {/* 内容区域 */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className={cn(
+          "flex-1 overflow-y-auto p-6",
+          // 自定义滚动条样式 - 暗色兼容（CSS 实现）⭐
+          "scrollbar-thin"
+        )}>
           {isTaskNotification ? (
             // 任务通知：显示日志
             <div className="bg-[#1e1e1e] dark:bg-[#0a0a0a] rounded-lg p-4 font-mono text-sm">
@@ -257,17 +300,17 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
             // 其他通知类型：显示消息内容
             <div className={cn(
               'p-6 rounded-lg',
-              notification.type === NotificationType.MESSAGE && 'bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800',
-              notification.type === NotificationType.WARNING && 'bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800',
-              notification.type === NotificationType.ERROR && 'bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800'
+              currentNotification.type === NotificationType.MESSAGE && 'bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800',
+              currentNotification.type === NotificationType.WARNING && 'bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800',
+              currentNotification.type === NotificationType.ERROR && 'bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800'
             )}>
               <p className={cn(
                 'text-base leading-relaxed whitespace-pre-wrap',
-                notification.type === NotificationType.MESSAGE && 'text-blue-900 dark:text-blue-100',
-                notification.type === NotificationType.WARNING && 'text-yellow-900 dark:text-yellow-100',
-                notification.type === NotificationType.ERROR && 'text-red-900 dark:text-red-100'
+                currentNotification.type === NotificationType.MESSAGE && 'text-blue-900 dark:text-blue-100',
+                currentNotification.type === NotificationType.WARNING && 'text-yellow-900 dark:text-yellow-100',
+                currentNotification.type === NotificationType.ERROR && 'text-red-900 dark:text-red-100'
               )}>
-                {notification.message}
+                {currentNotification.message}
               </p>
             </div>
           )}

@@ -2,6 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 自定义滚动条样式 - 暗色兼容 ⭐ */
+@layer utilities {
+  /* Webkit 浏览器（Chrome, Safari, Edge）滚动条样式 */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-[#023e8a]/5 dark:bg-white/5;
+    border-radius: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-[#023e8a]/30 dark:bg-white/20;
+    border-radius: 4px;
+  }
+
+  .scrollbar-thin:hover::-webkit-scrollbar-thumb {
+    @apply bg-[#023e8a]/50 dark:bg-white/40;
+  }
+
+  /* Firefox 滚动条样式 */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(2, 62, 138, 0.3) rgba(2, 62, 138, 0.05);
+  }
+
+  .dark .scrollbar-thin {
+    scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.05);
+  }
+}
+
 @layer base {
   :root {
     /* 亮色模式 - 原有的清新蓝色系 */

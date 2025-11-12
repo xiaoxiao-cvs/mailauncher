@@ -152,6 +152,9 @@ class DownloadManager:
             await self._add_log(task, "继续执行任务...", "info")
 
         try:
+            # 创建终端输出回调 - 实时推送到前端  必须先创建，后面才能使用
+            progress_callback = self.terminal_stream.create_callback(task_id)
+            
             # 更新状态为下载中
             task.status = DownloadStatus.DOWNLOADING
             task.started_at = datetime.now()
@@ -169,7 +172,7 @@ class DownloadManager:
             venv_success = await self.install_service.create_virtual_environment(
                 instance_dir,
                 task.venv_type,
-                None,  # 不需要进度回调，后面会统一输出
+                progress_callback,  # 传递回调，实时输出创建虚拟环境的过程
                 task.python_path,  # 使用用户选择的 Python 版本
             )
             
@@ -201,9 +204,6 @@ class DownloadManager:
                 total_steps += 2  # LPMM 需要额外的安装和编译步骤
 
             current_step = 0
-
-            # 创建终端输出回调 - 实时推送到前端
-            progress_callback = self.terminal_stream.create_callback(task_id)
 
             # 步骤 1: 下载 LPMM (macOS 需要先编译 quick_algo)
             if DownloadItemType.LPMM in task.selected_items:
