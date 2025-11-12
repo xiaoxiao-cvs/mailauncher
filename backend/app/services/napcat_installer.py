@@ -124,8 +124,9 @@ class NapCatInstaller:
                         temp_path, napcat_dir, progress_callback
                     )
                 
-                # 创建 Windows 启动脚本
-                await self._create_start_script_windows(napcat_dir, progress_callback)
+                # Windows 一键包说明
+                if progress_callback:
+                    await progress_callback("[说明] Windows 一键包配置完成", "info")
                 
             else:
                 error_msg = f"暂不支持的操作系统: {self.system}"
@@ -134,12 +135,24 @@ class NapCatInstaller:
                     await progress_callback(f"[错误] {error_msg}", "error")
                 return False
             
+            # 确定启动脚本路径
+            if self.system == "Windows":
+                # Windows 使用一键包自带的启动脚本
+                bootmain_bat = napcat_dir / "bootmain" / "napcat.bat"
+                if bootmain_bat.exists():
+                    start_script_path = bootmain_bat
+                else:
+                    # 如果是未安装的一键包，指向安装程序
+                    start_script_path = napcat_dir / "NapCatInstaller.exe"
+            else:
+                start_script_path = napcat_dir / "start.sh"
+            
             logger.info(f"NapCat 安装成功: {napcat_dir}")
             if progress_callback:
                 await progress_callback(
                     f"[成功] NapCat 安装完成！\n"
                     f"安装目录: {napcat_dir}\n"
-                    f"启动脚本: {napcat_dir}/start.sh",
+                    f"启动脚本: {start_script_path}",
                     "success"
                 )
             
@@ -741,42 +754,6 @@ export QQ_ACCOUNT=<你的QQ号>
 ```
 然后重新执行 `./start.sh` 进行扫码登录。
 
-## macOS 特别说明
-
-1. **无头模式**: NapCat 在后台运行，不会打开 QQ 窗口
-2. **终端输出**: 所有日志和二维码都显示在启动器的终端中
-3. **NapCat 加载**: 通过环境变量 `NODE_OPTIONS` 加载 NapCat 插件，**无需修改系统 QQ.app**
-4. **权限友好**: 不需要 sudo 或管理员权限
-5. **账号管理**: 通过命令行参数或重置登录来管理账号
-
-## 配置文件
-配置文件位于 `config/` 目录下，可以根据需要修改 NapCat 的配置。
-
-## 常见问题
-
-**Q: 启动后看不到二维码？**
-A: 请在启动器的终端窗口中查看，二维码会直接显示在终端输出中。
-
-**Q: 如何切换账号？**
-A: 运行 `./reset_login.sh` 重置登录状态，然后重新启动扫码登录。
-
-**Q: 启动失败？**
-A: 确保已安装 QQ for macOS，下载地址: https://im.qq.com/macqq/
-
-**Q: 如何停止运行？**
-A: 在启动器中点击停止按钮，或在终端中按 Ctrl+C。
-
-## 优势
-
-- ✅ **完全无头**: 不会弹出 QQ 窗口，适合服务器环境
-- ✅ **终端集成**: 所有输出集中显示在启动器中
-- ✅ **易于调试**: 日志和错误信息直接可见
-- ✅ **资源占用低**: 无 GUI 运行更节省资源
-
-## 技术支持
-- NapCat 项目: https://github.com/NapNeko/NapCatQQ
-- QQ for macOS: https://im.qq.com/macqq/
-- 问题反馈: 请到项目 GitHub 提交 Issue
 """, encoding='utf-8')
         
         if progress_callback:
@@ -958,118 +935,7 @@ export QQ_ACCOUNT=<你的QQ号>
         if progress_callback:
             await progress_callback("[完成] 启动脚本和说明文档创建完成", "success")
     
-    async def _create_start_script_windows(
-        self,
-        napcat_dir: Path,
-        progress_callback: Optional[Callable[[str, str], Any]] = None,
-    ):
-        """创建 Windows 启动脚本 (使用官方一键包的bat脚本)"""
-        if progress_callback:
-            await progress_callback("[创建] 创建 Windows 启动脚本...", "info")
-        
-        # Windows 一键包已经包含了启动脚本
-        # 检查是否存在launcher.bat
-        launcher_bat = napcat_dir / "launcher.bat"
-        
-        if not launcher_bat.exists():
-            # 如果一键包中没有启动脚本，创建一个简单的
-            logger.warning(f"未找到官方启动脚本 launcher.bat，创建自定义启动脚本")
-            
-            # 创建启动脚本 (参考官方脚本)
-            start_bat = napcat_dir / "start.bat"
-            start_bat.write_text(f"""@echo off
-chcp 65001
-echo ========================================
-echo NapCat Windows 启动器
-echo ========================================
-echo.
 
-REM 设置环境变量
-set NAPCAT_DIR=%~dp0
-
-REM 检查是否存在launcher.bat
-if exist "%NAPCAT_DIR%launcher.bat" (
-    echo [启动] 使用官方 launcher.bat
-    cd /d "%NAPCAT_DIR%"
-    call launcher.bat %1
-) else if exist "%NAPCAT_DIR%launcher-win10.bat" (
-    echo [启动] 使用 launcher-win10.bat (Windows 10+)
-    cd /d "%NAPCAT_DIR%"
-    call launcher-win10.bat %1
-) else (
-    echo [错误] 未找到启动脚本
-    echo 请确保 NapCat 一键包已正确解压
-    pause
-    exit /b 1
-)
-""", encoding='gbk')  # Windows批处理使用GBK编码
-            
-            logger.info(f"创建了启动包装脚本: {start_bat}")
-        else:
-            logger.info("使用官方一键包的启动脚本")
-        
-        # 创建 README 说明文件
-        readme = napcat_dir / "README_启动说明.txt"
-        readme.write_text(f"""# NapCat Windows 使用说明 (一键包)
-
-## 目录说明
-本目录包含 NapCat Windows 一键部署包，已内置 QQ 和 NapCat。
-
-## 启动方式
-
-### 方式 1: 使用官方启动脚本
-双击运行以下任一脚本：
-- launcher.bat (标准版)
-- launcher-win10.bat (Windows 10+ 版本)
-
-### 方式 2: 使用启动器集成
-在麦麦启动器的实例管理界面点击"启动"按钮。
-
-### 方式 3: 快速登录
-如需指定QQ账号快速登录，可以：
-1. 右键编辑 launcher.bat
-2. 在文件末尾添加你的QQ号作为参数
-
-或者使用命令行：
-```
-launcher.bat 你的QQ号
-```
-
-## 首次启动
-首次启动时，将自动：
-1. 启动内置的 QQ
-2. 显示二维码或WebUI登录界面
-3. 使用手机QQ扫描二维码完成登录
-
-## 配置文件
-配置文件位于 config/ 目录下，可根据需要修改。
-
-## 常见问题
-
-Q: 启动失败，提示缺少DLL?
-A: 安装 Visual C++ 运行库: https://aka.ms/vs/17/release/vc_redist.x64.exe
-
-Q: 如何重新登录或切换账号?
-A: 删除 .logged_in 标记文件（如果存在），然后重新启动。
-
-Q: 无法连接WebUI?
-A: 检查 config/ 目录下的配置文件，确认WebUI端口设置。
-
-## 注意事项
-
-1. Windows Defender 可能会误报，请添加信任
-2. 确保安装了 Visual C++ 运行库
-3. 推荐使用 QQ 9.9.22-40990 或更高版本
-4. 一键包已内置QQ，无需单独安装
-
-## 技术支持
-- NapCat 项目: https://github.com/NapNeko/NapCatQQ
-- 使用文档: https://napneko.github.io/
-- 问题反馈: https://github.com/NapNeko/NapCatQQ/issues
-""", encoding='utf-8')
-        
-        if progress_callback:
-            await progress_callback("[完成] Windows 启动脚本配置完成", "success")
 
 
 # 单例实例
