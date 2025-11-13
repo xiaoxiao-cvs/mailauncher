@@ -213,3 +213,46 @@ export async function addModelConfigArrayItem(
     body: JSON.stringify(request),
   })
 }
+
+// ==================== Adapter Config API ====================
+
+export async function getAdapterConfig(
+  instanceId?: string,
+  includeComments: boolean = true
+): Promise<ConfigWithComments> {
+  const params = new URLSearchParams()
+  if (instanceId) params.append('instance_id', instanceId)
+  params.append('include_comments', String(includeComments))
+  return apiJson<ConfigWithComments>(`maibot/adapter-config?${params.toString()}`)
+}
+
+export async function updateAdapterConfig(
+  request: ConfigUpdateRequest,
+  instanceId?: string
+): Promise<ConfigWithComments> {
+  const params = new URLSearchParams()
+  if (instanceId) params.append('instance_id', instanceId)
+  return apiJson<ConfigWithComments>(`maibot/adapter-config?${params.toString()}`, {
+    method: 'PUT',
+    body: JSON.stringify(request),
+  })
+}
+
+export async function getAdapterConfigRaw(instanceId?: string): Promise<string> {
+  const params = new URLSearchParams()
+  if (instanceId) params.append('instance_id', instanceId)
+  return apiText(`maibot/adapter-config/raw?${params.toString()}`)
+}
+
+export async function saveAdapterConfigRaw(
+  content: string,
+  instanceId?: string
+): Promise<void> {
+  const params = new URLSearchParams()
+  if (instanceId) params.append('instance_id', instanceId)
+  await apiText(`maibot/adapter-config/raw?${params.toString()}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'text/plain' },
+    body: content,
+  })
+}

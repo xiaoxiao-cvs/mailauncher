@@ -636,6 +636,92 @@ class MAIBotConfigService:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to delete array item: {str(e)}")
 
+    # ==================== Napcat Adapter Config ====================
+
+    async def _get_adapter_config_path(
+        self,
+        db: AsyncSession,
+        instance_id: Optional[str] = None,
+    ) -> Path:
+        config_dir = await self._get_instance_config_dir(db, instance_id)
+        # 实例根目录：config_dir 位于 {instances_dir}/{inst}/MaiBot/config
+        # 适配器目录位于 {instances_dir}/{inst}/MaiBot-Napcat-Adapter/config.toml
+        # 推导实例根路径
+        instance_root = config_dir.parent.parent  # .../MaiBot/config -> 到实例根
+        adapter_config_path = instance_root / "MaiBot-Napcat-Adapter" / "config.toml"
+        return adapter_config_path
+
+    async def get_adapter_config_raw_text(
+        self,
+        db: AsyncSession,
+        instance_id: Optional[str] = None,
+    ) -> str:
+        config_path = await self._get_adapter_config_path(db, instance_id)
+        if not config_path.exists():
+            raise HTTPException(status_code=404, detail=f"Adapter config file not found: {config_path}")
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to read adapter config: {str(e)}")
+
+    async def save_adapter_config_raw_text(
+        self,
+        db: AsyncSession,
+        content: str,
+        instance_id: Optional[str] = None,
+    ) -> None:
+        config_path = await self._get_adapter_config_path(db, instance_id)
+        try:
+            try:
+                import tomlkit
+                tomlkit.loads(content)
+            except ImportError:
+                import toml
+                toml.loads(content)
+            with open(config_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            logger.info(f"Adapter config saved to {config_path}")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save adapter config: {str(e)}")
+
+    async def get_adapter_config(
+        self,
+        db: AsyncSession,
+        instance_id: Optional[str] = None,
+        include_comments: bool = True,
+    ) -> ConfigWithComments:
+        config_path = await self._get_adapter_config_path(db, instance_id)
+        if not config_path.exists():
+            raise HTTPException(status_code=404, detail=f"Adapter config file not found: {config_path}")
+        try:
+            toml_handler = TOMLWithComments(str(config_path))
+            toml_handler.load()
+            result = toml_handler.to_json_with_comments()
+            if not include_comments:
+                result["comments"] = {}
+            return ConfigWithComments(**result)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to load adapter config: {str(e)}")
+
+    async def update_adapter_config(
+        self,
+        db: AsyncSession,
+        update_request: ConfigUpdateRequest,
+        instance_id: Optional[str] = None,
+    ) -> ConfigWithComments:
+        config_path = await self._get_adapter_config_path(db, instance_id)
+        if not config_path.exists():
+            raise HTTPException(status_code=404, detail=f"Adapter config file not found: {config_path}")
+        try:
+            toml_handler = TOMLWithComments(str(config_path))
+            toml_handler.load()
+            toml_handler.set_value(update_request.key_path, update_request.value)
+            toml_handler.save()
+            return ConfigWithComments(**toml_handler.to_json_with_comments())
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to update adapter config: {str(e)}")
+
 
 # 创建全局服务实例
 maibot_config_service = MAIBotConfigService()

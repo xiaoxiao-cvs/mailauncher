@@ -500,3 +500,44 @@ async def get_model_config_value(
     # 这里需要更复杂的路径解析来处理数组索引
     # 暂时简化处理
     raise HTTPException(status_code=501, detail="Not implemented yet")
+
+
+# ==================== Napcat Adapter Config ====================
+
+@router.get("/adapter-config", response_model=ConfigWithComments, summary="获取 Napcat 适配器配置")
+async def get_adapter_config(
+    db: AsyncSession = Depends(get_db),
+    instance_id: Optional[str] = Query(None, description="实例ID，为空则使用默认配置"),
+    include_comments: bool = Query(True, description="是否包含注释"),
+):
+    return await maibot_config_service.get_adapter_config(db, instance_id, include_comments)
+
+
+@router.put("/adapter-config", response_model=ConfigWithComments, summary="更新 Napcat 适配器配置")
+async def update_adapter_config(
+    request: ConfigUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    instance_id: Optional[str] = Query(None, description="实例ID"),
+):
+    return await maibot_config_service.update_adapter_config(db, request, instance_id)
+
+
+@router.get("/adapter-config/raw", response_class=PlainTextResponse, summary="获取 Napcat 适配器配置原始文本")
+async def get_adapter_config_raw(
+    db: AsyncSession = Depends(get_db),
+    instance_id: Optional[str] = Query(None, description="实例ID"),
+):
+    content = await maibot_config_service.get_adapter_config_raw_text(db, instance_id)
+    return PlainTextResponse(content=content)
+
+
+@router.put("/adapter-config/raw", summary="保存 Napcat 适配器配置原始文本")
+async def save_adapter_config_raw(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    instance_id: Optional[str] = Query(None, description="实例ID"),
+):
+    content = await request.body()
+    content_str = content.decode("utf-8")
+    await maibot_config_service.save_adapter_config_raw_text(db, content_str, instance_id)
+    return {"message": "保存成功"}

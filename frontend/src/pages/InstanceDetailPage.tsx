@@ -536,7 +536,7 @@ export const InstanceDetailPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 {/* Bot 配置 */}
                 <button
-                  onClick={() => setIsConfigModalOpen(true)}
+                  onClick={() => { setIsConfigModalOpen(true); }}
                   className="group p-4 bg-gradient-to-br from-honolulu_blue-50 to-blue_green-50 
                            dark:from-honolulu_blue-900/20 dark:to-blue_green-900/20 
                            hover:from-honolulu_blue-100 hover:to-blue_green-100

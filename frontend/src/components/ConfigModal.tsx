@@ -3,7 +3,7 @@
  * 用于可视化编辑 Bot Config 和 Model Config
  */
 import React, { useState, useEffect, useMemo } from 'react'
-import { X, Save, FileText, Settings, Loader2, FileCode, FileJson } from 'lucide-react'
+import { X, Save, FileText, Settings, Loader2, FileCode, FileJson, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,6 +22,10 @@ import {
   getModelConfigRaw,
   saveBotConfigRaw,
   saveModelConfigRaw,
+  getAdapterConfig,
+  updateAdapterConfig,
+  getAdapterConfigRaw,
+  saveAdapterConfigRaw,
   ConfigWithComments,
   ConfigUpdateRequest,
 } from '@/services/configApi'
@@ -30,9 +34,10 @@ interface ConfigModalProps {
   isOpen: boolean
   onClose: () => void
   instanceId?: string
+  defaultActive?: 'bot' | 'model' | 'adapter'
 }
 
-type ConfigType = 'bot' | 'model'
+type ConfigType = 'bot' | 'model' | 'adapter'
 
 interface TreeNode {
   id: string
@@ -46,10 +51,12 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
   isOpen,
   onClose,
   instanceId,
+  defaultActive,
 }) => {
   const [activeConfig, setActiveConfig] = useState<ConfigType>('bot')
   const [botConfig, setBotConfig] = useState<ConfigWithComments | null>(null)
   const [modelConfig, setModelConfig] = useState<ConfigWithComments | null>(null)
+  const [adapterConfig, setAdapterConfig] = useState<ConfigWithComments | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
@@ -66,7 +73,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     setLoading(true)
     try {
       // 先尝试加载原始文本（更可靠）
-      const [botRaw, modelRaw] = await Promise.all([
+      const [botRaw, modelRaw, adapterRaw] = await Promise.all([
         getBotConfigRaw(instanceId).catch(err => {
           console.error('加载Bot原始配置失败:', err)
           return ''
@@ -75,10 +82,14 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
           console.error('加载Model原始配置失败:', err)
           return ''
         }),
+        getAdapterConfigRaw(instanceId).catch(err => {
+          console.error('加载Adapter原始配置失败:', err)
+          return ''
+        }),
       ])
       
       // 再尝试加载解析后的配置（可能失败）
-      const [bot, model] = await Promise.all([
+      const [bot, model, adapter] = await Promise.all([
         getBotConfig(instanceId).catch(err => {
           console.error('解析Bot配置失败:', err)
           toast.error(`Bot配置解析失败: ${err.message}。已切换到文本模式。`)
@@ -89,22 +100,31 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
           toast.error(`Model配置解析失败: ${err.message}。已切换到文本模式。`)
           return null
         }),
+        getAdapterConfig(instanceId).catch(err => {
+          console.error('解析Adapter配置失败:', err)
+          toast.error(`Adapter配置解析失败: ${err.message}。已切换到文本模式。`)
+          return null
+        }),
       ])
       
       setBotConfig(bot)
       setModelConfig(model)
+      setAdapterConfig(adapter)
       
       // 保存原始文本
       if (activeConfig === 'bot') {
         setRawText(botRaw)
         setOriginalRawText(botRaw)
-      } else {
+      } else if (activeConfig === 'model') {
         setRawText(modelRaw)
         setOriginalRawText(modelRaw)
+      } else {
+        setRawText(adapterRaw)
+        setOriginalRawText(adapterRaw)
       }
       
       // 如果解析失败，自动切换到文本模式
-      if (!bot || !model) {
+      if (!bot || !model || !adapter) {
         setEditMode('text')
       }
     } catch (error) {
@@ -132,96 +152,117 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
         setRawText(text)
         setOriginalRawText(text)
       }).catch(err => console.error('加载Model原始配置失败:', err))
+    } else if (activeConfig === 'adapter' && adapterConfig) {
+      getAdapterConfigRaw(instanceId).then(text => {
+        setRawText(text)
+        setOriginalRawText(text)
+      }).catch(err => console.error('加载Adapter原始配置失败:', err))
     }
-  }, [activeConfig, botConfig, modelConfig, instanceId])
+  }, [activeConfig, botConfig, modelConfig, adapterConfig, instanceId])
 
   useEffect(() => {
     if (isOpen) {
       loadConfigs()
+      if (defaultActive) {
+        setActiveConfig(defaultActive)
+      } else {
+        setActiveConfig('bot')
+      }
       setHasChanges(false)
     }
-  }, [isOpen, instanceId])
+  }, [isOpen, instanceId, defaultActive])
 
   // 配置项的中文名称映射
   const configLabels: Record<string, string> = {
     // Bot配置
-    'bot': 'Bot基础配置',
-    'bot.platform': '平台类型',
+    'bot': '基础信息',
+    'bot.platform': '主平台',
     'bot.qq_account': 'QQ账号',
-    'bot.platforms': '其他平台账号',
-    'bot.nickname': '昵称',
-    'bot.alias_names': '别名列表',
+    'bot.platforms': '多平台账号',
+    'bot.nickname': '机器人昵称',
+    'bot.alias_names': '昵称别名',
     
     // 人格配置
-    'personality': '人格与行为',
-    'personality.personality': '基础人格',
-    'personality.reply_style': '回复风格',
-    'personality.interest': '兴趣爱好',
-    'personality.plan_style': '群聊行为规则',
-    'personality.visual_style': '识图风格',
-    'personality.private_plan_style': '私聊行为规则',
-    'personality.states': '人格状态池',
-    'personality.state_probability': '状态切换概率',
+    'personality': '人格设定',
+    'personality.personality': '人格描述',
+    'personality.reply_style': '表达风格',
+    'personality.interest': '兴趣设定',
+    'personality.plan_style': '群聊行为准则',
+    'personality.visual_style': '图片识别提示词',
+    'personality.private_plan_style': '私聊行为准则',
+    'personality.states': '随机状态列表',
+    'personality.state_probability': '状态随机概率',
     
     // 表达配置
     'expression': '表达学习',
     'expression.mode': '表达模式',
-    'expression.learning_list': '学习配置列表',
-    'expression.expression_groups': '表达共享组',
+    'expression.learning_list': '学习配置',
+    'expression.expression_groups': '表达互通组',
     
     // 聊天配置
-    'chat': '聊天行为',
-    'chat.talk_value': '发言频率',
-    'chat.mentioned_bot_reply': '提及必回',
+    'chat': '聊天设置',
+    'chat.talk_value': '思考频率',
+    'chat.mentioned_bot_reply': '@必回复',
     'chat.max_context_size': '上下文长度',
-    'chat.auto_chat_value': '主动聊天频率',
-    'chat.planner_smooth': '规划器平滑度',
-    'chat.enable_talk_value_rules': '启用动态发言规则',
-    'chat.enable_auto_chat_value_rules': '启用动态主动聊天规则',
-    'chat.talk_value_rules': '动态发言规则',
-    'chat.auto_chat_value_rules': '动态主动聊天规则',
+    'chat.auto_chat_value': '主动聊天值',
+    'chat.planner_smooth': '规划器平滑',
+    'chat.enable_talk_value_rules': '动态思考频率',
+    'chat.enable_auto_chat_value_rules': '动态主动聊天',
+    'chat.talk_value_rules': '思考频率规则',
+    'chat.auto_chat_value_rules': '主动聊天规则',
     
     // 记忆配置
     'memory': '记忆系统',
-    'memory.max_memory_number': '最大记忆数量',
-    'memory.max_memory_size': '最大记忆大小',
-    'memory.memory_build_frequency': '记忆构建频率',
+    'memory.max_memory_number': '记忆数量上限',
+    'memory.max_memory_size': '单条记忆大小',
+    'memory.memory_build_frequency': '构建频率',
     
     // 工具配置
     'tool': '工具系统',
-    'tool.enable_tool': '启用工具',
+    'tool.enable_tool': '启用工具调用',
     
     // 情绪配置
     'mood': '情绪系统',
     'mood.enable_mood': '启用情绪',
-    'mood.mood_update_threshold': '情绪更新阈值',
-    'mood.emotion_style': '情感特征',
+    'mood.mood_update_threshold': '更新阈值',
+    'mood.emotion_style': '情感特征描述',
     
     // 表情包配置
-    'emoji': '表情包系统',
-    'emoji.emoji_chance': '表情包概率',
-    'emoji.max_reg_num': '最大注册数',
-    'emoji.do_replace': '自动替换',
-    'emoji.check_interval': '检查间隔',
+    'emoji': '表情包',
+    'emoji.emoji_chance': '发送概率',
+    'emoji.max_reg_num': '最大收藏数',
+    'emoji.do_replace': '达到上限时替换',
+    'emoji.check_interval': '检查间隔(分钟)',
     'emoji.steal_emoji': '偷取表情包',
-    'emoji.content_filtration': '内容过滤',
-    'emoji.filtration_prompt': '过滤规则',
+    'emoji.content_filtration': '启用内容过滤',
+    'emoji.filtration_prompt': '过滤要求',
     
     // 语音配置
     'voice': '语音识别',
-    'voice.enable_asr': '启用语音识别',
+    'voice.enable_asr': '启用ASR',
     
     // 消息接收配置
     'message_receive': '消息过滤',
-    'message_receive.ban_words': '屏蔽词列表',
-    'message_receive.ban_msgs_regex': '屏蔽正则表达式',
+    'message_receive.ban_words': '屏蔽关键词',
+    'message_receive.ban_msgs_regex': '屏蔽正则',
     
     // 知识库配置
-    'lpmm_knowledge': '知识库系统',
+    'lpmm_knowledge': 'LPMM知识库',
     'lpmm_knowledge.enable': '启用知识库',
+    'lpmm_knowledge.rag_synonym_search_top_k': '同义词搜索TopK',
+    'lpmm_knowledge.rag_synonym_threshold': '同义词阈值',
+    'lpmm_knowledge.info_extraction_workers': '提取线程数',
+    'lpmm_knowledge.qa_relation_search_top_k': '关系搜索TopK',
+    'lpmm_knowledge.qa_relation_threshold': '关系阈值',
+    'lpmm_knowledge.qa_paragraph_search_top_k': '段落搜索TopK',
+    'lpmm_knowledge.qa_paragraph_node_weight': '段落节点权重',
+    'lpmm_knowledge.qa_ent_filter_top_k': '实体过滤TopK',
+    'lpmm_knowledge.qa_ppr_damping': 'PPR阻尼系数',
+    'lpmm_knowledge.qa_res_top_k': '最终结果TopK',
+    'lpmm_knowledge.embedding_dimension': '嵌入向量维度',
     
     // 关键词反应配置
-    'keyword_reaction': '关键词触发',
+    'keyword_reaction': '关键词反应',
     'keyword_reaction.keyword_rules': '关键词规则',
     'keyword_reaction.regex_rules': '正则规则',
     
@@ -230,36 +271,64 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     'response_post_process.enable_response_post_process': '启用后处理',
     
     // 错别字配置
-    'chinese_typo': '中文错别字',
+    'chinese_typo': '错别字生成',
     'chinese_typo.enable': '启用错别字',
-    'chinese_typo.error_rate': '单字替换率',
-    'chinese_typo.min_freq': '最小字频',
-    'chinese_typo.tone_error_rate': '声调错误率',
-    'chinese_typo.word_replace_rate': '整词替换率',
+    'chinese_typo.error_rate': '单字替换概率',
+    'chinese_typo.min_freq': '最小字频阈值',
+    'chinese_typo.tone_error_rate': '声调错误概率',
+    'chinese_typo.word_replace_rate': '整词替换概率',
     
     // 回复分割器配置
     'response_splitter': '回复分割',
-    'response_splitter.enable': '启用分割',
-    'response_splitter.max_length': '最大长度',
+    'response_splitter.enable': '启用分割器',
+    'response_splitter.max_length': '最大字符数',
     'response_splitter.max_sentence_num': '最大句子数',
-    'response_splitter.enable_kaomoji_protection': '颜文字保护',
+    'response_splitter.enable_kaomoji_protection': '保护颜文字',
     
     // 日志配置
-    'log': '日志系统',
-    'log.log_level': '日志级别',
+    'log': '日志配置',
+    'log.date_style': '日期格式',
+    'log.log_level_style': '级别样式',
+    'log.color_text': '文本颜色',
+    'log.log_level': '全局日志级别',
     'log.console_log_level': '控制台级别',
-    'log.file_log_level': '文件级别',
+    'log.file_log_level': '文件日志级别',
+    'log.suppress_libraries': '屏蔽库日志',
+    'log.library_log_levels': '第三方库级别',
     
     // 调试配置
     'debug': '调试选项',
     'debug.show_prompt': '显示Prompt',
-    'debug.show_replyer_prompt': '显示回复器Prompt',
-    'debug.show_replyer_reasoning': '显示推理过程',
+    'debug.show_replyer_prompt': '显示回复Prompt',
+    'debug.show_replyer_reasoning': '显示推理',
+    
+    // MAIM消息服务配置
+    'maim_message': 'MAIM消息服务',
+    'maim_message.use_custom': '使用自定义配置',
+    'maim_message.host': '主机地址',
+    'maim_message.port': '端口',
+    'maim_message.mode': '连接模式',
+    'maim_message.use_wss': '使用WSS',
+    'maim_message.cert_file': 'SSL证书路径',
+    'maim_message.key_file': 'SSL密钥路径',
+    'maim_message.auth_token': '认证令牌',
+    
+    // 遥测配置
+    'telemetry': '遥测统计',
+    'telemetry.enable': '启用遥测',
+    
+    // 实验性功能
+    'experimental': '实验性功能',
+    'experimental.none': '无实验功能',
+    
+    // 关系系统（已废弃）
+    'relationship': '关系系统',
+    'relationship.enable_relationship': '启用关系',
     
     // Model Config相关
     'api_providers': 'API提供商',
     'models': '模型列表',
-    'model_task_config': '模型任务配置',
+    'model_task_config': '任务配置',
     
     // API Provider字段
     'name': '名称',
@@ -267,17 +336,26 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     'api_key': 'API密钥',
     'client_type': '客户端类型',
     'max_retry': '最大重试次数',
-    'timeout': '超时时间',
-    'retry_interval': '重试间隔',
+    'timeout': '超时时间(秒)',
+    'retry_interval': '重试间隔(秒)',
     
     // Model字段
     'model_identifier': '模型标识符',
-    'api_provider': 'API提供商',
+    'api_provider': '所属提供商',
     'price_in': '输入价格',
     'price_out': '输出价格',
-    'force_stream_mode': '强制流式输出',
+    'force_stream_mode': '强制流式',
     'extra_params': '额外参数',
-    'enable_thinking': '启用思考模式',
+    'enable_thinking': '思考模式',
+  }
+
+  const getConfigHint = (path: string, comments: Record<string, string>): string => {
+    if (configLabels[path]) return configLabels[path]
+    const c = comments[path]
+    if (!c) return ''
+    const fl = c.split('\n')[0].replace(/^#\s*/, '')
+    const simplified = fl.replace(/^建议[^，]*，?/, '')
+    return simplified.length > 28 ? simplified.slice(0, 28) + '…' : simplified
   }
 
   // 获取配置项的显示名称
@@ -331,15 +409,9 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
         }
       }
 
-      // 叶子节点：显示键名和值的预览
-      let valuePreview = String(value)
-      if (valuePreview.length > 50) {
-        valuePreview = valuePreview.substring(0, 50) + '...'
-      }
-      
       return {
         id: path,
-        name: `${displayName}: ${valuePreview}`,
+        name: displayName,
         isLeaf: true,
         data: { path, value },
       }
@@ -350,22 +422,22 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
   const groupBotConfig = (data: Record<string, any>): TreeNode[] => {
     const groups: TreeNode[] = []
 
-    // 1. 基础配置 - 直接展开 bot 的子项
+    // 1. 基础信息 - 直接展开 bot 的子项
     if (data.bot) {
       const botChildren = buildTreeData(data.bot, 'bot')
       groups.push({
         id: 'group-basic',
-        name: '基础配置',
+        name: '基础信息',
         children: botChildren,
       })
     }
 
-    // 2. 人格配置 - 扁平化展示
+    // 2. 人格设定 - 扁平化展示
     if (data.personality) {
       const personalityItems = buildTreeData(data.personality, 'personality')
       groups.push({
         id: 'group-personality',
-        name: '人格配置',
+        name: '人格设定',
         children: personalityItems,
       })
     }
@@ -390,12 +462,12 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
       })
     }
     
-    // 5. 关键词触发 - 独立展示
+    // 5. 关键词反应 - 独立展示
     if (data.keyword_reaction) {
       const keywordItems = buildTreeData(data.keyword_reaction, 'keyword_reaction')
       groups.push({
         id: 'group-keyword',
-        name: '关键词触发',
+        name: '关键词反应',
         children: keywordItems,
       })
     }
@@ -430,17 +502,17 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
       })
     }
     
-    // 9. 知识库 - 独立展示
+    // 9. LPMM知识库 - 独立展示
     if (data.lpmm_knowledge) {
       const knowledgeItems = buildTreeData(data.lpmm_knowledge, 'lpmm_knowledge')
       groups.push({
-        id: 'group-knowledge',
-        name: '知识库',
+        id: 'group-database',
+        name: 'LPMM知识库',
         children: knowledgeItems,
       })
     }
     
-    // 10. 表情包 - 独立展示
+    // 10. 表情包系统 - 独立展示
     if (data.emoji) {
       const emojiItems = buildTreeData(data.emoji, 'emoji')
       groups.push({
@@ -652,18 +724,15 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
   }
 
   const treeData = useMemo(() => {
-    const currentConfig = activeConfig === 'bot' ? botConfig : modelConfig
-    if (!currentConfig) return []
-
-    // 根据配置类型返回分组后的树结构
     if (activeConfig === 'bot' && botConfig) {
       return groupBotConfig(botConfig.data || {})
     } else if (activeConfig === 'model' && modelConfig) {
       return groupModelConfig(modelConfig.data || {})
+    } else if (activeConfig === 'adapter' && adapterConfig) {
+      return buildTreeData(adapterConfig.data || {}, '')
     }
-    
     return []
-  }, [botConfig, modelConfig, activeConfig])
+  }, [botConfig, modelConfig, adapterConfig, activeConfig])
 
   // 获取值的类型
   const getValueType = (value: any): string => {
@@ -676,7 +745,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
   const handleNodeSelect = (node: TreeNode | null) => {
     if (!node || !node.data) return
     
-    const currentConfig = activeConfig === 'bot' ? botConfig : modelConfig
+    const currentConfig = activeConfig === 'bot' ? botConfig : activeConfig === 'model' ? modelConfig : adapterConfig
     if (!currentConfig) return
 
     const path = node.data.path
@@ -703,7 +772,6 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     setSaving(true)
     try {
       if (editMode === 'text') {
-        // 文本模式：保存原始文本
         if (activeConfig === 'bot') {
           await saveBotConfigRaw(rawText, instanceId)
           const [bot, botRaw] = await Promise.all([
@@ -713,7 +781,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
           setBotConfig(bot)
           setRawText(botRaw)
           setOriginalRawText(botRaw)
-        } else {
+        } else if (activeConfig === 'model') {
           await saveModelConfigRaw(rawText, instanceId)
           const [model, modelRaw] = await Promise.all([
             getModelConfig(instanceId),
@@ -722,22 +790,31 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
           setModelConfig(model)
           setRawText(modelRaw)
           setOriginalRawText(modelRaw)
+        } else {
+          await saveAdapterConfigRaw(rawText, instanceId)
+          const [adapter, adapterRaw] = await Promise.all([
+            getAdapterConfig(instanceId),
+            getAdapterConfigRaw(instanceId),
+          ])
+          setAdapterConfig(adapter)
+          setRawText(adapterRaw)
+          setOriginalRawText(adapterRaw)
         }
       } else {
-        // 树形模式：保存单个配置项
         if (!selectedPath) return
-        
         const request: ConfigUpdateRequest = {
           key_path: selectedPath,
           value: editValue,
         }
-
         if (activeConfig === 'bot') {
           const updated = await updateBotConfig(request, instanceId)
           setBotConfig(updated)
-        } else {
+        } else if (activeConfig === 'model') {
           const updated = await updateModelConfig(request, instanceId)
           setModelConfig(updated)
+        } else {
+          const updated = await updateAdapterConfig(request, instanceId)
+          setAdapterConfig(updated)
         }
       }
 
@@ -765,8 +842,11 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     }
 
     const valueType = getValueType(editValue)
-    const currentConfig = activeConfig === 'bot' ? botConfig : modelConfig
+    const currentConfig = activeConfig === 'bot' ? botConfig : activeConfig === 'model' ? modelConfig : adapterConfig
     const comment = currentConfig?.comments[selectedPath]
+    const firstLine = comment ? comment.split('\n')[0] : ''
+    const flatComment = comment ? comment.replace(/\r?\n/g, ' ').replace(/\s{2,}/g, ' ') : ''
+    const hint = selectedPath ? getConfigHint(selectedPath, currentConfig?.comments || {}) : ''
 
     return (
       <div className="space-y-4 p-6">
@@ -782,8 +862,14 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
         </div>
 
         {comment && (
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <p className="text-sm text-blue-700 dark:text-blue-300">{comment}</p>
+          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-start justify-between gap-2">
+            <p className="text-sm text-blue-700 dark:text-blue-300 flex-1">{hint || firstLine || comment}</p>
+            <span className="relative group inline-flex items-center shrink-0">
+              <Info className="w-4 h-4 text-blue-600 dark:text-blue-300" />
+              <div className="pointer-events-none absolute z-10 right-0 mt-2 hidden group-hover:block text-xs rounded px-3 py-2 max-w-[720px] min-w-[360px] whitespace-normal break-words bg-white text-gray-900 border border-gray-200 shadow-md dark:bg-gray-900 dark:text-white dark:border-gray-700">
+                {flatComment}
+              </div>
+            </span>
           </div>
         )}
 
@@ -975,6 +1061,14 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
               >
                 <Settings className="w-4 h-4 mr-2" />
                 Model Config
+              </Button>
+              <Button
+                variant={activeConfig === 'adapter' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveConfig('adapter')}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Adapter Config
               </Button>
             </div>
           </div>
