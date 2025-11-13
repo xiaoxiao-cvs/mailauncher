@@ -3,6 +3,7 @@ import { useWebSocket } from '@/hooks'
 import { useInstallTask } from '@/contexts/InstallTaskContext'
 import { useNotificationContext } from '@/contexts/NotificationContext'
 import { TaskStatus } from '@/types/notification'
+import { mapServerStatusToTaskStatus } from '@/utils/taskStatus'
 
 /**
  * 全局 WebSocket 管理器组件
@@ -21,24 +22,14 @@ export function GlobalWebSocketManager() {
   useWebSocket(taskId, {
     onProgress: (message) => {
       if (message.percentage !== undefined && taskId) {
-        const taskStatus = message.status === 'downloading' ? TaskStatus.DOWNLOADING
-          : message.status === 'installing' ? TaskStatus.INSTALLING
-          : message.status === 'configuring' ? TaskStatus.INSTALLING
-          : message.status === 'completed' ? TaskStatus.SUCCESS
-          : message.status === 'failed' ? TaskStatus.FAILED
-          : TaskStatus.PENDING
+        const taskStatus = mapServerStatusToTaskStatus(message.status)
         
         updateTaskProgress(taskId, message.percentage, taskStatus, message.message)
         updateTaskStatus(taskStatus)
       }
     },
     onStatus: (message) => {
-      const taskStatus = message.status === 'downloading' ? TaskStatus.DOWNLOADING
-        : message.status === 'installing' ? TaskStatus.INSTALLING
-        : message.status === 'configuring' ? TaskStatus.INSTALLING
-        : message.status === 'completed' ? TaskStatus.SUCCESS
-        : message.status === 'failed' ? TaskStatus.FAILED
-        : TaskStatus.PENDING
+      const taskStatus = mapServerStatusToTaskStatus(message.status)
       
       updateTaskStatus(taskStatus)
     },

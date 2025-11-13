@@ -83,12 +83,35 @@ class LoggerConfig:
         self._compress_previous_logs()
         self._cleanup_old_logs()
         
+        sensitive_keys = os.environ.get("SENSITIVE_KEYS", "api_key,Authorization,token").split(",")
+
+        def sanitize(msg: str) -> str:
+            try:
+                import re
+                for key in sensitive_keys:
+                    key = key.strip()
+                    if not key:
+                        continue
+                    pattern = rf'("{re.escape(key)}"\s*:\s*")([^\"]+)(")'
+                    msg = re.sub(pattern, r'\1****\3', msg)
+                return msg
+            except Exception:
+                return msg
+
+        def sink(message: str):
+            try:
+                clean = sanitize(message)
+                with open(self.current_log_file, "a", encoding="utf-8") as f:
+                    f.write(clean)
+            except Exception:
+                pass
+
         logger.add(
-            str(self.current_log_file),
+            sink,
             format="{message}",
             level="DEBUG",
             serialize=True,
-            enqueue=True,
+            enqueue=False,
             backtrace=True,
             diagnose=True,
         )

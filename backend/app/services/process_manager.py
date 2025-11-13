@@ -13,60 +13,15 @@ from pathlib import Path
 from datetime import datetime
 
 from ..core.logger import logger
+from .process.windows import start_process_windows
+from .process.unix import start_process_unix_sync, start_process_unix_async
+from .process.types import ProcessInfo
+from .process.utils import resolve_python, build_napcat_command
 
-# 尝试导入 winpty (Windows)
-try:
-    from winpty import PtyProcess
-    HAS_WINPTY = True
-except ImportError:
-    HAS_WINPTY = False
-    logger.warning("winpty 未安装,Windows 上的 PTY 功能将不可用")
-
-# 尝试导入 pty (Unix)
-try:
-    import pty
-    import fcntl
-    HAS_PTY = True
-except ImportError:
-    HAS_PTY = False
-    logger.warning("pty 模块不可用,Unix PTY 功能将不可用")
+# 平台具体实现已移动至子模块
 
 
-class ProcessInfo:
-    """进程信息类"""
     
-    def __init__(
-        self,
-        instance_id: str,
-        component: str,  # main, napcat, napcat-ada
-        process: Optional[any] = None,
-        pid: Optional[int] = None,
-        start_time: Optional[datetime] = None,
-        buffer_size: int = 300,  # 历史日志缓冲行数
-    ):
-        self.instance_id = instance_id
-        self.component = component
-        self.process = process
-        self.pid = pid
-        self.start_time = start_time or datetime.now()
-        self.output_buffer: list[str] = []  # 输出缓冲区
-        self.buffer_size = buffer_size  # 最大缓冲行数
-        self.session_id = f"{instance_id}_{component}"
-    
-    def is_alive(self) -> bool:
-        """检查进程是否存活"""
-        if self.process:
-            if hasattr(self.process, 'isalive'):
-                return self.process.isalive()
-            elif hasattr(self.process, 'poll'):
-                return self.process.poll() is None
-        return False
-    
-    def get_uptime(self) -> int:
-        """获取运行时间（秒）"""
-        if self.start_time:
-            return int((datetime.now() - self.start_time).total_seconds())
-        return 0
 
 
 class ProcessManager:
@@ -114,21 +69,7 @@ class ProcessManager:
         Returns:
             (command, cwd) 元组
         """
-        # 确定 Python 命令
-        # 优先使用虚拟环境中的 Python
-        if not python_path:
-            venv_python = instance_path / ".venv" / "bin" / "python"
-            if not venv_python.exists():
-                venv_python = instance_path / ".venv" / "Scripts" / "python.exe"  # Windows
-            
-            if venv_python.exists():
-                python_cmd = str(venv_python)
-                logger.info(f"使用虚拟环境 Python: {python_cmd}")
-            else:
-                python_cmd = sys.executable
-                logger.warning(f"未找到虚拟环境 Python，使用系统 Python: {python_cmd}")
-        else:
-            python_cmd = python_path
+        python_cmd = resolve_python(instance_path, python_path)
         
         if component == "main":
             # MaiBot 主程序 - 在 MaiBot 子目录下
@@ -139,32 +80,8 @@ class ProcessManager:
             command = f"{python_cmd} bot.py"
             
         elif component == "napcat":
-            # NapCat 服务 - 使用启动脚本
-            cwd = str(instance_path / "NapCat")
-            start_script = Path(cwd) / "start.sh"
-            login_flag = Path(cwd) / ".logged_in"
-            
-            if not start_script.exists():
-                raise FileNotFoundError(f"NapCat 启动脚本不存在: {start_script}")
-            
-            # 从环境变量或配置读取 QQ 账号
-            # TODO: 后续可以从实例配置中读取
-            qq_account = os.environ.get("QQ_ACCOUNT", "")
-            
-            # 检查是否首次启动
-            if not login_flag.exists():
-                logger.info("检测到 NapCat 首次启动，将启动 WebUI 和二维码登录")
-                logger.info("请在终端中扫描二维码完成登录")
-                # 首次启动不带账号
-                command = "bash start.sh"
-            else:
-                # 已登录过，使用 QQ 账号快速启动
-                if qq_account:
-                    logger.info(f"使用 QQ 账号快速启动: {qq_account}")
-                    command = f"bash start.sh {qq_account}"
-                else:
-                    logger.info("未设置 QQ_ACCOUNT，使用默认启动模式")
-                    command = "bash start.sh"
+            qq_account = os.environ.get("QQ_ACCOUNT", None)
+            command, cwd = build_napcat_command(instance_path, qq_account)
             
         elif component == "napcat-ada":
             # NapCat 适配器 - 在 MaiBot-Napcat-Adapter 子目录下
@@ -186,64 +103,16 @@ class ProcessManager:
         command: str,
         cwd: str,
     ) -> bool:
-        """
-        在 Windows 上启动进程 (使用 winpty)
-        
-        Args:
-            instance_id: 实例 ID
-            component: 组件类型
-            command: 启动命令
-            cwd: 工作目录
-            
-        Returns:
-            是否启动成功
-        """
-        if not HAS_WINPTY:
-            logger.error("Windows 上需要安装 winpty: pip install pywinpty")
-            return False
-        
         session_id = self._get_session_id(instance_id, component)
-        
-        # 检查是否已经在运行
         if session_id in self.processes and self.processes[session_id].is_alive():
             logger.info(f"进程已在运行: {session_id}")
             return True
-        
-        try:
-            logger.info(f"启动 Windows 进程: {session_id}, 命令: {command}, 工作目录: {cwd}")
-            
-            # 尝试直接启动
-            try:
-                pty_process = PtyProcess.spawn(
-                    command,
-                    dimensions=(self.pty_rows, self.pty_cols),
-                    cwd=cwd,
-                )
-            except Exception as spawn_error:
-                logger.warning(f"直接启动失败,尝试使用 cmd.exe: {spawn_error}")
-                # 使用 cmd.exe 作为包装器
-                cmd_wrapper = f'cmd.exe /c "{command}"'
-                pty_process = PtyProcess.spawn(
-                    cmd_wrapper,
-                    dimensions=(self.pty_rows, self.pty_cols),
-                    cwd=cwd,
-                )
-            
-            process_info = ProcessInfo(
-                instance_id=instance_id,
-                component=component,
-                process=pty_process,
-                pid=pty_process.pid,
-                start_time=datetime.now(),
-            )
-            
+        ok, process_info = start_process_windows(instance_id, component, command, cwd)
+        if ok and process_info:
             self.processes[session_id] = process_info
-            logger.info(f"Windows 进程启动成功: {session_id}, PID: {pty_process.pid}")
+            logger.info(f"Windows 进程启动成功: {session_id}, PID: {process_info.pid}")
             return True
-            
-        except Exception as e:
-            logger.error(f"启动 Windows 进程失败 {session_id}: {e}", exc_info=True)
-            return False
+        return False
     
     async def start_process_unix(
         self,
@@ -252,93 +121,22 @@ class ProcessManager:
         command: str,
         cwd: str,
     ) -> bool:
-        """
-        在 Unix 系统上启动进程（使用 PTY）
-        
-        Args:
-            instance_id: 实例 ID
-            component: 组件类型
-            command: 启动命令
-            cwd: 工作目录
-            
-        Returns:
-            是否启动成功
-        """
         session_id = self._get_session_id(instance_id, component)
-        
-        # 检查是否已经在运行
         if session_id in self.processes and self.processes[session_id].is_alive():
             logger.info(f"进程已在运行: {session_id}")
             return True
-        
-        try:
-            logger.info(f"启动 Unix 进程: {session_id}, 命令: {command}, 工作目录: {cwd}")
-            
-            if HAS_PTY:
-                # 使用 PTY 启动进程（更好的终端支持）
-                import subprocess
-                import shlex
-                
-                # 创建 PTY
-                master, slave = pty.openpty()
-                
-                # 启动进程
-                process = subprocess.Popen(
-                    shlex.split(command),
-                    cwd=cwd,
-                    stdin=slave,
-                    stdout=slave,
-                    stderr=slave,
-                    close_fds=True,
-                    preexec_fn=os.setsid,
-                )
-                
-                # 关闭子进程端的 fd
-                os.close(slave)
-                
-                # 设置主端为非阻塞
-                fcntl.fcntl(master, fcntl.F_SETFL, os.O_NONBLOCK)
-                
-                # 包装进程对象添加必要的属性
-                process.master_fd = master
-                process.is_pty = True
-                
-                process_info = ProcessInfo(
-                    instance_id=instance_id,
-                    component=component,
-                    process=process,
-                    pid=process.pid,
-                    start_time=datetime.now(),
-                )
-                
-                self.processes[session_id] = process_info
-                logger.info(f"Unix PTY 进程启动成功: {session_id}, PID: {process.pid}")
+        ok, process_info = start_process_unix_sync(instance_id, component, command, cwd)
+        if ok and process_info:
+            self.processes[session_id] = process_info
+            logger.info(f"Unix PTY 进程启动成功: {session_id}, PID: {process_info.pid}")
+            return True
+        else:
+            ok2, process_info2 = await start_process_unix_async(instance_id, component, command, cwd)
+            if ok2 and process_info2:
+                self.processes[session_id] = process_info2
+                logger.info(f"Unix 进程启动成功: {session_id}, PID: {process_info2.pid}")
                 return True
-            else:
-                # 回退到普通 subprocess
-                process = await asyncio.create_subprocess_shell(
-                    command,
-                    cwd=cwd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.STDOUT,  # 合并 stderr 到 stdout
-                    stdin=asyncio.subprocess.PIPE,
-                )
-                
-                process_info = ProcessInfo(
-                    instance_id=instance_id,
-                    component=component,
-                    process=process,
-                    pid=process.pid,
-                    start_time=datetime.now(),
-                )
-                
-                self.processes[session_id] = process_info
-                logger.info(f"Unix 进程启动成功: {session_id}, PID: {process.pid}")
-                return True
-            
-        except Exception as e:
-            logger.error(f"启动 Unix 进程失败 {session_id}: {e}", exc_info=True)
-            return False
+        return False
     
     async def start_process(
         self,
@@ -412,7 +210,20 @@ class ProcessManager:
                     process.kill()
                 else:
                     process.terminate()
-                process.wait(timeout=5)
+                
+                # 异步等待进程终止（不阻塞事件循环）
+                try:
+                    wait_start = datetime.now()
+                    while process.poll() is None and (datetime.now() - wait_start).total_seconds() < 5:
+                        await asyncio.sleep(0.1)
+                    
+                    if process.poll() is None:
+                        logger.warning(f"进程 {session_id} 在5秒内未停止，强制终止")
+                        process.kill()
+                        await asyncio.sleep(0.1)
+                except Exception as wait_error:
+                    logger.warning(f"等待进程停止时出错: {wait_error}")
+                
                 # 关闭 master fd
                 try:
                     os.close(process.master_fd)
@@ -421,6 +232,16 @@ class ProcessManager:
             # Windows winpty
             elif hasattr(process, 'terminate'):
                 process.terminate(force=force)
+                # 异步等待进程实际终止（不阻塞事件循环）
+                try:
+                    wait_start = datetime.now()
+                    while process.isalive() and (datetime.now() - wait_start).total_seconds() < 5:
+                        await asyncio.sleep(0.1)
+                    
+                    if process.isalive():
+                        logger.warning(f"进程 {session_id} 在5秒内未停止，可能需要强制终止")
+                except Exception as wait_error:
+                    logger.warning(f"等待进程停止时出错: {wait_error}")
             # asyncio subprocess
             elif hasattr(process, 'kill'):
                 if force:
@@ -429,8 +250,8 @@ class ProcessManager:
                     process.terminate()
                 await process.wait()
             
-            # 等待一小段时间确认进程已停止
-            await asyncio.sleep(0.5)
+            # 等待一小段时间确认进程已停止（减少等待时间）
+            await asyncio.sleep(0.1)
             
             if session_id in self.processes:
                 del self.processes[session_id]
@@ -444,7 +265,7 @@ class ProcessManager:
     
     async def stop_all_instance_processes(self, instance_id: str) -> Dict[str, bool]:
         """
-        停止实例的所有进程
+        停止实例的所有进程（并行停止以提高性能）
         
         Args:
             instance_id: 实例 ID
@@ -462,10 +283,25 @@ class ProcessManager:
         
         logger.info(f"停止实例 {instance_id} 的所有进程: {components}")
         
-        # 停止所有进程
-        for component in components:
-            success = await self.stop_process(instance_id, component, force=False)
-            results[component] = success
+        # 并行停止所有进程（使用 asyncio.gather 真正并行执行）
+        if not components:
+            return results
+        
+        tasks = [
+            self.stop_process(instance_id, component, force=False)
+            for component in components
+        ]
+        
+        # 等待所有停止任务完成（并行执行）
+        task_results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # 处理结果
+        for component, result in zip(components, task_results):
+            if isinstance(result, Exception):
+                logger.error(f"停止组件 {component} 时出错: {result}")
+                results[component] = False
+            else:
+                results[component] = result
         
         return results
     

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { OnboardingPage } from '@/components/onboarding'
 import { HomePage } from '@/pages/HomePage'
@@ -10,6 +10,7 @@ import { InstallTaskProvider } from '@/contexts/InstallTaskContext'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import { GlobalWebSocketManager } from '@/components/GlobalWebSocketManager'
 import logger, { routerLogger } from '@/utils/logger'
+import { useOnboardingState } from '@/hooks/useOnboardingState'
 import './App.css'
 
 /**
@@ -17,15 +18,7 @@ import './App.css'
  */
 function AppRoutes() {
   const navigate = useNavigate()
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false)
-
-  // 检查本地存储,判断是否已完成引导
-  useEffect(() => {
-    const completed = localStorage.getItem('onboarding_completed')
-    if (completed === 'true') {
-      setHasCompletedOnboarding(true)
-    }
-  }, [])
+  const { hasCompletedOnboarding, complete, skip } = useOnboardingState()
 
   // 开发环境:在控制台添加 test1() 命令用于跳转到引导页
   useEffect(() => {
@@ -48,16 +41,12 @@ function AppRoutes() {
 
   const handleOnboardingComplete = () => {
     routerLogger.success('引导完成！')
-    localStorage.setItem('onboarding_completed', 'true')
-    setHasCompletedOnboarding(true)
-    navigate('/home')
+    complete()
   }
 
   const handleOnboardingSkip = () => {
     routerLogger.info('跳过引导！')
-    localStorage.setItem('onboarding_completed', 'true')
-    setHasCompletedOnboarding(true)
-    navigate('/home')
+    skip()
   }
 
   return (

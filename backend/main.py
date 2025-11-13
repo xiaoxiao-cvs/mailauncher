@@ -7,6 +7,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import settings, api_v1_router
+from app.core.exceptions import (
+    http_exception_handler,
+    validation_exception_handler,
+    unhandled_exception_handler,
+)
 from app.core.database import init_db, close_db
 from app.core.logger import setup_logger, logger
 
@@ -51,6 +56,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 统一异常处理器
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 app.include_router(api_v1_router, prefix=settings.API_V1_PREFIX)
 

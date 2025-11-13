@@ -1,5 +1,5 @@
 """
-NapCat 安装服务 (纯 Python 实现)
+NapCat 安装服务
 
 完全使用 Python 实现 NapCat 的下载、解压和配置，
 不依赖外部 shell 脚本,提供更好的跨平台兼容性和错误处理。

@@ -82,7 +82,7 @@ async def get_download_task(task_id: str):
         if not task:
             raise HTTPException(status_code=404, detail="任务不存在")
         
-        return SuccessResponse(data=task)
+        return SuccessResponse(data=task, message="ok")
         
     except HTTPException:
         raise
@@ -98,15 +98,9 @@ async def get_all_download_tasks():
 
     获取所有下载任务的列表，包括进行中和已完成的任务。
     """
-    try:
-        manager = get_download_manager()
-        tasks = manager.get_all_tasks()
-        
-        return SuccessResponse(data=tasks)
-        
-    except Exception as e:
-        logger.error(f"获取下载任务列表失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    manager = get_download_manager()
+    tasks = manager.get_all_tasks()
+    return SuccessResponse(data=tasks, message="ok")
 
 
 @router.get("/versions/maibot", response_model=ResponseBase[VersionsResponse])
@@ -116,22 +110,13 @@ async def get_maibot_versions():
 
     获取 Maibot 仓库的所有可用 tags 和 branches。
     """
-    try:
-        download_service = get_download_service()
-        versions = await download_service.get_available_versions(
-            DownloadItemType.MAIBOT
-        )
-        
-        response = VersionsResponse(
-            tags=versions.get("tags", []),
-            branches=versions.get("branches", []),
-        )
-        
-        return SuccessResponse(data=response)
-        
-    except Exception as e:
-        logger.error(f"获取 Maibot 版本失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    download_service = get_download_service()
+    versions = await download_service.get_available_versions(DownloadItemType.MAIBOT)
+    response = VersionsResponse(
+        tags=versions.get("tags", []),
+        branches=versions.get("branches", []),
+    )
+    return SuccessResponse(data=response, message="ok")
 
 
 @router.delete("/downloads/{task_id}", response_model=ResponseBase[None])

@@ -74,3 +74,46 @@ export const API_BASE_URL = getApiBaseUrl()
  * @deprecated 使用 getApiUrl() 代替，以支持动态配置
  */
 export const API_URL = getApiUrl()
+
+function buildApiUrl(path: string): string {
+  const base = new URL(getApiUrl())
+  const clean = path.startsWith('/') ? path.slice(1) : path
+  const [pathnamePart, searchPart] = clean.split('?')
+  base.pathname = base.pathname.replace(/\/$/, '') + '/' + pathnamePart
+  if (searchPart && searchPart.length > 0) {
+    base.search = searchPart
+  }
+  return base.toString()
+}
+
+export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const url = buildApiUrl(path)
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init && init.headers ? init.headers : {}),
+    },
+  })
+  if (!res.ok) {
+    let detail: any = undefined
+    try {
+      detail = await res.json()
+    } catch {}
+    throw new Error((detail && (detail.detail || detail.message)) || res.statusText)
+  }
+  return res.json()
+}
+
+export async function apiText(path: string, init?: RequestInit): Promise<string> {
+  const url = buildApiUrl(path)
+  const res = await fetch(url, init)
+  if (!res.ok) {
+    let detail: any = undefined
+    try {
+      detail = await res.json()
+    } catch {}
+    throw new Error((detail && (detail.detail || detail.message)) || res.statusText)
+  }
+  return res.text()
+}

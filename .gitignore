@@ -67,3 +67,5 @@ backend/data/Log/**/*.jsonl.gz
 # Backend build output
 backend/data
 backend/deployments
+
+.trae

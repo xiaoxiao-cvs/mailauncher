@@ -54,6 +54,9 @@ interface UseWebSocketOptions {
   onComplete?: (message: WSCompleteMessage) => void
   onConnect?: () => void
   onDisconnect?: () => void
+  autoReconnect?: boolean
+  reconnectDelayMs?: number
+  reconnectAttempts?: number
 }
 
 export function useWebSocket(taskId: string | null, options: UseWebSocketOptions = {}) {
@@ -63,6 +66,7 @@ export function useWebSocket(taskId: string | null, options: UseWebSocketOptions
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isManualCloseRef = useRef(false)
   const optionsRef = useRef(options)
+  const reconnectCountRef = useRef(0)
 
   // 更新 options ref
   useEffect(() => {
@@ -81,9 +85,11 @@ export function useWebSocket(taskId: string | null, options: UseWebSocketOptions
     }
 
     try {
-      const apiUrl = getApiUrl()
-      const wsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://')
-      const url = `${wsUrl}/ws/downloads/${taskId}`
+      const api = new URL(getApiUrl())
+      const isSecure = api.protocol === 'https:'
+      api.protocol = isSecure ? 'wss:' : 'ws:'
+      api.pathname = '/ws/downloads/' + taskId
+      const url = api.toString()
 
       wsLogger.info('正在连接 WebSocket', { url })
 
@@ -137,9 +143,19 @@ export function useWebSocket(taskId: string | null, options: UseWebSocketOptions
         wsRef.current = null
         optionsRef.current.onDisconnect?.()
 
-        // 如果不是手动关闭且不是正常关闭，尝试重连（最多重连一次）
-        if (!isManualCloseRef.current && event.code !== 1000 && event.code !== 1006) {
-          wsLogger.info('连接异常关闭，不再重连')
+        if (!isManualCloseRef.current && optionsRef.current.autoReconnect) {
+          const limit = optionsRef.current.reconnectAttempts ?? 1
+          const delay = optionsRef.current.reconnectDelayMs ?? 1000
+          if (reconnectCountRef.current < limit) {
+            reconnectCountRef.current += 1
+            if (reconnectTimeoutRef.current) {
+              clearTimeout(reconnectTimeoutRef.current)
+              reconnectTimeoutRef.current = null
+            }
+            reconnectTimeoutRef.current = setTimeout(() => {
+              connect()
+            }, delay)
+          }
         }
       }
     } catch (err) {
@@ -176,6 +192,7 @@ export function useWebSocket(taskId: string | null, options: UseWebSocketOptions
   useEffect(() => {
     if (taskId) {
       isManualCloseRef.current = false
+      reconnectCountRef.current = 0
       connect()
     }
 

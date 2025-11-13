@@ -100,8 +100,8 @@ export const useInstanceStore = create<InstanceStore>((set, get) => ({
         loading: false
       }));
       
-      // 延迟刷新以获取最新状态
-      setTimeout(() => get().fetchInstance(instanceId), 2000);
+      // 立即刷新以获取最新状态（减少延迟）
+      setTimeout(() => get().fetchInstance(instanceId), 300);
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : '启动实例失败',
@@ -125,8 +125,8 @@ export const useInstanceStore = create<InstanceStore>((set, get) => ({
         loading: false
       }));
       
-      // 延迟刷新以获取最新状态
-      setTimeout(() => get().fetchInstance(instanceId), 2000);
+      // 立即刷新以获取最新状态（减少延迟）
+      setTimeout(() => get().fetchInstance(instanceId), 300);
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : '停止实例失败',
@@ -150,8 +150,8 @@ export const useInstanceStore = create<InstanceStore>((set, get) => ({
         loading: false
       }));
       
-      // 延迟刷新以获取最新状态
-      setTimeout(() => get().fetchInstance(instanceId), 3000);
+      // 立即刷新以获取最新状态（减少延迟）
+      setTimeout(() => get().fetchInstance(instanceId), 500);
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : '重启实例失败',
@@ -190,8 +190,8 @@ export const useInstanceStore = create<InstanceStore>((set, get) => ({
       // 更新组件状态缓存
       await get().fetchComponentStatus(instanceId, component);
       
-      // 延迟刷新实例状态
-      setTimeout(() => get().fetchInstance(instanceId), 1000);
+      // 立即刷新实例状态（减少延迟）
+      setTimeout(() => get().fetchInstance(instanceId), 200);
     } catch (error) {
       set({ error: error instanceof Error ? error.message : '启动组件失败' });
       throw error;
@@ -206,8 +206,8 @@ export const useInstanceStore = create<InstanceStore>((set, get) => ({
       // 更新组件状态缓存
       await get().fetchComponentStatus(instanceId, component);
       
-      // 延迟刷新实例状态
-      setTimeout(() => get().fetchInstance(instanceId), 1000);
+      // 立即刷新实例状态（减少延迟）
+      setTimeout(() => get().fetchInstance(instanceId), 200);
     } catch (error) {
       set({ error: error instanceof Error ? error.message : '停止组件失败' });
       throw error;

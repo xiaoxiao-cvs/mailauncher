@@ -2,7 +2,7 @@
  * 实例管理 API 客户端
  */
 
-import { getApiUrl } from '@/config/api';
+import { apiJson } from '@/config/api';
 
 // ==================== 类型定义 ====================
 
@@ -68,178 +68,98 @@ export interface SuccessResponse {
 // ==================== API 客户端 ====================
 
 class InstanceApiClient {
-  private baseUrl: string;
-
-  constructor(baseUrl: string = getApiUrl()) {
-    this.baseUrl = baseUrl;
-  }
+  private basePath = 'instances';
 
   /**
    * 获取所有实例
    */
   async getAllInstances(): Promise<InstanceList> {
-    const response = await fetch(`${this.baseUrl}/instances`);
-    if (!response.ok) {
-      throw new Error(`获取实例列表失败: ${response.statusText}`);
-    }
-    return response.json();
+    return apiJson<InstanceList>(`${this.basePath}`);
   }
 
   /**
    * 获取单个实例详情
    */
   async getInstance(instanceId: string): Promise<Instance> {
-    const response = await fetch(`${this.baseUrl}/instances/${instanceId}`);
-    if (!response.ok) {
-      throw new Error(`获取实例详情失败: ${response.statusText}`);
-    }
-    return response.json();
+    return apiJson<Instance>(`${this.basePath}/${instanceId}`);
   }
 
   /**
    * 获取实例状态
    */
   async getInstanceStatus(instanceId: string): Promise<InstanceStatusResponse> {
-    const response = await fetch(`${this.baseUrl}/instances/${instanceId}/status`);
-    if (!response.ok) {
-      throw new Error(`获取实例状态失败: ${response.statusText}`);
-    }
-    return response.json();
+    return apiJson<InstanceStatusResponse>(`${this.basePath}/${instanceId}/status`);
   }
 
   /**
    * 创建新实例
    */
   async createInstance(data: InstanceCreate): Promise<Instance> {
-    const response = await fetch(`${this.baseUrl}/instances`, {
+    return apiJson<Instance>(`${this.basePath}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(data),
     });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || '创建实例失败');
-    }
-    return response.json();
   }
 
   /**
    * 更新实例
    */
   async updateInstance(instanceId: string, data: InstanceUpdate): Promise<Instance> {
-    const response = await fetch(`${this.baseUrl}/instances/${instanceId}`, {
+    return apiJson<Instance>(`${this.basePath}/${instanceId}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(data),
     });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || '更新实例失败');
-    }
-    return response.json();
   }
 
   /**
    * 删除实例
    */
   async deleteInstance(instanceId: string): Promise<SuccessResponse> {
-    const response = await fetch(`${this.baseUrl}/instances/${instanceId}`, {
+    return apiJson<SuccessResponse>(`${this.basePath}/${instanceId}`, {
       method: 'DELETE',
     });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || '删除实例失败');
-    }
-    return response.json();
   }
 
   /**
    * 启动实例
    */
   async startInstance(instanceId: string): Promise<SuccessResponse> {
-    const response = await fetch(`${this.baseUrl}/instances/${instanceId}/start`, {
-      method: 'POST',
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || '启动实例失败');
-    }
-    return response.json();
+    return apiJson<SuccessResponse>(`${this.basePath}/${instanceId}/start`, { method: 'POST' });
   }
 
   /**
    * 停止实例
    */
   async stopInstance(instanceId: string): Promise<SuccessResponse> {
-    const response = await fetch(`${this.baseUrl}/instances/${instanceId}/stop`, {
-      method: 'POST',
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || '停止实例失败');
-    }
-    return response.json();
+    return apiJson<SuccessResponse>(`${this.basePath}/${instanceId}/stop`, { method: 'POST' });
   }
 
   /**
    * 重启实例
    */
   async restartInstance(instanceId: string): Promise<SuccessResponse> {
-    const response = await fetch(`${this.baseUrl}/instances/${instanceId}/restart`, {
-      method: 'POST',
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || '重启实例失败');
-    }
-    return response.json();
+    return apiJson<SuccessResponse>(`${this.basePath}/${instanceId}/restart`, { method: 'POST' });
   }
 
   /**
    * 启动指定组件
    */
   async startComponent(instanceId: string, component: ComponentType): Promise<SuccessResponse> {
-    const response = await fetch(
-      `${this.baseUrl}/instances/${instanceId}/component/${component}/start`,
-      { method: 'POST' }
-    );
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || `启动组件 ${component} 失败`);
-    }
-    return response.json();
+    return apiJson<SuccessResponse>(`${this.basePath}/${instanceId}/component/${component}/start`, { method: 'POST' });
   }
 
   /**
    * 停止指定组件
    */
   async stopComponent(instanceId: string, component: ComponentType): Promise<SuccessResponse> {
-    const response = await fetch(
-      `${this.baseUrl}/instances/${instanceId}/component/${component}/stop`,
-      { method: 'POST' }
-    );
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || `停止组件 ${component} 失败`);
-    }
-    return response.json();
+    return apiJson<SuccessResponse>(`${this.basePath}/${instanceId}/component/${component}/stop`, { method: 'POST' });
   }
 
   /**
    * 获取组件状态
    */
   async getComponentStatus(instanceId: string, component: ComponentType): Promise<ComponentStatus> {
-    const response = await fetch(
-      `${this.baseUrl}/instances/${instanceId}/component/${component}/status`
-    );
-    if (!response.ok) {
-      throw new Error(`获取组件 ${component} 状态失败`);
-    }
-    return response.json();
+    return apiJson<ComponentStatus>(`${this.basePath}/${instanceId}/component/${component}/status`);
   }
 }
 

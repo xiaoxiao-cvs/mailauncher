@@ -572,9 +572,9 @@ class InstanceService:
             stop_results = await self.stop_instance(db, instance_id, force=False)
             logger.info(f"停止结果: {stop_results}")
             
-            # 等待一小段时间
+            # 等待一小段时间（减少不必要的等待）
             import asyncio
-            await asyncio.sleep(2)
+            await asyncio.sleep(0.5)
             
             # 重新启动实例
             start_results = await self.start_instance(db, instance_id)

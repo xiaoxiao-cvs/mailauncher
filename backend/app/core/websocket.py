@@ -65,7 +65,7 @@ class ConnectionManager:
         # 添加时间戳
         message["timestamp"] = datetime.now().isoformat()
 
-        disconnected = set()
+        disconnected: Set[WebSocket] = set()
         for connection in self.active_connections[task_id]:
             try:
                 await connection.send_json(message)
@@ -173,6 +173,17 @@ class ConnectionManager:
             是否有连接
         """
         return task_id in self.active_connections and len(self.active_connections[task_id]) > 0
+
+    def purge_task(self, task_id: str):
+        if task_id in self.active_connections:
+            for ws in list(self.active_connections[task_id]):
+                try:
+                    # best-effort close
+                    import anyio
+                    anyio.from_thread.run(ws.close)
+                except Exception:
+                    pass
+            del self.active_connections[task_id]
 
 
 # 全局单例
