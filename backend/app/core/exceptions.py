@@ -8,19 +8,34 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail if hasattr(exc, "detail") else str(exc)},
+        content={
+            "code": "HTTP_ERROR",
+            "message": exc.detail if hasattr(exc, "detail") else str(exc),
+            "detail": exc.detail if hasattr(exc, "detail") else str(exc),
+            "path": str(request.url.path),
+        },
     )
 
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     return JSONResponse(
         status_code=HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": exc.errors()},
+        content={
+            "code": "VALIDATION_ERROR",
+            "message": "Validation error",
+            "detail": exc.errors(),
+            "path": str(request.url.path),
+        },
     )
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Internal server error"},
+        content={
+            "code": "INTERNAL_ERROR",
+            "message": "Internal server error",
+            "detail": "Internal server error",
+            "path": str(request.url.path),
+        },
     )

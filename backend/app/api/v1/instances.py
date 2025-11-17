@@ -238,7 +238,6 @@ async def terminal_websocket(
         
         # 创建读取进程输出的任务
         async def read_output():
-            """持续读取进程输出并发送到前端"""
             try:
                 process = process_info.process
                 
@@ -400,3 +399,10 @@ async def terminal_websocket(
         except:
             pass
         logger.info(f"终端 WebSocket 已关闭: {instance_id}/{component}")
+@router.get("/{instance_id}/components", response_model=List[str])
+async def get_instance_components(
+    instance_id: str,
+    db: AsyncSession = Depends(get_db),
+    service: InstanceService = Depends(get_instance_service),
+):
+    return await service.get_available_components(db, instance_id)
