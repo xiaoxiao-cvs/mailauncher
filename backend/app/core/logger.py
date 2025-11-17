@@ -9,6 +9,7 @@ from datetime import datetime
 from loguru import logger
 import zipfile
 import os
+import threading
 
 
 class LoggerConfig:
@@ -94,15 +95,21 @@ class LoggerConfig:
                         continue
                     pattern = rf'("{re.escape(key)}"\s*:\s*")([^\"]+)(")'
                     msg = re.sub(pattern, r'\1****\3', msg)
+                msg = re.sub(r'(Authorization\s*:\s*Bearer\s+)[^\s\"]+', r'\1****', msg, flags=re.IGNORECASE)
+                msg = re.sub(r'(api_key=)[^\s\&]+', r'\1****', msg, flags=re.IGNORECASE)
+                msg = re.sub(r'(token=)[^\s\&]+', r'\1****', msg, flags=re.IGNORECASE)
                 return msg
             except Exception:
                 return msg
 
+        write_lock = threading.Lock()
+
         def sink(message: str):
             try:
                 clean = sanitize(message)
-                with open(self.current_log_file, "a", encoding="utf-8") as f:
-                    f.write(clean)
+                with write_lock:
+                    with open(self.current_log_file, "a", encoding="utf-8") as f:
+                        f.write(clean)
             except Exception:
                 pass
 
@@ -111,7 +118,7 @@ class LoggerConfig:
             format="{message}",
             level="DEBUG",
             serialize=True,
-            enqueue=False,
+            enqueue=True,
             backtrace=True,
             diagnose=True,
         )

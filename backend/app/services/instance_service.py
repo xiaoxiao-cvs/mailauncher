@@ -409,6 +409,7 @@ class InstanceService:
         """
         process_manager = get_process_manager()
         results = {}
+        db_instance = None
         
         try:
             result = await db.execute(
@@ -487,11 +488,40 @@ class InstanceService:
             return results
             
         except Exception as e:
-            await db.rollback()
-            db_instance.status = InstanceStatus.ERROR.value
-            await db.commit()
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+            try:
+                if db_instance:
+                    db_instance.status = InstanceStatus.ERROR.value
+                    await db.commit()
+            except Exception:
+                pass
             logger.error(f"启动实例 {instance_id} 失败: {e}", exc_info=True)
             raise
+
+    async def get_available_components(
+        self,
+        db: AsyncSession,
+        instance_id: str,
+    ) -> List[str]:
+        process_manager = get_process_manager()
+        result = await db.execute(select(InstanceDB).where(InstanceDB.id == instance_id))
+        db_instance = result.scalar_one_or_none()
+        if not db_instance:
+            return []
+        instance_dir = db_instance.instance_path or db_instance.name
+        instance_path = self.instances_dir / instance_dir
+        if not instance_path.exists():
+            return []
+        components: List[str] = ["main"]
+        napcat_start = instance_path / "NapCat" / "start.sh"
+        if napcat_start.exists():
+            components.append("napcat")
+        if (instance_path / "MaiBot-Napcat-Adapter").exists():
+            components.append("napcat-ada")
+        return components
     
     async def stop_instance(
         self,
@@ -691,5 +721,6 @@ class InstanceService:
 
 # 依赖注入函数（单例）
 def get_instance_service() -> InstanceService:
-    """获取实例服务的依赖注入（单例）"""
-    return InstanceService()
+    return _global_instance_service
+
+_global_instance_service = InstanceService()

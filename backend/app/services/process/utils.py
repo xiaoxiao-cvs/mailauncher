@@ -33,20 +33,18 @@ def build_napcat_command(instance_path: Path, qq_account: str | None) -> tuple[s
   def with_arg(cmd: str) -> str:
     if login_flag.exists() and qq_account:
       logger.info(f"使用 QQ 账号快速启动: {qq_account}")
-      return f"{cmd} {qq_account}"
+      return f"{cmd} \"{qq_account}\""
     return cmd
 
   if is_windows:
     if start_ps1.exists():
-      cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File start.ps1"
+      cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File \"start.ps1\""
       return with_arg(cmd), cwd
     if start_bat.exists():
-      cmd = "cmd.exe /c start.bat"
+      cmd = "cmd.exe /c \"start.bat\""
       return with_arg(cmd), cwd
-    # 兜底 Git Bash/WSL
-    cmd = "bash start.sh"
+    cmd = "bash \"start.sh\""
     return with_arg(cmd), cwd
   else:
-    cmd = "bash start.sh"
+    cmd = "bash \"start.sh\""
     return with_arg(cmd), cwd
-

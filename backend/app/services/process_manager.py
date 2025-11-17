@@ -365,5 +365,6 @@ class ProcessManager:
 
 # 全局进程管理器实例（单例）
 def get_process_manager() -> ProcessManager:
-    """获取全局进程管理器实例（单例）"""
-    return ProcessManager()
+    return _global_process_manager
+
+_global_process_manager = ProcessManager()

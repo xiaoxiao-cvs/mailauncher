@@ -62,36 +62,30 @@ export const InstanceDetailPage: React.FC = () => {
   useEffect(() => {
     if (id) {
       fetchInstance(id);
-      
-      // 设置自动刷新（每10秒）
-      const interval = setInterval(() => {
-        fetchInstance(id);
-      }, 10000);
-      
-      return () => clearInterval(interval);
     }
   }, [id, fetchInstance]);
+  useEffect(() => {
+    if (!id) return
+    const cleanup = useSmartPolling(() => fetchInstance(id), [id], { intervalMs: 10000, leading: false })
+    return cleanup
+  }, [id])
   
   // 加载组件状态
   useEffect(() => {
     if (id && instance) {
-      const components: ComponentType[] = ['main', 'napcat', 'napcat-ada'];
-      
-      // 立即加载一次
-      components.forEach((component) => {
-        fetchComponentStatus(id, component).catch(console.error);
-      });
-      
-      // 设置定时刷新组件状态（每10秒）
-      const interval = setInterval(() => {
+      instanceApi.getInstanceComponents(id).then((components) => {
         components.forEach((component) => {
-          fetchComponentStatus(id, component).catch(console.error);
-        });
-      }, 10000);
-      
-      return () => clearInterval(interval);
+          fetchComponentStatus(id, component).catch(console.error)
+        })
+        const cleanup = useSmartPolling(() => {
+          components.forEach((component) => {
+            fetchComponentStatus(id, component).catch(console.error)
+          })
+        }, [id, components], { intervalMs: 10000, leading: false })
+        return cleanup
+      }).catch(console.error)
     }
-  }, [id, instance, fetchComponentStatus]);
+  }, [id, instance, fetchComponentStatus])
   
   // 自动更新 selectedStartTarget - 当当前选中的组件启动后，切换到下一个未启动的组件
   useEffect(() => {

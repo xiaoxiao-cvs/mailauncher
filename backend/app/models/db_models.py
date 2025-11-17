@@ -2,7 +2,7 @@
 数据库模型 - 启动器配置
 定义启动器和 MAIBot 相关配置的 SQLAlchemy 模型
 """
-from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text
+from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text, ForeignKey
 from datetime import datetime
 
 from ..core.database import Base
@@ -100,7 +100,7 @@ class ApiModel(Base):
     __tablename__ = "api_models"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    provider_id = Column(Integer, nullable=False, index=True)  # 关联的供应商 ID
+    provider_id = Column(Integer, ForeignKey("api_providers.id"), nullable=False, index=True)
     model_id = Column(String(200), nullable=False)  # 模型 ID (如 gpt-4o, claude-3-sonnet)
     model_name = Column(String(200), nullable=True)  # 模型显示名称
     owned_by = Column(String(200), nullable=True)  # 模型所有者

@@ -161,6 +161,10 @@ class InstanceApiClient {
   async getComponentStatus(instanceId: string, component: ComponentType): Promise<ComponentStatus> {
     return apiJson<ComponentStatus>(`${this.basePath}/${instanceId}/component/${component}/status`);
   }
+
+  async getInstanceComponents(instanceId: string): Promise<ComponentType[]> {
+    return apiJson<ComponentType[]>(`${this.basePath}/${instanceId}/components`)
+  }
 }
 
 // 导出单例
