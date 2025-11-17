@@ -3,7 +3,7 @@
  * 用于可视化编辑 Bot Config 和 Model Config
  */
 import React, { useState, useEffect, useMemo } from 'react'
-import { X, Save, FileText, Settings, Loader2, FileCode, FileJson, Info } from 'lucide-react'
+import { X, Save, FileText, Settings, Loader2, FileCode, FileJson, Info, Plus, XIcon, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
-import ConfigTreeView from '@/components/ConfigTreeView'
+// 左侧树形改为分类按钮列表，移除原有树组件
 import { TomlEditor } from '@/components/TomlEditor'
 import {
   getBotConfig,
@@ -62,6 +62,10 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<any>(null)
   const [hasChanges, setHasChanges] = useState(false)
+  
+  // Tag 添加状态：记录哪个路径正在添加新项
+  const [addingTagPath, setAddingTagPath] = useState<string | null>(null)
+  const [newTagValue, setNewTagValue] = useState<string>('')
   
   // 编辑模式：tree（树形编辑器）或 text（文本编辑器）
   const [editMode, setEditMode] = useState<'tree' | 'text'>('tree')
@@ -377,6 +381,18 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
       const isArray = Array.isArray(value)
 
       if (isArray) {
+        // 如果是字符串数组，直接作为叶子节点（用于tag展示）
+        const isStringArray = value.every((v: any) => typeof v === 'string')
+        if (isStringArray) {
+          return {
+            id: path,
+            name: displayName,
+            isLeaf: true,
+            data: { path, value },
+          }
+        }
+        
+        // 其他数组类型展开为子项
         const children = value.map((item, index) => {
           const itemPath = `${path}[${index}]`
           if (typeof item === 'object' && item !== null) {
@@ -422,9 +438,19 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
   const groupBotConfig = (data: Record<string, any>): TreeNode[] => {
     const groups: TreeNode[] = []
 
-    // 1. 基础信息 - 直接展开 bot 的子项
+    // 1. 基础信息 - 直接展开 bot 的子项，但将 platforms 移到最后
     if (data.bot) {
-      const botChildren = buildTreeData(data.bot, 'bot')
+      const botData = { ...data.bot }
+      const platforms = botData.platforms
+      delete botData.platforms
+      
+      const botChildren = buildTreeData(botData, 'bot')
+      
+      // 将 platforms 添加到最后
+      if (platforms !== undefined) {
+        botChildren.push(...buildTreeData({ platforms }, 'bot'))
+      }
+      
       groups.push({
         id: 'group-basic',
         name: '基础信息',
@@ -734,37 +760,315 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     return []
   }, [botConfig, modelConfig, adapterConfig, activeConfig])
 
-  // 获取值的类型
+  // 当前选中的分类（group id）
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+
+  // 当 treeData 更新时，默认选中第一个分类
+  useEffect(() => {
+    if (treeData && treeData.length > 0) {
+      setSelectedGroupId((prev) => prev || treeData[0].id)
+    } else {
+      setSelectedGroupId(null)
+    }
+  }, [treeData])
+
+  // 根据 group id 查找对应 group
+  const selectedGroup = useMemo(() => {
+    if (!selectedGroupId) return null
+    return treeData.find((g) => g.id === selectedGroupId) || null
+  }, [selectedGroupId, treeData])
+
+  // 递归渲染配置项（直接在右侧主区域展示，带编辑功能）
+  const renderConfigItems = (nodes: TreeNode[] | undefined, level: number = 0): React.ReactNode => {
+    if (!nodes) return null
+    
+    return nodes.map((node) => {
+      if (node.isLeaf && node.data) {
+        // 叶子节点：直接渲染编辑表单
+        return renderConfigItemEditor(node, level)
+      } else {
+        // 非叶子节点：渲染为可折叠的分组
+        return (
+          <details key={node.id} open className="mb-4">
+            <summary className={`cursor-pointer font-semibold text-lg mb-3 ${level === 0 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
+              {node.name}
+            </summary>
+            <div className={`${level === 0 ? 'ml-0' : 'ml-4'} space-y-4`}>
+              {renderConfigItems(node.children, level + 1)}
+            </div>
+          </details>
+        )
+      }
+    })
+  }
+
+  // 渲染单个配置项的编辑器
+  const renderConfigItemEditor = (node: TreeNode, _level: number) => {
+    const path = node.data.path
+    const value = node.data.value
+    const valueType = getValueType(value)
+    const currentConfig = activeConfig === 'bot' ? botConfig : activeConfig === 'model' ? modelConfig : adapterConfig
+    const comment = currentConfig?.comments[path]
+    const hint = path ? getConfigHint(path, currentConfig?.comments || {}) : ''
+
+    return (
+      <div key={node.id} className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-3">
+        {/* 配置项标题 */}
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <Label className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              {node.name}
+            </Label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-mono">{path}</p>
+          </div>
+          {comment && hint && (
+            <div className="relative group ml-2">
+              <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 cursor-help" />
+              <div className="pointer-events-none absolute z-10 right-0 mt-2 hidden group-hover:block text-xs rounded px-3 py-2 max-w-[500px] whitespace-normal break-words bg-white text-gray-900 border border-gray-200 shadow-lg dark:bg-gray-900 dark:text-white dark:border-gray-700">
+                {comment.replace(/\r?\n/g, ' ').replace(/\s{2,}/g, ' ')}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 提示信息 */}
+        {comment && hint && (
+          <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-sm text-blue-700 dark:text-blue-300">
+            {hint}
+          </div>
+        )}
+
+        {/* 值编辑器 */}
+        <div>
+          <Label className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+            类型: {valueType}
+          </Label>
+          
+          {valueType === 'string' && (
+            value && value.length > 50 ? (
+              <Textarea
+                value={editValue && selectedPath === path ? editValue : value}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                  setSelectedPath(path)
+                  setEditValue(e.target.value)
+                  setHasChanges(true)
+                }}
+                className="mt-1 min-h-[120px] font-mono text-sm"
+                placeholder="输入字符串值"
+              />
+            ) : (
+              <Input
+                type="text"
+                value={editValue && selectedPath === path ? editValue : value || ''}
+                onChange={(e) => {
+                  setSelectedPath(path)
+                  setEditValue(e.target.value)
+                  setHasChanges(true)
+                }}
+                className="mt-1"
+                placeholder="输入字符串值"
+              />
+            )
+          )}
+
+          {valueType === 'number' && (
+            <Input
+              type="number"
+              value={editValue && selectedPath === path ? editValue : (value ?? '')}
+              onChange={(e) => {
+                setSelectedPath(path)
+                setEditValue(Number(e.target.value))
+                setHasChanges(true)
+              }}
+              className="mt-1"
+              placeholder="输入数字"
+            />
+          )}
+
+          {valueType === 'boolean' && (
+            <div className="flex items-center space-x-2 mt-2">
+              <Switch
+                checked={editValue && selectedPath === path ? editValue : value}
+                onCheckedChange={(checked: boolean) => {
+                  setSelectedPath(path)
+                  setEditValue(checked)
+                  setHasChanges(true)
+                }}
+              />
+              <Label>{(editValue && selectedPath === path ? editValue : value) ? '是' : '否'}</Label>
+            </div>
+          )}
+
+          {valueType === 'array' && (
+            <>
+              {/* 如果是字符串数组，用 Tag 展示 */}
+              {Array.isArray(value) && value.every((v: any) => typeof v === 'string') ? (
+                <div className="mt-2">
+                  <div className="flex flex-wrap gap-2 mb-2 items-center">
+                    {(editValue && selectedPath === path ? editValue : value).map((item: string, idx: number) => (
+                      <div
+                        key={idx}
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full text-sm"
+                      >
+                        <span>{item}</span>
+                        <button
+                          onClick={() => {
+                            const currentArray = editValue && selectedPath === path ? editValue : value
+                            const newArray = currentArray.filter((_: any, i: number) => i !== idx)
+                            setSelectedPath(path)
+                            setEditValue(newArray)
+                            setHasChanges(true)
+                          }}
+                          className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5"
+                        >
+                          <XIcon className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                    
+                    {/* 添加新项的输入框和按钮 */}
+                    {addingTagPath === path ? (
+                      <div className="inline-flex items-center gap-1 animate-in fade-in slide-in-from-left-2 duration-200">
+                        <Input
+                          autoFocus
+                          value={newTagValue}
+                          onChange={(e) => setNewTagValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && newTagValue.trim()) {
+                              const currentArray = editValue && selectedPath === path ? editValue : value
+                              const newArray = [...currentArray, newTagValue.trim()]
+                              setSelectedPath(path)
+                              setEditValue(newArray)
+                              setHasChanges(true)
+                              setNewTagValue('')
+                              setAddingTagPath(null)
+                            } else if (e.key === 'Escape') {
+                              setNewTagValue('')
+                              setAddingTagPath(null)
+                            }
+                          }}
+                          className="h-8 w-32 rounded-full text-sm px-3"
+                          placeholder="输入内容"
+                        />
+                        <button
+                          onClick={() => {
+                            if (newTagValue.trim()) {
+                              const currentArray = editValue && selectedPath === path ? editValue : value
+                              const newArray = [...currentArray, newTagValue.trim()]
+                              setSelectedPath(path)
+                              setEditValue(newArray)
+                              setHasChanges(true)
+                              setNewTagValue('')
+                              setAddingTagPath(null)
+                            }
+                          }}
+                          className="inline-flex items-center justify-center w-8 h-8 bg-green-500 hover:bg-green-600 rounded-full text-white transition-all duration-200"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setNewTagValue('')
+                            setAddingTagPath(null)
+                          }}
+                          className="inline-flex items-center justify-center w-8 h-8 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full text-gray-600 dark:text-gray-300"
+                        >
+                          <XIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setAddingTagPath(path)
+                          setNewTagValue('')
+                        }}
+                        className="inline-flex items-center justify-center w-8 h-8 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full text-gray-600 dark:text-gray-300 transition-all duration-200"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* 其他类型数组用 JSON 编辑器 */
+                <Textarea
+                  value={editValue && selectedPath === path ? JSON.stringify(editValue, null, 2) : JSON.stringify(value, null, 2)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                    try {
+                      const parsed = JSON.parse(e.target.value)
+                      setSelectedPath(path)
+                      setEditValue(parsed)
+                      setHasChanges(true)
+                    } catch {
+                      // 保持原值
+                    }
+                  }}
+                  className="mt-1 min-h-[200px] font-mono text-sm"
+                  placeholder="JSON 数组格式"
+                />
+              )}
+            </>
+          )}
+
+          {valueType === 'object' && (
+            <Textarea
+              value={editValue && selectedPath === path ? JSON.stringify(editValue, null, 2) : JSON.stringify(value, null, 2)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                try {
+                  const parsed = JSON.parse(e.target.value)
+                  setSelectedPath(path)
+                  setEditValue(parsed)
+                  setHasChanges(true)
+                } catch {
+                  // 保持原值
+                }
+              }}
+              className="mt-1 min-h-[200px] font-mono text-sm"
+              placeholder="JSON 对象格式"
+            />
+          )}
+        </div>
+
+        {/* 单项保存按钮 */}
+        {selectedPath === path && hasChanges && (
+          <div className="flex gap-2 pt-2">
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              size="sm"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  保存中
+                </>
+              ) : (
+                <>
+                  <Save className="w-3 h-3 mr-1" />
+                  保存更改
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setEditValue(value)
+                setSelectedPath(null)
+                setHasChanges(false)
+              }}
+            >
+              取消
+            </Button>
+          </div>
+        )}
+      </div>
+    )
+  }  // 获取值的类型
   const getValueType = (value: any): string => {
     if (value === null) return 'null'
     if (Array.isArray(value)) return 'array'
     return typeof value
-  }
-
-  // 处理节点选择
-  const handleNodeSelect = (node: TreeNode | null) => {
-    if (!node || !node.data) return
-    
-    const currentConfig = activeConfig === 'bot' ? botConfig : activeConfig === 'model' ? modelConfig : adapterConfig
-    if (!currentConfig) return
-
-    const path = node.data.path
-    setSelectedPath(path)
-
-    // 获取当前值
-    const value = node.data.value
-    setEditValue(value)
-  }
-
-  // 根据路径获取值
-  const getValueByPath = (obj: any, path: string): any => {
-    const keys = path.split(/\.|\[|\]/).filter(Boolean)
-    let current = obj
-    for (const key of keys) {
-      if (current == null) return undefined
-      current = current[key]
-    }
-    return current
   }
 
   // 保存更改
@@ -826,175 +1130,6 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     } finally {
       setSaving(false)
     }
-  }
-
-  // 渲染编辑器
-  const renderEditor = () => {
-    if (!selectedPath) {
-      return (
-        <div className="flex items-center justify-center h-full text-gray-500">
-          <div className="text-center">
-            <Settings className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>请在左侧选择一个配置项</p>
-          </div>
-        </div>
-      )
-    }
-
-    const valueType = getValueType(editValue)
-    const currentConfig = activeConfig === 'bot' ? botConfig : activeConfig === 'model' ? modelConfig : adapterConfig
-    const comment = currentConfig?.comments[selectedPath]
-    const firstLine = comment ? comment.split('\n')[0] : ''
-    const flatComment = comment ? comment.replace(/\r?\n/g, ' ').replace(/\s{2,}/g, ' ') : ''
-    const hint = selectedPath ? getConfigHint(selectedPath, currentConfig?.comments || {}) : ''
-
-    return (
-      <div className="space-y-4 p-6">
-        <div>
-          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            配置路径
-          </Label>
-          <Input
-            value={selectedPath}
-            disabled
-            className="mt-1 bg-gray-50 dark:bg-gray-800"
-          />
-        </div>
-
-        {comment && (
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-start justify-between gap-2">
-            <p className="text-sm text-blue-700 dark:text-blue-300 flex-1">{hint || firstLine || comment}</p>
-            <span className="relative group inline-flex items-center shrink-0">
-              <Info className="w-4 h-4 text-blue-600 dark:text-blue-300" />
-              <div className="pointer-events-none absolute z-10 right-0 mt-2 hidden group-hover:block text-xs rounded px-3 py-2 max-w-[720px] min-w-[360px] whitespace-normal break-words bg-white text-gray-900 border border-gray-200 shadow-md dark:bg-gray-900 dark:text-white dark:border-gray-700">
-                {flatComment}
-              </div>
-            </span>
-          </div>
-        )}
-
-        <div>
-          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            值类型: {valueType}
-          </Label>
-          
-          {valueType === 'string' && (
-            editValue && editValue.length > 50 ? (
-              <Textarea
-                value={editValue}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-                  setEditValue(e.target.value)
-                  setHasChanges(true)
-                }}
-                className="mt-1 min-h-[200px] font-mono text-sm"
-                placeholder="输入字符串值"
-              />
-            ) : (
-              <Input
-                type="text"
-                value={editValue || ''}
-                onChange={(e) => {
-                  setEditValue(e.target.value)
-                  setHasChanges(true)
-                }}
-                className="mt-1 h-12"
-                placeholder="输入字符串值"
-              />
-            )
-          )}
-
-          {valueType === 'number' && (
-            <Input
-              type="number"
-              value={editValue ?? ''}
-              onChange={(e) => {
-                setEditValue(Number(e.target.value))
-                setHasChanges(true)
-              }}
-              className="mt-1 h-12"
-              placeholder="输入数字"
-            />
-          )}
-
-          {valueType === 'boolean' && (
-            <div className="flex items-center space-x-2 mt-2">
-              <Switch
-                checked={editValue}
-                onCheckedChange={(checked: boolean) => {
-                  setEditValue(checked)
-                  setHasChanges(true)
-                }}
-              />
-              <Label>{editValue ? '是' : '否'}</Label>
-            </div>
-          )}
-
-          {valueType === 'array' && (
-            <Textarea
-              value={JSON.stringify(editValue, null, 2)}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-                try {
-                  setEditValue(JSON.parse(e.target.value))
-                  setHasChanges(true)
-                } catch {
-                  // 保持原值
-                }
-              }}
-              className="mt-1 min-h-[300px] font-mono text-sm"
-              placeholder="JSON 数组格式"
-            />
-          )}
-
-          {valueType === 'object' && (
-            <Textarea
-              value={JSON.stringify(editValue, null, 2)}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-                try {
-                  setEditValue(JSON.parse(e.target.value))
-                  setHasChanges(true)
-                } catch {
-                  // 保持原值
-                }
-              }}
-              className="mt-1 min-h-[300px] font-mono text-sm"
-              placeholder="JSON 对象格式"
-            />
-          )}
-        </div>
-
-        <div className="flex gap-2 pt-4">
-          <Button
-            onClick={handleSave}
-            disabled={!hasChanges || saving}
-            className="flex-1"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                保存中...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4 mr-2" />
-                保存更改
-              </>
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              const currentConfig = activeConfig === 'bot' ? botConfig : modelConfig
-              const originalValue = getValueByPath(currentConfig?.data || {}, selectedPath)
-              setEditValue(originalValue)
-              setHasChanges(false)
-            }}
-            disabled={!hasChanges}
-          >
-            重置
-          </Button>
-        </div>
-      </div>
-    )
   }
 
   if (!isOpen) return null
@@ -1136,25 +1271,51 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
               </div>
             </div>
           ) : (
-            /* 树形编辑模式 */
+            /* 树形编辑模式（已改为分类按钮 + 右侧展示所有配置项） */
             <>
-              {/* 左侧树形结构 */}
-              <div className="w-2/5 border-r border-gray-200 dark:border-gray-700 overflow-hidden">
-                <ScrollArea className="h-full">
-                  <div className="p-4 h-full">
-                    <ConfigTreeView
-                      data={treeData}
-                      onSelect={handleNodeSelect}
-                      selectedId={selectedPath}
-                    />
-                  </div>
-                </ScrollArea>
+              {/* 左侧：主分类按钮列表 */}
+              <div className="w-56 border-r border-gray-200 dark:border-gray-700 overflow-auto p-4 space-y-2">
+                {treeData && treeData.length > 0 ? (
+                  treeData.map((group) => (
+                    <button
+                      key={group.id}
+                      onClick={() => {
+                        setSelectedGroupId(group.id)
+                        // 切换分类时清除选中项
+                        setSelectedPath(null)
+                        setEditValue(null)
+                        setHasChanges(false)
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedGroupId === group.id ? 'bg-gray-100 dark:bg-gray-700 font-semibold' : ''}`}
+                    >
+                      {group.name}
+                    </button>
+                  ))
+                ) : (
+                  <div className="text-sm text-gray-500">无配置分类</div>
+                )}
               </div>
 
-              {/* 右侧编辑器 */}
+              {/* 右侧：直接展示所选分类下的所有配置项（带编辑功能） */}
               <div className="flex-1 overflow-hidden">
                 <ScrollArea className="h-full">
-                  {renderEditor()}
+                  <div className="p-6 space-y-4">
+                    {selectedGroup ? (
+                      <>
+                        <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                          {selectedGroup.name}
+                        </h3>
+                        {renderConfigItems(selectedGroup.children)}
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-500">
+                        <div className="text-center">
+                          <Settings className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p>请在左侧选择一个配置分类</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </ScrollArea>
               </div>
             </>
