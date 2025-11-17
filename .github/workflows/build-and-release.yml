@@ -7,6 +7,10 @@ jobs:
   build-macos:
     runs-on: [self-hosted, macOS, ARM64]
     
+    defaults:
+      run:
+        shell: bash
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -44,8 +48,8 @@ jobs:
 
       - name: Verify Python installation
         run: |
-          python3.11 --version
-          which python3.11
+          /usr/local/bin/python3.11 --version || python3.11 --version
+          which python3.11 || echo "python3.11 not in PATH"
 
       - name: Verify Node.js installations installation
         run: |
@@ -62,12 +66,12 @@ jobs:
 
       - name: Setup Python virtual environment
         run: |
-          python3.11 -m venv .venv
+          /usr/local/bin/python3.11 -m venv .venv
           source .venv/bin/activate
           pip install --upgrade pip
           pip install -r backend/requirements.txt
           # 确保 pyinstaller 在 PATH 中
-          echo "${PWD}/.venv/bin" >> $GITHUB_PATH
+          echo "${PWD}/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Install frontend dependencies
         working-directory: frontend
