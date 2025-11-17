@@ -6,8 +6,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useInstanceStore } from '@/stores/instanceStore';
-import { ComponentType } from '@/services/instanceApi';
+import { ComponentType, instanceApi } from '@/services/instanceApi';
 import { TerminalComponent } from '@/components/terminal/TerminalComponent';
+import { useSmartPolling } from '@/hooks/useSmartPolling';
 import { ConfigModal } from '@/components/ConfigModal';
 import {
   ArrowLeft,
