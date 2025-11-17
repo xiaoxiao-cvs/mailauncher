@@ -64,7 +64,7 @@ class TOMLWithComments:
         # 解析结构和注释
         current_section = ""
         current_array_table = None
-        array_table_index = -1
+        array_table_indices = {}  # 每个数组表格名称的独立索引计数器
         pending_comments = []
         
         for line_num, line in enumerate(self.lines):
@@ -91,45 +91,56 @@ class TOMLWithComments:
                 continue
             
             # 数组表格 [[xxx]]
-            if stripped.startswith('[[') and stripped.endswith(']]'):
-                current_array_table = stripped[2:-2].strip()
-                array_table_index += 1
-                key = f"{current_array_table}[{array_table_index}]"
-                
-                self.structure.append({
-                    'type': 'array_table',
-                    'line': line_num,
-                    'content': line,
-                    'name': current_array_table,
-                    'index': array_table_index,
-                    'comments': pending_comments.copy()
-                })
-                
-                if pending_comments:
-                    self.comments_map[key] = '\n'.join(pending_comments)
-                    pending_comments = []
-                
-                current_section = ""
-                continue
+            if stripped.startswith('[['):
+                # 提取表格名，忽略行内注释
+                match = re.match(r'\[\[([^\]]+)\]\]', stripped)
+                if match:
+                    current_array_table = match.group(1).strip()
+                    
+                    # 为每个数组表格维护独立的索引计数器
+                    if current_array_table not in array_table_indices:
+                        array_table_indices[current_array_table] = -1
+                    array_table_indices[current_array_table] += 1
+                    array_table_index = array_table_indices[current_array_table]
+                    
+                    key = f"{current_array_table}[{array_table_index}]"
+                    
+                    self.structure.append({
+                        'type': 'array_table',
+                        'line': line_num,
+                        'content': line,
+                        'name': current_array_table,
+                        'index': array_table_index,
+                        'comments': pending_comments.copy()
+                    })
+                    
+                    if pending_comments:
+                        self.comments_map[key] = '\n'.join(pending_comments)
+                        pending_comments = []
+                    
+                    current_section = ""
+                    continue
             
             # 普通表格 [xxx]
-            if stripped.startswith('[') and stripped.endswith(']'):
-                current_section = stripped[1:-1].strip()
-                current_array_table = None
-                array_table_index = -1
-                
-                self.structure.append({
-                    'type': 'section',
-                    'line': line_num,
-                    'content': line,
-                    'name': current_section,
-                    'comments': pending_comments.copy()
-                })
-                
-                if pending_comments:
-                    self.comments_map[current_section] = '\n'.join(pending_comments)
-                    pending_comments = []
-                continue
+            if stripped.startswith('[') and not stripped.startswith('[['):
+                # 提取表格名，忽略行内注释
+                match = re.match(r'\[([^\]]+)\]', stripped)
+                if match:
+                    current_section = match.group(1).strip()
+                    current_array_table = None
+                    
+                    self.structure.append({
+                        'type': 'section',
+                        'line': line_num,
+                        'content': line,
+                        'name': current_section,
+                        'comments': pending_comments.copy()
+                    })
+                    
+                    if pending_comments:
+                        self.comments_map[current_section] = '\n'.join(pending_comments)
+                        pending_comments = []
+                    continue
             
             # 键值对
             if '=' in stripped:
@@ -192,15 +203,21 @@ class TOMLWithComments:
             key_path: 键路径，如 "bot.platform" 或 "models[0].name"
             
         Returns:
-            值
+            值，如果路径不存在则返回 None
         """
         keys = self._parse_key_path(key_path)
         value = self.data
         
         for key in keys:
             if isinstance(key, int):
+                # 处理数组索引
+                if not isinstance(value, list) or key >= len(value):
+                    return None
                 value = value[key]
             else:
+                # 处理字典键
+                if not isinstance(value, dict):
+                    return None
                 value = value.get(key)
                 if value is None:
                     return None
@@ -314,7 +331,31 @@ class TOMLWithComments:
                 
                 # 生成新的键值对行
                 key = item['key']
-                value_str = toml.dumps({key: value}).strip()
+                
+                # 使用 tomlkit 的内联格式化 - 确保生成单行输出
+                try:
+                    # 对于简单类型，直接格式化
+                    if isinstance(value, (str, int, float, bool)):
+                        if isinstance(value, str):
+                            # 字符串需要转义和引号
+                            value_repr = toml.dumps({'_': value}).split('=')[1].strip()
+                        else:
+                            value_repr = str(value).lower() if isinstance(value, bool) else str(value)
+                        value_str = f"{key} = {value_repr}"
+                    elif isinstance(value, list):
+                        # 数组使用内联格式
+                        value_repr = toml.dumps({'_': value}).split('=')[1].strip()
+                        value_str = f"{key} = {value_repr}"
+                    elif isinstance(value, dict):
+                        # 内联表格使用 { } 格式
+                        items = ', '.join(f'{k} = {toml.dumps({"_": v}).split("=")[1].strip()}' for k, v in value.items())
+                        value_str = f"{key} = {{ {items} }}"
+                    else:
+                        # 回退到标准序列化
+                        value_str = toml.dumps({key: value}).strip()
+                except Exception:
+                    # 回退到标准方法
+                    value_str = toml.dumps({key: value}).strip()
                 
                 # 添加行内注释
                 if item.get('inline_comment'):
