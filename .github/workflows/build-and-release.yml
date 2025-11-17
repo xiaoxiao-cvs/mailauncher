@@ -13,27 +13,56 @@ jobs:
         with:
           fetch-depth: 0  # 获取完整历史以便获取提交信息
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Cache Python virtual environment
+        uses: actions/cache@v4
         with:
-          python-version: '3.11'
+          path: .venv
+          key: ${{ runner.os }}-python3.11-venv-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-python3.11-venv-
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v4
         with:
-          node-version: '18'
+          path: |
+            frontend/node_modules
+            ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+      - name: Cache Rust build
+        uses: actions/cache@v4
         with:
-          version: 8
+          path: |
+            frontend/src-tauri/target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-rust-${{ hashFiles('frontend/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-rust-
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Verify Python installation
+        run: |
+          python3.11 --version
+          which python3.11
+
+      - name: Verify Node.js installations installation
+        run: |
+          node --version
+          pnpm --version
+          which node
+          which pnpm
+
+      - name: Verify Rust installation
+        run: |
+          rustc --version
+          cargo --version
+          which rustc
 
       - name: Setup Python virtual environment
         run: |
-          python3 -m venv .venv
+          python3.11 -m venv .venv
           source .venv/bin/activate
           pip install --upgrade pip
           pip install -r backend/requirements.txt
