@@ -59,34 +59,40 @@ export const InstanceDetailPage: React.FC = () => {
   
   const instance = selectedInstance || instances.find((i) => i.id === id);
   
-  // 加载实例数据
+  // 加载实例数据并设置轮询
   useEffect(() => {
     if (id) {
       fetchInstance(id);
     }
   }, [id, fetchInstance]);
-  useEffect(() => {
-    if (!id) return
-    const cleanup = useSmartPolling(() => fetchInstance(id), [id], { intervalMs: 10000, leading: false })
-    return cleanup
-  }, [id])
   
-  // 加载组件状态
+  // 实例数据轮询
+  useSmartPolling(() => {
+    if (id) fetchInstance(id);
+  }, [id], { intervalMs: 10000, leading: false });
+  
+  // 加载组件列表
+  const [components, setComponents] = useState<ComponentType[]>([]);
   useEffect(() => {
-    if (id && instance) {
-      instanceApi.getInstanceComponents(id).then((components) => {
-        components.forEach((component) => {
-          fetchComponentStatus(id, component).catch(console.error)
-        })
-        const cleanup = useSmartPolling(() => {
-          components.forEach((component) => {
-            fetchComponentStatus(id, component).catch(console.error)
-          })
-        }, [id, components], { intervalMs: 10000, leading: false })
-        return cleanup
-      }).catch(console.error)
+    if (!id || !instance) return;
+    
+    instanceApi.getInstanceComponents(id).then((comps) => {
+      setComponents(comps);
+      // 初始加载状态
+      comps.forEach((component) => {
+        fetchComponentStatus(id, component).catch(console.error);
+      });
+    }).catch(console.error);
+  }, [id, instance]);
+  
+  // 组件状态轮询
+  useSmartPolling(() => {
+    if (id && components.length > 0) {
+      components.forEach((component) => {
+        fetchComponentStatus(id, component).catch(console.error);
+      });
     }
-  }, [id, instance, fetchComponentStatus])
+  }, [id, components], { intervalMs: 10000, leading: false });
   
   // 自动更新 selectedStartTarget - 当当前选中的组件启动后，切换到下一个未启动的组件
   useEffect(() => {

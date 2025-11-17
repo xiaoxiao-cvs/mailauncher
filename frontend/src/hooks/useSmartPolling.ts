@@ -1,3 +1,5 @@
+import { useEffect, useRef, useCallback } from 'react';
+
 export interface SmartPollingOptions {
   intervalMs?: number
   leading?: boolean
@@ -5,40 +7,53 @@ export interface SmartPollingOptions {
 }
 
 export function useSmartPolling(fn: () => void, deps: any[] = [], options: SmartPollingOptions = {}) {
-  const intervalMs = options.intervalMs ?? 10000
-  const leading = options.leading ?? true
-  const visibleOnly = options.visibleOnly ?? true
-  let timer: number | null = null
+  const intervalMs = options.intervalMs ?? 10000;
+  const leading = options.leading ?? true;
+  const visibleOnly = options.visibleOnly ?? true;
+  
+  const timerRef = useRef<number | null>(null);
+  const fnRef = useRef(fn);
+  
+  // 保持 fn 引用最新
+  useEffect(() => {
+    fnRef.current = fn;
+  }, [fn]);
 
-  const start = () => {
-    if (leading) fn()
-    stop()
-    timer = window.setInterval(() => {
-      if (visibleOnly && document.hidden) return
-      fn()
-    }, intervalMs)
-  }
-
-  const stop = () => {
-    if (timer !== null) {
-      clearInterval(timer)
-      timer = null
+  const stop = useCallback(() => {
+    if (timerRef.current !== null) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     }
-  }
+  }, []);
 
-  const onVisibility = () => {
-    if (!visibleOnly) return
-    if (!document.hidden && timer === null) start()
-  }
+  const start = useCallback(() => {
+    stop();
+    if (leading) {
+      fnRef.current();
+    }
+    timerRef.current = window.setInterval(() => {
+      if (visibleOnly && document.hidden) return;
+      fnRef.current();
+    }, intervalMs);
+  }, [intervalMs, leading, visibleOnly, stop]);
 
-  ;(window as any).__smartPollingCleanup ??= []
-  ;(window as any).__smartPollingCleanup.push(stop)
+  const onVisibility = useCallback(() => {
+    if (!visibleOnly) return;
+    if (!document.hidden && timerRef.current === null) {
+      start();
+    }
+  }, [visibleOnly, start]);
 
-  start()
-  document.addEventListener('visibilitychange', onVisibility)
+  useEffect(() => {
+    start();
+    document.addEventListener('visibilitychange', onVisibility);
 
-  return () => {
-    document.removeEventListener('visibilitychange', onVisibility)
-    stop()
-  }
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...deps, start, stop, onVisibility]);
+
+  return stop;
 }
