@@ -88,7 +88,7 @@ export function useWebSocket(taskId: string | null, options: UseWebSocketOptions
       const api = new URL(getApiUrl())
       const isSecure = api.protocol === 'https:'
       api.protocol = isSecure ? 'wss:' : 'ws:'
-      api.pathname = '/ws/downloads/' + taskId
+      api.pathname = '/api/v1/ws/downloads/' + taskId
       const url = api.toString()
 
       wsLogger.info('正在连接 WebSocket', { url })

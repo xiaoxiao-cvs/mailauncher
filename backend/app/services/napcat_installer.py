@@ -342,7 +342,7 @@ class NapCatInstaller:
         # 下载 NapCat
         connector = aiohttp.TCPConnector(ssl=ssl_context)
         async with aiohttp.ClientSession(connector=connector) as session:
-            async with session.get(self.NAPCAT_URL, allow_redirects=True) as response:
+            async with session.get(self.NAPCAT_SHELL_URL, allow_redirects=True) as response:
                 if response.status != 200:
                     raise Exception(f"下载 NapCat 失败: HTTP {response.status}")
                 
@@ -448,7 +448,7 @@ class NapCatInstaller:
         # 下载 NapCat
         connector = aiohttp.TCPConnector(ssl=ssl_context)
         async with aiohttp.ClientSession(connector=connector) as session:
-            async with session.get(self.NAPCAT_URL, allow_redirects=True) as response:
+            async with session.get(self.NAPCAT_SHELL_URL, allow_redirects=True) as response:
                 if response.status != 200:
                     raise Exception(f"下载 NapCat 失败: HTTP {response.status}")
                 
