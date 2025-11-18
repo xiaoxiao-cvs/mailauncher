@@ -1,130 +1,135 @@
 import { Icon } from '@iconify/react'
 import { Notification, NotificationType, TaskStatus } from '@/types/notification'
 import { cn } from '@/lib/utils'
+import { useMemo } from 'react'
 
 interface NotificationItemProps {
   notification: Notification
   onRemove: (id: string) => void
   onClick: (notification: Notification) => void
+  className?: string
+  style?: React.CSSProperties
 }
 
 /**
- * 单个通知项组件
- * 职责：
- * - 渲染单个通知卡片
- * - 根据通知类型显示不同样式
- * - 任务通知显示进度条
- * - 支持删除操作
+ * 单个通知项组件 - Apple 风格
  */
-export function NotificationItem({ notification, onRemove, onClick }: NotificationItemProps) {
-  const { type, title, message, task } = notification
+export function NotificationItem({ notification, onRemove, onClick, className, style }: NotificationItemProps) {
+  const { type, title, message, task, createdAt } = notification
 
-  // 获取背景颜色
-  const getBgColor = () => {
-    switch (type) {
-      case NotificationType.TASK:
-        return 'bg-white dark:bg-[#1a1a1a]'
-      case NotificationType.MESSAGE:
-        return 'bg-[#e3f2fd] dark:bg-[#0d47a1]/20'
-      case NotificationType.WARNING:
-        return 'bg-[#fff3e0] dark:bg-[#e65100]/20'
-      case NotificationType.ERROR:
-        return 'bg-[#ffebee] dark:bg-[#c62828]/20'
-      default:
-        return 'bg-white dark:bg-[#1a1a1a]'
-    }
-  }
+  // 计算相对时间
+  const timeString = useMemo(() => {
+    if (!createdAt) return ''
+    const date = new Date(createdAt)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const minutes = Math.floor(diff / 60000)
+    
+    if (minutes < 1) return '现在'
+    if (minutes < 60) return `${minutes}分钟前`
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours}小时前`
+    return `${date.getMonth() + 1}/${date.getDate()}`
+  }, [createdAt])
 
   // 获取图标
   const getIcon = () => {
     if (type === NotificationType.TASK && task) {
       switch (task.status) {
         case TaskStatus.SUCCESS:
-          return <Icon icon="ph:check-circle" className="w-5 h-5 text-green-500" />
+          return <Icon icon="ph:check-circle-fill" className="w-5 h-5 text-green-500" />
         case TaskStatus.FAILED:
-          return <Icon icon="ph:x-circle" className="w-5 h-5 text-red-500" />
+          return <Icon icon="ph:x-circle-fill" className="w-5 h-5 text-red-500" />
         case TaskStatus.DOWNLOADING:
         case TaskStatus.INSTALLING:
-          return <Icon icon="ph:arrow-circle-down" className="w-5 h-5 text-[#0077b6] animate-pulse" />
+          return <Icon icon="ph:arrow-circle-down-fill" className="w-5 h-5 text-blue-500 animate-pulse" />
         default:
-          return <Icon icon="ph:clock" className="w-5 h-5 text-[#023e8a]/50" />
+          return <Icon icon="ph:clock-fill" className="w-5 h-5 text-gray-400" />
       }
     }
 
     switch (type) {
       case NotificationType.MESSAGE:
-        return <Icon icon="ph:info" className="w-5 h-5 text-[#0077b6]" />
+        return <Icon icon="ph:info-fill" className="w-5 h-5 text-blue-500" />
       case NotificationType.WARNING:
-        return <Icon icon="ph:warning" className="w-5 h-5 text-orange-500" />
+        return <Icon icon="ph:warning-fill" className="w-5 h-5 text-orange-500" />
       case NotificationType.ERROR:
-        return <Icon icon="ph:x-circle" className="w-5 h-5 text-red-500" />
+        return <Icon icon="ph:x-circle-fill" className="w-5 h-5 text-red-500" />
       default:
-        return null
+        return <Icon icon="ph:bell-fill" className="w-5 h-5 text-gray-400" />
     }
   }
 
   return (
     <div
       className={cn(
-        'px-3 py-2 rounded-lg shadow-sm border transition-all duration-200',
-        getBgColor(),
-        'border-[#023e8a]/10 dark:border-white/10',
-        'cursor-pointer hover:shadow-md hover:scale-[1.01]'
+        'group relative overflow-hidden',
+        'bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-xl', // Glassmorphism
+        'rounded-[18px]', // Apple-like rounded corners
+        'shadow-sm hover:shadow-md transition-all duration-200',
+        'border border-white/40 dark:border-white/10',
+        'p-3 cursor-pointer',
+        className
       )}
+      style={style}
       onClick={() => onClick(notification)}
     >
-      <div className="flex items-center gap-2.5">
-        {/* 图标 - 垂直居中 */}
-        <div className="flex-shrink-0">
-          {getIcon()}
-        </div>
-
-        {/* 内容 */}
-        <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-medium text-[#03045e] dark:text-white truncate">
+      {/* 头部：图标 + 标题 + 时间 */}
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md flex items-center justify-center bg-white dark:bg-white/10 shadow-sm">
+            {getIcon()}
+          </div>
+          <span className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 opacity-90 truncate max-w-[180px]">
             {title}
-          </h4>
-
-          <p className="text-xs text-[#023e8a]/70 dark:text-white/70 mt-0.5 line-clamp-1">
-            {message}
-          </p>
-
-          {/* 任务进度条 */}
-          {type === NotificationType.TASK && task && (
-            <div className="space-y-0.5 mt-1.5">
-              <div className="flex items-center justify-between text-[10px] text-[#023e8a]/60 dark:text-white/60">
-                <span>{getStatusText(task.status)}</span>
-                <span>{task.progress}%</span>
-              </div>
-              <div className="h-1 bg-[#023e8a]/10 dark:bg-white/10 rounded-full overflow-hidden">
-                <div
-                  className={cn(
-                    'h-full rounded-full transition-all duration-300',
-                    task.status === TaskStatus.FAILED 
-                      ? 'bg-red-500' 
-                      : task.status === TaskStatus.SUCCESS
-                      ? 'bg-green-500'
-                      : 'bg-gradient-to-r from-[#0077b6] to-[#00b4d8]'
-                  )}
-                  style={{ width: `${task.progress}%` }}
-                />
-              </div>
-            </div>
-          )}
+          </span>
         </div>
-
-        {/* 删除按钮 - 垂直居中 */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onRemove(notification.id)
-          }}
-          className="flex-shrink-0 p-0.5 rounded hover:bg-[#023e8a]/10 dark:hover:bg-white/10 transition-colors"
-          aria-label="删除通知"
-        >
-          <Icon icon="ph:x" className="w-3.5 h-3.5 text-[#023e8a]/50 dark:text-white/50" />
-        </button>
+        <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
+          {timeString}
+        </span>
       </div>
+
+      {/* 内容区域 */}
+      <div className="pl-8">
+        <p className="text-[13px] text-gray-800 dark:text-gray-200 leading-snug line-clamp-2">
+          {message}
+        </p>
+
+        {/* 任务进度条 */}
+        {type === NotificationType.TASK && task && (
+          <div className="space-y-1 mt-2">
+            <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400">
+              <span>{getStatusText(task.status)}</span>
+              <span>{task.progress}%</span>
+            </div>
+            <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all duration-300',
+                  task.status === TaskStatus.FAILED 
+                    ? 'bg-red-500' 
+                    : task.status === TaskStatus.SUCCESS
+                    ? 'bg-green-500'
+                    : 'bg-blue-500'
+                )}
+                style={{ width: `${task.progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 删除按钮 - 悬停显示 */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onRemove(notification.id)
+        }}
+        className="absolute top-2 right-2 p-1 rounded-full bg-gray-200/50 dark:bg-gray-700/50 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-gray-300 dark:hover:bg-gray-600"
+        aria-label="删除通知"
+      >
+        <Icon icon="ph:x" className="w-3 h-3 text-gray-500 dark:text-gray-400" />
+      </button>
     </div>
   )
 }

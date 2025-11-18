@@ -1166,18 +1166,20 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 md:p-6 lg:p-8 md:pl-72 animate-in fade-in duration-200">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-[100] animate-in fade-in duration-200">
+      {/* Backdrop - 覆盖整个屏幕的纯透明磨砂遮罩 */}
       <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-md transition-opacity"
+        className="absolute inset-0 backdrop-blur-md transition-opacity"
         onClick={onClose}
       />
 
-      {/* Modal Container */}
-      <div 
-        ref={containerRef}
-        className="relative w-full max-w-7xl h-[90vh] md:h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 dark:border-white/10 flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 ring-1 ring-black/5"
-      >
+      {/* Content Wrapper - 在主显示区域居中 */}
+      <div className="absolute top-0 right-0 bottom-0 left-0 md:left-[272px] flex items-center justify-center p-2 sm:p-4 md:p-6 lg:p-8 pointer-events-none">
+        {/* Modal Container */}
+        <div 
+          ref={containerRef}
+          className="relative w-full max-w-7xl h-[90vh] md:h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 dark:border-white/10 flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 ring-1 ring-black/5 pointer-events-auto"
+        >
         
         {/* Header / Toolbar */}
         <div className="flex items-center justify-between px-4 md:px-6 h-16 border-b border-gray-200/50 dark:border-gray-700/50 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm shrink-0 select-none">
@@ -1440,6 +1442,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
             </>
           )}
         </div>
+      </div>
       </div>
     </div>
   )

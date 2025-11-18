@@ -186,26 +186,29 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
   const isTaskNotification = currentNotification.type === NotificationType.TASK
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-      {/* 背景模糊遮罩 */}
+    <div className="fixed inset-0 z-50 animate-in fade-in duration-200">
+      {/* 背景遮罩 - 覆盖整个屏幕的纯透明磨砂遮罩 */}
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 backdrop-blur-md transition-opacity"
         onClick={onClose}
       />
 
-      {/* 模态框主体 */}
-      <div
-        className={cn(
-          'relative z-10',
-          'w-full max-w-2xl',
-          isTaskNotification ? 'max-h-[70vh]' : 'max-h-[50vh]',
-          'bg-white dark:bg-[#1a1a1a]',
-          'rounded-2xl shadow-2xl',
-          'border border-[#023e8a]/10 dark:border-white/10',
-          'flex flex-col',
-          'animate-in zoom-in-95 duration-200'
-        )}
-      >
+      {/* Content Wrapper - 在主显示区域居中 */}
+      <div className="absolute top-0 right-0 bottom-0 left-0 md:left-[272px] flex items-center justify-center p-4 pointer-events-none">
+        {/* 模态框主体 */}
+        <div
+          className={cn(
+            'relative z-10',
+            'w-full max-w-2xl',
+            isTaskNotification ? 'max-h-[70vh]' : 'max-h-[50vh]',
+            'bg-white dark:bg-[#1a1a1a]',
+            'rounded-2xl shadow-2xl',
+            'border border-[#023e8a]/10 dark:border-white/10',
+            'flex flex-col',
+            'animate-in zoom-in-95 duration-200',
+            'pointer-events-auto'
+          )}
+        >
         {/* 头部 */}
         <div className="flex items-center justify-between p-6 border-b border-[#023e8a]/10 dark:border-white/10">
           <div className="flex items-center gap-3">
@@ -320,6 +323,7 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
         <div className="px-6 py-3 border-t border-[#023e8a]/10 dark:border-white/10 text-xs text-[#023e8a]/50 dark:text-white/50 text-center">
           按 ESC 键关闭窗口
         </div>
+      </div>
       </div>
     </div>
   )

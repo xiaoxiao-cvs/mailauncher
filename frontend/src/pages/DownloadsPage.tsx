@@ -180,10 +180,10 @@ export function DownloadsPage() {
           <InstallOverview state={overviewState} />
         ) : (
           <div className="flex-1 overflow-y-auto scrollbar-hide z-10">
-            <div className="max-w-6xl mx-auto p-6 md:p-10 lg:p-12 space-y-8 pb-32" ref={containerRef}>
+            <div className="max-w-6xl mx-auto p-4 md:p-6 lg:p-8 space-y-6 pb-32" ref={containerRef}>
               
               {/* 页面标题 */}
-              <div className="text-center space-y-3 animate-item py-4">
+              <div className="text-center space-y-3 animate-item py-2">
                 <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-[#1d1d1f] dark:text-[#f5f5f7]">
                   下载与安装
                 </h1>
@@ -484,7 +484,7 @@ export function DownloadsPage() {
             </div>
 
             {/* 底部悬浮操作栏 */}
-            <div className="fixed bottom-8 left-0 right-0 z-50 px-6 animate-item flex justify-center pointer-events-none">
+            <div className="fixed bottom-8 left-0 md:left-[272px] right-0 z-50 px-6 animate-item flex justify-center pointer-events-none">
               <div className="bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl rounded-full shadow-[0_8px_40px_rgba(0,0,0,0.16)] border border-white/20 dark:border-white/10 p-2 pl-8 flex items-center gap-6 pointer-events-auto w-auto transition-all hover:scale-[1.02]">
                 <div className="min-w-0">
                   {!instanceName.trim() ? (
