@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Sidebar } from '@/components/sidebar'
+// import { Sidebar } from '@/components/sidebar'
 import { InstallOverview } from '@/components/install/InstallOverview'
 import { useDownload, useInstallOverview } from '@/hooks'
 import { useInstallTask } from '@/contexts/InstallTaskContext'
@@ -174,18 +174,9 @@ export function DownloadsPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-[#F5F5F7] to-[#E5E5EA] dark:from-[#000000] dark:to-[#1C1C1E] transition-colors duration-500 font-sans selection:bg-[#0071e3] selection:text-white relative overflow-hidden">
-      {/* 背景装饰 */}
-      <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-blue-400/10 dark:bg-blue-900/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-purple-400/10 dark:bg-purple-900/10 rounded-full blur-[100px] pointer-events-none" />
-
-      {/* 侧边栏 */}
-      <Sidebar />
-
-      {/* 主内容区 */}
-      <main className="flex-1 flex flex-col overflow-hidden relative z-10">
-        {/* 根据是否显示概要卡片切换内容 */}
-        {overviewState.visible ? (
+    <div className="h-full flex flex-col overflow-hidden relative z-10 font-sans selection:bg-[#0071e3] selection:text-white">
+      {/* 根据是否显示概要卡片切换内容 */}
+      {overviewState.visible ? (
           <InstallOverview state={overviewState} />
         ) : (
           <div className="flex-1 overflow-y-auto scrollbar-hide z-10">
@@ -197,7 +188,7 @@ export function DownloadsPage() {
                   下载与安装
                 </h1>
                 <p className="text-lg text-[#86868b] dark:text-[#86868b] max-w-2xl mx-auto font-medium">
-                  构建您的专属 AI 助手，简单几步即可完成配置。
+                  构建您的专属 MaiBot，简单几步即可完成配置。
                 </p>
               </div>
 
@@ -548,7 +539,6 @@ export function DownloadsPage() {
             </div>
           </div>
         )}
-      </main>
     </div>
   )
 }

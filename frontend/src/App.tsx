@@ -9,6 +9,7 @@ import { SettingsPage } from '@/pages/SettingsPage'
 import { InstallTaskProvider } from '@/contexts/InstallTaskContext'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import { GlobalWebSocketManager } from '@/components/GlobalWebSocketManager'
+import { MainLayout } from '@/layouts/MainLayout'
 import logger, { routerLogger } from '@/utils/logger'
 import { useOnboardingState } from '@/hooks/useOnboardingState'
 import './App.css'
@@ -60,11 +61,15 @@ function AppRoutes() {
           />
         } 
       />
-      <Route path="/home" element={<HomePage />} />
-      <Route path="/instances" element={<InstancesPage />} />
-      <Route path="/instances/:id" element={<InstanceDetailPageWrapper />} />
-      <Route path="/downloads" element={<DownloadsPage />} />
-      <Route path="/settings" element={<SettingsPage />} />
+      
+      <Route element={<MainLayout />}>
+        <Route path="/home" element={<HomePage />} />
+        <Route path="/instances" element={<InstancesPage />} />
+        <Route path="/instances/:id" element={<InstanceDetailPageWrapper />} />
+        <Route path="/downloads" element={<DownloadsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Route>
+
       <Route 
         path="/" 
         element={
