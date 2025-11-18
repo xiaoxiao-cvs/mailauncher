@@ -23,7 +23,6 @@ interface NotificationPopoverProps {
 }
 
 /**
- * 通知气泡弹窗组件 - Apple 风格
  * 职责：
  * - 显示通知列表
  * - 支持删除单个通知
@@ -80,7 +79,7 @@ export function NotificationPopover({
         translateY: [20, 0],
         opacity: [0, 1],
         scale: [0.9, 1],
-        delay: (el: Element, i: number) => i * 50,
+        delay: (_el: any, i: number) => i * 50,
         ease: 'outExpo',
         duration: 400
       })

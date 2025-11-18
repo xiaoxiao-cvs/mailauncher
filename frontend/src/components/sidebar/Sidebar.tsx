@@ -98,7 +98,7 @@ export function Sidebar() {
         'border border-white/20 dark:border-white/10', // 细腻边框
         
         // 布局与过渡
-        'flex flex-col transition-all duration-300 ease-in-out relative',
+        'flex flex-col transition-all duration-300 ease-in-out relative z-50',
         
         // 形状
         'rounded-2xl',
