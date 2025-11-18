@@ -81,148 +81,137 @@ export function OnboardingContent({
   }
 
   return (
-    <div className="flex-1">
-      <div className="bg-white/50 dark:bg-[#1f1f1f]/50 backdrop-blur-xl rounded-2xl p-8 md:p-12 border border-white/60 dark:border-[#2e2e2e]/40 shadow-xl min-h-[680px] flex flex-col transition-colors duration-500">
-        {/* 内容区域 - 包含移动端指示器以确保动画一致 */}
-        <div ref={contentRef} className="flex-1 flex flex-col">
-          {/* 移动端步骤指示器 */}
-          <div className="md:hidden flex justify-center gap-2 mb-6">
-            {steps.map((step, index) => (
-              <div
-                key={step.id}
-                className={`step-indicator-bg h-1.5 rounded-full transition-all duration-300 ${
-                  index === currentStep ? 'w-8' : 'w-1.5'
-                }`}
-                style={{
-                  ['--indicator-color' as string]: index === currentStep 
-                    ? currentStepData.color 
-                    : `${currentStepData.color}40`
-                } as React.CSSProperties}
-              />
-            ))}
-          </div>
+    <div className="flex-1 h-full flex flex-col p-8 md:p-12 overflow-hidden">
+      {/* 内容区域 - 包含移动端指示器以确保动画一致 */}
+      <div ref={contentRef} className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
+        {/* 移动端步骤指示器 */}
+        <div className="md:hidden flex justify-center gap-2 mb-6">
+          {steps.map((step, index) => (
+            <div
+              key={step.id}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                index === currentStep ? 'w-8 bg-blue-500' : 'w-1.5 bg-gray-200 dark:bg-gray-700'
+              }`}
+            />
+          ))}
+        </div>
 
-          {/* 标题区域 */}
-          <div className="mb-8">
-            <div className="step-badge-bg inline-flex items-center gap-2 px-3 py-1 rounded-full mb-4">
-              <span className="step-text-color text-xs font-medium">
-                步骤 {currentStep + 1} / {steps.length}
-              </span>
+        {/* 标题区域 */}
+        <div className="mb-10 text-center md:text-left">
+          <div className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-gray-100 dark:bg-white/10 mb-4">
+            <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+              Step {currentStep + 1} of {steps.length}
+            </span>
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-3 tracking-tight">
+            {currentStepData.title}
+          </h2>
+          <p className="text-lg text-gray-500 dark:text-gray-400 font-medium leading-relaxed">
+            {currentStepData.subtitle}
+          </p>
+        </div>
+
+        {/* 内容区域 - 根据步骤类型显示不同内容 */}
+        <div className="flex-1 overflow-y-auto scrollbar-none -mx-4 px-4 mb-6">
+          {hasTabs ? (
+            /* 显示 Tabs */
+            <OnboardingTabs
+              tabs={currentStepData.tabs!}
+              stepColor={currentStepData.color}
+              currentTab={currentTabIndex}
+              onTabChange={(_tabId, tabIndex) => setCurrentTabIndex(tabIndex)}
+              extraProps={{
+                onStatusChange: handleBackendStatusChange,
+                onRecheckRequest: handleRecheckRequest,
+                onGitStatusChange: handleGitStatusChange
+              }}
+            />
+          ) : currentStepData.isSettingsStep ? (
+            /* 设置表单 */
+            <div className="space-y-4">
+              <ThemeSelector />
             </div>
-            <h2 className="text-4xl font-bold text-[#03045e] dark:text-white mb-3">
-              {currentStepData.title}
-            </h2>
-            <p className="text-xl text-[#023e8a]/70 dark:text-white/80 font-medium">
-              {currentStepData.subtitle}
-            </p>
-          </div>
-
-          {/* 内容区域 - 根据步骤类型显示不同内容 */}
-          <div className="mb-8 flex flex-col h-[420px] overflow-hidden">
-            {hasTabs ? (
-              /* 显示 Tabs */
-              <OnboardingTabs
-                tabs={currentStepData.tabs!}
-                stepColor={currentStepData.color}
-                currentTab={currentTabIndex}
-                onTabChange={(_tabId, tabIndex) => setCurrentTabIndex(tabIndex)}
-                extraProps={{
-                  onStatusChange: handleBackendStatusChange,
-                  onRecheckRequest: handleRecheckRequest,
-                  onGitStatusChange: handleGitStatusChange
-                }}
-              />
-            ) : currentStepData.isSettingsStep ? (
-              /* 设置表单 */
-              <div className="space-y-4">
-                <ThemeSelector />
-              </div>
-            ) : currentStepData.isEnvironmentStep ? (
-              /* 环境检查 */
-              <EnvironmentCheck stepColor={currentStepData.color} />
-            ) : (
-              /* 特性列表 */
-              <div className="space-y-4">
-                {currentStepData.description.map((item, index) => (
+          ) : currentStepData.isEnvironmentStep ? (
+            /* 环境检查 */
+            <EnvironmentCheck stepColor={currentStepData.color} />
+          ) : (
+            /* 特性列表 */
+            <div className="space-y-3">
+              {currentStepData.description.map((item, index) => (
+                <div 
+                  key={index}
+                  className="flex items-start gap-4 p-4 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-white/10"
+                >
                   <div 
-                    key={index}
-                    className="flex items-start gap-2.5 p-3.5 rounded-xl bg-white/60 dark:bg-[#2e2e2e] hover:bg-white/80 dark:hover:bg-[#3a3a3a] transition-all duration-300 hover:shadow-md"
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm flex-shrink-0 mt-0.5"
+                    style={{ backgroundColor: currentStepData.color }}
                   >
-                    <div 
-                      className="step-icon-bg w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm flex-shrink-0"
-                      style={{
-                        ['--icon-color' as string]: currentStepData.color,
-                        ['--icon-color-dark' as string]: `${currentStepData.color}dd`
-                      } as React.CSSProperties}
-                    >
-                      {index + 1}
-                    </div>
-                    <p className="text-[#023e8a] dark:text-white leading-relaxed flex-1 text-sm pt-1.5">
-                      {item}
-                    </p>
+                    {index + 1}
                   </div>
-                ))}
-              </div>
+                  <p className="text-gray-700 dark:text-gray-200 leading-relaxed text-[15px]">
+                    {item}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 底部按钮 */}
+        <div className="flex items-center justify-between gap-4 pt-6 border-t border-gray-200 dark:border-white/10 mt-auto">
+          <div className="flex items-center gap-2">
+            {(currentStep > 0 || (hasTabs && currentTabIndex > 0)) && (
+              <Button
+                variant="ghost"
+                onClick={handlePrevious}
+                disabled={isAnimating}
+                className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full px-6"
+              >
+                {hasTabs && currentTabIndex > 0 ? 'Back' : 'Back'}
+              </Button>
+            )}
+            {/* 重新检查按钮 - 仅在联通性检查标签显示 */}
+            {hasTabs && currentStepData.tabs?.[currentTabIndex]?.id === 'connectivity' && recheckFn && (
+              <Button
+                variant="outline"
+                onClick={recheckFn}
+                disabled={isAnimating}
+                className="rounded-full border-gray-200 dark:border-white/10"
+              >
+                Check Again
+              </Button>
             )}
           </div>
-
-          {/* 底部按钮 */}
-          <div className="flex items-center justify-between gap-4 pt-6 border-t border-[#023e8a]/10 dark:border-[#2e2e2e]">
-            <div className="flex items-center gap-2">
-              {(currentStep > 0 || (hasTabs && currentTabIndex > 0)) && (
-                <Button
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={isAnimating}
-                  className="bg-white/60 dark:bg-[#2e2e2e] border-[#023e8a]/20 dark:border-[#3a3a3a] text-[#023e8a] dark:text-white hover:bg-white dark:hover:bg-[#3a3a3a]"
-                >
-                  {hasTabs && currentTabIndex > 0 ? '上一页' : '上一步'}
-                </Button>
-              )}
-              {/* 重新检查按钮 - 仅在联通性检查标签显示 */}
-              {hasTabs && currentStepData.tabs?.[currentTabIndex]?.id === 'connectivity' && recheckFn && (
-                <Button
-                  variant="outline"
-                  onClick={recheckFn}
-                  disabled={isAnimating}
-                  className="bg-white/60 dark:bg-[#2e2e2e] border-[#023e8a]/20 dark:border-[#3a3a3a] text-[#023e8a] dark:text-white hover:bg-white dark:hover:bg-[#3a3a3a]"
-                >
-                  重新检查
-                </Button>
-              )}
-            </div>
-            
-            <Button
-              onClick={handleNext}
-              disabled={
-                isAnimating || 
-                (hasTabs && currentStepData.tabs?.[currentTabIndex]?.id === 'connectivity' && !isBackendConnected) ||
-                (hasTabs && currentStepData.tabs?.[currentTabIndex]?.id === 'environment' && !isGitAvailable)
-              }
-              className="step-icon-bg text-white border-0 px-8 py-6 text-base shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                ['--icon-color' as string]: currentStepData.color,
-                ['--icon-color-dark' as string]: `${currentStepData.color}dd`
-              } as React.CSSProperties}
-            >
-              {currentStep === steps.length - 1 && (!hasTabs || isLastTab) ? (
-                <>
-                  <CheckCircle2Icon className="w-5 h-5 mr-2" />
-                  开始使用 MAI Launcher
-                </>
-              ) : hasTabs && !isLastTab ? (
-                <>
-                  下一页
-                  <ArrowRightIcon className="w-5 h-5 ml-2" />
-                </>
-              ) : (
-                <>
-                  下一步
-                  <ArrowRightIcon className="w-5 h-5 ml-2" />
-                </>
-              )}
-            </Button>
-          </div>
+          
+          <Button
+            onClick={handleNext}
+            disabled={
+              isAnimating || 
+              (hasTabs && currentStepData.tabs?.[currentTabIndex]?.id === 'connectivity' && !isBackendConnected) ||
+              (hasTabs && currentStepData.tabs?.[currentTabIndex]?.id === 'environment' && !isGitAvailable)
+            }
+            className="rounded-full px-8 py-6 text-[15px] font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed text-white"
+            style={{
+              backgroundColor: currentStepData.color,
+            }}
+          >
+            {currentStep === steps.length - 1 && (!hasTabs || isLastTab) ? (
+              <>
+                <CheckCircle2Icon className="w-5 h-5 mr-2" />
+                Get Started
+              </>
+            ) : hasTabs && !isLastTab ? (
+              <>
+                Continue
+                <ArrowRightIcon className="w-5 h-5 ml-2" />
+              </>
+            ) : (
+              <>
+                Continue
+                <ArrowRightIcon className="w-5 h-5 ml-2" />
+              </>
+            )}
+          </Button>
         </div>
       </div>
     </div>

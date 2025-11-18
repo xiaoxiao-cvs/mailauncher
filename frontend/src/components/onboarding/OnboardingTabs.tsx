@@ -18,7 +18,7 @@ interface OnboardingTabsProps {
  * 引导页 Tabs 组件
  * 用于在同一步骤内切换不同的配置页面
  */
-export function OnboardingTabs({ tabs, stepColor, onTabChange, currentTab = 0, extraProps }: OnboardingTabsProps) {
+export function OnboardingTabs({ tabs, onTabChange, currentTab = 0, extraProps }: OnboardingTabsProps) {
   const [activeTab, setActiveTab] = useState(currentTab)
 
   // 安全检查
@@ -46,34 +46,27 @@ export function OnboardingTabs({ tabs, stepColor, onTabChange, currentTab = 0, e
 
   return (
     <div className="flex flex-col h-full">
-      {/* Tabs 导航 */}
-      <div className="flex gap-1 mb-4 border-b border-[#023e8a]/10 dark:border-[#3a3a3a] flex-shrink-0">
+      {/* Tabs 导航 - macOS Segmented Control 风格 */}
+      <div className="flex p-1 mb-6 bg-gray-100 dark:bg-white/5 rounded-lg self-start">
         {tabs.map((tab, index) => (
           <button
             key={tab.id}
             onClick={() => handleTabClick(index)}
             className={`
-              relative px-5 py-2.5 text-sm font-medium rounded-t-lg transition-all duration-200
+              relative px-4 py-1.5 text-[13px] font-medium rounded-[6px] transition-all duration-200 select-none
               ${activeTab === index
-                ? 'text-[#023e8a] dark:text-white bg-white/60 dark:bg-[#2e2e2e]'
-                : 'text-[#023e8a]/60 dark:text-white/60 hover:text-[#023e8a] dark:hover:text-white hover:bg-white/30 dark:hover:bg-[#2e2e2e]/50'
+                ? 'text-gray-900 dark:text-white bg-white dark:bg-[#636366] shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }
             `}
           >
             {tab.label}
-            {/* 活动指示器 */}
-            {activeTab === index && (
-              <div
-                className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full"
-                style={{ backgroundColor: stepColor }}
-              />
-            )}
           </button>
         ))}
       </div>
 
       {/* Tab 内容 - 固定高度，内部滚动 */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden -mx-1 px-1">
         <div className="animate-in fade-in-0 slide-in-from-right-2 duration-300">
           {tabs[activeTab] && (
             extraProps && React.isValidElement(tabs[activeTab].component)

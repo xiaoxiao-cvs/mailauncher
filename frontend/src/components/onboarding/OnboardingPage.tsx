@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { OnboardingSidebar } from './OnboardingSidebar'
 import { OnboardingContent } from './OnboardingContent'
@@ -6,6 +6,7 @@ import { useOnboardingAnimation } from '@/hooks/useOnboardingAnimation'
 import { ONBOARDING_STEPS } from './constants'
 import { routerLogger } from '@/utils/logger'
 import type { OnboardingCallbacks } from '@/types/onboarding'
+import { animate } from 'animejs'
 
 /**
  * 引导页主组件
@@ -16,8 +17,32 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
   // 记录用户曾经到达过的最远步骤
   const [maxReachedStep, setMaxReachedStep] = useState(0)
   const { contentRef, isAnimating, animateTransition } = useOnboardingAnimation()
+  const blobRef1 = useRef<HTMLDivElement>(null)
+  const blobRef2 = useRef<HTMLDivElement>(null)
 
   const currentStepData = ONBOARDING_STEPS[currentStep]
+
+  const random = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+  useEffect(() => {
+    // 背景光斑呼吸动画
+    if (blobRef1.current && blobRef2.current) {
+      animate(
+        [blobRef1.current, blobRef2.current],
+        {
+          translateX: () => random(-50, 50),
+          translateY: () => random(-50, 50),
+          scale: [1, 1.2],
+          opacity: [0.3, 0.5],
+          duration: () => random(3000, 5000),
+          delay: () => random(0, 1000),
+          direction: 'alternate',
+          loop: true,
+          easing: 'easeInOutSine'
+        }
+      )
+    }
+  }, [])
 
   const handleNext = () => {
     if (isAnimating) return
@@ -60,42 +85,50 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
 
   return (
     <div 
-      className="min-h-screen bg-white dark:bg-[#0f0f0f] flex items-center justify-center p-4 overflow-hidden relative transition-colors duration-500"
+      className="min-h-screen bg-[#F5F5F7] dark:bg-[#000000] flex items-center justify-center p-4 overflow-hidden relative transition-colors duration-700 font-sans"
       style={{
         ['--step-color' as string]: currentStepData.color,
-        ['--step-color-light' as string]: `${currentStepData.color}20`,
-        ['--step-color-lighter' as string]: `${currentStepData.color}10`,
-        ['--step-color-fade' as string]: `${currentStepData.color}40`
       } as React.CSSProperties}
     >
-      {/* 优化的动态渐变背景 */}
+      {/* 极简风格的动态背景 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="gradient-blob blob-1 absolute top-0 left-0 w-[1530px] h-[1530px] rounded-full blur-3xl opacity-40 dark:opacity-20" />
-        <div className="gradient-blob blob-2 absolute top-1/3 right-0 w-[1360px] h-[1360px] rounded-full blur-3xl opacity-45 dark:opacity-20" />
-        <div className="gradient-blob blob-3 absolute bottom-0 left-1/3 w-[1445px] h-[1445px] rounded-full blur-3xl opacity-35 dark:opacity-20" />
+        <div 
+          ref={blobRef1}
+          className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] rounded-full blur-[120px] opacity-30 transition-colors duration-1000 ease-in-out"
+          style={{ backgroundColor: currentStepData.color }}
+        />
+        <div 
+          ref={blobRef2}
+          className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] rounded-full blur-[100px] opacity-20 transition-colors duration-1000 ease-in-out delay-300"
+          style={{ backgroundColor: currentStepData.color }}
+        />
       </div>
 
-      {/* 全新左右分栏式布局 */}
-      <div className="relative w-full max-w-6xl z-10 flex gap-8">
-        {/* 左侧：步骤导航 */}
-        <OnboardingSidebar
-          steps={ONBOARDING_STEPS}
-          currentStep={currentStep}
-          maxReachedStep={maxReachedStep}
-          isAnimating={isAnimating}
-          onStepClick={handleStepClick}
-        />
+      {/* macOS 风格的主窗口容器 */}
+      <div className="relative w-full max-w-5xl h-[720px] z-10 flex bg-white/80 dark:bg-[#1E1E1E]/80 backdrop-blur-2xl rounded-[20px] shadow-2xl border border-white/40 dark:border-white/10 overflow-hidden transition-all duration-500">
+        {/* 左侧：侧边栏 */}
+        <div className="w-[280px] flex-shrink-0 border-r border-black/5 dark:border-white/5 bg-gray-50/30 dark:bg-[#252525]/30 flex flex-col">
+          <OnboardingSidebar
+            steps={ONBOARDING_STEPS}
+            currentStep={currentStep}
+            maxReachedStep={maxReachedStep}
+            isAnimating={isAnimating}
+            onStepClick={handleStepClick}
+          />
+        </div>
 
         {/* 右侧：内容展示区 */}
-        <OnboardingContent
-          steps={ONBOARDING_STEPS}
-          currentStep={currentStep}
-          currentStepData={currentStepData}
-          isAnimating={isAnimating}
-          contentRef={contentRef}
-          onNext={handleNext}
-          onPrevious={handlePrevious}
-        />
+        <div className="flex-1 relative flex flex-col min-w-0">
+          <OnboardingContent
+            steps={ONBOARDING_STEPS}
+            currentStep={currentStep}
+            currentStepData={currentStepData}
+            isAnimating={isAnimating}
+            contentRef={contentRef}
+            onNext={handleNext}
+            onPrevious={handlePrevious}
+          />
+        </div>
       </div>
 
       {/* 跳过按钮 - 绝对定位在左下角 */}

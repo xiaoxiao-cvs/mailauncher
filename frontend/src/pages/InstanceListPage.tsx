@@ -3,10 +3,11 @@
  * 显示所有实例的卡片网格
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { InstanceCard } from '@/components/instances/InstanceCard';
 import { Plus, RefreshCw, AlertCircle, Server } from 'lucide-react';
+import { animate } from 'animejs';
 
 export const InstanceListPage: React.FC = () => {
   const {
@@ -22,6 +23,7 @@ export const InstanceListPage: React.FC = () => {
   } = useInstanceStore();
   
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const hasAnimated = useRef(false);
   
   // 加载实例列表
   useEffect(() => {
@@ -34,6 +36,20 @@ export const InstanceListPage: React.FC = () => {
     
     return () => clearInterval(interval);
   }, [fetchInstances]);
+
+  // 列表动画
+  useEffect(() => {
+    if (instances.length > 0 && !hasAnimated.current) {
+      animate('.instance-card-item', {
+        translateY: [30, 0],
+        opacity: [0, 1],
+        delay: (_: any, i: number) => i * 100,
+        easing: 'easeOutExpo',
+        duration: 1000
+      });
+      hasAnimated.current = true;
+    }
+  }, [instances.length]);
   
   // 处理启动实例
   const handleStart = async (id: string) => {
@@ -102,60 +118,69 @@ export const InstanceListPage: React.FC = () => {
   };
   
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-6 py-10 max-w-7xl">
       {/* 页面头部 */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-              实例管理
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-              总实例数 {instances.length} | 运行中 <span className="text-green-600 dark:text-green-400">{instances.filter(i => i.status === 'running').length}</span> | 已停止 {instances.filter(i => i.status === 'stopped').length} | 错误 <span className="text-red-600 dark:text-red-400">{instances.filter(i => i.status === 'error').length}</span>
-            </p>
+      <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white tracking-tight mb-3">
+            实例管理
+          </h1>
+          <div className="flex items-center gap-4 text-sm font-medium text-gray-500 dark:text-gray-400">
+            <span className="bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
+              总计 {instances.length}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#34C759]" />
+              运行中 {instances.filter(i => i.status === 'running').length}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#8E8E93]" />
+              已停止 {instances.filter(i => i.status === 'stopped').length}
+            </span>
           </div>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-800 
+                     text-gray-600 dark:text-gray-300 rounded-full border border-gray-200 
+                     dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700
+                     hover:shadow-md active:scale-95 disabled:opacity-50 
+                     transition-all duration-300 font-medium text-sm"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            刷新状态
+          </button>
           
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleRefresh}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 
-                       text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 
-                       dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700
-                       disabled:opacity-50 transition-colors duration-200"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              刷新
-            </button>
-            
-            <button
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white 
-                       rounded-lg hover:bg-blue-700 transition-colors duration-200"
-            >
-              <Plus className="w-4 h-4" />
-              创建实例
-            </button>
-          </div>
+          <button
+            className="flex items-center gap-2 px-6 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900
+                     rounded-full hover:shadow-lg hover:shadow-gray-900/20 dark:hover:shadow-white/20
+                     hover:-translate-y-0.5 active:translate-y-0 active:scale-95
+                     transition-all duration-300 font-medium text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            创建新实例
+          </button>
         </div>
       </div>
       
       {/* 错误提示 */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 
-                      dark:border-red-800 rounded-lg flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+        <div className="mb-8 p-4 bg-[#FF3B30]/10 border border-[#FF3B30]/20 
+                      rounded-2xl flex items-center gap-4 backdrop-blur-sm">
+          <div className="w-10 h-10 rounded-full bg-[#FF3B30]/20 flex items-center justify-center flex-shrink-0">
+            <AlertCircle className="w-5 h-5 text-[#FF3B30]" />
+          </div>
           <div className="flex-1">
-            <p className="text-red-800 dark:text-red-200 font-medium">
-              操作失败
-            </p>
-            <p className="text-red-600 dark:text-red-300 text-sm mt-1">
-              {error}
-            </p>
+            <p className="text-[#FF3B30] font-semibold">操作失败</p>
+            <p className="text-[#FF3B30]/80 text-sm mt-0.5">{error}</p>
           </div>
           <button
             onClick={clearError}
-            className="text-red-600 dark:text-red-400 hover:text-red-800 
-                     dark:hover:text-red-200 text-sm font-medium"
+            className="px-4 py-2 bg-white/50 hover:bg-white text-[#FF3B30] rounded-full 
+                     text-sm font-medium transition-colors duration-200"
           >
             关闭
           </button>
@@ -164,32 +189,36 @@ export const InstanceListPage: React.FC = () => {
       
       {/* 实例卡片网格 */}
       {loading && instances.length === 0 ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">加载中...</p>
-          </div>
+        <div className="flex flex-col items-center justify-center py-32">
+          <div className="w-16 h-16 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mb-6" />
+          <p className="text-gray-500 font-medium">正在加载实例数据...</p>
         </div>
       ) : instances.length === 0 ? (
-        <div className="text-center py-20">
-          <div className="text-gray-400 dark:text-gray-500 mb-4">
-            <Server className="w-16 h-16 mx-auto mb-4" />
-            <p className="text-xl font-medium">暂无实例</p>
-            <p className="text-sm mt-2">点击"创建实例"按钮开始使用</p>
+        <div className="flex flex-col items-center justify-center py-32 text-center">
+          <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
+            <Server className="w-10 h-10 text-gray-400" />
           </div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">暂无实例</h3>
+          <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-8">
+            您还没有创建任何实例。点击右上角的"创建新实例"按钮开始您的第一个部署。
+          </p>
+          <button className="px-8 py-3 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
+            立即创建
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
           {instances.map((instance) => (
-            <InstanceCard
-              key={instance.id}
-              instance={instance}
-              onStart={handleStart}
-              onStop={handleStop}
-              onRestart={handleRestart}
-              onDelete={handleDelete}
-              loading={actionLoading === instance.id}
-            />
+            <div key={instance.id} className="instance-card-item opacity-0">
+              <InstanceCard
+                instance={instance}
+                onStart={handleStart}
+                onStop={handleStop}
+                onRestart={handleRestart}
+                onDelete={handleDelete}
+                loading={actionLoading === instance.id}
+              />
+            </div>
           ))}
         </div>
       )}
