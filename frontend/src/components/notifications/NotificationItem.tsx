@@ -15,48 +15,33 @@ interface NotificationItemProps {
  * 单个通知项组件 - Apple 风格
  */
 export function NotificationItem({ notification, onRemove, onClick, className, style }: NotificationItemProps) {
-  const { type, title, message, task, createdAt } = notification
-
-  // 计算相对时间
-  const timeString = useMemo(() => {
-    if (!createdAt) return ''
-    const date = new Date(createdAt)
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const minutes = Math.floor(diff / 60000)
-    
-    if (minutes < 1) return '现在'
-    if (minutes < 60) return `${minutes}分钟前`
-    const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours}小时前`
-    return `${date.getMonth() + 1}/${date.getDate()}`
-  }, [createdAt])
+  const { type, title, message, task } = notification
 
   // 获取图标
   const getIcon = () => {
     if (type === NotificationType.TASK && task) {
       switch (task.status) {
         case TaskStatus.SUCCESS:
-          return <Icon icon="ph:check-circle-fill" className="w-5 h-5 text-green-500" />
+          return <Icon icon="ph:check-circle-fill" className="w-4 h-4 text-green-500" />
         case TaskStatus.FAILED:
-          return <Icon icon="ph:x-circle-fill" className="w-5 h-5 text-red-500" />
+          return <Icon icon="ph:x-circle-fill" className="w-4 h-4 text-red-500" />
         case TaskStatus.DOWNLOADING:
         case TaskStatus.INSTALLING:
-          return <Icon icon="ph:arrow-circle-down-fill" className="w-5 h-5 text-blue-500 animate-pulse" />
+          return <Icon icon="ph:arrow-circle-down-fill" className="w-4 h-4 text-blue-500 animate-pulse" />
         default:
-          return <Icon icon="ph:clock-fill" className="w-5 h-5 text-gray-400" />
+          return <Icon icon="ph:clock-fill" className="w-4 h-4 text-gray-400" />
       }
     }
 
     switch (type) {
       case NotificationType.MESSAGE:
-        return <Icon icon="ph:info-fill" className="w-5 h-5 text-blue-500" />
+        return <Icon icon="ph:info-fill" className="w-4 h-4 text-blue-500" />
       case NotificationType.WARNING:
-        return <Icon icon="ph:warning-fill" className="w-5 h-5 text-orange-500" />
+        return <Icon icon="ph:warning-fill" className="w-4 h-4 text-orange-500" />
       case NotificationType.ERROR:
-        return <Icon icon="ph:x-circle-fill" className="w-5 h-5 text-red-500" />
+        return <Icon icon="ph:x-circle-fill" className="w-4 h-4 text-red-500" />
       default:
-        return <Icon icon="ph:bell-fill" className="w-5 h-5 text-gray-400" />
+        return <Icon icon="ph:bell-fill" className="w-4 h-4 text-gray-400" />
     }
   }
 
@@ -65,33 +50,40 @@ export function NotificationItem({ notification, onRemove, onClick, className, s
       className={cn(
         'group relative overflow-hidden',
         'bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-xl', // Glassmorphism
-        'rounded-[18px]', // Apple-like rounded corners
+        'rounded-[14px]', // Apple-like rounded corners
         'shadow-sm hover:shadow-md transition-all duration-200',
         'border border-white/40 dark:border-white/10',
-        'p-3 cursor-pointer',
+        'p-2.5 cursor-pointer',
         className
       )}
       style={style}
       onClick={() => onClick(notification)}
     >
-      {/* 头部：图标 + 标题 + 时间 */}
-      <div className="flex items-center justify-between mb-1.5">
+      {/* 头部：图标 + 标题 + 关闭按钮 */}
+      <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md flex items-center justify-center bg-white dark:bg-white/10 shadow-sm">
+          <div className="w-5 h-5 rounded-md flex items-center justify-center bg-white dark:bg-white/10 shadow-sm">
             {getIcon()}
           </div>
-          <span className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 opacity-90 truncate max-w-[180px]">
+          <span className="text-[12px] font-semibold text-gray-900 dark:text-gray-100 opacity-90 truncate max-w-[200px]">
             {title}
           </span>
         </div>
-        <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
-          {timeString}
-        </span>
+        
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onRemove(notification.id)
+          }}
+          className="p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+        >
+          <Icon icon="ph:x" className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* 内容区域 */}
-      <div className="pl-8">
-        <p className="text-[13px] text-gray-800 dark:text-gray-200 leading-snug line-clamp-2">
+      <div className="pl-7">
+        <p className="text-[12px] text-gray-600 dark:text-gray-300 leading-snug line-clamp-2">
           {message}
         </p>
 

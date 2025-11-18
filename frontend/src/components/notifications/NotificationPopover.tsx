@@ -1,8 +1,8 @@
 import { Icon } from '@iconify/react'
-import { Notification, NotificationType, TaskStatus } from '@/types/notification'
+import { Notification } from '@/types/notification'
 import { NotificationItem } from './NotificationItem'
 import { cn } from '@/lib/utils'
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { animate } from 'animejs'
 
 interface NotificationPopoverProps {
@@ -61,17 +61,6 @@ export function NotificationPopover({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen, onClose])
 
-  // 分类通知：已完成的任务 vs 其他通知
-  const { completedTasks, activeNotifications } = useMemo(() => {
-    const completed = notifications.filter(
-      n => n.type === NotificationType.TASK && 
-      (n.task?.status === TaskStatus.SUCCESS || n.task?.status === TaskStatus.FAILED)
-    )
-    // 保持原始顺序，但移除已完成的任务
-    const active = notifications.filter(n => !completed.includes(n))
-    return { completedTasks: completed, activeNotifications: active }
-  }, [notifications])
-
   // 堆叠展开动画
   useEffect(() => {
     if (isStackExpanded) {
@@ -90,14 +79,17 @@ export function NotificationPopover({
 
   // 根据侧边栏状态计算气泡位置
   const popoverLeft = isCollapsed ? '4.5rem' : '17rem'
+  
+  // 是否显示堆叠视图
+  const showStack = notifications.length > 1 && !isStackExpanded
 
   return (
     <div
       ref={popoverRef}
       className={cn(
         'fixed z-50',
-        'w-[360px]', // Apple 风格宽度
-        'max-h-[33vh]', // 高度限制：不超过屏幕 1/3
+        'w-[400px]', // 增加宽度
+        'max-h-[60vh]', // 增加最大高度
         'flex flex-col',
         // Glassmorphism 容器样式
         'bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-2xl',
@@ -114,7 +106,7 @@ export function NotificationPopover({
       {/* 头部 */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 dark:border-white/5 bg-white/10 dark:bg-white/5">
         <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white tracking-wide">
-          通知中心
+          {notifications.length > 1 ? `共 ${notifications.length} 个通知` : '通知中心'}
         </h3>
         
         {notifications.length > 0 && (
@@ -129,7 +121,7 @@ export function NotificationPopover({
       </div>
 
       {/* 通知列表 */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-hide">
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-gray-400 dark:text-gray-500">
             <Icon icon="ph:bell-slash" className="w-10 h-10 mb-2 opacity-50" />
@@ -137,79 +129,47 @@ export function NotificationPopover({
           </div>
         ) : (
           <>
-            {/* 活跃通知（下载中/安装中/消息/警告等） - 始终显示 */}
-            {activeNotifications.map((notification) => (
-              <NotificationItem
-                key={notification.id}
-                notification={notification}
-                onRemove={onRemove}
-                onClick={onNotificationClick}
-              />
-            ))}
+            {showStack ? (
+              // 堆叠视图
+              <div 
+                className="group relative cursor-pointer select-none pt-2 px-1"
+                onClick={() => setIsStackExpanded(true)}
+              >
+                {/* 堆叠背景卡片 */}
+                <div className="absolute top-0 left-2 right-2 h-full bg-white/40 dark:bg-white/5 rounded-[14px] transform scale-[0.96] translate-y-1 z-0 border border-white/20 dark:border-white/5 shadow-sm transition-transform duration-300 group-hover:translate-y-2" />
+                <div className="absolute top-2 left-4 right-4 h-full bg-white/20 dark:bg-white/5 rounded-[14px] transform scale-[0.92] translate-y-2 -z-10 border border-white/20 dark:border-white/5 shadow-sm transition-transform duration-300 group-hover:translate-y-4" />
 
-            {/* 已完成任务堆叠 */}
-            {completedTasks.length > 0 && (
-              <div className="relative pt-1">
-                {isStackExpanded ? (
-                  // 展开视图
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between px-1 pb-1">
-                      <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
-                        已完成任务 ({completedTasks.length})
-                      </span>
-                      <button 
-                        onClick={() => setIsStackExpanded(false)}
-                        className="text-[10px] text-blue-500 hover:text-blue-600 font-medium bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full transition-colors"
-                      >
-                        折叠
-                      </button>
-                    </div>
-                    {completedTasks.map((notification) => (
-                      <div key={notification.id} className="stack-item">
-                        <NotificationItem
-                          notification={notification}
-                          onRemove={onRemove}
-                          onClick={onNotificationClick}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  // 堆叠视图
-                  <div 
-                    className="group relative cursor-pointer select-none"
-                    onClick={() => setIsStackExpanded(true)}
-                  >
-                    {/* 堆叠背景卡片 */}
-                    {completedTasks.length > 1 && (
-                      <div className="absolute top-2 left-2 right-2 h-full bg-white/40 dark:bg-white/5 rounded-[18px] transform scale-[0.96] translate-y-1 z-0 border border-white/20 dark:border-white/5 shadow-sm transition-transform duration-300 group-hover:translate-y-2" />
-                    )}
-                    {completedTasks.length > 2 && (
-                      <div className="absolute top-4 left-4 right-4 h-full bg-white/20 dark:bg-white/5 rounded-[18px] transform scale-[0.92] translate-y-2 -z-10 border border-white/20 dark:border-white/5 shadow-sm transition-transform duration-300 group-hover:translate-y-4" />
-                    )}
-
-                    {/* 顶部卡片 */}
-                    <div className="relative z-10 transform transition-transform duration-300 group-hover:-translate-y-1">
-                      <NotificationItem
-                        notification={completedTasks[0]}
-                        onRemove={onRemove}
-                        onClick={onNotificationClick}
-                      />
-                      
-                      {/* 数量角标 */}
-                      <div className="absolute -top-1.5 -right-1.5 z-20 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-blue-500 text-white text-[10px] font-bold rounded-full shadow-lg border border-white dark:border-[#2c2c2e]">
-                        {completedTasks.length}
-                      </div>
-                      
-                      {/* 展开提示 */}
-                      <div className="absolute bottom-2 right-10 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-                        <span className="text-[10px] text-gray-500 bg-white/90 dark:bg-black/60 backdrop-blur px-2 py-1 rounded-full shadow-sm">
-                          点击展开
-                        </span>
-                      </div>
-                    </div>
+                {/* 顶部卡片 - 点击展开 */}
+                <div className="relative z-10">
+                  <NotificationItem
+                    notification={notifications[0]}
+                    onRemove={onRemove}
+                    onClick={() => setIsStackExpanded(true)} // 覆盖点击事件为展开
+                  />
+                </div>
+              </div>
+            ) : (
+              // 展开列表视图
+              <div className="space-y-2">
+                {isStackExpanded && (
+                  <div className="flex justify-end px-1">
+                    <button 
+                      onClick={() => setIsStackExpanded(false)}
+                      className="text-[10px] text-blue-500 hover:text-blue-600 font-medium bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full transition-colors"
+                    >
+                      折叠
+                    </button>
                   </div>
                 )}
+                {notifications.map((notification) => (
+                  <div key={notification.id} className="stack-item">
+                    <NotificationItem
+                      notification={notification}
+                      onRemove={onRemove}
+                      onClick={onNotificationClick}
+                    />
+                  </div>
+                ))}
               </div>
             )}
           </>
@@ -217,5 +177,6 @@ export function NotificationPopover({
       </div>
     </div>
   )
+
 }
 
