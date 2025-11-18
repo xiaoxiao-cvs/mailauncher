@@ -2,8 +2,8 @@
  * MAIBot 配置模态框
  * 用于可视化编辑 Bot Config 和 Model Config
  */
-import React, { useState, useEffect, useMemo } from 'react'
-import { X, Save, FileText, Settings, Loader2, FileCode, FileJson, Info, Plus, XIcon, Check } from 'lucide-react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { X, Save, Settings, Loader2, FileCode, FileJson, Info, Plus, XIcon, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -71,6 +71,27 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
   const [editMode, setEditMode] = useState<'tree' | 'text'>('tree')
   const [rawText, setRawText] = useState<string>('')
   const [originalRawText, setOriginalRawText] = useState<string>('')
+
+  // 容器响应式逻辑
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState<number>(1200) // 默认宽屏
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width)
+      }
+    })
+    
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [isOpen]) // isOpen 变化时重新绑定
+
+  // 基于容器宽度的断点状态
+  const isCompact = containerWidth < 800 // 紧凑模式阈值
+  const isMobile = containerWidth < 600  // 移动端模式阈值
 
   // 加载配置
   const loadConfigs = async () => {
@@ -812,19 +833,19 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     const hint = path ? getConfigHint(path, currentConfig?.comments || {}) : ''
 
     return (
-      <div key={node.id} className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-3">
+      <div key={node.id} className="group relative p-5 bg-white/60 dark:bg-gray-800/40 hover:bg-white/80 dark:hover:bg-gray-800/60 rounded-xl border border-gray-200/50 dark:border-gray-700/50 shadow-sm transition-all duration-200 space-y-3 backdrop-blur-sm">
         {/* 配置项标题 */}
         <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <Label className="text-base font-semibold text-gray-900 dark:text-gray-100">
+          <div className="flex-1 space-y-1">
+            <Label className="text-base font-medium text-gray-900 dark:text-gray-100 tracking-tight">
               {node.name}
             </Label>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-mono">{path}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-mono opacity-60 select-all">{path}</p>
           </div>
           {comment && hint && (
-            <div className="relative group ml-2">
-              <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 cursor-help" />
-              <div className="pointer-events-none absolute z-10 right-0 mt-2 hidden group-hover:block text-xs rounded px-3 py-2 max-w-[500px] whitespace-normal break-words bg-white text-gray-900 border border-gray-200 shadow-lg dark:bg-gray-900 dark:text-white dark:border-gray-700">
+            <div className="relative group/info ml-2">
+              <Info className="w-4 h-4 text-blue-500/70 dark:text-blue-400/70 cursor-help transition-colors hover:text-blue-600 dark:hover:text-blue-300" />
+              <div className="pointer-events-none absolute z-20 right-0 mt-2 hidden group-hover/info:block text-xs rounded-lg px-4 py-3 max-w-[300px] whitespace-normal break-words bg-white/95 text-gray-700 border border-gray-100 shadow-xl dark:bg-gray-900/95 dark:text-gray-200 dark:border-gray-800 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
                 {comment.replace(/\r?\n/g, ' ').replace(/\s{2,}/g, ' ')}
               </div>
             </div>
@@ -833,16 +854,18 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
 
         {/* 提示信息 */}
         {comment && hint && (
-          <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-sm text-blue-700 dark:text-blue-300">
+          <div className="px-3 py-2 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg text-sm text-blue-600/90 dark:text-blue-300/90 border border-blue-100/50 dark:border-blue-800/20">
             {hint}
           </div>
         )}
 
         {/* 值编辑器 */}
-        <div>
-          <Label className="text-xs text-gray-600 dark:text-gray-400 mb-1">
-            类型: {valueType}
-          </Label>
+        <div className="pt-1">
+          <div className="flex items-center justify-between mb-2">
+             <Label className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
+              {valueType}
+            </Label>
+          </div>
           
           {valueType === 'string' && (
             value && value.length > 50 ? (
@@ -853,7 +876,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                   setEditValue(e.target.value)
                   setHasChanges(true)
                 }}
-                className="mt-1 min-h-[120px] font-mono text-sm"
+                className="mt-1 min-h-[120px] font-mono text-sm bg-white/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20 transition-all rounded-lg resize-y"
                 placeholder="输入字符串值"
               />
             ) : (
@@ -865,7 +888,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                   setEditValue(e.target.value)
                   setHasChanges(true)
                 }}
-                className="mt-1"
+                className="mt-1 bg-white/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20 transition-all rounded-lg h-10"
                 placeholder="输入字符串值"
               />
             )
@@ -880,13 +903,20 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                 setEditValue(Number(e.target.value))
                 setHasChanges(true)
               }}
-              className="mt-1"
+              className="mt-1 bg-white/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20 transition-all rounded-lg h-10 font-mono"
               placeholder="输入数字"
             />
           )}
 
           {valueType === 'boolean' && (
-            <div className="flex items-center space-x-2 mt-2">
+            <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-900/50 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
+              <Label className="cursor-pointer" onClick={() => {
+                  setSelectedPath(path)
+                  setEditValue(!(editValue && selectedPath === path ? editValue : value))
+                  setHasChanges(true)
+              }}>
+                {(editValue && selectedPath === path ? editValue : value) ? '已启用' : '已禁用'}
+              </Label>
               <Switch
                 checked={editValue && selectedPath === path ? editValue : value}
                 onCheckedChange={(checked: boolean) => {
@@ -895,7 +925,6 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                   setHasChanges(true)
                 }}
               />
-              <Label>{(editValue && selectedPath === path ? editValue : value) ? '是' : '否'}</Label>
             </div>
           )}
 
@@ -903,12 +932,12 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
             <>
               {/* 如果是字符串数组，用 Tag 展示 */}
               {Array.isArray(value) && value.every((v: any) => typeof v === 'string') ? (
-                <div className="mt-2">
+                <div className="mt-2 p-3 bg-white/50 dark:bg-gray-900/50 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
                   <div className="flex flex-wrap gap-2 mb-2 items-center">
                     {(editValue && selectedPath === path ? editValue : value).map((item: string, idx: number) => (
                       <div
                         key={idx}
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full text-sm"
+                        className="group/tag inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/30 rounded-full text-sm transition-all hover:bg-blue-100 dark:hover:bg-blue-900/40"
                       >
                         <span>{item}</span>
                         <button
@@ -919,7 +948,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                             setEditValue(newArray)
                             setHasChanges(true)
                           }}
-                          className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5"
+                          className="opacity-0 group-hover/tag:opacity-100 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5 transition-all"
                         >
                           <XIcon className="w-3 h-3" />
                         </button>
@@ -947,8 +976,8 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                               setAddingTagPath(null)
                             }
                           }}
-                          className="h-8 w-32 rounded-full text-sm px-3"
-                          placeholder="输入内容"
+                          className="h-8 w-40 rounded-full text-sm px-3 bg-white dark:bg-gray-800 border-blue-200 focus:ring-2 focus:ring-blue-500/20"
+                          placeholder="输入内容..."
                         />
                         <button
                           onClick={() => {
@@ -962,7 +991,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                               setAddingTagPath(null)
                             }
                           }}
-                          className="inline-flex items-center justify-center w-8 h-8 bg-green-500 hover:bg-green-600 rounded-full text-white transition-all duration-200"
+                          className="inline-flex items-center justify-center w-8 h-8 bg-green-500 hover:bg-green-600 rounded-full text-white shadow-sm transition-all duration-200"
                         >
                           <Check className="w-4 h-4" />
                         </button>
@@ -971,7 +1000,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                             setNewTagValue('')
                             setAddingTagPath(null)
                           }}
-                          className="inline-flex items-center justify-center w-8 h-8 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full text-gray-600 dark:text-gray-300"
+                          className="inline-flex items-center justify-center w-8 h-8 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full text-gray-500 dark:text-gray-400 transition-all duration-200"
                         >
                           <XIcon className="w-4 h-4" />
                         </button>
@@ -982,7 +1011,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                           setAddingTagPath(path)
                           setNewTagValue('')
                         }}
-                        className="inline-flex items-center justify-center w-8 h-8 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full text-gray-600 dark:text-gray-300 transition-all duration-200"
+                        className="inline-flex items-center justify-center w-8 h-8 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-dashed border-gray-300 dark:border-gray-600 rounded-full text-gray-500 dark:text-gray-400 transition-all duration-200"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -1003,7 +1032,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                       // 保持原值
                     }
                   }}
-                  className="mt-1 min-h-[200px] font-mono text-sm"
+                  className="mt-1 min-h-[200px] font-mono text-sm bg-white/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 rounded-lg"
                   placeholder="JSON 数组格式"
                 />
               )}
@@ -1023,7 +1052,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                   // 保持原值
                 }
               }}
-              className="mt-1 min-h-[200px] font-mono text-sm"
+              className="mt-1 min-h-[200px] font-mono text-sm bg-white/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 rounded-lg"
               placeholder="JSON 对象格式"
             />
           )}
@@ -1031,11 +1060,12 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
 
         {/* 单项保存按钮 */}
         {selectedPath === path && hasChanges && (
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
             <Button
               onClick={handleSave}
               disabled={saving}
               size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm rounded-lg"
             >
               {saving ? (
                 <>
@@ -1050,13 +1080,14 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
               )}
             </Button>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => {
                 setEditValue(value)
                 setSelectedPath(null)
                 setHasChanges(false)
               }}
+              className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
             >
               取消
             </Button>
@@ -1135,99 +1166,130 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* 毛玻璃背景 */}
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 md:p-6 lg:p-8 md:pl-72 animate-in fade-in duration-200">
+      {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-md"
+        className="absolute inset-0 bg-black/30 backdrop-blur-md transition-opacity"
         onClick={onClose}
       />
 
-      {/* 模态框容器 - 70% 大小 */}
-      <div className="relative w-[70vw] h-[70vh] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-        {/* 头部 */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              配置管理
-            </h2>
-            
-            {/* 编辑模式切换 */}
-            <div className="flex gap-2 border-l pl-4 border-gray-300 dark:border-gray-600">
-              <Button
-                variant={editMode === 'tree' ? 'default' : 'outline'}
-                size="sm"
+      {/* Modal Container */}
+      <div 
+        ref={containerRef}
+        className="relative w-full max-w-7xl h-[90vh] md:h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 dark:border-white/10 flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 ring-1 ring-black/5"
+      >
+        
+        {/* Header / Toolbar */}
+        <div className="flex items-center justify-between px-4 md:px-6 h-16 border-b border-gray-200/50 dark:border-gray-700/50 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm shrink-0 select-none">
+          <div className="flex items-center gap-4 md:gap-6">
+            <div className="flex items-center gap-3">
+               <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white shrink-0">
+                  <Settings className="w-4 h-4 md:w-5 md:h-5" />
+               </div>
+               <div className="min-w-0">
+                  <h2 className="text-base md:text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight truncate">
+                    配置管理
+                  </h2>
+                  {!isMobile && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium hidden sm:block">
+                      {activeConfig === 'bot' ? 'Bot Configuration' : activeConfig === 'model' ? 'Model Configuration' : 'Adapter Configuration'}
+                    </p>
+                  )}
+               </div>
+            </div>
+
+            {/* Config Type Switcher - Apple Segmented Control Style */}
+            {!isCompact ? (
+              <div className="flex bg-gray-100/80 dark:bg-gray-800/80 p-1 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
+                {(['bot', 'model', 'adapter'] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setActiveConfig(type)}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                      activeConfig === type
+                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    {type === 'bot' ? 'Bot' : type === 'model' ? 'Model' : 'Adapter'}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              /* Mobile Config Type Switcher */
+              <div>
+                 <select 
+                    value={activeConfig}
+                    onChange={(e) => setActiveConfig(e.target.value as any)}
+                    className="bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200/50 dark:border-gray-700/50 text-gray-900 dark:text-gray-100 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2"
+                 >
+                    <option value="bot">Bot Config</option>
+                    <option value="model">Model Config</option>
+                    <option value="adapter">Adapter Config</option>
+                 </select>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-4">
+             {/* Edit Mode Switcher */}
+            <div className="flex bg-gray-100/80 dark:bg-gray-800/80 p-1 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
+              <button
                 onClick={() => {
                   setEditMode('tree')
                   setHasChanges(false)
                 }}
-                title="树形编辑器"
+                className={`flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                  editMode === 'tree'
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
+                title="可视化模式"
               >
-                <FileJson className="w-4 h-4 mr-2" />
-                树形
-              </Button>
-              <Button
-                variant={editMode === 'text' ? 'default' : 'outline'}
-                size="sm"
+                <FileJson className="w-4 h-4" />
+                {!isMobile && <span className="hidden md:inline">可视化</span>}
+              </button>
+              <button
                 onClick={() => {
                   setEditMode('text')
                   setHasChanges(rawText !== originalRawText)
                 }}
-                title="文本编辑器"
+                className={`flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                  editMode === 'text'
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
+                title="源文件模式"
               >
-                <FileCode className="w-4 h-4 mr-2" />
-                文本
-              </Button>
+                <FileCode className="w-4 h-4" />
+                {!isMobile && <span className="hidden md:inline">源文件</span>}
+              </button>
             </div>
-            
-            {/* 配置类型切换 */}
-            <div className="flex gap-2 border-l pl-4 border-gray-300 dark:border-gray-600">
-              <Button
-                variant={activeConfig === 'bot' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveConfig('bot')}
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Bot Config
-              </Button>
-              <Button
-                variant={activeConfig === 'model' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveConfig('model')}
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Model Config
-              </Button>
-              <Button
-                variant={activeConfig === 'adapter' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveConfig('adapter')}
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Adapter Config
-              </Button>
-            </div>
-          </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            <X className="w-5 h-5" />
-          </Button>
+            <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1 md:mx-2" />
+
+            <button
+              onClick={onClose}
+              className="group p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+            >
+              <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 group-hover:border-red-500/50 group-hover:bg-red-500 group-hover:text-white flex items-center justify-center text-transparent transition-all">
+                 <X className="w-3 h-3" />
+              </div>
+            </button>
+          </div>
         </div>
 
-        {/* 内容区域 */}
-        <div className="flex-1 flex overflow-hidden">
+        {/* Content Area */}
+        <div className="flex-1 flex overflow-hidden bg-gray-50/30 dark:bg-black/20">
           {loading ? (
-            <div className="flex-1 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+            <div className="flex-1 flex flex-col items-center justify-center gap-4">
+              <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+              <p className="text-gray-500 dark:text-gray-400 font-medium">正在加载配置...</p>
             </div>
           ) : editMode === 'text' ? (
-            /* 文本编辑模式 */
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-hidden">
+            /* Text Editor Mode */
+            <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div className="flex-1 overflow-hidden relative">
                 <TomlEditor
                   value={rawText}
                   onChange={(value) => {
@@ -1238,81 +1300,138 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                 />
               </div>
               
-              {/* 保存按钮区域 */}
-              <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                <Button
-                  variant="default"
-                  onClick={handleSave}
-                  disabled={!hasChanges || saving}
-                  className="flex-shrink-0"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      保存中...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 mr-2" />
-                      保存更改
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setRawText(originalRawText)
-                    setHasChanges(false)
-                  }}
-                  disabled={!hasChanges}
-                >
-                  重置
-                </Button>
+              {/* Footer Actions */}
+              <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md">
+                <div className="text-xs text-gray-500 dark:text-gray-400 font-mono hidden sm:block">
+                   {rawText.length} characters
+                </div>
+                <div className="flex gap-3 w-full sm:w-auto justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setRawText(originalRawText)
+                        setHasChanges(false)
+                      }}
+                      disabled={!hasChanges}
+                      className="rounded-lg"
+                    >
+                      重置更改
+                    </Button>
+                    <Button
+                      variant="default"
+                      onClick={handleSave}
+                      disabled={!hasChanges || saving}
+                      className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 rounded-lg min-w-[100px]"
+                    >
+                      {saving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          保存中
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          保存
+                        </>
+                      )}
+                    </Button>
+                </div>
               </div>
             </div>
           ) : (
-            /* 树形编辑模式（已改为分类按钮 + 右侧展示所有配置项） */
+            /* Tree/Visual Mode */
             <>
-              {/* 左侧：主分类按钮列表 */}
-              <div className="w-56 border-r border-gray-200 dark:border-gray-700 overflow-auto p-4 space-y-2">
-                {treeData && treeData.length > 0 ? (
-                  treeData.map((group) => (
-                    <button
-                      key={group.id}
-                      onClick={() => {
-                        setSelectedGroupId(group.id)
-                        // 切换分类时清除选中项
-                        setSelectedPath(null)
-                        setEditValue(null)
-                        setHasChanges(false)
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedGroupId === group.id ? 'bg-gray-100 dark:bg-gray-700 font-semibold' : ''}`}
-                    >
-                      {group.name}
-                    </button>
-                  ))
-                ) : (
-                  <div className="text-sm text-gray-500">无配置分类</div>
-                )}
-              </div>
+              {/* Sidebar - Hidden on compact mode */}
+              {!isCompact && (
+                <div className="w-56 lg:w-64 bg-white/50 dark:bg-gray-900/30 border-r border-gray-200/50 dark:border-gray-700/50 flex flex-col backdrop-blur-sm shrink-0">
+                  <div className="p-4 h-full overflow-y-auto">
+                     <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 px-2">
+                        Categories
+                     </div>
+                     <div className="space-y-1">
+                      {treeData && treeData.length > 0 ? (
+                        treeData.map((group) => (
+                          <button
+                            key={group.id}
+                            onClick={() => {
+                              setSelectedGroupId(group.id)
+                              setSelectedPath(null)
+                              setEditValue(null)
+                              setHasChanges(false)
+                            }}
+                            className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-between group ${
+                              selectedGroupId === group.id 
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 shadow-sm' 
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-200'
+                            }`}
+                          >
+                            <span className="truncate">{group.name}</span>
+                            {selectedGroupId === group.id && (
+                               <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                            )}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="text-sm text-gray-500 px-3 py-2">无配置分类</div>
+                      )}
+                     </div>
+                  </div>
+                </div>
+              )}
 
-              {/* 右侧：直接展示所选分类下的所有配置项（带编辑功能） */}
-              <div className="flex-1 overflow-hidden">
-                <ScrollArea className="h-full">
-                  <div className="p-6 space-y-4">
+              {/* Main Content */}
+              <div className="flex-1 overflow-hidden relative bg-gray-50/50 dark:bg-black/5 flex flex-col">
+                
+                {/* Compact Mode Category Selector */}
+                {isCompact && (
+                  <div className="p-3 border-b border-gray-200/50 dark:border-gray-700/50 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm overflow-x-auto no-scrollbar">
+                     <div className="flex gap-2">
+                        {treeData && treeData.length > 0 ? (
+                          treeData.map((group) => (
+                            <button
+                              key={group.id}
+                              onClick={() => {
+                                setSelectedGroupId(group.id)
+                                setSelectedPath(null)
+                                setEditValue(null)
+                                setHasChanges(false)
+                              }}
+                              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                                selectedGroupId === group.id
+                                  ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20'
+                                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
+                              }`}
+                            >
+                              {group.name}
+                            </button>
+                          ))
+                        ) : null}
+                     </div>
+                  </div>
+                )}
+
+                <ScrollArea className="flex-1">
+                  <div className={`p-4 md:p-6 lg:p-8 max-w-4xl mx-auto pb-20 ${isCompact ? 'px-4' : ''}`}>
                     {selectedGroup ? (
-                      <>
-                        <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-                          {selectedGroup.name}
-                        </h3>
-                        {renderConfigItems(selectedGroup.children)}
-                      </>
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-gray-500">
-                        <div className="text-center">
-                          <Settings className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                          <p>请在左侧选择一个配置分类</p>
+                      <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="mb-6">
+                            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                            {selectedGroup.name}
+                            </h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                配置 {selectedGroup.name} 的相关参数
+                            </p>
                         </div>
+                        <div className="space-y-6">
+                            {renderConfigItems(selectedGroup.children)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400 dark:text-gray-600">
+                        <div className="w-24 h-24 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-6">
+                            <Settings className="w-10 h-10 opacity-50" />
+                        </div>
+                        <p className="text-lg font-medium">选择左侧分类开始配置</p>
                       </div>
                     )}
                   </div>

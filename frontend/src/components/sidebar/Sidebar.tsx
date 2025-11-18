@@ -1,4 +1,3 @@
-import { Icon } from '@iconify/react'
 import { SidebarNavItemComponent } from './SidebarNavItem'
 import { SIDEBAR_NAV_ITEMS, SIDEBAR_BOTTOM_ITEMS } from './constants'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
