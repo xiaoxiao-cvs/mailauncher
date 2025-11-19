@@ -110,7 +110,7 @@ jobs:
         run: |
           VERSION=$(node -p "require('./frontend/src-tauri/tauri.conf.json').version")
           TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
-          TAG_NAME="dev-${VERSION}-${TIMESTAMP}"
+          TAG_NAME="v${VERSION}-dev.${TIMESTAMP}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "timestamp=${TIMESTAMP}" >> $GITHUB_OUTPUT
           echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
@@ -134,7 +134,7 @@ jobs:
           echo "正在检查现有的 Dev 版本..."
           RELEASES=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             "https://api.github.com/repos/${{ github.repository }}/releases" | \
-            jq -r '.[] | select(.tag_name | startswith("dev-")) | {id: .id, tag: .tag_name, created: .created_at} | @json')
+            jq -r '.[] | select(.tag_name | contains("-dev.")) | {id: .id, tag: .tag_name, created: .created_at} | @json')
           
           # 计算现有 dev release 数量
           COUNT=$(echo "$RELEASES" | wc -l | tr -d ' ')
@@ -170,7 +170,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.version.outputs.tag_name }}
-          release_name: 开发版本 ${{ steps.version.outputs.version }} (${{ steps.version.outputs.timestamp }})
+          release_name: ${{ steps.version.outputs.version }} (${{ steps.version.outputs.timestamp }})
           body: |
             ## MAI Launcher 开发构建版本
             

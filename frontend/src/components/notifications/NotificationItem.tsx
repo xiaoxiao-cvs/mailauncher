@@ -1,7 +1,6 @@
 import { Icon } from '@iconify/react'
 import { Notification, NotificationType, TaskStatus } from '@/types/notification'
 import { cn } from '@/lib/utils'
-import { useMemo } from 'react'
 
 interface NotificationItemProps {
   notification: Notification

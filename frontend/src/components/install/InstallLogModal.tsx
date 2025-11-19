@@ -296,7 +296,7 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
                       <div className="grid grid-cols-1 gap-3">
                         <InfoItem label="任务 ID" value={currentNotification.task?.taskId || '-'} />
                         <InfoItem label="实例名称" value={currentNotification.task?.instanceName || '-'} />
-                        <InfoItem label="开始时间" value={new Date(currentNotification.timestamp).toLocaleString()} />
+                        <InfoItem label="开始时间" value={new Date(currentNotification.createdAt).toLocaleString()} />
                         <InfoItem label="当前状态" value={currentNotification.task?.status || '-'} />
                       </div>
                     </div>
@@ -348,7 +348,7 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
                   </p>
                 </div>
                 <div className="pt-4 text-sm text-gray-400">
-                  {new Date(currentNotification.timestamp).toLocaleString()}
+                  {new Date(currentNotification.createdAt).toLocaleString()}
                 </div>
               </div>
             )}
