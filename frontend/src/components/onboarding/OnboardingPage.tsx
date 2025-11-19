@@ -90,7 +90,7 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
         ['--step-color' as string]: currentStepData.color,
       } as React.CSSProperties}
     >
-      {/* 极简风格的动态背景 */}
+      {/* 动态背景 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
           ref={blobRef1}
@@ -104,7 +104,7 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
         />
       </div>
 
-      {/* macOS 风格的主窗口容器 */}
+      {/* 主窗口容器 */}
       <div className="relative w-full max-w-5xl h-[720px] z-10 flex bg-white/80 dark:bg-[#1E1E1E]/80 backdrop-blur-2xl rounded-[20px] shadow-2xl border border-white/40 dark:border-white/10 overflow-hidden transition-all duration-500">
         {/* 左侧：侧边栏 */}
         <div className="w-[280px] flex-shrink-0 border-r border-black/5 dark:border-white/5 bg-gray-50/30 dark:bg-[#252525]/30 flex flex-col">
