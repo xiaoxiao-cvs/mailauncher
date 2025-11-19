@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useId } from "react"
+import { useState, useId } from "react"
 import {
   Settings,
   Server,
@@ -12,9 +12,9 @@ import {
   Sun,
   Moon,
   Monitor,
-  Check
+  Check,
+  Download
 } from "lucide-react"
-import { animate } from "animejs"
 
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import {
@@ -36,14 +36,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/hooks/useTheme"
+import { useUpdate } from "@/hooks/useUpdate"
+import { UpdateDialog } from "@/components/update/UpdateDialog"
 
 /**
  * 设置页面
  * 职责：应用配置和设置
  */
 export function SettingsPage() {
-  const [channel, setChannel] = useState("main")
-  const [version, setVersion] = useState("latest")
+  const [activeTab, setActiveTab] = useState("launcher")
   
   // 环境配置状态
   const [gitPath, setGitPath] = useState("/usr/bin/git")
@@ -52,46 +53,25 @@ export function SettingsPage() {
   const [venvType, setVenvType] = useState("venv")
   const [isSaving, setIsSaving] = useState(false)
 
-  // 动画引用
-  const containerRef = useRef<HTMLDivElement>(null)
-  const hasAnimated = useRef(false)
   const { theme: currentTheme, setTheme: setThemeMode } = useTheme()
-
-  // 模拟版本数据
-  const versions = {
-    main: [
-      { id: "latest", label: "Latest (v1.0.0)", date: "2023-10-27" },
-      { id: "v0.9.9", label: "v0.9.9", date: "2023-10-20" },
-    ],
-    beta: [
-      { id: "latest", label: "Latest (v1.1.0-beta.1)", date: "2023-11-01" },
-    ],
-    develop: [
-      { id: "latest", label: "Latest (dev-build-123)", date: "2023-11-05" },
-    ]
-  }
-
-  const currentVersions = versions[channel as keyof typeof versions] || []
-  const selectedVersionLabel = currentVersions.find(v => v.id === version)?.label
-
-  // 优化的入场动画 - 只执行一次
-  useEffect(() => {
-    if (containerRef.current && !hasAnimated.current) {
-      const cards = containerRef.current.querySelectorAll('.animate-card')
-      
-      cards.forEach((card, index) => {
-        animate(card, {
-          translateY: [30, 0],
-          opacity: [0, 1],
-          delay: index * 80,
-          duration: 600,
-          easing: 'cubicBezier(0.16, 1, 0.3, 1)'
-        })
-      })
-      
-      hasAnimated.current = true
-    }
-  }, [])
+  
+  // 更新相关状态和方法
+  const {
+    currentVersion,
+    selectedChannel,
+    setSelectedChannel,
+    selectedVersion,
+    setSelectedVersion,
+    versions: channelVersions,
+    isChecking,
+    updateInfo,
+    checkForUpdates,
+    showUpdateDialog,
+    setShowUpdateDialog,
+    installUpdate,
+    downloadManually,
+    pendingUpdate
+  } = useUpdate()
 
   // 自定义 Select 组件 (参考 comp-204)
   const CustomSelect = ({ 
@@ -139,7 +119,7 @@ export function SettingsPage() {
         <p className="text-muted-foreground">管理启动器偏好与环境配置</p>
       </div>
 
-      <Tabs defaultValue="launcher" className="w-full flex-1 flex flex-col overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col overflow-hidden">
         <div className="px-8 flex-none">
           <ScrollArea className="w-full">
             <TabsList className="h-auto gap-6 bg-transparent p-0 text-muted-foreground">
@@ -162,10 +142,10 @@ export function SettingsPage() {
           </ScrollArea>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 scrollbar-thin" ref={containerRef}>
+        <div className="flex-1 overflow-y-auto p-8 scrollbar-thin">
           <TabsContent value="launcher" className="space-y-6 mt-0 outline-none">
             {/* 外观设置 */}
-            <div className="animate-card group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
+            <div className="group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
                   <Palette size={20} />
@@ -221,7 +201,7 @@ export function SettingsPage() {
             </div>
 
             {/* 检查更新 */}
-            <div className="animate-card group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
+            <div className="group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-2xl bg-green-500/10 text-green-600 dark:text-green-400">
@@ -230,17 +210,17 @@ export function SettingsPage() {
                   <h3 className="text-lg font-semibold">检查更新</h3>
                 </div>
                 <Badge variant="secondary" className="font-mono px-3 py-1 rounded-full bg-muted/50">
-                  当前版本: v0.0.1
+                  当前版本: v{currentVersion}
                 </Badge>
               </div>
               
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row gap-6">
+              <div className="space-y-5">
+                <div className="flex flex-col md:flex-row gap-4">
                   <div className="w-full md:w-1/3">
                     <CustomSelect
                       label="更新通道"
-                      value={channel}
-                      onChange={(val) => { setChannel(val); setVersion("latest"); }}
+                      value={selectedChannel}
+                      onChange={(val) => { setSelectedChannel(val); setSelectedVersion("latest"); }}
                       options={[
                         { value: "main", label: "Main (Stable)", desc: "稳定版本，适合日常使用" },
                         { value: "beta", label: "Beta (Testing)", desc: "测试版本，体验新功能" },
@@ -251,10 +231,10 @@ export function SettingsPage() {
                   <div className="w-full md:w-2/3">
                     <CustomSelect
                       label="选择版本"
-                      value={version}
-                      onChange={setVersion}
-                      options={currentVersions.map(v => ({
-                        value: v.id,
+                      value={selectedVersion}
+                      onChange={setSelectedVersion}
+                      options={channelVersions.map((v) => ({
+                        value: v.version,
                         label: v.label,
                         desc: `发布于 ${v.date}`
                       }))}
@@ -262,16 +242,30 @@ export function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 pt-2">
-                  <Button variant="outline" className="rounded-xl h-10 px-6 hover:bg-primary/5 hover:text-primary border-input/50">
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    检查更新
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <Button 
+                    onClick={checkForUpdates}
+                    disabled={isChecking}
+                    className="rounded-full h-11 px-6 bg-white dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-900 dark:text-white border border-gray-200/50 dark:border-gray-700/50 shadow-sm transition-all duration-200 hover:shadow-md"
+                  >
+                    <RefreshCw className={cn("mr-2 h-4 w-4", isChecking && "animate-spin")} />
+                    {isChecking ? '检查中...' : '检查更新'}
                   </Button>
                   
-                  {version !== "latest" && (
-                     <Button className="rounded-xl h-10 px-6 bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20 transition-all hover:scale-105 active:scale-95">
-                       更新到 {selectedVersionLabel}
-                     </Button>
+                  {updateInfo?.has_update && (
+                    <div className="flex items-center justify-between gap-3 px-4 h-11 bg-white dark:bg-gray-800/50 rounded-full shadow-sm border border-gray-200/50 dark:border-gray-700/50">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                        {updateInfo.update_available?.version || selectedVersion}
+                      </span>
+                      
+                      <Button
+                        onClick={() => pendingUpdate ? setShowUpdateDialog(true) : downloadManually()}
+                        className="rounded-full h-8 px-5 text-sm bg-gray-900 hover:bg-black dark:bg-gray-900 dark:hover:bg-black text-white border-0 shadow-sm transition-all duration-200 active:scale-95 whitespace-nowrap"
+                      >
+                        开始安装
+                        <Download className="ml-1.5 h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -280,7 +274,7 @@ export function SettingsPage() {
 
           <TabsContent value="environment" className="space-y-6 mt-0 outline-none">
             {/* Git 环境 */}
-            <div className="animate-card group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
+            <div className="group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
@@ -320,7 +314,7 @@ export function SettingsPage() {
             </div>
 
             {/* 部署路径 */}
-            <div className="animate-card group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
+            <div className="group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-2xl bg-green-500/10 text-green-600 dark:text-green-400">
@@ -359,7 +353,7 @@ export function SettingsPage() {
             </div>
 
             {/* Python 环境 */}
-            <div className="animate-card group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
+            <div className="group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
@@ -440,7 +434,7 @@ export function SettingsPage() {
             </div>
 
             {/* 保存按钮 */}
-            <div className="animate-card flex justify-end pt-2">
+            <div className="flex justify-end pt-2">
               <Button 
                 size="lg" 
                 disabled={isSaving}
@@ -457,6 +451,14 @@ export function SettingsPage() {
           </TabsContent>
         </div>
       </Tabs>
+
+      {/* 更新对话框 */}
+      <UpdateDialog
+        open={showUpdateDialog}
+        onOpenChange={setShowUpdateDialog}
+        versionInfo={updateInfo?.update_available || null}
+        onConfirm={installUpdate}
+      />
     </div>
   )
 }

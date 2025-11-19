@@ -79,6 +79,9 @@ jobs:
 
       - name: Build Tauri app
         working-directory: frontend
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: pnpm tauri build
 
       - name: Get commit messages
@@ -200,3 +203,52 @@ jobs:
           asset_path: ${{ steps.find_dmg.outputs.dmg_path }}
           asset_name: MAI-Launcher-${{ steps.version.outputs.version }}-dev-${{ steps.version.outputs.timestamp }}.dmg
           asset_content_type: application/x-apple-diskimage
+
+      - name: Find and upload signature file
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SIG_PATH=$(find frontend/src-tauri/target/release/bundle/dmg -name "*.dmg.sig" | head -n 1)
+          if [ -n "$SIG_PATH" ]; then
+            curl -X POST \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary @"${SIG_PATH}" \
+              "${{ steps.create_release.outputs.upload_url }}?name=$(basename ${SIG_PATH})"
+          fi
+
+      - name: Generate update manifest (latest.json)
+        run: |
+          DMG_NAME=$(basename ${{ steps.find_dmg.outputs.dmg_path }})
+          SIG_PATH=$(find frontend/src-tauri/target/release/bundle/dmg -name "*.dmg.sig" | head -n 1)
+          
+          if [ -f "$SIG_PATH" ]; then
+            SIGNATURE=$(cat "$SIG_PATH")
+          else
+            SIGNATURE=""
+          fi
+          
+          cat > latest.json << EOF
+          {
+            "version": "${{ steps.version.outputs.tag_name }}",
+            "notes": "${{ steps.commits.outputs.commits }}",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "platforms": {
+              "darwin-aarch64": {
+                "signature": "${SIGNATURE}",
+                "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag_name }}/${DMG_NAME}"
+              }
+            }
+          }
+          EOF
+
+      - name: Upload latest.json to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./latest.json
+          asset_name: latest.json
+          asset_content_type: application/json
