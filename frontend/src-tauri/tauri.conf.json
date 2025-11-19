@@ -48,5 +48,18 @@
       "entitlements": null,
       "hardenedRuntime": true
     }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/xiaoxiao-cvs/mailauncher/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYzNDM2RDM2MTIyMTQ3NkQKUldSdFJ5RVNObTFEWThCNHZvd3lRM3JvaHkzbGk5ckt3MGxHM2NuaWxudFhrM1lZNHFYS3hKMDcK",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

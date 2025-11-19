@@ -4,13 +4,19 @@
 """
 import os
 from pathlib import Path
-from pydantic import field_validator
-from pydantic_settings import BaseSettings
-from typing import List, Optional
+from pydantic import field_validator, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import List, Optional, Union
 
 
 class Settings(BaseSettings):
     """应用配置类"""
+    
+    model_config = SettingsConfigDict(
+        env_file=str(Path(__file__).parent.parent.parent / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
     
     # 服务器配置
     HOST: str = "127.0.0.1"
@@ -22,7 +28,10 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     
     # CORS 配置
-    ALLOWED_ORIGINS: List[str] = ["*"]  # 允许所有来源
+    ALLOWED_ORIGINS: Union[List[str], str] = ["*"]  # 允许所有来源
+    
+    # GitHub API 配置
+    GITHUB_TOKEN: Optional[str] = None  # GitHub Personal Access Token (可选)
     
     # 实例存储路径配置
     # 默认在后端同目录下的 deployments 文件夹
@@ -36,10 +45,14 @@ class Settings(BaseSettings):
             raise ValueError('INSTANCES_DIR 不能为空')
         return v.strip()
     
-    @field_validator('ALLOWED_ORIGINS')
+    @field_validator('ALLOWED_ORIGINS', mode='before')
     @classmethod
-    def validate_allowed_origins(cls, v: List[str]) -> List[str]:
+    def validate_allowed_origins(cls, v: Union[List[str], str]) -> List[str]:
         """验证 CORS 配置"""
+        # 如果是字符串，按逗号分隔
+        if isinstance(v, str):
+            v = [origin.strip() for origin in v.split(',') if origin.strip()]
+        
         if not v:
             raise ValueError('ALLOWED_ORIGINS 不能为空')
         # 允许 * 表示所有来源
@@ -69,10 +82,6 @@ class Settings(BaseSettings):
     
     # 日志配置
     LOG_LEVEL: str = "INFO"
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
     
     def get_instances_path(self) -> Path:
         """
