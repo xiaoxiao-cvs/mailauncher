@@ -107,7 +107,10 @@ class ProcessManager:
         if session_id in self.processes and self.processes[session_id].is_alive():
             logger.info(f"进程已在运行: {session_id}")
             return True
-        ok, process_info = start_process_windows(instance_id, component, command, cwd)
+        ok, process_info = start_process_windows(
+            instance_id, component, command, cwd,
+            rows=self.pty_rows, cols=self.pty_cols
+        )
         if ok and process_info:
             self.processes[session_id] = process_info
             logger.info(f"Windows 进程启动成功: {session_id}, PID: {process_info.pid}")
@@ -125,7 +128,10 @@ class ProcessManager:
         if session_id in self.processes and self.processes[session_id].is_alive():
             logger.info(f"进程已在运行: {session_id}")
             return True
-        ok, process_info = start_process_unix_sync(instance_id, component, command, cwd)
+        ok, process_info = start_process_unix_sync(
+            instance_id, component, command, cwd,
+            rows=self.pty_rows, cols=self.pty_cols
+        )
         if ok and process_info:
             self.processes[session_id] = process_info
             logger.info(f"Unix PTY 进程启动成功: {session_id}, PID: {process_info.pid}")

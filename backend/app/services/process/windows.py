@@ -5,7 +5,7 @@ from app.core.logger import logger
 from .types import ProcessInfo
 
 
-def start_process_windows(instance_id: str, component: str, command: str, cwd: str):
+def start_process_windows(instance_id: str, component: str, command: str, cwd: str, rows: int = 24, cols: int = 80):
     try:
         from winpty import PtyProcess
         HAS_WINPTY = True
@@ -30,7 +30,7 @@ def start_process_windows(instance_id: str, component: str, command: str, cwd: s
         try:
             pty_process = PtyProcess.spawn(
                 command,
-                dimensions=(24, 80),
+                dimensions=(rows, cols),
                 cwd=cwd,
             )
         except Exception as spawn_error:
@@ -38,7 +38,7 @@ def start_process_windows(instance_id: str, component: str, command: str, cwd: s
             cmd_wrapper = f'cmd.exe /c "{command}"'
             pty_process = PtyProcess.spawn(
                 cmd_wrapper,
-                dimensions=(24, 80),
+                dimensions=(rows, cols),
                 cwd=cwd,
             )
 

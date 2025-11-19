@@ -244,7 +244,9 @@ async def terminal_websocket(
                 # Unix PTY 进程
                 if hasattr(process, 'master_fd') and hasattr(process, 'is_pty'):
                     import os
+                    import codecs
                     master_fd = process.master_fd
+                    decoder = codecs.getincrementaldecoder("utf-8")(errors='replace')
                     
                     while True:
                         try:
@@ -254,7 +256,7 @@ async def terminal_websocket(
                                 await asyncio.sleep(0.05)
                                 continue
                             
-                            text = data.decode('utf-8', errors='replace')
+                            text = decoder.decode(data, final=False)
                             
                             # 添加到缓冲区
                             process_manager.add_output_to_buffer(instance_id, component, text)
@@ -372,9 +374,25 @@ async def terminal_websocket(
                         rows = message.get("rows", 24)
                         cols = message.get("cols", 80)
                         
-                        if hasattr(process_info.process, 'setwinsize'):
+                        # Windows winpty
+                        if hasattr(process_info.process, 'set_winsize'):
+                            process_info.process.set_winsize(rows, cols)
+                            logger.debug(f"Windows 终端大小已调整: {rows}x{cols}")
+                        # Unix PTY
+                        elif hasattr(process_info.process, 'master_fd') and hasattr(process_info.process, 'is_pty'):
+                            try:
+                                import fcntl
+                                import termios
+                                import struct
+                                winsize = struct.pack("HHHH", rows, cols, 0, 0)
+                                fcntl.ioctl(process_info.process.master_fd, termios.TIOCSWINSZ, winsize)
+                                logger.debug(f"Unix 终端大小已调整: {rows}x{cols}")
+                            except Exception as e:
+                                logger.warning(f"调整 Unix 终端大小失败: {e}")
+                        # Fallback for other types or older winpty versions
+                        elif hasattr(process_info.process, 'setwinsize'):
                             process_info.process.setwinsize(rows, cols)
-                            logger.debug(f"终端大小已调整: {rows}x{cols}")
+                            logger.debug(f"终端大小已调整(fallback): {rows}x{cols}")
                         
                 except WebSocketDisconnect:
                     logger.info(f"终端 WebSocket 断开: {instance_id}/{component}")
