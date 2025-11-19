@@ -1200,7 +1200,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                </div>
             </div>
 
-            {/* Config Type Switcher - Apple Segmented Control Style */}
+            {/* Config Type Switcher */}
             {!isCompact ? (
               <div className="flex bg-gray-100/80 dark:bg-gray-800/80 p-1 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
                 {(['bot', 'model', 'adapter'] as const).map((type) => (

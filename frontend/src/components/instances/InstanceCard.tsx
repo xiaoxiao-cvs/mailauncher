@@ -19,7 +19,7 @@ interface InstanceCardProps {
   loading?: boolean;
 }
 
-// 状态颜色映射 - Apple Style
+// 状态颜色映射
 const statusColors = {
   running: 'bg-[#34C759] shadow-[0_0_8px_rgba(52,199,89,0.6)]',
   stopped: 'bg-[#8E8E93]',

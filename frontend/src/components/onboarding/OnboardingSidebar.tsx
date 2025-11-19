@@ -22,7 +22,7 @@ export function OnboardingSidebar({
 }: OnboardingSidebarProps) {
   return (
     <div className="h-full flex flex-col p-4">
-      {/* Logo 区域 - macOS 风格 */}
+      {/* Logo 区域 */}
       <div className="flex items-center gap-3 px-3 py-6 mb-2 select-none">
         <div className="w-8 h-8 rounded-[8px] bg-gradient-to-b from-blue-500 to-blue-600 flex items-center justify-center shadow-sm ring-1 ring-black/5 dark:ring-white/10">
           <BotIcon className="w-5 h-5 text-white" />
@@ -33,7 +33,7 @@ export function OnboardingSidebar({
         </div>
       </div>
 
-      {/* 步骤列表 - 侧边栏菜单风格 */}
+      {/* 步骤列表 */}
       <div className="flex-1 space-y-1 overflow-y-auto scrollbar-none">
         {steps.map((step, index) => {
           const isCompleted = index < currentStep
@@ -81,7 +81,7 @@ export function OnboardingSidebar({
       {/* 底部版本号或其他信息 */}
       <div className="px-3 py-4 mt-auto border-t border-black/5 dark:border-white/5">
         <p className="text-[10px] text-gray-400 dark:text-gray-600 text-center font-medium">
-          Designed by Apple Style
+          MAI Launcher
         </p>
       </div>
     </div>

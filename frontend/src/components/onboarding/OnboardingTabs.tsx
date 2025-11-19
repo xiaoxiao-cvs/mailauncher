@@ -46,7 +46,7 @@ export function OnboardingTabs({ tabs, onTabChange, currentTab = 0, extraProps }
 
   return (
     <div className="flex flex-col h-full">
-      {/* Tabs 导航 - macOS Segmented Control 风格 */}
+      {/* Tabs 导航 */}
       <div className="flex p-1 mb-6 bg-gray-100 dark:bg-white/5 rounded-lg self-start">
         {tabs.map((tab, index) => (
           <button
