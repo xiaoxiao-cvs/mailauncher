@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useId } from "react"
+import { useState, useId } from "react"
 import {
   Settings,
   Server,
@@ -14,7 +14,6 @@ import {
   Monitor,
   Check
 } from "lucide-react"
-import { animate } from "animejs"
 
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import {
@@ -42,6 +41,7 @@ import { useTheme } from "@/hooks/useTheme"
  * 职责：应用配置和设置
  */
 export function SettingsPage() {
+  const [activeTab, setActiveTab] = useState("launcher")
   const [channel, setChannel] = useState("main")
   const [version, setVersion] = useState("latest")
   
@@ -52,9 +52,6 @@ export function SettingsPage() {
   const [venvType, setVenvType] = useState("venv")
   const [isSaving, setIsSaving] = useState(false)
 
-  // 动画引用
-  const containerRef = useRef<HTMLDivElement>(null)
-  const hasAnimated = useRef(false)
   const { theme: currentTheme, setTheme: setThemeMode } = useTheme()
 
   // 模拟版本数据
@@ -73,25 +70,6 @@ export function SettingsPage() {
 
   const currentVersions = versions[channel as keyof typeof versions] || []
   const selectedVersionLabel = currentVersions.find(v => v.id === version)?.label
-
-  // 优化的入场动画 - 只执行一次
-  useEffect(() => {
-    if (containerRef.current && !hasAnimated.current) {
-      const cards = containerRef.current.querySelectorAll('.animate-card')
-      
-      cards.forEach((card, index) => {
-        animate(card, {
-          translateY: [30, 0],
-          opacity: [0, 1],
-          delay: index * 80,
-          duration: 600,
-          easing: 'cubicBezier(0.16, 1, 0.3, 1)'
-        })
-      })
-      
-      hasAnimated.current = true
-    }
-  }, [])
 
   // 自定义 Select 组件 (参考 comp-204)
   const CustomSelect = ({ 
@@ -139,7 +117,7 @@ export function SettingsPage() {
         <p className="text-muted-foreground">管理启动器偏好与环境配置</p>
       </div>
 
-      <Tabs defaultValue="launcher" className="w-full flex-1 flex flex-col overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col overflow-hidden">
         <div className="px-8 flex-none">
           <ScrollArea className="w-full">
             <TabsList className="h-auto gap-6 bg-transparent p-0 text-muted-foreground">
@@ -162,10 +140,10 @@ export function SettingsPage() {
           </ScrollArea>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 scrollbar-thin" ref={containerRef}>
+        <div className="flex-1 overflow-y-auto p-8 scrollbar-thin">
           <TabsContent value="launcher" className="space-y-6 mt-0 outline-none">
             {/* 外观设置 */}
-            <div className="animate-card group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
+            <div className="group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
                   <Palette size={20} />
@@ -221,7 +199,7 @@ export function SettingsPage() {
             </div>
 
             {/* 检查更新 */}
-            <div className="animate-card group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
+            <div className="group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-2xl bg-green-500/10 text-green-600 dark:text-green-400">
@@ -280,7 +258,7 @@ export function SettingsPage() {
 
           <TabsContent value="environment" className="space-y-6 mt-0 outline-none">
             {/* Git 环境 */}
-            <div className="animate-card group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
+            <div className="group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
@@ -320,7 +298,7 @@ export function SettingsPage() {
             </div>
 
             {/* 部署路径 */}
-            <div className="animate-card group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
+            <div className="group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-2xl bg-green-500/10 text-green-600 dark:text-green-400">
@@ -359,7 +337,7 @@ export function SettingsPage() {
             </div>
 
             {/* Python 环境 */}
-            <div className="animate-card group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
+            <div className="group relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-card/50 backdrop-blur-md">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
@@ -440,7 +418,7 @@ export function SettingsPage() {
             </div>
 
             {/* 保存按钮 */}
-            <div className="animate-card flex justify-end pt-2">
+            <div className="flex justify-end pt-2">
               <Button 
                 size="lg" 
                 disabled={isSaving}
