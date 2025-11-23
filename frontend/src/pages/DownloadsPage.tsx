@@ -7,14 +7,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-// import { Sidebar } from '@/components/sidebar'
 import { InstallOverview } from '@/components/install/InstallOverview'
-import { useDownload, useInstallOverview } from '@/hooks'
+import { useInstallOverview } from '@/hooks'
+import { useDeploymentPathQuery } from '@/hooks/queries/useEnvironmentQueries'
+import { useCreateDownloadTaskMutation } from '@/hooks/queries/useDownloadQueries'
+import { open } from '@tauri-apps/plugin-dialog'
+import { useState, useEffect, useRef } from 'react'
 import { useInstallTask } from '@/contexts/InstallTaskContext'
 import { useNotificationContext } from '@/contexts/NotificationContext'
 import { cn } from '@/lib/utils'
 import { TaskStatus } from '@/types/notification'
-import { useEffect, useRef } from 'react'
 import { animate, utils } from 'animejs'
 
 /**
@@ -22,22 +24,57 @@ import { animate, utils } from 'animejs'
  * 职责：管理 Maibot、Napcat、适配器等组件的下载和安装
  */
 export function DownloadsPage() {
-  const {
-    deploymentPath,
-    instanceName,
-    downloadItems,
-    selectedMaibotVersion,
-    maibotVersions,
-    isLoadingPath,
-    isDownloading,
-    setDeploymentPath,
-    setInstanceName,
-    selectDeploymentPath,
-    setSelectedMaibotVersion,
-    downloadAll,
-    toggleItemSelection,
-    selectedItems
-  } = useDownload()
+  // 部署路径
+  const { data: deploymentPath = '', isLoading: isLoadingPath } = useDeploymentPathQuery()
+  const createDownloadMutation = useCreateDownloadTaskMutation()
+  
+  // 本地状态
+  const [instanceName, setInstanceName] = useState('')
+  const [localDeploymentPath, setLocalDeploymentPath] = useState(deploymentPath)
+  const [selectedMaibotVersion, setSelectedMaibotVersion] = useState('latest')
+  const [selectedItems, setSelectedItems] = useState<string[]>(['maibot', 'napcat'])
+  
+  const maibotVersions = ['latest', 'v1.0.0', 'v0.9.0']
+  const downloadItems = [
+    { id: 'maibot', name: 'Maibot', selected: selectedItems.includes('maibot') },
+    { id: 'napcat', name: 'Napcat', selected: selectedItems.includes('napcat') },
+  ]
+  
+  useEffect(() => {
+    setLocalDeploymentPath(deploymentPath)
+  }, [deploymentPath])
+  
+  const selectDeploymentPath = async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: '选择部署路径',
+      })
+      if (selected && typeof selected === 'string') {
+        setLocalDeploymentPath(selected)
+      }
+    } catch (error) {
+      console.error('选择文件夹失败:', error)
+    }
+  }
+  
+  const toggleItemSelection = (id: string) => {
+    setSelectedItems(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
+  }
+  
+  const downloadAll = () => {
+    createDownloadMutation.mutate({
+      instanceName,
+      deploymentPath: localDeploymentPath,
+      version: selectedMaibotVersion,
+      components: selectedItems,
+    })
+  }
+  
+  const isDownloading = createDownloadMutation.isPending
 
   // 安装概要管理
   const { state: overviewState, showOverview, updateStatus } = useInstallOverview()

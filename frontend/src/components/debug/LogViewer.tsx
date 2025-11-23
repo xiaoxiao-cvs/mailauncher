@@ -6,24 +6,54 @@
 
 import { Button } from '@/components/ui/button'
 import { DownloadIcon, TrashIcon, RefreshCwIcon } from 'lucide-react'
-import { useLogViewer } from '@/hooks/useLogViewer'
+import { useLogFilesQuery, useLogContentQuery, useExportLogsMutation, useClearLogsMutation } from '@/hooks/queries/useLogQueries'
+import { useState } from 'react'
 
 interface LogViewerProps {
   className?: string
 }
 
 export function LogViewer({ className }: LogViewerProps) {
-  const {
-    logs,
-    selectedLog,
-    setSelectedLog,
-    logContent,
-    loading,
-    loadLogs,
-    handleDownload,
-    handleClear,
-    getParsedLogs
-  } = useLogViewer()
+  const [selectedLog, setSelectedLog] = useState<string | null>(null)
+  
+  const { data: logs = [], isLoading: loading, refetch: loadLogs } = useLogFilesQuery()
+  const { data: logContent } = useLogContentQuery(selectedLog || '')
+  const exportMutation = useExportLogsMutation()
+  const clearMutation = useClearLogsMutation()
+  
+  const handleDownload = () => {
+    if (selectedLog) {
+      exportMutation.mutate(selectedLog)
+    }
+  }
+  
+  const handleClear = () => {
+    if (selectedLog && confirm('确定要清空所有日志吗？')) {
+      clearMutation.mutate(undefined, {
+        onSuccess: () => {
+          setSelectedLog(null)
+          loadLogs()
+        },
+      })
+    }
+  }
+  
+  const getParsedLogs = () => {
+    if (!logContent) return []
+    try {
+      return logContent.split('\n')
+        .filter(line => line.trim())
+        .map(line => {
+          try {
+            return JSON.parse(line)
+          } catch {
+            return { timestamp: new Date().toISOString(), level: 'info', message: line }
+          }
+        })
+    } catch {
+      return []
+    }
+  }
 
   const renderLogContent = () => {
     if (!logContent) {

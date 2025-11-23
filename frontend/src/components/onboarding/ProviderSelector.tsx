@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDownIcon, CheckCircle2Icon, XIcon, PlusIcon } from 'lucide-react'
 import { ApiProvider } from '@/hooks/useApiProviderConfig'
+// Note: 类型也可以从 '@/hooks/queries/useApiProviderQueries' 导入
 
 interface ProviderSelectorProps {
   providers: ApiProvider[]

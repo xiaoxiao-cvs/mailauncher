@@ -37,6 +37,7 @@ export const environmentKeys = {
   all: ['environment'] as const,
   git: () => [...environmentKeys.all, 'git'] as const,
   config: () => [...environmentKeys.all, 'config'] as const,
+  deploymentPath: () => [...environmentKeys.all, 'deployment-path'] as const,
   python: () => [...environmentKeys.all, 'python'] as const,
   pythonVersions: () => [...environmentKeys.python(), 'versions'] as const,
   pythonDefault: () => [...environmentKeys.python(), 'default'] as const,
@@ -82,6 +83,26 @@ export function useEnvironmentConfigQuery() {
       }
       
       return data.data as EnvironmentConfig;
+    },
+  });
+}
+
+/**
+ * 获取部署路径
+ */
+export function useDeploymentPathQuery() {
+  return useQuery({
+    queryKey: environmentKeys.deploymentPath(),
+    queryFn: async () => {
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/environment/config`);
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error('加载部署路径失败');
+      }
+      
+      return data.data.instances_dir as string;
     },
   });
 }
@@ -156,8 +177,16 @@ export function useSavePathMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (pathConfig: PathConfig) => {
+    mutationFn: async (path: string) => {
       const apiUrl = getApiUrl();
+      const pathConfig: PathConfig = {
+        name: 'instances_dir',
+        path,
+        path_type: 'directory',
+        is_verified: false,
+        description: 'Bot实例部署目录',
+      };
+      
       const response = await fetch(`${apiUrl}/config/paths`, {
         method: 'POST',
         headers: {
@@ -177,6 +206,7 @@ export function useSavePathMutation() {
     onSuccess: () => {
       // 保存成功后，失效环境配置缓存
       queryClient.invalidateQueries({ queryKey: environmentKeys.config() });
+      queryClient.invalidateQueries({ queryKey: environmentKeys.deploymentPath() });
     },
   });
 }
@@ -188,8 +218,11 @@ export function useSetPythonDefaultMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ version, path }: { version: string; path: string }) => {
+    mutationFn: async (path: string) => {
       const apiUrl = getApiUrl();
+      // 从路径中提取版本号（简化处理）
+      const version = path.split('/').pop() || 'unknown';
+      
       const response = await fetch(`${apiUrl}/environment/python/default`, {
         method: 'POST',
         headers: {

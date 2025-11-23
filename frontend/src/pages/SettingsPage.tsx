@@ -36,8 +36,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/hooks/useTheme"
-import { useUpdate } from "@/hooks/useUpdate"
+import { 
+  useCurrentVersionQuery,
+  useChannelVersionsQuery,
+  useCheckUpdateQuery,
+  useCheckTauriUpdateMutation,
+  useInstallTauriUpdateMutation,
+  useOpenDownloadPageMutation
+} from "@/hooks/queries/useUpdateQueries"
 import { UpdateDialog } from "@/components/update/UpdateDialog"
+import { useState } from "react"
 
 /**
  * 设置页面
@@ -55,23 +63,27 @@ export function SettingsPage() {
 
   const { theme: currentTheme, setTheme: setThemeMode } = useTheme()
   
-  // 更新相关状态和方法
-  const {
-    currentVersion,
-    selectedChannel,
-    setSelectedChannel,
-    selectedVersion,
-    setSelectedVersion,
-    versions: channelVersions,
-    isChecking,
-    updateInfo,
-    checkForUpdates,
-    showUpdateDialog,
-    setShowUpdateDialog,
-    installUpdate,
-    downloadManually,
-    pendingUpdate
-  } = useUpdate()
+  // 更新相关状态
+  const [selectedChannel, setSelectedChannel] = useState('stable')
+  const [selectedVersion, setSelectedVersion] = useState('')
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false)
+  
+  const { data: currentVersion } = useCurrentVersionQuery()
+  const { data: channelVersions = [] } = useChannelVersionsQuery(selectedChannel)
+  const { data: updateInfo, isLoading: isChecking, refetch: checkForUpdates } = useCheckUpdateQuery()
+  const checkTauriUpdateMutation = useCheckTauriUpdateMutation()
+  const installTauriUpdateMutation = useInstallTauriUpdateMutation()
+  const openDownloadMutation = useOpenDownloadPageMutation()
+  
+  const installUpdate = () => {
+    installTauriUpdateMutation.mutate()
+  }
+  
+  const downloadManually = () => {
+    openDownloadMutation.mutate()
+  }
+  
+  const pendingUpdate = updateInfo
 
   // 自定义 Select 组件 (参考 comp-204)
   const CustomSelect = ({ 

@@ -3,6 +3,9 @@ import { useApiProviderConfig } from '@/hooks/useApiProviderConfig'
 import { ProviderSelector } from './ProviderSelector'
 import { ProviderForm } from './ProviderForm'
 
+// Note: ApiProviderConfig \u4f7f\u7528\u4e86\u590d\u6742\u7684\u72b6\u6001\u7ba1\u7406\u903b\u8f91,\u4fdd\u7559\u539f\u6709 hook \u4ee5\u907f\u514d\u91cd\u5927\u91cd\u6784
+// \u53ef\u4ee5\u540e\u7eed\u9010\u6b65\u8fc1\u79fb\u5230 useApiProviderQueries
+
 interface ApiProviderConfigProps {
   stepColor: string
 }

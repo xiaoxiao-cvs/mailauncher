@@ -1,5 +1,19 @@
 import { LoaderIcon, AlertCircleIcon, ChevronDownIcon, CheckCircle2Icon } from 'lucide-react'
-import { usePythonEnvironment, VENV_TYPES } from '@/hooks/usePythonEnvironment'
+import { 
+  usePythonVersionsQuery,
+  usePythonDefaultQuery,
+  useSetPythonDefaultMutation,
+  useVenvTypeQuery,
+  useSetVenvTypeMutation
+} from '@/hooks/queries/useEnvironmentQueries'
+import { useState, useEffect } from 'react'
+
+export const VENV_TYPES = [
+  { value: 'venv', label: 'venv', desc: 'Python 内置虚拟环境' },
+  { value: 'virtualenv', label: 'virtualenv', desc: '第三方虚拟环境工具' },
+  { value: 'conda', label: 'conda', desc: 'Conda 环境管理' },
+  { value: 'poetry', label: 'poetry', desc: 'Poetry 依赖管理' },
+]
 
 interface PythonEnvironmentProps {
   stepColor: string
@@ -12,22 +26,43 @@ const iconStyle = (color: string) => ({ backgroundColor: color })
  * 职责：选择默认 Python 版本（优化显示，避免滚动条）
  */
 export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
-  // 使用自定义 hook 管理 Python 环境
-  const {
-    pythonVersions,
-    selectedPython,
-    setSelectedPython,
-    isLoadingPython,
-    pythonError,
-    showPythonDropdown,
-    setShowPythonDropdown,
-    isSavingPython,
-    savePythonDefault,
-    venvType,
-    isLoadingVenv,
-    isSavingVenv,
-    saveVenvType
-  } = usePythonEnvironment()
+  // Python 版本管理
+  const { data: pythonVersions = [], isLoading: isLoadingPython, error: pythonErrorObj } = usePythonVersionsQuery()
+  const { data: selectedPython } = usePythonDefaultQuery()
+  const savePythonMutation = useSetPythonDefaultMutation()
+  const pythonError = pythonErrorObj ? String(pythonErrorObj) : null
+  
+  // Venv 类型管理
+  const { data: venvType = 'venv', isLoading: isLoadingVenv } = useVenvTypeQuery()
+  const saveVenvMutation = useSetVenvTypeMutation()
+  
+  // 本地状态
+  const [showPythonDropdown, setShowPythonDropdown] = useState(false)
+  const [localSelectedPython, setLocalSelectedPython] = useState(selectedPython || '')
+  const [localVenvType, setLocalVenvType] = useState(venvType)
+  
+  // 同步 selectedPython
+  useEffect(() => {
+    if (selectedPython) {
+      setLocalSelectedPython(selectedPython)
+    }
+  }, [selectedPython])
+  
+  // 同步 venvType
+  useEffect(() => {
+    setLocalVenvType(venvType)
+  }, [venvType])
+  
+  // 保存函数
+  const savePythonDefault = () => {
+    if (localSelectedPython) {
+      savePythonMutation.mutate(localSelectedPython)
+    }
+  }
+  
+  const saveVenvType = (type: string) => {
+    saveVenvMutation.mutate(type)
+  }
 
   return (
     <div className="space-y-4 h-full flex flex-col">
@@ -70,17 +105,17 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
             <div className="relative">
               <button
                 onClick={() => setShowPythonDropdown(!showPythonDropdown)}
-                disabled={isSavingPython}
+                disabled={savePythonMutation.isPending}
                 className="w-full flex items-center justify-between py-2 px-3 rounded-lg bg-white/40 dark:bg-[#3a3a3a]/50 hover:bg-white/60 dark:hover:bg-[#3a3a3a]/70 transition-all disabled:opacity-60 border border-[#023e8a]/10 dark:border-[#3a3a3a]"
               >
                 <div className="flex-1 text-left">
-                  {selectedPython ? (
+                  {localSelectedPython ? (
                     <div>
                       <div className="text-sm font-medium text-[#023e8a] dark:text-white">
-                        {pythonVersions.find(v => v.path === selectedPython)?.version || '未选择'}
+                        {pythonVersions.find(v => v.path === localSelectedPython)?.version || '未选择'}
                       </div>
                       <div className="text-xs text-[#023e8a]/60 dark:text-white/60 font-mono truncate max-w-md">
-                        {selectedPython}
+                        {localSelectedPython}
                       </div>
                     </div>
                   ) : (
@@ -99,11 +134,12 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
                     <button
                       key={version.path}
                       onClick={() => {
-                        setSelectedPython(version.path)
-                        savePythonDefault(version.path)
+                        setLocalSelectedPython(version.path)
+                        setShowPythonDropdown(false)
+                        savePythonMutation.mutate(version.path)
                       }}
                       className={`w-full text-left px-3 py-1.5 hover:bg-[#023e8a]/5 dark:hover:bg-white/5 transition-colors ${
-                        version.path === selectedPython ? 'bg-[#023e8a]/10 dark:bg-white/10' : ''
+                        version.path === localSelectedPython ? 'bg-[#023e8a]/10 dark:bg-white/10' : ''
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -120,7 +156,7 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
                             {version.path}
                           </div>
                         </div>
-                        {version.path === selectedPython && (
+                        {version.path === localSelectedPython && (
                           <CheckCircle2Icon className="w-3.5 h-3.5 text-green-600 dark:text-green-400 flex-shrink-0" />
                         )}
                       </div>
@@ -170,14 +206,17 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
             <LoaderIcon className="w-5 h-5 animate-spin mx-auto text-[#023e8a] dark:text-white" />
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {VENV_TYPES.map((type) => (
               <button
                 key={type.value}
-                onClick={() => saveVenvType(type.value)}
-                disabled={isSavingVenv}
+                onClick={() => {
+                  setLocalVenvType(type.value)
+                  saveVenvMutation.mutate(type.value)
+                }}
+                disabled={saveVenvMutation.isPending}
                 className={`p-2.5 rounded-lg border transition-all text-left ${
-                  venvType === type.value
+                  localVenvType === type.value
                     ? 'bg-[#023e8a]/10 dark:bg-white/10 border-[#023e8a] dark:border-white'
                     : 'bg-white/40 dark:bg-[#3a3a3a]/50 border-[#023e8a]/10 dark:border-[#3a3a3a] hover:bg-white/60 dark:hover:bg-[#3a3a3a]/70'
                 } disabled:opacity-60`}
@@ -186,12 +225,12 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
                   <span className="text-sm font-semibold text-[#023e8a] dark:text-white">
                     {type.label}
                   </span>
-                  {venvType === type.value && (
+                  {localVenvType === type.value && (
                     <CheckCircle2Icon className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
                   )}
                 </div>
                 <p className="text-[10px] text-[#023e8a]/60 dark:text-white/60">
-                  {type.description}
+                  {type.desc}
                 </p>
               </button>
             ))}
