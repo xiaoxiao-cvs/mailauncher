@@ -2,7 +2,7 @@
 数据库模型 - 启动器配置
 定义启动器和 MAIBot 相关配置的 SQLAlchemy 模型
 """
-from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text, ForeignKey
+from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text, ForeignKey, JSON
 from datetime import datetime
 
 from ..core.database import Base
@@ -170,3 +170,23 @@ class DeploymentLogDB(Base):
     
     def __repr__(self):
         return f"<DeploymentLogDB(deployment_id={self.deployment_id}, level={self.level})>"
+
+
+class ScheduleTaskDB(Base):
+    """计划任务数据库模型 - 存储实例的计划任务"""
+    __tablename__ = "schedule_tasks"
+    
+    id = Column(String(50), primary_key=True)  # 任务唯一标识符 (task_xxxxx)
+    instance_id = Column(String(50), ForeignKey("instances.id"), nullable=False, index=True)  # 关联的实例 ID
+    name = Column(String(100), nullable=False)  # 任务名称
+    action = Column(String(20), nullable=False)  # 执行动作: start/stop/restart
+    schedule_type = Column(String(20), nullable=False)  # 调度类型: once/daily/weekly/monitor
+    schedule_config = Column(JSON, nullable=False)  # 调度配置 (JSON 格式)
+    enabled = Column(Boolean, default=True, nullable=False)  # 是否启用
+    last_run = Column(DateTime, nullable=True)  # 最后执行时间
+    next_run = Column(DateTime, nullable=True)  # 下次执行时间
+    created_at = Column(DateTime, default=datetime.now, nullable=False)  # 创建时间
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)  # 更新时间
+    
+    def __repr__(self):
+        return f"<ScheduleTaskDB(id={self.id}, instance_id={self.instance_id}, action={self.action})>"

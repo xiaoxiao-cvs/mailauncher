@@ -33,10 +33,24 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("数据库初始化完成")
     
+    # 初始化计划任务调度器并加载任务
+    from app.services.schedule_service import get_schedule_service
+    from app.core.database import get_db
+    
+    schedule_service = get_schedule_service()
+    async for db in get_db():
+        try:
+            await schedule_service.reload_schedules_from_db(db)
+            logger.info("计划任务调度器已启动并加载任务")
+        finally:
+            break
+    
     yield  # 应用运行期间
     
     # 关闭时
     logger.info("MAI Launcher Backend 正在关闭...")
+    schedule_service.shutdown()
+    logger.info("计划任务调度器已关闭")
     try:
         pm = get_process_manager()
         logger.info("优先强制结束所有 PTY/终端进程并清理...")

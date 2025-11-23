@@ -8,6 +8,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ComponentType } from '@/services/instanceApi';
 import { TerminalComponent } from '@/components/terminal/TerminalComponent';
 import { ConfigModal } from '@/components/ConfigModal';
+import { ScheduleModal } from '@/components/ScheduleModal';
 import {
   ArrowLeft,
   Play,
@@ -65,6 +66,7 @@ export const InstanceDetailPage: React.FC = () => {
   const [actionLoading, setActionLoading] = useState<'start' | 'stop' | 'restart' | null>(null);
   const [selectedStartTarget, setSelectedStartTarget] = useState<ComponentType | 'all'>('all');
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
   // 获取组件状态的辅助函数
   const getComponentStatus = (component: ComponentType) => {
@@ -361,7 +363,10 @@ export const InstanceDetailPage: React.FC = () => {
                 <Server className="w-6 h-6 text-blue-600 dark:text-blue-400 mb-2" />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">配置</span>
               </button>
-              <button className="flex flex-col items-center justify-center p-4 bg-purple-50/50 dark:bg-purple-900/10 hover:bg-purple-100/50 dark:hover:bg-purple-900/20 rounded-2xl border border-purple-100/50 dark:border-purple-800/30 transition-all duration-200 hover:scale-[1.02] active:scale-95">
+              <button 
+                onClick={() => setIsScheduleModalOpen(true)}
+                className="flex flex-col items-center justify-center p-4 bg-purple-50/50 dark:bg-purple-900/10 hover:bg-purple-100/50 dark:hover:bg-purple-900/20 rounded-2xl border border-purple-100/50 dark:border-purple-800/30 transition-all duration-200 hover:scale-[1.02] active:scale-95"
+              >
                 <Clock className="w-6 h-6 text-purple-600 dark:text-purple-400 mb-2" />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">计划</span>
               </button>
@@ -556,6 +561,13 @@ export const InstanceDetailPage: React.FC = () => {
       <ConfigModal
         isOpen={isConfigModalOpen}
         onClose={() => setIsConfigModalOpen(false)}
+        instanceId={instance.id}
+      />
+
+      {/* Schedule Modal */}
+      <ScheduleModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
         instanceId={instance.id}
       />
     </div>
