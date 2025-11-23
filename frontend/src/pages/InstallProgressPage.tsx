@@ -215,7 +215,7 @@ export default function InstallProgressPage() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-1 font-mono text-sm">
+            <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-1 font-mono text-sm">
               {logs.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-500">
                   <div className="text-center">

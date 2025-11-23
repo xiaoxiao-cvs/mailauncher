@@ -329,7 +329,7 @@ export const InstanceDetailPage: React.FC = () => {
       {/* Main Content Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
         {/* Left Panel: Stats & Actions */}
-        <div className="col-span-4 flex flex-col gap-6 overflow-y-auto pr-2 pb-2">
+        <div className="col-span-4 flex flex-col gap-6 overflow-y-auto scrollbar-thin pr-2 pb-2">
           {/* Stats Card */}
           <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm animate-slide-up opacity-0">
             <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">

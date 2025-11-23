@@ -47,6 +47,22 @@ class MAIBotConfigService:
         # 获取实例目录
         self.instances_dir = settings.ensure_instances_dir()
     
+    def _to_config_with_comments(self, toml_handler: TOMLWithComments, include_comments: bool = True) -> ConfigWithComments:
+        """将 TOMLWithComments 转换为 ConfigWithComments
+        
+        Args:
+            toml_handler: TOML 处理器
+            include_comments: 是否包含注释
+            
+        Returns:
+            ConfigWithComments 对象
+        """
+        return ConfigWithComments(
+            data=toml_handler.to_dict(),
+            comments={} if not include_comments else {},  # tomlkit 内部保留注释，不需要单独维护
+            file_path=str(toml_handler.file_path)
+        )
+    
     async def _get_instance_config_dir(
         self, 
         db: AsyncSession,
@@ -174,12 +190,7 @@ class MAIBotConfigService:
             toml_handler = TOMLWithComments(str(config_path))
             toml_handler.load()
             
-            result = toml_handler.to_json_with_comments()
-            
-            if not include_comments:
-                result['comments'] = {}
-            
-            return ConfigWithComments(**result)
+            return self._to_config_with_comments(toml_handler, include_comments)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to load bot config: {str(e)}")
     
@@ -212,10 +223,10 @@ class MAIBotConfigService:
             # 更新值
             toml_handler.set_value(update_request.key_path, update_request.value)
             
-            # 保存文件
+            # 保存
             toml_handler.save()
             
-            return ConfigWithComments(**toml_handler.to_json_with_comments())
+            return self._to_config_with_comments(toml_handler)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to update bot config: {str(e)}")
     
@@ -251,7 +262,7 @@ class MAIBotConfigService:
             # 保存文件
             toml_handler.save()
             
-            return ConfigWithComments(**toml_handler.to_json_with_comments())
+            return self._to_config_with_comments(toml_handler)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to delete bot config key: {str(e)}")
     
@@ -293,7 +304,7 @@ class MAIBotConfigService:
             # 保存文件
             toml_handler.save()
             
-            return ConfigWithComments(**toml_handler.to_json_with_comments())
+            return self._to_config_with_comments(toml_handler)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to add bot config key: {str(e)}")
     
@@ -382,12 +393,7 @@ class MAIBotConfigService:
             toml_handler = TOMLWithComments(str(config_path))
             toml_handler.load()
             
-            result = toml_handler.to_json_with_comments()
-            
-            if not include_comments:
-                result['comments'] = {}
-            
-            return ConfigWithComments(**result)
+            return self._to_config_with_comments(toml_handler, include_comments)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to load model config: {str(e)}")
     
@@ -423,7 +429,7 @@ class MAIBotConfigService:
             # 保存文件
             toml_handler.save()
             
-            return ConfigWithComments(**toml_handler.to_json_with_comments())
+            return self._to_config_with_comments(toml_handler)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to update model config: {str(e)}")
     
@@ -459,7 +465,7 @@ class MAIBotConfigService:
             # 保存文件
             toml_handler.save()
             
-            return ConfigWithComments(**toml_handler.to_json_with_comments())
+            return self._to_config_with_comments(toml_handler)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to delete model config key: {str(e)}")
     
@@ -506,20 +512,14 @@ class MAIBotConfigService:
             array.append(request.item)
             toml_handler.set_value(request.array_path, array)
             
-            # 添加注释（数组项的注释处理）
-            if request.comment:
-                index = len(array) - 1
-                key_path = f"{request.array_path}[{index}]"
-                toml_handler.comments_map[key_path] = request.comment
-                
-                # 同步到 structure（为新的数组项创建结构）
-                # 注意：数组项的注释需要特殊处理，因为 TOML 中数组的注释通常在数组声明之前
-                # 这里只记录到 comments_map，实际渲染由 save() 方法处理
+            # 添加注释（使用 tomlkit 的注释功能）
+            # 注意：tomlkit 会自动保留所有原有注释
+            # 新的注释可以通过 set_value 的 comment 参数添加
             
             # 保存文件
             toml_handler.save()
             
-            return ConfigWithComments(**toml_handler.to_json_with_comments())
+            return self._to_config_with_comments(toml_handler)
         except HTTPException:
             raise
         except Exception as e:
@@ -577,7 +577,7 @@ class MAIBotConfigService:
             # 保存文件
             toml_handler.save()
             
-            return ConfigWithComments(**toml_handler.to_json_with_comments())
+            return self._to_config_with_comments(toml_handler)
         except HTTPException:
             raise
         except Exception as e:
@@ -630,7 +630,7 @@ class MAIBotConfigService:
             # 保存文件
             toml_handler.save()
             
-            return ConfigWithComments(**toml_handler.to_json_with_comments())
+            return self._to_config_with_comments(toml_handler)
         except HTTPException:
             raise
         except Exception as e:
@@ -697,10 +697,7 @@ class MAIBotConfigService:
         try:
             toml_handler = TOMLWithComments(str(config_path))
             toml_handler.load()
-            result = toml_handler.to_json_with_comments()
-            if not include_comments:
-                result["comments"] = {}
-            return ConfigWithComments(**result)
+            return self._to_config_with_comments(toml_handler, include_comments)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to load adapter config: {str(e)}")
 
@@ -718,7 +715,7 @@ class MAIBotConfigService:
             toml_handler.load()
             toml_handler.set_value(update_request.key_path, update_request.value)
             toml_handler.save()
-            return ConfigWithComments(**toml_handler.to_json_with_comments())
+            return self._to_config_with_comments(toml_handler)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to update adapter config: {str(e)}")
 
