@@ -16,7 +16,8 @@ export function GlobalWebSocketManager() {
   const { currentTask, updateTaskStatus, completeTask } = useInstallTask()
   const { updateTaskProgress } = useNotificationContext()
 
-  const taskId = currentTask?.taskId || null
+  // 只在有活跃任务时才传递 taskId，避免无效连接
+  const taskId = currentTask?.isActive ? currentTask.taskId : null
 
   // WebSocket 连接
   useWebSocket(taskId, {

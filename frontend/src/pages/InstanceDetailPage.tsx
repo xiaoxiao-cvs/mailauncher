@@ -5,10 +5,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useInstanceStore } from '@/stores/instanceStore';
-import { ComponentType, instanceApi } from '@/services/instanceApi';
+import { ComponentType } from '@/services/instanceApi';
 import { TerminalComponent } from '@/components/terminal/TerminalComponent';
-import { useSmartPolling } from '@/hooks/useSmartPolling';
 import { ConfigModal } from '@/components/ConfigModal';
 import {
   ArrowLeft,
@@ -34,34 +32,74 @@ import {
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { animate, utils } from 'animejs';
+import {
+  useInstanceQuery,
+  useComponentStatusQuery,
+  useStartInstanceMutation,
+  useStopInstanceMutation,
+  useRestartInstanceMutation,
+  useStartComponentMutation,
+  useStopComponentMutation,
+} from '@/hooks/queries/useInstanceQueries';
 
 export const InstanceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
-  const {
-    instances,
-    selectedInstance,
-    loading,
-    fetchInstance,
-    startInstance,
-    stopInstance,
-    restartInstance,
-    startComponent,
-    stopComponent,
-    fetchComponentStatus,
-    componentStatuses,
-  } = useInstanceStore();
+  // 使用 React Query hooks
+  const { data: instance, isLoading } = useInstanceQuery(id, { refetchInterval: 10000 });
+  
+  // 组件状态查询
+  const { data: mainStatus } = useComponentStatusQuery(id, 'main', { refetchInterval: 10000 });
+  const { data: napcatStatus } = useComponentStatusQuery(id, 'napcat', { refetchInterval: 10000 });
+  const { data: napcatAdaStatus } = useComponentStatusQuery(id, 'napcat-ada', { refetchInterval: 10000 });
+  
+  // Mutations
+  const startInstanceMutation = useStartInstanceMutation();
+  const stopInstanceMutation = useStopInstanceMutation();
+  const restartInstanceMutation = useRestartInstanceMutation();
+  const startComponentMutation = useStartComponentMutation();
+  const stopComponentMutation = useStopComponentMutation();
   
   const [selectedComponent, setSelectedComponent] = useState<ComponentType>('main');
   const [actionLoading, setActionLoading] = useState<'start' | 'stop' | 'restart' | null>(null);
   const [selectedStartTarget, setSelectedStartTarget] = useState<ComponentType | 'all'>('all');
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
-  
-  const instance = selectedInstance || instances.find((i) => i.id === id);
 
-  // Animation effect
+  // 获取组件状态的辅助函数
+  const getComponentStatus = (component: ComponentType) => {
+    switch (component) {
+      case 'main':
+        return mainStatus;
+      case 'napcat':
+        return napcatStatus;
+      case 'napcat-ada':
+        return napcatAdaStatus;
+      default:
+        return undefined;
+    }
+  };
+  
+  // Animation effect - 只在 ID 改变且实例存在时执行动画
+  const animatedRef = React.useRef<string | null>(null);
+  const [shouldAnimate, setShouldAnimate] = React.useState(false);
+  
+  // 当实例加载完成后，触发动画标记
   useEffect(() => {
+    if (instance && id && !shouldAnimate) {
+      setShouldAnimate(true);
+    }
+  }, [id, instance?.id, shouldAnimate]);
+  
+  // 实际执行动画
+  useEffect(() => {
+    if (!shouldAnimate || !id) return;
+    
+    // 如果已经为当前实例执行过动画，跳过
+    if (animatedRef.current === id) return;
+    
+    animatedRef.current = id;
+    
     // 延迟执行动画,确保 DOM 已经渲染
     const timer = setTimeout(() => {
       // 检查元素是否存在再执行动画
@@ -86,58 +124,23 @@ export const InstanceDetailPage: React.FC = () => {
           easing: 'easeOutExpo'
         });
       }
-    }, 50);
+    }, 100);
 
     return () => clearTimeout(timer);
-  }, [instance]);
-  
-  // 加载实例数据并设置轮询
-  useEffect(() => {
-    if (id) {
-      fetchInstance(id);
-    }
-  }, [id, fetchInstance]);
-  
-  // 实例数据轮询
-  useSmartPolling(() => {
-    if (id) fetchInstance(id);
-  }, [id], { intervalMs: 10000, leading: false });
-  
-  // 加载组件列表
-  const [components, setComponents] = useState<ComponentType[]>([]);
-  useEffect(() => {
-    if (!id || !instance) return;
-    
-    instanceApi.getInstanceComponents(id).then((comps) => {
-      setComponents(comps);
-      // 初始加载状态
-      comps.forEach((component) => {
-        fetchComponentStatus(id, component).catch(console.error);
-      });
-    }).catch(console.error);
-  }, [id, instance]);
-  
-  // 组件状态轮询
-  useSmartPolling(() => {
-    if (id && components.length > 0) {
-      components.forEach((component) => {
-        fetchComponentStatus(id, component).catch(console.error);
-      });
-    }
-  }, [id, components], { intervalMs: 10000, leading: false });
+  }, [shouldAnimate, id]); // 依赖动画触发标记和 id
   
   // 自动更新 selectedStartTarget - 当当前选中的组件启动后，切换到下一个未启动的组件
   useEffect(() => {
     if (!instance) return;
     
-    const components: ComponentType[] = ['main', 'napcat', 'napcat-ada'];
-    const anyRunning = components.some(comp => getComponentStatus(comp)?.running);
+    const allComponents: ComponentType[] = ['main', 'napcat', 'napcat-ada'];
+    const anyRunning = allComponents.some(comp => getComponentStatus(comp)?.running);
     
     // 只在当前选中的组件已经在运行时才自动切换
     if (selectedStartTarget !== 'all' && 
         getComponentStatus(selectedStartTarget as ComponentType)?.running) {
       // 查找第一个未运行的组件
-      const nextComponent = components.find(comp => !getComponentStatus(comp)?.running);
+      const nextComponent = allComponents.find(comp => !getComponentStatus(comp)?.running);
       
       if (nextComponent) {
         setSelectedStartTarget(nextComponent);
@@ -151,13 +154,13 @@ export const InstanceDetailPage: React.FC = () => {
     if (!anyRunning && selectedStartTarget !== 'all') {
       setSelectedStartTarget('all');
     }
-  }, [componentStatuses, instance]);
+  }, [mainStatus, napcatStatus, napcatAdaStatus, instance, selectedStartTarget]);
   
   if (!instance) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          {loading ? (
+          {isLoading ? (
             <>
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
               <p className="text-gray-600 dark:text-gray-400">加载中...</p>
@@ -178,23 +181,17 @@ export const InstanceDetailPage: React.FC = () => {
     );
   }
   
-  // 获取组件状态
-  const getComponentStatus = (component: ComponentType) => {
-    return componentStatuses[instance.id]?.[component];
-  };
-  
   // 处理实例启动
   const handleStartInstance = async (component?: ComponentType) => {
     setActionLoading('start');
     try {
-      await fetchInstance(instance.id);
       if (component) {
         // 启动单个组件
-        await startComponent(instance.id, component);
+        await startComponentMutation.mutateAsync({ instanceId: instance.id, component });
         // 启动单个组件后不改变选择状态，保持启动按钮可见
       } else {
         // 启动所有组件
-        await startInstance(instance.id);
+        await startInstanceMutation.mutateAsync(instance.id);
         // 启动所有组件后重置选择
         setSelectedStartTarget('all');
       }
@@ -209,11 +206,10 @@ export const InstanceDetailPage: React.FC = () => {
   const handleStopInstance = async (component?: ComponentType) => {
     setActionLoading('stop');
     try {
-      await fetchInstance(instance.id);
       if (component) {
-        await stopComponent(instance.id, component);
+        await stopComponentMutation.mutateAsync({ instanceId: instance.id, component });
       } else {
-        await stopInstance(instance.id);
+        await stopInstanceMutation.mutateAsync(instance.id);
       }
     } catch (error) {
       console.error('停止失败:', error);
@@ -226,14 +222,13 @@ export const InstanceDetailPage: React.FC = () => {
   const handleRestartInstance = async (component?: ComponentType) => {
     setActionLoading('restart');
     try {
-      await fetchInstance(instance.id);
       if (component) {
         // 重启单个组件：先停止再启动
-        await stopComponent(instance.id, component);
+        await stopComponentMutation.mutateAsync({ instanceId: instance.id, component });
         await new Promise(resolve => setTimeout(resolve, 1000));
-        await startComponent(instance.id, component);
+        await startComponentMutation.mutateAsync({ instanceId: instance.id, component });
       } else {
-        await restartInstance(instance.id);
+        await restartInstanceMutation.mutateAsync(instance.id);
       }
     } catch (error) {
       console.error('重启失败:', error);
@@ -275,18 +270,18 @@ export const InstanceDetailPage: React.FC = () => {
   
   // 检查是否有任何组件在运行
   const hasAnyComponentRunning = ['main', 'napcat', 'napcat-ada'].some(
-    (comp) => componentStatuses[instance.id]?.[comp as ComponentType]?.running
+    (comp) => getComponentStatus(comp as ComponentType)?.running
   );
   
   // 检查是否所有组件都在运行
   const allComponentsRunning = ['main', 'napcat', 'napcat-ada'].every(
-    (comp) => componentStatuses[instance.id]?.[comp as ComponentType]?.running
+    (comp) => getComponentStatus(comp as ComponentType)?.running
   );
   
   return (
     <div className="h-full flex flex-col p-6 gap-6 overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between animate-fade-in opacity-0">
+      <header className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/instances')}
