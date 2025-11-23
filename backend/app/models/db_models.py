@@ -190,3 +190,57 @@ class ScheduleTaskDB(Base):
     
     def __repr__(self):
         return f"<ScheduleTaskDB(id={self.id}, instance_id={self.instance_id}, action={self.action})>"
+
+
+class ComponentVersionDB(Base):
+    """组件版本记录 - 存储实例组件的版本信息"""
+    __tablename__ = "component_versions"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    instance_id = Column(String(50), ForeignKey("instances.id"), nullable=False, index=True)
+    component = Column(String(50), nullable=False)  # main, napcat, napcat-ada
+    version = Column(String(100), nullable=True)  # 版本号或标签
+    commit_hash = Column(String(40), nullable=True)  # Git commit hash
+    install_method = Column(String(20), nullable=False)  # release, git, manual
+    installed_at = Column(DateTime, default=datetime.now, nullable=False)
+    
+    def __repr__(self):
+        return f"<ComponentVersionDB(instance_id={self.instance_id}, component={self.component}, version={self.version})>"
+
+
+class VersionBackupDB(Base):
+    """版本备份记录 - 存储组件更新前的完整备份"""
+    __tablename__ = "version_backups"
+    
+    id = Column(String(50), primary_key=True)  # 备份唯一标识符
+    instance_id = Column(String(50), ForeignKey("instances.id"), nullable=False, index=True)
+    component = Column(String(50), nullable=False)  # 备份的组件
+    version = Column(String(100), nullable=True)  # 备份时的版本
+    commit_hash = Column(String(40), nullable=True)  # 备份时的 commit hash
+    backup_path = Column(String(500), nullable=False)  # 备份文件存储路径
+    backup_size = Column(Integer, nullable=False, default=0)  # 备份大小(字节)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    description = Column(Text, nullable=True)  # 备份描述
+    
+    def __repr__(self):
+        return f"<VersionBackupDB(id={self.id}, instance_id={self.instance_id}, component={self.component})>"
+
+
+class UpdateHistoryDB(Base):
+    """更新历史记录 - 存储组件更新的历史记录"""
+    __tablename__ = "update_history"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    instance_id = Column(String(50), ForeignKey("instances.id"), nullable=False, index=True)
+    component = Column(String(50), nullable=False)
+    from_version = Column(String(100), nullable=True)  # 更新前版本
+    to_version = Column(String(100), nullable=True)  # 更新后版本
+    from_commit = Column(String(40), nullable=True)  # 更新前 commit
+    to_commit = Column(String(40), nullable=True)  # 更新后 commit
+    status = Column(String(20), nullable=False)  # success, failed, rollback
+    backup_id = Column(String(50), ForeignKey("version_backups.id"), nullable=True)  # 关联备份
+    error_message = Column(Text, nullable=True)  # 错误信息
+    updated_at = Column(DateTime, default=datetime.now, nullable=False)
+    
+    def __repr__(self):
+        return f"<UpdateHistoryDB(instance_id={self.instance_id}, component={self.component}, status={self.status})>"

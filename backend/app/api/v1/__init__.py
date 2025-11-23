@@ -12,6 +12,7 @@ from .downloads import router as downloads_router
 from .maibot_config import router as maibot_config_router
 from .update import router as update_router
 from .schedules import router as schedules_router
+from .version import router as version_router
 
 # 创建 v1 API 路由器
 api_v1_router = APIRouter()
@@ -28,5 +29,6 @@ api_v1_router.include_router(environment_router, prefix="/environment", tags=["�
 api_v1_router.include_router(config_router, prefix="/config", tags=["配置管理"])
 api_v1_router.include_router(logger_router, tags=["日志管理"])
 api_v1_router.include_router(update_router, prefix="/update", tags=["更新管理"])
+api_v1_router.include_router(version_router, tags=["版本管理"])
 
 __all__ = ["api_v1_router"]
