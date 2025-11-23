@@ -13,6 +13,7 @@ from app.core.exceptions import (
     unhandled_exception_handler,
 )
 from app.core.database import init_db, close_db
+from app.services.process_manager import get_process_manager
 from app.core.logger import setup_logger, logger
 
 
@@ -36,6 +37,12 @@ async def lifespan(app: FastAPI):
     
     # 关闭时
     logger.info("MAI Launcher Backend 正在关闭...")
+    try:
+        pm = get_process_manager()
+        logger.info("优先强制结束所有 PTY/终端进程并清理...")
+        await pm.cleanup()
+    except Exception as e:
+        logger.error(f"清理进程时发生错误: {e}")
     await close_db()
     logger.info("数据库连接已关闭")
 

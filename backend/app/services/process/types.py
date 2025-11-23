@@ -10,7 +10,7 @@ class ProcessInfo:
         process: Optional[any] = None,
         pid: Optional[int] = None,
         start_time: Optional[datetime] = None,
-        buffer_size: int = 300,
+        buffer_size: int = 1000,
     ):
         self.instance_id = instance_id
         self.component = component

@@ -559,9 +559,32 @@ class InstanceService:
             db_instance.status = InstanceStatus.STOPPING.value
             await db.commit()
             
-            # 停止所有进程
+            # 停止所有进程，先尝试优雅停止
             logger.info(f"停止实例 {instance_id} 的所有进程 (force={force})")
-            results = await process_manager.stop_all_instance_processes(instance_id)
+            results = await process_manager.stop_all_instance_processes(instance_id, force=False)
+
+            # 等待确认全部终止
+            try:
+                wait_start = datetime.now()
+                while process_manager.is_instance_running(instance_id) and (datetime.now() - wait_start).total_seconds() < 3:
+                    import asyncio
+                    await asyncio.sleep(0.1)
+            except Exception:
+                pass
+
+            # 如仍有进程存活，进行强制终止（优先处理 PTY 进程在 ProcessManager 层）
+            if process_manager.is_instance_running(instance_id):
+                logger.warning(f"实例 {instance_id} 仍有进程存活，执行强制终止")
+                results_force = await process_manager.stop_all_instance_processes(instance_id, force=True)
+                # 合并结果（强制终止覆盖优雅结果）
+                results.update(results_force)
+                try:
+                    wait_start2 = datetime.now()
+                    while process_manager.is_instance_running(instance_id) and (datetime.now() - wait_start2).total_seconds() < 3:
+                        import asyncio
+                        await asyncio.sleep(0.1)
+                except Exception:
+                    pass
             
             # 计算运行时间
             if db_instance.last_run:
@@ -569,11 +592,15 @@ class InstanceService:
                 db_instance.run_time += run_duration
                 logger.info(f"实例 {instance_id} 本次运行时长: {run_duration}秒")
             
-            # 更新状态为已停止
-            db_instance.status = InstanceStatus.STOPPED.value
-            await db.commit()
-            
-            logger.info(f"成功停止实例: {instance_id}")
+            # 根据最终状态更新
+            if not process_manager.is_instance_running(instance_id):
+                db_instance.status = InstanceStatus.STOPPED.value
+                await db.commit()
+                logger.info(f"成功停止实例: {instance_id}")
+            else:
+                db_instance.status = InstanceStatus.ERROR.value
+                await db.commit()
+                logger.error(f"停止实例 {instance_id} 后仍有残留进程，标记为 ERROR")
             return results
             
         except Exception as e:
@@ -667,8 +694,19 @@ class InstanceService:
                 logger.warning(f"实例 {instance_id} 不存在")
                 return False
             
-            # 停止指定组件
+            # 停止指定组件并确认
             success = await process_manager.stop_process(instance_id, component, force=False)
+            if success:
+                try:
+                    wait_start = datetime.now()
+                    while process_manager.is_component_running(instance_id, component) and (datetime.now() - wait_start).total_seconds() < 3:
+                        import asyncio
+                        await asyncio.sleep(0.1)
+                except Exception:
+                    pass
+                if process_manager.is_component_running(instance_id, component):
+                    logger.warning(f"组件 {instance_id}/{component} 仍在运行，执行强制终止")
+                    success = await process_manager.stop_process(instance_id, component, force=True)
             
             if success:
                 logger.info(f"组件 {instance_id}/{component} 已停止")
