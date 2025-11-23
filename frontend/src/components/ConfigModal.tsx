@@ -936,7 +936,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                     {(editValue && selectedPath === path ? editValue : value).map((item: string, idx: number) => (
                       <div
                         key={idx}
-                        className="group/tag flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/30 rounded-full text-sm transition-all hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                        className="group/tag flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/30 rounded-lg text-sm transition-all hover:bg-blue-100 dark:hover:bg-blue-900/40"
                       >
                         <span>{item}</span>
                         <button
@@ -947,7 +947,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                             setEditValue(newArray)
                             setHasChanges(true)
                           }}
-                          className="opacity-0 group-hover/tag:opacity-100 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5 transition-all"
+                          className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-md p-0.5 transition-all"
                         >
                           <XIcon className="w-3 h-3" />
                         </button>
@@ -975,7 +975,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                               setAddingTagPath(null)
                             }
                           }}
-                          className="h-9 w-40 rounded-full text-sm px-3 bg-white dark:bg-gray-800 border-blue-200 focus:ring-2 focus:ring-blue-500/20"
+                          className="h-9 w-40 rounded-lg text-sm px-3 bg-white dark:bg-gray-800 border-blue-200 focus:ring-2 focus:ring-blue-500/20"
                           placeholder="输入内容..."
                         />
                         <button
@@ -990,7 +990,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                               setAddingTagPath(null)
                             }
                           }}
-                          className="flex items-center justify-center w-9 h-9 bg-green-500 hover:bg-green-600 rounded-full text-white shadow-sm transition-all duration-200 shrink-0"
+                          className="flex items-center justify-center w-9 h-9 bg-green-500 hover:bg-green-600 rounded-lg text-white shadow-sm transition-all duration-200 shrink-0"
                         >
                           <Check className="w-4 h-4" />
                         </button>
@@ -999,7 +999,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                             setNewTagValue('')
                             setAddingTagPath(null)
                           }}
-                          className="flex items-center justify-center w-9 h-9 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full text-gray-500 dark:text-gray-400 transition-all duration-200 shrink-0"
+                          className="flex items-center justify-center w-9 h-9 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-500 dark:text-gray-400 transition-all duration-200 shrink-0"
                         >
                           <XIcon className="w-4 h-4" />
                         </button>
@@ -1010,7 +1010,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                           setAddingTagPath(path)
                           setNewTagValue('')
                         }}
-                        className="flex items-center justify-center w-9 h-9 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-dashed border-gray-300 dark:border-gray-600 rounded-full text-gray-500 dark:text-gray-400 transition-all duration-200 shrink-0"
+                        className="flex items-center justify-center w-9 h-9 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 transition-all duration-200 shrink-0"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
