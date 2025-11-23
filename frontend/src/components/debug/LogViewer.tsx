@@ -14,16 +14,16 @@ interface LogViewerProps {
 }
 
 export function LogViewer({ className }: LogViewerProps) {
-  const [selectedLog, setSelectedLog] = useState<string | null>(null)
+  const [selectedLog, setSelectedLog] = useState<string>('')
   
   const { data: logs = [], isLoading: loading, refetch: loadLogs } = useLogFilesQuery()
-  const { data: logContent } = useLogContentQuery(selectedLog || '')
+  const { data: logContent } = useLogContentQuery(selectedLog)
   const exportMutation = useExportLogsMutation()
   const clearMutation = useClearLogsMutation()
   
   const handleDownload = () => {
     if (selectedLog) {
-      exportMutation.mutate(selectedLog)
+      exportMutation.mutate()
     }
   }
   
@@ -31,8 +31,8 @@ export function LogViewer({ className }: LogViewerProps) {
     if (selectedLog && confirm('确定要清空所有日志吗？')) {
       clearMutation.mutate(undefined, {
         onSuccess: () => {
-          setSelectedLog(null)
-          loadLogs()
+          setSelectedLog('')
+          void loadLogs()
         },
       })
     }
@@ -140,7 +140,7 @@ export function LogViewer({ className }: LogViewerProps) {
           <Button
             size="sm"
             variant="outline"
-            onClick={loadLogs}
+            onClick={() => loadLogs()}
             disabled={loading}
             className="gap-2"
           >
@@ -192,11 +192,6 @@ export function LogViewer({ className }: LogViewerProps) {
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between">
                   <span>{(log.size / 1024).toFixed(1)} KB</span>
-                  {log.compressed && (
-                    <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-1.5 py-0.5 rounded">
-                      已压缩
-                    </span>
-                  )}
                 </div>
               </button>
             ))}

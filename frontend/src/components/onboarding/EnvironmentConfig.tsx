@@ -107,7 +107,7 @@ export function EnvironmentConfig({ stepColor, onGitStatusChange }: EnvironmentC
           <Button
             variant="outline"
             size="sm"
-            onClick={checkGitEnvironment}
+            onClick={() => checkGitEnvironment()}
             disabled={isCheckingGit}
             className="bg-white/60 dark:bg-[#3a3a3a] border-[#023e8a]/20 dark:border-[#3a3a3a] text-xs h-8"
           >
@@ -210,7 +210,7 @@ export function EnvironmentConfig({ stepColor, onGitStatusChange }: EnvironmentC
                   {pathError}
                 </p>
               )}
-              {isSavingPath && (
+              {savePathMutation.isPending && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                   <LoaderIcon className="w-4 h-4 animate-spin text-[#023e8a] dark:text-white" />
                 </div>

@@ -40,12 +40,10 @@ import {
   useCurrentVersionQuery,
   useChannelVersionsQuery,
   useCheckUpdateQuery,
-  useCheckTauriUpdateMutation,
   useInstallTauriUpdateMutation,
   useOpenDownloadPageMutation
 } from "@/hooks/queries/useUpdateQueries"
 import { UpdateDialog } from "@/components/update/UpdateDialog"
-import { useState } from "react"
 
 /**
  * 设置页面
@@ -69,18 +67,21 @@ export function SettingsPage() {
   const [showUpdateDialog, setShowUpdateDialog] = useState(false)
   
   const { data: currentVersion } = useCurrentVersionQuery()
-  const { data: channelVersions = [] } = useChannelVersionsQuery(selectedChannel)
-  const { data: updateInfo, isLoading: isChecking, refetch: checkForUpdates } = useCheckUpdateQuery()
-  const checkTauriUpdateMutation = useCheckTauriUpdateMutation()
+  const { data: channelVersions } = useChannelVersionsQuery(selectedChannel)
+  const { data: updateInfo, isLoading: isChecking, refetch: checkForUpdates } = useCheckUpdateQuery(selectedChannel)
   const installTauriUpdateMutation = useInstallTauriUpdateMutation()
   const openDownloadMutation = useOpenDownloadPageMutation()
   
-  const installUpdate = () => {
-    installTauriUpdateMutation.mutate()
+  const installUpdate = async (_onProgress: (progress: number) => void) => {
+    // 简化处理，实际应该使用 updateInfo
+    if (updateInfo) {
+      await installTauriUpdateMutation.mutateAsync(updateInfo)
+    }
   }
   
   const downloadManually = () => {
-    openDownloadMutation.mutate()
+    const url = 'https://github.com/xiaoxiao-cvs/mailauncher/releases'
+    openDownloadMutation.mutate(url)
   }
   
   const pendingUpdate = updateInfo
@@ -245,10 +246,10 @@ export function SettingsPage() {
                       label="选择版本"
                       value={selectedVersion}
                       onChange={setSelectedVersion}
-                      options={channelVersions.map((v) => ({
-                        value: v.version,
-                        label: v.label,
-                        desc: `发布于 ${v.date}`
+                      options={(channelVersions?.versions || []).map((v: any) => ({
+                        value: v.version || v,
+                        label: v.version || v,
+                        desc: v.date ? `发布于 ${v.date}` : ''
                       }))}
                     />
                   </div>
@@ -256,7 +257,7 @@ export function SettingsPage() {
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                   <Button 
-                    onClick={checkForUpdates}
+                    onClick={() => checkForUpdates()}
                     disabled={isChecking}
                     className="rounded-full h-11 px-6 bg-white dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-900 dark:text-white border border-gray-200/50 dark:border-gray-700/50 shadow-sm transition-all duration-200 hover:shadow-md"
                   >

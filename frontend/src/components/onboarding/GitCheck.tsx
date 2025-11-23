@@ -192,9 +192,9 @@ export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
                     <div className="text-xs font-medium text-[#023e8a] dark:text-white">
                       {pythonVersions.find(v => v.path === localSelectedPython)?.version || '未选择'}
                     </div>
-                    <div className="text-xs text-[#023e8a]/60 dark:text-white/60 font-mono truncate">
-                      {localSelectedPython}
-                    </div>
+                      <div className="text-xs text-[#023e8a]/60 dark:text-white/60 font-mono truncate">
+                        {typeof localSelectedPython === 'string' ? localSelectedPython : ''}
+                      </div>
                   </div>
                 ) : (
                   <div className="text-xs text-[#023e8a]/60 dark:text-white/60">

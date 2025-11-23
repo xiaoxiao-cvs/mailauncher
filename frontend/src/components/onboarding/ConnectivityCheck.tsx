@@ -1,8 +1,7 @@
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2Icon, XCircleIcon, LoaderIcon, AlertCircleIcon, WifiOffIcon, ServerIcon, CheckIcon } from 'lucide-react'
-import { useConnectivityQuery, ConnectivityStatus } from '@/hooks/queries/useConnectivityQueries'
-import { useState, useEffect } from 'react'
+import { useConnectivityCheck, ConnectivityStatus } from '@/hooks/useConnectivityCheck'
 
 interface ConnectivityCheckProps {
   stepColor: string
@@ -15,54 +14,17 @@ interface ConnectivityCheckProps {
  * 检查后端连接、GitHub 和 Gitee 的延迟
  */
 export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest }: ConnectivityCheckProps) {
-  const { data: connectivity, isLoading, refetch } = useConnectivityQuery()
-  
-  const [tempUrl, setTempUrl] = useState('')
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  
-  const handleUrlChange = (value: string) => {
-    setTempUrl(value)
-    setHasUnsavedChanges(true)
-  }
-  
-  const handleBlur = () => {
-    // 可以处理 URL 保存逻辑
-  }
-  
-  const handleSave = () => {
-    setHasUnsavedChanges(false)
-  }
-  
-  // 构建状态对象
-  const backendStatus: ConnectivityStatus = {
-    name: '后端服务',
-    status: isLoading ? 'checking' : connectivity ? 'success' : 'error',
-    latency: undefined,
-  }
-  
-  const githubStatus: ConnectivityStatus = {
-    name: 'GitHub',
-    status: connectivity?.github ? 'success' : 'error',
-    latency: undefined,
-  }
-  
-  const giteeStatus: ConnectivityStatus = {
-    name: 'PyPI',
-    status: connectivity?.pypi ? 'success' : 'error',
-    latency: undefined,
-  }
-  
-  useEffect(() => {
-    if (onRecheckRequest) {
-      onRecheckRequest(() => refetch())
-    }
-  }, [onRecheckRequest, refetch])
-  
-  useEffect(() => {
-    if (onStatusChange && connectivity) {
-      onStatusChange(connectivity.github && connectivity.pypi)
-    }
-  }, [connectivity, onStatusChange])
+  // 使用原有的 hook 管理连接检查
+  const {
+    tempUrl,
+    hasUnsavedChanges,
+    handleUrlChange,
+    handleBlur,
+    handleSave,
+    backendStatus,
+    githubStatus,
+    giteeStatus
+  } = useConnectivityCheck({ onStatusChange, onRecheckRequest })
 
   // 渲染状态图标
   const renderStatusIcon = (status: ConnectivityStatus['status']) => {

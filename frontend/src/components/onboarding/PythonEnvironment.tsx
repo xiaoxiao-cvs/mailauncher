@@ -43,26 +43,17 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
   
   // 同步 selectedPython
   useEffect(() => {
-    if (selectedPython) {
+    if (selectedPython && typeof selectedPython === 'string') {
       setLocalSelectedPython(selectedPython)
     }
   }, [selectedPython])
   
   // 同步 venvType
   useEffect(() => {
-    setLocalVenvType(venvType)
-  }, [venvType])
-  
-  // 保存函数
-  const savePythonDefault = () => {
-    if (localSelectedPython) {
-      savePythonMutation.mutate(localSelectedPython)
+    if (typeof venvType === 'string') {
+      setLocalVenvType(venvType)
     }
-  }
-  
-  const saveVenvType = (type: string) => {
-    saveVenvMutation.mutate(type)
-  }
+  }, [venvType])
 
   return (
     <div className="space-y-4 h-full flex flex-col">
@@ -115,7 +106,7 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
                         {pythonVersions.find(v => v.path === localSelectedPython)?.version || '未选择'}
                       </div>
                       <div className="text-xs text-[#023e8a]/60 dark:text-white/60 font-mono truncate max-w-md">
-                        {localSelectedPython}
+                        {typeof localSelectedPython === 'string' ? localSelectedPython : ''}
                       </div>
                     </div>
                   ) : (
