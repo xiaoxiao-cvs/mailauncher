@@ -19,6 +19,7 @@ export const InstanceListPage: React.FC = () => {
     stopInstance,
     restartInstance,
     deleteInstance,
+    updateInstanceName,
     clearError,
   } = useInstanceStore();
   
@@ -109,6 +110,15 @@ export const InstanceListPage: React.FC = () => {
       console.error('删除实例失败:', error);
     } finally {
       setActionLoading(null);
+    }
+  };
+  
+  // 处理重命名实例
+  const handleRename = async (id: string, newName: string) => {
+    try {
+      await updateInstanceName(id, newName);
+    } catch (error) {
+      console.error('重命名实例失败:', error);
     }
   };
   
@@ -216,6 +226,7 @@ export const InstanceListPage: React.FC = () => {
                 onStop={handleStop}
                 onRestart={handleRestart}
                 onDelete={handleDelete}
+                onRename={handleRename}
                 loading={actionLoading === instance.id}
               />
             </div>
