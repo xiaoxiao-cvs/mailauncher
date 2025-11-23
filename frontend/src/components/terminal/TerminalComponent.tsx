@@ -200,11 +200,12 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     
     ws.onerror = (error) => {
       // 只在 WebSocket 已经打开过的情况下显示错误
-      if (ws.readyState !== WebSocket.CONNECTING) {
+      // 忽略在 CONNECTING 状态下的错误(通常是组件卸载导致的)
+      if (ws.readyState !== WebSocket.CONNECTING && wsRef.current === ws) {
         term.writeln('');
         term.writeln('\x1b[1;31m✗ 终端连接错误\x1b[0m');
+        console.error('WebSocket 错误:', error);
       }
-      console.error('WebSocket 错误:', error);
     };
     
     ws.onclose = (event) => {

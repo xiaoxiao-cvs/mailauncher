@@ -62,24 +62,34 @@ export const InstanceDetailPage: React.FC = () => {
 
   // Animation effect
   useEffect(() => {
-    // Fade in header
-    animate('.animate-fade-in', {
-      opacity: [0, 1],
-      translateY: [-10, 0],
-      duration: 600,
-      easing: 'easeOutExpo',
-      delay: 100
-    });
+    // 延迟执行动画,确保 DOM 已经渲染
+    const timer = setTimeout(() => {
+      // 检查元素是否存在再执行动画
+      const fadeInElements = document.querySelectorAll('.animate-fade-in');
+      if (fadeInElements.length > 0) {
+        animate('.animate-fade-in', {
+          opacity: [0, 1],
+          translateY: [-10, 0],
+          duration: 600,
+          easing: 'easeOutExpo',
+          delay: 100
+        });
+      }
 
-    // Slide up cards
-    animate('.animate-slide-up', {
-      opacity: [0, 1],
-      translateY: [20, 0],
-      duration: 800,
-      delay: utils.stagger(100, {start: 200}),
-      easing: 'easeOutExpo'
-    });
-  }, []);
+      const slideUpElements = document.querySelectorAll('.animate-slide-up');
+      if (slideUpElements.length > 0) {
+        animate('.animate-slide-up', {
+          opacity: [0, 1],
+          translateY: [20, 0],
+          duration: 800,
+          delay: utils.stagger(100, {start: 200}),
+          easing: 'easeOutExpo'
+        });
+      }
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [instance]);
   
   // 加载实例数据并设置轮询
   useEffect(() => {
