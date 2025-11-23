@@ -287,12 +287,8 @@ class MAIBotConfigService:
             else:
                 key_path = add_request.key
             
-            # 添加值
-            toml_handler.set_value(key_path, add_request.value)
-            
-            # 添加注释
-            if add_request.comment:
-                toml_handler.comments_map[key_path] = add_request.comment
+            # 添加值和注释
+            toml_handler.set_value(key_path, add_request.value, add_request.comment)
             
             # 保存文件
             toml_handler.save()
@@ -510,11 +506,15 @@ class MAIBotConfigService:
             array.append(request.item)
             toml_handler.set_value(request.array_path, array)
             
-            # 添加注释
+            # 添加注释（数组项的注释处理）
             if request.comment:
                 index = len(array) - 1
                 key_path = f"{request.array_path}[{index}]"
                 toml_handler.comments_map[key_path] = request.comment
+                
+                # 同步到 structure（为新的数组项创建结构）
+                # 注意：数组项的注释需要特殊处理，因为 TOML 中数组的注释通常在数组声明之前
+                # 这里只记录到 comments_map，实际渲染由 save() 方法处理
             
             # 保存文件
             toml_handler.save()
