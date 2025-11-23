@@ -2,6 +2,7 @@ import os
 import sys
 import platform
 from pathlib import Path
+from typing import Optional
 from app.core.logger import logger
 
 
@@ -18,7 +19,7 @@ def resolve_python(instance_path: Path, python_path: str | None) -> str:
   return sys.executable
 
 
-def build_napcat_command(instance_path: Path, qq_account: str | None) -> tuple[str, str]:
+def build_napcat_command(instance_path: Path, qq_account: Optional[str]) -> tuple[str, str]:
   cwd = str(instance_path / "NapCat")
   start_sh = Path(cwd) / "start.sh"
   start_ps1 = Path(cwd) / "start.ps1"

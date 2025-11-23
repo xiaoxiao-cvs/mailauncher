@@ -9,9 +9,7 @@ from pathlib import Path
 import subprocess
 from datetime import datetime
 
-from ..core.logger import get_logger
-
-logger = get_logger(__name__)
+from ..core.logger import logger
 
 
 class VersionService:

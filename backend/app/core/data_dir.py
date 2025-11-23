@@ -17,13 +17,16 @@ mailauncher-data/
         ├── backend/
         └── frontend/
 """
+from __future__ import annotations
+
 import sys
 import platform
 from pathlib import Path
+from typing import Optional
 from loguru import logger
 
 # 缓存数据根目录,避免重复日志
-_data_root_cache: Path | None = None
+_data_root_cache: Optional[Path] = None
 
 
 def get_data_root() -> Path:

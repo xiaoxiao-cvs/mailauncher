@@ -10,11 +10,6 @@ import {
   restoreBackup,
   getUpdateHistory,
   getComponentReleases,
-  type ComponentVersionInfo,
-  type UpdateCheckResult,
-  type VersionBackup,
-  type UpdateHistory,
-  type Release,
 } from '@/services/versionApi';
 
 // ==================== Query Keys ====================

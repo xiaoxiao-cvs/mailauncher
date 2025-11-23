@@ -16,12 +16,9 @@ import json
 
 from sqlalchemy.orm import Session
 
-from ..core.logger import get_logger
-from ..core.database import SessionLocal
+from ..core.logger import logger
 from ..models.db_models import VersionBackupDB, UpdateHistoryDB, ComponentVersionDB
 from .version_service import version_service
-
-logger = get_logger(__name__)
 
 
 class ComponentUpdateService:

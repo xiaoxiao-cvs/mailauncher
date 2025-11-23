@@ -8,14 +8,14 @@ from typing import List, Optional
 from pathlib import Path
 
 from ...core.database import get_db
-from ...core.logger import get_logger
-from ...models.response import ApiResponse
+from ...core.logger import logger
+from ...models.response import APIResponse
 from ...services.version_service import version_service
 from ...services.component_update_service import ComponentUpdateService
-from ...services.instance_service import instance_service
+from ...services.instance_service import get_instance_service
 from ...models.db_models import InstanceDB, ComponentVersionDB, UpdateHistoryDB
 
-logger = get_logger(__name__)
+instance_service = get_instance_service()
 
 router = APIRouter(prefix="/versions", tags=["版本管理"])
 
@@ -99,7 +99,7 @@ async def get_instance_components_version(
             
             components_info.append(component_info)
         
-        return ApiResponse.success(data=components_info)
+        return APIResponse.success(data=components_info)
     
     except HTTPException:
         raise
@@ -164,7 +164,7 @@ async def check_component_update(
                     result["has_update"] = True
                     result["comparison"] = comparison
         
-        return ApiResponse.success(data=result)
+        return APIResponse.success(data=result)
     
     except HTTPException:
         raise
@@ -268,7 +268,7 @@ async def update_component(
             update_service.delete_old_backups(db, instance_id, keep_count=3)
         
         if success:
-            return ApiResponse.success(
+            return APIResponse.success(
                 message="更新成功",
                 data={
                     "backup_id": backup_id,
@@ -324,7 +324,7 @@ async def get_backups(
         
         backups = update_service.get_backups_list(db, instance_id, component)
         
-        return ApiResponse.success(data=backups)
+        return APIResponse.success(data=backups)
     
     except HTTPException:
         raise
@@ -382,7 +382,7 @@ async def restore_backup(
             db.add(update_history)
             db.commit()
             
-            return ApiResponse.success(
+            return APIResponse.success(
                 message="恢复成功",
                 data={
                     "backup_id": backup_id,
@@ -442,7 +442,7 @@ async def get_update_history(
             for record in history
         ]
         
-        return ApiResponse.success(data=result)
+        return APIResponse.success(data=result)
     
     except HTTPException:
         raise
@@ -466,7 +466,7 @@ async def get_component_releases(
         repo_config = version_service.GITHUB_REPOS[component]
         
         if not repo_config["has_releases"]:
-            return ApiResponse.success(data=[], message="该组件不使用 Release 发布")
+            return APIResponse.success(data=[], message="该组件不使用 Release 发布")
         
         releases = await version_service.get_all_releases(
             owner=repo_config["owner"],
@@ -474,7 +474,7 @@ async def get_component_releases(
             limit=limit
         )
         
-        return ApiResponse.success(data=releases)
+        return APIResponse.success(data=releases)
     
     except HTTPException:
         raise

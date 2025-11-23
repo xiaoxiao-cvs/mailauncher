@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Instance } from '@/services/instanceApi';
-import { Play, Square, RotateCw, Trash2, Server, Pencil, Download } from 'lucide-react';
+import { Play, Square, RotateCw, Trash2, Server, Pencil } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { InstanceRenameModal } from './InstanceRenameModal';

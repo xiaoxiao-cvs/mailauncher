@@ -9,6 +9,8 @@ import { ComponentType } from '@/services/instanceApi';
 import { TerminalComponent } from '@/components/terminal/TerminalComponent';
 import { ConfigModal } from '@/components/ConfigModal';
 import { ScheduleModal } from '@/components/ScheduleModal';
+import { ComponentVersionCard } from '@/components/instances/ComponentVersionCard';
+import { VersionManagerModal } from '@/components/instances/VersionManagerModal';
 import {
   ArrowLeft,
   Play,
@@ -67,6 +69,7 @@ export const InstanceDetailPage: React.FC = () => {
   const [selectedStartTarget, setSelectedStartTarget] = useState<ComponentType | 'all'>('all');
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isVersionManagerOpen, setIsVersionManagerOpen] = useState(false);
 
   // 获取组件状态的辅助函数
   const getComponentStatus = (component: ComponentType) => {
@@ -380,6 +383,12 @@ export const InstanceDetailPage: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Component Versions */}
+          <ComponentVersionCard
+            instanceId={instance.id}
+            onOpenVersionManager={() => setIsVersionManagerOpen(true)}
+          />
         </div>
 
         {/* Right Panel: Terminal & Controls */}
@@ -568,6 +577,13 @@ export const InstanceDetailPage: React.FC = () => {
       <ScheduleModal
         isOpen={isScheduleModalOpen}
         onClose={() => setIsScheduleModalOpen(false)}
+        instanceId={instance.id}
+      />
+
+      {/* Version Manager Modal */}
+      <VersionManagerModal
+        isOpen={isVersionManagerOpen}
+        onClose={() => setIsVersionManagerOpen(false)}
         instanceId={instance.id}
       />
     </div>

@@ -2,7 +2,9 @@
 WebSocket 连接管理器
 用于实时推送安装日志和进度
 """
-from typing import Dict, Set
+from __future__ import annotations
+
+from typing import Dict, Set, Optional
 from fastapi import WebSocket
 from datetime import datetime
 import json
@@ -187,7 +189,7 @@ class ConnectionManager:
 
 
 # 全局单例
-_connection_manager: ConnectionManager | None = None
+_connection_manager: Optional[ConnectionManager] = None
 
 
 def get_connection_manager() -> ConnectionManager:
