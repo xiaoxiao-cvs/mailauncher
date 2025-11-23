@@ -9,6 +9,7 @@ pydantic-settings==2.6.1
 
 # 配置文件处理
 toml==0.10.2
+tomlkit>=0.12.0
 
 # HTTP 客户端
 httpx==0.27.2

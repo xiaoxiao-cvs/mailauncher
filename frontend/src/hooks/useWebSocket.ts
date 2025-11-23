@@ -46,7 +46,7 @@ export interface WSCompleteMessage extends WSMessage {
   message: string
 }
 
-interface UseWebSocketOptions {
+export interface UseWebSocketOptions {
   onLog?: (message: WSLogMessage) => void
   onProgress?: (message: WSProgressMessage) => void
   onStatus?: (message: WSStatusMessage) => void
@@ -75,12 +75,11 @@ export function useWebSocket(taskId: string | null, options: UseWebSocketOptions
 
   const connect = useCallback(() => {
     if (!taskId) {
-      wsLogger.warn('taskId 为空，跳过连接')
+      // taskId 为空是正常情况（无活跃任务时），不打印警告
       return
     }
 
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsLogger.warn('WebSocket 已连接')
       return
     }
 
@@ -132,8 +131,11 @@ export function useWebSocket(taskId: string | null, options: UseWebSocketOptions
         }
       }
 
-      ws.onerror = (event) => {
-        wsLogger.error('WebSocket 错误', event)
+      ws.onerror = () => {
+        // 只在非预期错误时记录
+        if (ws.readyState !== WebSocket.CLOSING && ws.readyState !== WebSocket.CLOSED) {
+          wsLogger.warn('WebSocket 连接错误')
+        }
         setError('连接错误')
       }
 

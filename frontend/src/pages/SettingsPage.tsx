@@ -36,7 +36,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/hooks/useTheme"
-import { useUpdate } from "@/hooks/useUpdate"
+import { 
+  useCurrentVersionQuery,
+  useChannelVersionsQuery,
+  useCheckUpdateQuery,
+  useInstallTauriUpdateMutation,
+  useOpenDownloadPageMutation
+} from "@/hooks/queries/useUpdateQueries"
 import { UpdateDialog } from "@/components/update/UpdateDialog"
 
 /**
@@ -55,23 +61,30 @@ export function SettingsPage() {
 
   const { theme: currentTheme, setTheme: setThemeMode } = useTheme()
   
-  // 更新相关状态和方法
-  const {
-    currentVersion,
-    selectedChannel,
-    setSelectedChannel,
-    selectedVersion,
-    setSelectedVersion,
-    versions: channelVersions,
-    isChecking,
-    updateInfo,
-    checkForUpdates,
-    showUpdateDialog,
-    setShowUpdateDialog,
-    installUpdate,
-    downloadManually,
-    pendingUpdate
-  } = useUpdate()
+  // 更新相关状态
+  const [selectedChannel, setSelectedChannel] = useState('stable')
+  const [selectedVersion, setSelectedVersion] = useState('')
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false)
+  
+  const { data: currentVersion } = useCurrentVersionQuery()
+  const { data: channelVersions } = useChannelVersionsQuery(selectedChannel)
+  const { data: updateInfo, isLoading: isChecking, refetch: checkForUpdates } = useCheckUpdateQuery(selectedChannel)
+  const installTauriUpdateMutation = useInstallTauriUpdateMutation()
+  const openDownloadMutation = useOpenDownloadPageMutation()
+  
+  const installUpdate = async (_onProgress: (progress: number) => void) => {
+    // 简化处理，实际应该使用 updateInfo
+    if (updateInfo) {
+      await installTauriUpdateMutation.mutateAsync(updateInfo)
+    }
+  }
+  
+  const downloadManually = () => {
+    const url = 'https://github.com/xiaoxiao-cvs/mailauncher/releases'
+    openDownloadMutation.mutate(url)
+  }
+  
+  const pendingUpdate = updateInfo
 
   // 自定义 Select 组件 (参考 comp-204)
   const CustomSelect = ({ 
@@ -233,10 +246,10 @@ export function SettingsPage() {
                       label="选择版本"
                       value={selectedVersion}
                       onChange={setSelectedVersion}
-                      options={channelVersions.map((v) => ({
-                        value: v.version,
-                        label: v.label,
-                        desc: `发布于 ${v.date}`
+                      options={(channelVersions?.versions || []).map((v: any) => ({
+                        value: v.version || v,
+                        label: v.version || v,
+                        desc: v.date ? `发布于 ${v.date}` : ''
                       }))}
                     />
                   </div>
@@ -244,7 +257,7 @@ export function SettingsPage() {
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                   <Button 
-                    onClick={checkForUpdates}
+                    onClick={() => checkForUpdates()}
                     disabled={isChecking}
                     className="rounded-full h-11 px-6 bg-white dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-900 dark:text-white border border-gray-200/50 dark:border-gray-700/50 shadow-sm transition-all duration-200 hover:shadow-md"
                   >

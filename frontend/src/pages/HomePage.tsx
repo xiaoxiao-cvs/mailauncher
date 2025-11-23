@@ -5,7 +5,7 @@
  */
 export function HomePage() {
   return (
-    <div className="flex-1 flex items-center justify-center overflow-auto h-full">
+    <div className="flex-1 flex items-center justify-center overflow-auto scrollbar-thin h-full">
       <div className="text-center space-y-6 p-8">
         <h1 className="text-4xl font-bold text-[#03045e] dark:text-white">
           欢迎使用 MAI Launcher

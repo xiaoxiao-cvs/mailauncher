@@ -21,7 +21,7 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
   instanceId,
   component,
   className = '',
-  isRunning = false,
+  isRunning: _isRunning = false,
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstance = useRef<Terminal | null>(null);

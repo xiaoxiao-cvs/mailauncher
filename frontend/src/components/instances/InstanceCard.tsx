@@ -3,12 +3,13 @@
  * 显示实例的基本信息和操作按钮
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Instance } from '@/services/instanceApi';
-import { Play, Square, RotateCw, Trash2, Server } from 'lucide-react';
+import { Play, Square, RotateCw, Trash2, Server, Pencil } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { InstanceRenameModal } from './InstanceRenameModal';
 
 interface InstanceCardProps {
   instance: Instance;
@@ -16,6 +17,7 @@ interface InstanceCardProps {
   onStop: (id: string) => void;
   onRestart: (id: string) => void;
   onDelete: (id: string) => void;
+  onRename?: (id: string, newName: string) => void;
   loading?: boolean;
 }
 
@@ -43,9 +45,11 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
   onStop,
   onRestart,
   onDelete,
+  onRename,
   loading = false,
 }) => {
   const navigate = useNavigate();
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   
   // 计算组件数量（假设有 main, napcat, napcat-ada）
   const componentCount = 3;
@@ -166,12 +170,12 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
         
         {/* 操作按钮区域 */}
         <div className="flex items-center gap-3 pt-2">
-          {/* 启动/停止按钮 */}
+          {/* 启动/停止按钮 - 缩短宽度 */}
           {isStopped || instance.status === 'error' ? (
             <button
               onClick={(e) => handleButtonClick(e, () => onStart(instance.id))}
               disabled={loading || isTransitioning}
-              className="flex-1 flex items-center justify-center gap-2 h-10 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full 
+              className="flex-none w-[calc(100%-6.75rem)] flex items-center justify-center gap-2 h-10 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full 
                        hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
                        transition-all duration-300 shadow-lg shadow-gray-900/20 dark:shadow-white/10 text-sm font-semibold"
             >
@@ -188,7 +192,7 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
             <button
               onClick={(e) => handleButtonClick(e, () => onStop(instance.id))}
               disabled={loading || isTransitioning}
-              className="flex-1 flex items-center justify-center gap-2 h-10 bg-white dark:bg-gray-800 text-red-500 border border-red-200 dark:border-red-900/30 rounded-full 
+              className="flex-none w-[calc(100%-9.25rem)] flex items-center justify-center gap-2 h-10 bg-white dark:bg-gray-800 text-red-500 border border-red-200 dark:border-red-900/30 rounded-full 
                        hover:bg-red-50 dark:hover:bg-red-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
                        transition-all duration-300 text-sm font-semibold"
             >
@@ -202,6 +206,18 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
               )}
             </button>
           )}
+          
+          {/* 重命名按钮 - 铅笔图标 */}
+          <button
+            onClick={(e) => handleButtonClick(e, () => setIsRenameModalOpen(true))}
+            disabled={loading || isTransitioning}
+            className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full 
+                     hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:scale-95 disabled:opacity-50
+                     transition-all duration-300"
+            title="重命名"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
           
           {/* 重启按钮 */}
           {isRunning && (
@@ -234,9 +250,22 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
       {/* 加载遮罩 */}
       {(loading || isTransitioning) && (
         <div className="absolute inset-0 bg-white/50 dark:bg-black/50 backdrop-blur-[1px] flex items-center justify-center z-20">
-          {/* 这里的 spinner 已经在按钮里显示了，这里可以留空或者显示一个大的 */}
+          {/* 这里的 spinner 已经在按钮里显示了,这里可以留空或者显示一个大的 */}
         </div>
       )}
+      
+      {/* 重命名模态框 */}
+      <InstanceRenameModal
+        isOpen={isRenameModalOpen}
+        instanceName={instance.name}
+        onClose={() => setIsRenameModalOpen(false)}
+        onSave={(newName: string) => {
+          if (onRename) {
+            onRename(instance.id, newName);
+          }
+          setIsRenameModalOpen(false);
+        }}
+      />
     </div>
   );
 };

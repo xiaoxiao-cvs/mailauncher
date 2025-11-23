@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
 // 左侧树形改为分类按钮列表，移除原有树组件
@@ -933,11 +932,11 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
               {/* 如果是字符串数组，用 Tag 展示 */}
               {Array.isArray(value) && value.every((v: any) => typeof v === 'string') ? (
                 <div className="mt-2 p-3 bg-white/50 dark:bg-gray-900/50 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
-                  <div className="flex flex-wrap gap-2 mb-2 items-center">
+                  <div className="flex flex-wrap gap-2 items-center">
                     {(editValue && selectedPath === path ? editValue : value).map((item: string, idx: number) => (
                       <div
                         key={idx}
-                        className="group/tag inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/30 rounded-full text-sm transition-all hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                        className="group/tag flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/30 rounded-full text-sm transition-all hover:bg-blue-100 dark:hover:bg-blue-900/40"
                       >
                         <span>{item}</span>
                         <button
@@ -957,7 +956,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                     
                     {/* 添加新项的输入框和按钮 */}
                     {addingTagPath === path ? (
-                      <div className="inline-flex items-center gap-1 animate-in fade-in slide-in-from-left-2 duration-200">
+                      <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-left-2 duration-200">
                         <Input
                           autoFocus
                           value={newTagValue}
@@ -976,7 +975,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                               setAddingTagPath(null)
                             }
                           }}
-                          className="h-8 w-40 rounded-full text-sm px-3 bg-white dark:bg-gray-800 border-blue-200 focus:ring-2 focus:ring-blue-500/20"
+                          className="h-9 w-40 rounded-full text-sm px-3 bg-white dark:bg-gray-800 border-blue-200 focus:ring-2 focus:ring-blue-500/20"
                           placeholder="输入内容..."
                         />
                         <button
@@ -991,7 +990,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                               setAddingTagPath(null)
                             }
                           }}
-                          className="inline-flex items-center justify-center w-8 h-8 bg-green-500 hover:bg-green-600 rounded-full text-white shadow-sm transition-all duration-200"
+                          className="flex items-center justify-center w-9 h-9 bg-green-500 hover:bg-green-600 rounded-full text-white shadow-sm transition-all duration-200 shrink-0"
                         >
                           <Check className="w-4 h-4" />
                         </button>
@@ -1000,7 +999,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                             setNewTagValue('')
                             setAddingTagPath(null)
                           }}
-                          className="inline-flex items-center justify-center w-8 h-8 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full text-gray-500 dark:text-gray-400 transition-all duration-200"
+                          className="flex items-center justify-center w-9 h-9 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full text-gray-500 dark:text-gray-400 transition-all duration-200 shrink-0"
                         >
                           <XIcon className="w-4 h-4" />
                         </button>
@@ -1011,7 +1010,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                           setAddingTagPath(path)
                           setNewTagValue('')
                         }}
-                        className="inline-flex items-center justify-center w-8 h-8 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-dashed border-gray-300 dark:border-gray-600 rounded-full text-gray-500 dark:text-gray-400 transition-all duration-200"
+                        className="flex items-center justify-center w-9 h-9 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-dashed border-gray-300 dark:border-gray-600 rounded-full text-gray-500 dark:text-gray-400 transition-all duration-200 shrink-0"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -1346,7 +1345,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
               {/* Sidebar - Hidden on compact mode */}
               {!isCompact && (
                 <div className="w-56 lg:w-64 bg-white/50 dark:bg-gray-900/30 border-r border-gray-200/50 dark:border-gray-700/50 flex flex-col backdrop-blur-sm shrink-0">
-                  <div className="p-4 h-full overflow-y-auto">
+                  <div className="p-4 h-full overflow-y-auto scrollbar-thin">
                      <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 px-2">
                         Categories
                      </div>
@@ -1412,7 +1411,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                   </div>
                 )}
 
-                <ScrollArea className="flex-1">
+                <div className="flex-1 overflow-y-auto scrollbar-thin">
                   <div className={`p-4 md:p-6 lg:p-8 max-w-4xl mx-auto pb-20 ${isCompact ? 'px-4' : ''}`}>
                     {selectedGroup ? (
                       <div className="animate-in fade-in slide-in-from-right-4 duration-300">
@@ -1437,7 +1436,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                       </div>
                     )}
                   </div>
-                </ScrollArea>
+                </div>
               </div>
             </>
           )}

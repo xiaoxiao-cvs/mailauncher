@@ -6,24 +6,54 @@
 
 import { Button } from '@/components/ui/button'
 import { DownloadIcon, TrashIcon, RefreshCwIcon } from 'lucide-react'
-import { useLogViewer } from '@/hooks/useLogViewer'
+import { useLogFilesQuery, useLogContentQuery, useExportLogsMutation, useClearLogsMutation } from '@/hooks/queries/useLogQueries'
+import { useState } from 'react'
 
 interface LogViewerProps {
   className?: string
 }
 
 export function LogViewer({ className }: LogViewerProps) {
-  const {
-    logs,
-    selectedLog,
-    setSelectedLog,
-    logContent,
-    loading,
-    loadLogs,
-    handleDownload,
-    handleClear,
-    getParsedLogs
-  } = useLogViewer()
+  const [selectedLog, setSelectedLog] = useState<string>('')
+  
+  const { data: logs = [], isLoading: loading, refetch: loadLogs } = useLogFilesQuery()
+  const { data: logContent } = useLogContentQuery(selectedLog)
+  const exportMutation = useExportLogsMutation()
+  const clearMutation = useClearLogsMutation()
+  
+  const handleDownload = () => {
+    if (selectedLog) {
+      exportMutation.mutate()
+    }
+  }
+  
+  const handleClear = () => {
+    if (selectedLog && confirm('确定要清空所有日志吗？')) {
+      clearMutation.mutate(undefined, {
+        onSuccess: () => {
+          setSelectedLog('')
+          void loadLogs()
+        },
+      })
+    }
+  }
+  
+  const getParsedLogs = () => {
+    if (!logContent) return []
+    try {
+      return logContent.split('\n')
+        .filter(line => line.trim())
+        .map(line => {
+          try {
+            return JSON.parse(line)
+          } catch {
+            return { timestamp: new Date().toISOString(), level: 'info', message: line }
+          }
+        })
+    } catch {
+      return []
+    }
+  }
 
   const renderLogContent = () => {
     if (!logContent) {
@@ -110,7 +140,7 @@ export function LogViewer({ className }: LogViewerProps) {
           <Button
             size="sm"
             variant="outline"
-            onClick={loadLogs}
+            onClick={() => loadLogs()}
             disabled={loading}
             className="gap-2"
           >
@@ -162,11 +192,6 @@ export function LogViewer({ className }: LogViewerProps) {
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between">
                   <span>{(log.size / 1024).toFixed(1)} KB</span>
-                  {log.compressed && (
-                    <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-1.5 py-0.5 rounded">
-                      已压缩
-                    </span>
-                  )}
                 </div>
               </button>
             ))}
