@@ -124,24 +124,10 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     };
   }, []); // 只在挂载时执行一次
   
-  // 管理 WebSocket 连接 (响应 isRunning 变化)
+  // 管理 WebSocket 连接
   useEffect(() => {
     const term = terminalInstance.current;
     if (!term) return;
-    
-    // 如果组件未运行,显示提示并清理连接
-    if (!isRunning) {
-      // 关闭已有连接
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      
-      term.writeln('');
-      term.writeln('\x1b[1;33m组件未运行\x1b[0m');
-      term.writeln('\x1b[90m请启动组件以查看实时日志\x1b[0m');
-      return;
-    }
     
     // 组件正在运行,建立 WebSocket 连接
     term.writeln('');
@@ -214,11 +200,12 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     
     ws.onerror = (error) => {
       // 只在 WebSocket 已经打开过的情况下显示错误
-      if (ws.readyState !== WebSocket.CONNECTING) {
+      // 忽略在 CONNECTING 状态下的错误(通常是组件卸载导致的)
+      if (ws.readyState !== WebSocket.CONNECTING && wsRef.current === ws) {
         term.writeln('');
         term.writeln('\x1b[1;31m✗ 终端连接错误\x1b[0m');
+        console.error('WebSocket 错误:', error);
       }
-      console.error('WebSocket 错误:', error);
     };
     
     ws.onclose = (event) => {
@@ -268,7 +255,7 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
         }
       }
     };
-  }, [instanceId, component, isRunning]); // 添加 isRunning 到依赖项
+  }, [instanceId, component]);
   
   return (
     <div className={`terminal-container ${className} px-4 py-3`}>

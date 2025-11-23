@@ -9,6 +9,7 @@ import sys
 import platform
 import signal
 from typing import Dict, Optional, Tuple
+import asyncio
 from pathlib import Path
 from datetime import datetime
 
@@ -45,6 +46,9 @@ class ProcessManager:
         self.is_windows = platform.system() == "Windows"
         self.pty_rows = int(os.environ.get("PTY_ROWS", 24))
         self.pty_cols = int(os.environ.get("PTY_COLS", 80))
+        self.output_readers: Dict[str, asyncio.Task] = {}
+        from ..core.websocket import get_connection_manager
+        self.ws_manager = get_connection_manager()
         logger.info(f"进程管理器初始化 - 平台: {platform.system()}")
         self.__class__._initialized = True
     
@@ -107,10 +111,18 @@ class ProcessManager:
         if session_id in self.processes and self.processes[session_id].is_alive():
             logger.info(f"进程已在运行: {session_id}")
             return True
-        ok, process_info = start_process_windows(instance_id, component, command, cwd)
+        ok, process_info = start_process_windows(
+            instance_id, component, command, cwd,
+            rows=self.pty_rows, cols=self.pty_cols
+        )
         if ok and process_info:
+            if session_id in self.processes:
+                prev = self.processes[session_id]
+                process_info.output_buffer = prev.output_buffer
+                process_info.buffer_size = max(prev.buffer_size, process_info.buffer_size)
             self.processes[session_id] = process_info
             logger.info(f"Windows 进程启动成功: {session_id}, PID: {process_info.pid}")
+            await self._ensure_output_reader(session_id)
             return True
         return False
     
@@ -125,16 +137,29 @@ class ProcessManager:
         if session_id in self.processes and self.processes[session_id].is_alive():
             logger.info(f"进程已在运行: {session_id}")
             return True
-        ok, process_info = start_process_unix_sync(instance_id, component, command, cwd)
+        ok, process_info = start_process_unix_sync(
+            instance_id, component, command, cwd,
+            rows=self.pty_rows, cols=self.pty_cols
+        )
         if ok and process_info:
+            if session_id in self.processes:
+                prev = self.processes[session_id]
+                process_info.output_buffer = prev.output_buffer
+                process_info.buffer_size = max(prev.buffer_size, process_info.buffer_size)
             self.processes[session_id] = process_info
             logger.info(f"Unix PTY 进程启动成功: {session_id}, PID: {process_info.pid}")
+            await self._ensure_output_reader(session_id)
             return True
         else:
             ok2, process_info2 = await start_process_unix_async(instance_id, component, command, cwd)
             if ok2 and process_info2:
+                if session_id in self.processes:
+                    prev = self.processes[session_id]
+                    process_info2.output_buffer = prev.output_buffer
+                    process_info2.buffer_size = max(prev.buffer_size, process_info2.buffer_size)
                 self.processes[session_id] = process_info2
                 logger.info(f"Unix 进程启动成功: {session_id}, PID: {process_info2.pid}")
+                await self._ensure_output_reader(session_id)
                 return True
         return False
     
@@ -196,7 +221,6 @@ class ProcessManager:
         
         if not process_info.is_alive():
             logger.info(f"进程已经停止: {session_id}")
-            del self.processes[session_id]
             return True
         
         try:
@@ -254,7 +278,16 @@ class ProcessManager:
             await asyncio.sleep(0.1)
             
             if session_id in self.processes:
-                del self.processes[session_id]
+                pi = self.processes[session_id]
+                pi.process = None
+                pi.pid = None
+            # 停止输出读取器
+            try:
+                if session_id in self.output_readers:
+                    task = self.output_readers.pop(session_id)
+                    task.cancel()
+            except Exception:
+                pass
             
             logger.info(f"进程停止成功: {session_id}")
             return True
@@ -263,7 +296,7 @@ class ProcessManager:
             logger.error(f"停止进程失败 {session_id}: {e}", exc_info=True)
             return False
     
-    async def stop_all_instance_processes(self, instance_id: str) -> Dict[str, bool]:
+    async def stop_all_instance_processes(self, instance_id: str, force: bool = False) -> Dict[str, bool]:
         """
         停止实例的所有进程（并行停止以提高性能）
         
@@ -288,7 +321,7 @@ class ProcessManager:
             return results
         
         tasks = [
-            self.stop_process(instance_id, component, force=False)
+            self.stop_process(instance_id, component, force=force)
             for component in components
         ]
         
@@ -342,6 +375,87 @@ class ProcessManager:
             # 保持缓冲区大小限制
             if len(process_info.output_buffer) > process_info.buffer_size:
                 process_info.output_buffer = process_info.output_buffer[-process_info.buffer_size:]
+
+    async def _ensure_output_reader(self, session_id: str):
+        if session_id in self.output_readers:
+            return
+        async def read_loop():
+            try:
+                pi = self.processes.get(session_id)
+                if not pi or not pi.process:
+                    return
+                instance_id = pi.instance_id
+                component = pi.component
+                process = pi.process
+                # Unix PTY
+                if hasattr(process, 'master_fd') and hasattr(process, 'is_pty'):
+                    import os
+                    import codecs
+                    decoder = codecs.getincrementaldecoder("utf-8")(errors='replace')
+                    while True:
+                        try:
+                            data = os.read(process.master_fd, 4096)
+                            if not data:
+                                await asyncio.sleep(0.05)
+                                continue
+                            text = decoder.decode(data, final=False)
+                            self.add_output_to_buffer(instance_id, component, text)
+                            await self.ws_manager.send_message(session_id, {"type": "output", "data": text})
+                        except BlockingIOError:
+                            await asyncio.sleep(0.05)
+                        except Exception:
+                            break
+                # Unix asyncio subprocess
+                elif hasattr(process, 'stdout') and process.stdout:
+                    while True:
+                        try:
+                            line = await process.stdout.readline()
+                            if not line:
+                                break
+                            text = line.decode('utf-8', errors='replace')
+                            self.add_output_to_buffer(instance_id, component, text)
+                            await self.ws_manager.send_message(session_id, {"type": "output", "data": text})
+                        except Exception:
+                            break
+                # Windows winpty
+                elif hasattr(process, 'read'):
+                    import threading, time
+                    loop = asyncio.get_event_loop()
+                    q: asyncio.Queue[str] = asyncio.Queue()
+                    stop = {"v": False}
+                    def reader_thread():
+                        while not stop["v"]:
+                            try:
+                                data = process.read()
+                                if data:
+                                    asyncio.run_coroutine_threadsafe(q.put(data), loop)
+                                else:
+                                    time.sleep(0.1)
+                            except Exception:
+                                break
+                    t = threading.Thread(target=reader_thread, daemon=True)
+                    t.start()
+                    while not stop["v"]:
+                        try:
+                            text = await q.get()
+                            self.add_output_to_buffer(instance_id, component, text)
+                            await self.ws_manager.send_message(session_id, {"type": "output", "data": text})
+                        except Exception:
+                            break
+                    stop["v"] = True
+                    try:
+                        t.join(timeout=0.5)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            finally:
+                try:
+                    self.output_readers.pop(session_id, None)
+                except Exception:
+                    pass
+        task = asyncio.create_task(read_loop())
+        self.output_readers[session_id] = task
     
     def get_output_history(self, instance_id: str, component: str, lines: int = 300) -> list[str]:
         """获取历史输出"""
@@ -353,11 +467,23 @@ class ProcessManager:
     async def cleanup(self):
         """清理所有进程"""
         logger.info("清理所有进程...")
-        for session_id in list(self.processes.keys()):
-            process_info = self.processes[session_id]
+        sessions = list(self.processes.keys())
+        pty_first = []
+        others = []
+        for session_id in sessions:
+            pi = self.processes[session_id]
+            proc = pi.process
+            if proc and hasattr(proc, 'is_pty') and hasattr(proc, 'master_fd'):
+                pty_first.append(session_id)
+            else:
+                others.append(session_id)
+        for session_id in pty_first + others:
+            pi2 = self.processes.get(session_id)
+            if not pi2:
+                continue
             await self.stop_process(
-                process_info.instance_id,
-                process_info.component,
+                pi2.instance_id,
+                pi2.component,
                 force=True,
             )
         logger.info("进程清理完成")

@@ -176,12 +176,12 @@ class TOMLWithComments:
                     'inline_comment': inline_comment
                 })
                 
-                # 保存注释
+                # 保存注释（注意：pending_comments 中的注释已经包含 # 前缀）
                 all_comments = []
                 if pending_comments:
                     all_comments.extend(pending_comments)
-                if inline_comment:
-                    all_comments.append(f"# {inline_comment}")
+                # 行内注释不需要重复添加到 comments_map，因为它已经保存在 structure 的 inline_comment 字段中
+                # 这样可以避免在 save() 时重复写入
                 
                 if all_comments:
                     self.comments_map[full_key] = '\n'.join(all_comments)
@@ -224,14 +224,18 @@ class TOMLWithComments:
         
         return value
     
-    def set_value(self, key_path: str, value: Any) -> None:
+    def set_value(self, key_path: str, value: Any, comment: Optional[str] = None) -> None:
         """设置指定路径的值
         
         Args:
             key_path: 键路径
             value: 新值
+            comment: 可选的注释（仅用于新增键）
         """
         keys = self._parse_key_path(key_path)
+        
+        # 检查是否是新增的键
+        is_new_key = self.get_value(key_path) is None
         
         # 更新内存中的数据
         target = self.data
@@ -248,6 +252,50 @@ class TOMLWithComments:
             target[last_key] = value
         else:
             target[last_key] = value
+        
+        # 如果是新增的键，更新 structure 和 comments_map
+        if is_new_key:
+            # 解析 section 和 key
+            parts = key_path.split('.')
+            if len(parts) > 1:
+                section = '.'.join(parts[:-1])
+                key = parts[-1]
+            else:
+                section = ""
+                key = key_path
+            
+            # 添加注释到 comments_map
+            if comment:
+                self.comments_map[key_path] = comment
+            
+            # 添加到 structure（插入到对应 section 后）
+            insert_pos = len(self.structure)
+            for i, item in enumerate(self.structure):
+                if item['type'] == 'section' and item.get('name') == section:
+                    # 找到下一个 section 或文件末尾
+                    for j in range(i + 1, len(self.structure)):
+                        if self.structure[j]['type'] == 'section':
+                            insert_pos = j
+                            break
+                    else:
+                        insert_pos = len(self.structure)
+                    break
+            
+            # 构建新的 keyvalue 结构项
+            new_item = {
+                'type': 'keyvalue',
+                'line': -1,  # 标记为新增
+                'content': '',  # 将在 save 时生成
+                'key': key,
+                'full_key': key_path,
+                'section': section,
+                'array_table': None,
+                'array_index': None,
+                'comments': [comment] if comment and not comment.startswith('#') else ([comment] if comment else []),
+                'inline_comment': None
+            }
+            
+            self.structure.insert(insert_pos, new_item)
     
     def delete_value(self, key_path: str) -> None:
         """删除指定路径的值
@@ -272,6 +320,14 @@ class TOMLWithComments:
         else:
             if last_key in target:
                 del target[last_key]
+        
+        # 清理 comments_map 中的注释
+        if key_path in self.comments_map:
+            del self.comments_map[key_path]
+        
+        # 从 structure 中移除对应项
+        self.structure = [item for item in self.structure 
+                         if not (item['type'] == 'keyvalue' and item['full_key'] == key_path)]
     
     def get_comment(self, key_path: str) -> Optional[str]:
         """获取指定键的注释
@@ -325,9 +381,11 @@ class TOMLWithComments:
                     # 值已被删除，跳过此行
                     continue
                 
-                # 添加前置注释
+                # 添加前置注释（只添加不以 # 开头的原始注释）
                 for comment in item.get('comments', []):
-                    new_lines.append(f"{comment}\n")
+                    # 确保注释行以 # 开头
+                    comment_line = comment if comment.startswith('#') else f"# {comment}"
+                    new_lines.append(f"{comment_line}\n")
                 
                 # 生成新的键值对行
                 key = item['key']
@@ -357,9 +415,12 @@ class TOMLWithComments:
                     # 回退到标准方法
                     value_str = toml.dumps({key: value}).strip()
                 
-                # 添加行内注释
+                # 添加行内注释（但不要重复添加）
+                # 行内注释不应该包含 "# " 前缀，因为在解析时已经去掉了
                 if item.get('inline_comment'):
-                    value_str = f"{value_str} # {item['inline_comment']}"
+                    inline_comment = item['inline_comment']
+                    # 如果注释不在前置注释中，才添加为行内注释
+                    value_str = f"{value_str}  # {inline_comment}"
                 
                 new_lines.append(f"{value_str}\n")
         

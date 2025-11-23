@@ -17,10 +17,12 @@ from ...models import (
 )
 from ...services.instance_service import get_instance_service, InstanceService
 from ...services.process_manager import get_process_manager
+from ...core.websocket import get_connection_manager
 from ...core.database import get_db
 from ...core.logger import logger
 
 router = APIRouter(tags=["instances"])
+_terminal_output_tasks = {}
 
 
 @router.get("", response_model=InstanceList)
@@ -195,36 +197,25 @@ async def terminal_websocket(
     支持查询参数 history 指定返回的历史日志行数
     """
     process_manager = get_process_manager()
+    ws_manager = get_connection_manager()
+    monitor_task = None
     
     try:
-        await websocket.accept()
+        session_id = f"{instance_id}_{component}"
+        await ws_manager.connect(websocket, session_id)
         logger.info(f"终端 WebSocket 已连接: {instance_id}/{component}, 请求历史: {history} 行")
-        
-        # 获取进程信息
-        process_info = process_manager.get_process_info(instance_id, component)
-        
-        if not process_info:
+        pi = process_manager.get_process_info(instance_id, component)
+        if pi and pi.is_alive():
+            await websocket.send_json({
+                "type": "connected",
+                "message": f"已连接到 {instance_id}/{component}",
+                "pid": pi.pid
+            })
+        else:
             await websocket.send_json({
                 "type": "error",
                 "message": f"组件 {component} 未运行"
             })
-            await websocket.close()
-            return
-        
-        if not process_info.is_alive():
-            await websocket.send_json({
-                "type": "error",
-                "message": f"组件 {component} 进程已停止"
-            })
-            await websocket.close()
-            return
-        
-        # 发送连接成功消息
-        await websocket.send_json({
-            "type": "connected",
-            "message": f"已连接到 {instance_id}/{component}",
-            "pid": process_info.pid
-        })
         
         # 发送历史日志
         if history > 0:
@@ -236,111 +227,109 @@ async def terminal_websocket(
                 })
                 logger.debug(f"已发送 {len(history_lines)} 行历史日志")
         
-        # 创建读取进程输出的任务
-        async def read_output():
-            try:
-                process = process_info.process
-                
-                # Unix PTY 进程
-                if hasattr(process, 'master_fd') and hasattr(process, 'is_pty'):
-                    import os
-                    master_fd = process.master_fd
-                    
-                    while True:
-                        try:
-                            # 非阻塞读取
-                            data = os.read(master_fd, 4096)
-                            if not data:
-                                await asyncio.sleep(0.05)
-                                continue
-                            
-                            text = data.decode('utf-8', errors='replace')
-                            
-                            # 添加到缓冲区
-                            process_manager.add_output_to_buffer(instance_id, component, text)
-                            
-                            # 发送给前端
-                            await websocket.send_json({
-                                "type": "output",
-                                "data": text
-                            })
-                        except BlockingIOError:
-                            await asyncio.sleep(0.05)
-                        except Exception as e:
-                            logger.error(f"读取 PTY 输出失败: {e}")
-                            break
-                
-                # Unix asyncio subprocess
-                elif hasattr(process, 'stdout') and process.stdout:
-                    while True:
-                        try:
-                            line = await process.stdout.readline()
-                            if not line:
-                                break
-                            
-                            text = line.decode('utf-8', errors='replace')
-                            
-                            # 添加到缓冲区
-                            process_manager.add_output_to_buffer(instance_id, component, text)
-                            
-                            # 发送给前端
-                            await websocket.send_json({
-                                "type": "output",
-                                "data": text
-                            })
-                        except Exception as e:
-                            logger.error(f"读取输出失败: {e}")
-                            break
-                
-                # Windows winpty
-                elif hasattr(process, 'read'):
-                    import threading
-                    import time
-                    loop = asyncio.get_event_loop()
-                    output_queue: asyncio.Queue[str] = asyncio.Queue()
-                    stop_flag = {"value": False}
-
-                    def reader_thread():
-                        while not stop_flag["value"]:
+        async def ensure_reader():
+            if session_id in _terminal_output_tasks:
+                return
+            async def read_output_broadcast():
+                try:
+                    pi_local = process_manager.get_process_info(instance_id, component)
+                    if not pi_local or not pi_local.process:
+                        return
+                    process = pi_local.process
+                    if hasattr(process, 'master_fd') and hasattr(process, 'is_pty'):
+                        import os
+                        import codecs
+                        master_fd = process.master_fd
+                        decoder = codecs.getincrementaldecoder("utf-8")(errors='replace')
+                        while True:
                             try:
-                                data = process.read()
-                                if data:
-                                    asyncio.run_coroutine_threadsafe(output_queue.put(data), loop)
-                                else:
-                                    time.sleep(0.1)
+                                data = os.read(master_fd, 4096)
+                                if not data:
+                                    await asyncio.sleep(0.05)
+                                    continue
+                                text = decoder.decode(data, final=False)
+                                process_manager.add_output_to_buffer(instance_id, component, text)
+                                await ws_manager.send_message(session_id, {"type": "output", "data": text})
+                            except BlockingIOError:
+                                await asyncio.sleep(0.05)
+                            except Exception as e:
+                                logger.error(f"读取 PTY 输出失败: {e}")
+                                break
+                    elif hasattr(process, 'stdout') and process.stdout:
+                        while True:
+                            try:
+                                line = await process.stdout.readline()
+                                if not line:
+                                    break
+                                text = line.decode('utf-8', errors='replace')
+                                process_manager.add_output_to_buffer(instance_id, component, text)
+                                await ws_manager.send_message(session_id, {"type": "output", "data": text})
                             except Exception as e:
                                 logger.error(f"读取输出失败: {e}")
                                 break
-
-                    t = threading.Thread(target=reader_thread, daemon=True)
-                    t.start()
-
-                    while not stop_flag["value"]:
+                    elif hasattr(process, 'read'):
+                        import threading
+                        import time
+                        loop = asyncio.get_event_loop()
+                        output_queue: asyncio.Queue[str] = asyncio.Queue()
+                        stop_flag = {"value": False}
+                        def reader_thread():
+                            while not stop_flag["value"]:
+                                try:
+                                    data = process.read()
+                                    if data:
+                                        asyncio.run_coroutine_threadsafe(output_queue.put(data), loop)
+                                    else:
+                                        time.sleep(0.1)
+                                except Exception as e:
+                                    logger.error(f"读取输出失败: {e}")
+                                    break
+                        t = threading.Thread(target=reader_thread, daemon=True)
+                        t.start()
+                        while not stop_flag["value"]:
+                            try:
+                                text = await output_queue.get()
+                                process_manager.add_output_to_buffer(instance_id, component, text)
+                                await ws_manager.send_message(session_id, {"type": "output", "data": text})
+                            except Exception as e:
+                                logger.error(f"发送输出失败: {e}")
+                                break
+                        stop_flag["value"] = True
                         try:
-                            text = await output_queue.get()
-                            # 添加到缓冲区
-                            process_manager.add_output_to_buffer(instance_id, component, text)
-                            # 发送给前端
-                            await websocket.send_json({
-                                "type": "output",
-                                "data": text
-                            })
-                        except Exception as e:
-                            logger.error(f"发送输出失败: {e}")
+                            t.join(timeout=0.5)
+                        except Exception:
+                            pass
+                    else:
+                        logger.warning(f"进程 {instance_id}/{component} 不支持输出读取")
+                except Exception as e:
+                    logger.error(f"读取输出任务异常: {e}", exc_info=True)
+            task = asyncio.create_task(read_output_broadcast())
+            _terminal_output_tasks[session_id] = task
+
+        pi = process_manager.get_process_info(instance_id, component)
+        if pi and pi.is_alive():
+            await ensure_reader()
+        else:
+            connected_notified = False
+            async def monitor_start():
+                nonlocal connected_notified
+                try:
+                    while True:
+                        await asyncio.sleep(1)
+                        pi2 = process_manager.get_process_info(instance_id, component)
+                        if pi2 and pi2.is_alive():
+                            if not connected_notified:
+                                try:
+                                    await ws_manager.send_message(session_id, {"type": "connected", "message": f"已连接到 {instance_id}/{component}", "pid": pi2.pid})
+                                except Exception:
+                                    pass
+                                connected_notified = True
+                            if session_id not in _terminal_output_tasks:
+                                await ensure_reader()
                             break
-                    stop_flag["value"] = True
-                    try:
-                        t.join(timeout=0.5)
-                    except Exception:
-                        pass
-                else:
-                    logger.warning(f"进程 {instance_id}/{component} 不支持输出读取")
-                    
-            except Exception as e:
-                logger.error(f"读取输出任务异常: {e}", exc_info=True)
-        
-        # 启动输出读取任务
-        output_task = asyncio.create_task(read_output())
+                except Exception:
+                    pass
+            monitor_task = asyncio.create_task(monitor_start())
         
         try:
             # 接收来自前端的输入
@@ -351,7 +340,8 @@ async def terminal_websocket(
                     if message.get("type") == "input":
                         # 发送用户输入到进程
                         data = message.get("data", "")
-                        process = process_info.process
+                        pi_cur = process_manager.get_process_info(instance_id, component)
+                        process = pi_cur.process if pi_cur else None
                         
                         # Unix PTY
                         if hasattr(process, 'master_fd') and hasattr(process, 'is_pty'):
@@ -372,9 +362,27 @@ async def terminal_websocket(
                         rows = message.get("rows", 24)
                         cols = message.get("cols", 80)
                         
-                        if hasattr(process_info.process, 'setwinsize'):
-                            process_info.process.setwinsize(rows, cols)
-                            logger.debug(f"终端大小已调整: {rows}x{cols}")
+                        # Windows winpty
+                        pi_cur2 = process_manager.get_process_info(instance_id, component)
+                        proc2 = pi_cur2.process if pi_cur2 else None
+                        if hasattr(proc2, 'set_winsize'):
+                            proc2.set_winsize(rows, cols)
+                            logger.debug(f"Windows 终端大小已调整: {rows}x{cols}")
+                        # Unix PTY
+                        elif hasattr(proc2, 'master_fd') and hasattr(proc2, 'is_pty'):
+                            try:
+                                import fcntl
+                                import termios
+                                import struct
+                                winsize = struct.pack("HHHH", rows, cols, 0, 0)
+                                fcntl.ioctl(proc2.master_fd, termios.TIOCSWINSZ, winsize)
+                                logger.debug(f"Unix 终端大小已调整: {rows}x{cols}")
+                            except Exception as e:
+                                logger.warning(f"调整 Unix 终端大小失败: {e}")
+                        # Fallback for other types or older winpty versions
+                        elif hasattr(proc2, 'setwinsize'):
+                            proc2.setwinsize(rows, cols)
+                            logger.debug(f"终端大小已调整(fallback): {rows}x{cols}")
                         
                 except WebSocketDisconnect:
                     logger.info(f"终端 WebSocket 断开: {instance_id}/{component}")
@@ -384,11 +392,14 @@ async def terminal_websocket(
                     break
                     
         finally:
-            # 取消输出读取任务
-            output_task.cancel()
             try:
-                await output_task
-            except asyncio.CancelledError:
+                ws_manager.disconnect(websocket, session_id)
+            except Exception:
+                pass
+            try:
+                if monitor_task:
+                    monitor_task.cancel()
+            except Exception:
                 pass
                 
     except Exception as e:

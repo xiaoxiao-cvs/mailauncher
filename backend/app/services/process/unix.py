@@ -6,15 +6,19 @@ from app.core.logger import logger
 from .types import ProcessInfo
 
 
-def start_process_unix_sync(instance_id: str, component: str, command: str, cwd: str):
+def start_process_unix_sync(instance_id: str, component: str, command: str, cwd: str, rows: int = 24, cols: int = 80):
     try:
         import pty
         import fcntl
+        import termios
+        import struct
         HAS_PTY = True
     except Exception:
         HAS_PTY = False
         fcntl = None
         pty = None
+        termios = None
+        struct = None
 
     if platform.system() == "Windows":
         logger.error("当前平台是 Windows，无法使用 Unix 进程启动")
@@ -26,6 +30,14 @@ def start_process_unix_sync(instance_id: str, component: str, command: str, cwd:
             import shlex
 
             master, slave = pty.openpty()
+            
+            # 设置初始窗口大小
+            try:
+                winsize = struct.pack("HHHH", rows, cols, 0, 0)
+                fcntl.ioctl(master, termios.TIOCSWINSZ, winsize)
+            except Exception as e:
+                logger.warning(f"设置初始终端大小失败: {e}")
+
             process = subprocess.Popen(
                 shlex.split(command),
                 cwd=cwd,
