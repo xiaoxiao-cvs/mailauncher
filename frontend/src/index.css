@@ -180,7 +180,7 @@
   /* FLIP 动画技术支持 */
   @keyframes slideIn {
     from {
-      transform: translateY(20px);
+      transform: translateY(30px);
       opacity: 0;
     }
     to {
@@ -190,6 +190,7 @@
   }
   
   .instance-card-enter {
-    animation: slideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: slideIn 0.8s cubic-bezier(0.4, 0, 0.2, 1) both;
+    opacity: 0;
   }
 }

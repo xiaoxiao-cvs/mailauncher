@@ -31,6 +31,7 @@ export const InstanceListPage: React.FC = () => {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const previousPositions = useRef<Map<string, DOMRect>>(new Map());
+  const hasAnimatedRef = useRef<Set<string>>(new Set());
   
   // 对实例进行排序：运行中的在前，按状态和时间排序
   const instances = React.useMemo(() => {
@@ -52,6 +53,15 @@ export const InstanceListPage: React.FC = () => {
       return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     });
   }, [instanceData?.instances]);
+  
+  // 标记新实例已经动画过
+  useEffect(() => {
+    instances.forEach(instance => {
+      if (!hasAnimatedRef.current.has(instance.id)) {
+        hasAnimatedRef.current.add(instance.id);
+      }
+    });
+  }, [instances]);
   
   // FLIP 动画: 记录位置变化并应用动画
   useEffect(() => {
@@ -76,15 +86,16 @@ export const InstanceListPage: React.FC = () => {
         const deltaX = oldPos.left - newPos.left;
         const deltaY = oldPos.top - newPos.top;
         
-        // Invert: 如果位置有变化，先移动到旧位置
-        if (deltaX !== 0 || deltaY !== 0) {
+        // 只有移动距离超过5px时才触发动画，避免微小抖动
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        if (distance > 5) {
           element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
           element.style.transition = 'none';
           
           // Play: 触发动画回到新位置
           requestAnimationFrame(() => {
             element.style.transform = '';
-            element.style.transition = 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+            element.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
           });
         }
       }
@@ -251,29 +262,34 @@ export const InstanceListPage: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 instance-grid-container">
-          {instances.map((instance) => (
-            <div 
-              key={instance.id}
-              ref={(el) => {
-                if (el) {
-                  cardRefs.current.set(instance.id, el);
-                } else {
-                  cardRefs.current.delete(instance.id);
-                }
-              }}
-              className="instance-card-item opacity-0"
-            >
-              <InstanceCard
-                instance={instance}
-                onStart={handleStart}
-                onStop={handleStop}
-                onRestart={handleRestart}
-                onDelete={handleDelete}
-                onRename={handleRename}
-                loading={actionLoading === instance.id}
-              />
-            </div>
-          ))}
+          {instances.map((instance, index) => {
+            const isNew = !hasAnimatedRef.current.has(instance.id);
+            
+            return (
+              <div 
+                key={instance.id}
+                ref={(el) => {
+                  if (el) {
+                    cardRefs.current.set(instance.id, el);
+                  } else {
+                    cardRefs.current.delete(instance.id);
+                  }
+                }}
+                className={`instance-card-item ${isNew ? 'instance-card-enter' : ''}`}
+                style={isNew ? { animationDelay: `${index * 0.15}s` } : {}}
+              >
+                <InstanceCard
+                  instance={instance}
+                  onStart={handleStart}
+                  onStop={handleStop}
+                  onRestart={handleRestart}
+                  onDelete={handleDelete}
+                  onRename={handleRename}
+                  loading={actionLoading === instance.id}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

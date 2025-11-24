@@ -117,7 +117,7 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
         bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl
         rounded-[2rem] shadow-sm hover:shadow-2xl
         border border-white/50 dark:border-gray-700/50
-        transition-all duration-500 ease-out
+        transition-all duration-300 ease-out
         hover:-translate-y-1 cursor-pointer
         ${loading || isTransitioning ? 'opacity-80' : ''}
       `}
@@ -160,7 +160,7 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
         {/* 极简徽章式状态显示 */}
         <div className="flex items-center gap-2 mb-4 text-xs flex-wrap">
           {/* 运行状态徽章 */}
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${statusColors[instance.status]} transition-all duration-300`}>
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${statusColors[instance.status]} transition-all duration-200`}>
             <div className={`w-1.5 h-1.5 rounded-full ${statusTextColors[instance.status]} ${isRunning ? 'animate-pulse' : ''}`} />
             <span className="font-medium">{statusTexts[instance.status]}</span>
           </div>
@@ -182,7 +182,11 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
           )}
           
           {/* 组件数徽章 */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400">
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-all duration-200 ${
+            isRunning 
+              ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' 
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+          }`}>
             <Server className="w-3 h-3" />
             <span className="font-medium">{componentCount}</span>
           </div>
@@ -204,7 +208,7 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
               disabled={loading || isTransitioning}
               className="flex-none w-[calc(100%-6.75rem)] flex items-center justify-center gap-2 h-10 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full 
                        hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
-                       transition-all duration-300 shadow-lg shadow-gray-900/20 dark:shadow-white/10 text-sm font-semibold"
+                       transition-all duration-200 shadow-lg shadow-gray-900/20 dark:shadow-white/10 text-sm font-semibold"
             >
               {loading || isTransitioning ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
@@ -221,7 +225,7 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
               disabled={loading || isTransitioning}
               className="flex-none w-[calc(100%-9.25rem)] flex items-center justify-center gap-2 h-10 bg-white dark:bg-gray-800 text-red-500 border border-red-200 dark:border-red-900/30 rounded-full 
                        hover:bg-red-50 dark:hover:bg-red-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
-                       transition-all duration-300 text-sm font-semibold"
+                       transition-all duration-200 text-sm font-semibold"
             >
               {loading || isTransitioning ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-500 border-t-transparent" />

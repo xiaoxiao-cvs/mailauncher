@@ -132,32 +132,45 @@ export function useStartInstanceMutation() {
     onMutate: async (instanceId) => {
       // 取消正在进行的查询
       await queryClient.cancelQueries({ queryKey: instanceKeys.detail(instanceId) });
+      await queryClient.cancelQueries({ queryKey: instanceKeys.lists() });
 
       // 获取当前数据
       const previousInstance = queryClient.getQueryData(instanceKeys.detail(instanceId));
+      const previousList = queryClient.getQueryData(instanceKeys.list());
 
-      // 乐观更新：将状态设置为 starting
+      // 乐观更新详情：将状态设置为 starting
       queryClient.setQueryData(instanceKeys.detail(instanceId), (old: any) => {
         if (!old) return old;
         return { ...old, status: 'starting' };
       });
 
-      return { previousInstance };
+      // 乐观更新列表：将状态设置为 starting
+      queryClient.setQueryData(instanceKeys.list(), (old: any) => {
+        if (!old || !old.instances) return old;
+        return {
+          ...old,
+          instances: old.instances.map((inst: any) =>
+            inst.id === instanceId ? { ...inst, status: 'starting' } : inst
+          ),
+        };
+      });
+
+      return { previousInstance, previousList };
     },
     onError: (_err, instanceId, context) => {
       // 错误时回滚
       if (context?.previousInstance) {
         queryClient.setQueryData(instanceKeys.detail(instanceId), context.previousInstance);
       }
+      if (context?.previousList) {
+        queryClient.setQueryData(instanceKeys.list(), context.previousList);
+      }
     },
     onSettled: (_, __, instanceId) => {
-      // 完成后重新获取数据
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: instanceKeys.detail(instanceId) });
-        queryClient.invalidateQueries({ queryKey: instanceKeys.lists() });
-        // 同时刷新所有组件状态
-        queryClient.invalidateQueries({ queryKey: instanceKeys.components(instanceId) });
-      }, 500);
+      // 完成后立即重新获取数据
+      queryClient.invalidateQueries({ queryKey: instanceKeys.detail(instanceId) });
+      queryClient.invalidateQueries({ queryKey: instanceKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: instanceKeys.components(instanceId) });
     },
   });
 }
@@ -172,26 +185,40 @@ export function useStopInstanceMutation() {
     mutationFn: (instanceId: string) => instanceApi.stopInstance(instanceId),
     onMutate: async (instanceId) => {
       await queryClient.cancelQueries({ queryKey: instanceKeys.detail(instanceId) });
+      await queryClient.cancelQueries({ queryKey: instanceKeys.lists() });
+      
       const previousInstance = queryClient.getQueryData(instanceKeys.detail(instanceId));
+      const previousList = queryClient.getQueryData(instanceKeys.list());
 
       queryClient.setQueryData(instanceKeys.detail(instanceId), (old: any) => {
         if (!old) return old;
         return { ...old, status: 'stopping' };
       });
 
-      return { previousInstance };
+      queryClient.setQueryData(instanceKeys.list(), (old: any) => {
+        if (!old || !old.instances) return old;
+        return {
+          ...old,
+          instances: old.instances.map((inst: any) =>
+            inst.id === instanceId ? { ...inst, status: 'stopping' } : inst
+          ),
+        };
+      });
+
+      return { previousInstance, previousList };
     },
     onError: (_err, instanceId, context) => {
       if (context?.previousInstance) {
         queryClient.setQueryData(instanceKeys.detail(instanceId), context.previousInstance);
       }
+      if (context?.previousList) {
+        queryClient.setQueryData(instanceKeys.list(), context.previousList);
+      }
     },
     onSettled: (_, __, instanceId) => {
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: instanceKeys.detail(instanceId) });
-        queryClient.invalidateQueries({ queryKey: instanceKeys.lists() });
-        queryClient.invalidateQueries({ queryKey: instanceKeys.components(instanceId) });
-      }, 500);
+      queryClient.invalidateQueries({ queryKey: instanceKeys.detail(instanceId) });
+      queryClient.invalidateQueries({ queryKey: instanceKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: instanceKeys.components(instanceId) });
     },
   });
 }
