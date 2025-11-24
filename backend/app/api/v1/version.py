@@ -47,7 +47,7 @@ async def get_instance_components_version(
         components_info = []
         
         # 检查每个组件的版本
-        for component in ["MaiBot", "NapCat", "MaiBot-Napcat-Adapter"]:
+        for component in ["MaiBot", "MaiBot-Napcat-Adapter"]:
             logger.debug(f"检查组件: {component}")
             component_path = instance_path / component
             
@@ -142,7 +142,7 @@ async def check_component_update(
         if not instance:
             raise HTTPException(status_code=404, detail="实例不存在")
         
-        if component not in ["MaiBot", "NapCat", "MaiBot-Napcat-Adapter"]:
+        if component not in ["MaiBot", "MaiBot-Napcat-Adapter"]:
             raise HTTPException(status_code=400, detail="无效的组件名称")
         
         # 构建完整的实例路径
@@ -220,7 +220,7 @@ async def update_component(
         if not instance:
             raise HTTPException(status_code=404, detail="实例不存在")
         
-        if component not in ["MaiBot", "NapCat", "MaiBot-Napcat-Adapter"]:
+        if component not in ["MaiBot", "MaiBot-Napcat-Adapter"]:
             raise HTTPException(status_code=400, detail="无效的组件名称")
         
         # 构建完整的实例路径
@@ -510,7 +510,7 @@ async def get_component_releases(
     获取组件的 Release 历史列表
     """
     try:
-        if component not in ["MaiBot", "NapCat", "MaiBot-Napcat-Adapter"]:
+        if component not in ["MaiBot", "MaiBot-Napcat-Adapter"]:
             raise HTTPException(status_code=400, detail="无效的组件名称")
         
         repo_config = version_service.GITHUB_REPOS[component]

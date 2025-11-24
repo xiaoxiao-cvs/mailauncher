@@ -22,11 +22,6 @@ class VersionService:
             "repo": "MaiBot",
             "has_releases": False  # MaiBot 没有 release，只能对比 commit
         },
-        "NapCat": {
-            "owner": "NapNeko",
-            "repo": "NapCatQQ",
-            "has_releases": True
-        },
         "MaiBot-Napcat-Adapter": {
             "owner": "Mai-with-u",
             "repo": "MaiBot-Napcat-Adapter",

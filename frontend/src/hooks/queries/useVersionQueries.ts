@@ -35,7 +35,6 @@ export const versionKeys = {
 export function useComponentsVersionQuery(
   instanceId: string | undefined,
   options?: {
-    refetchInterval?: number;
     enabled?: boolean;
   }
 ) {
@@ -43,7 +42,7 @@ export function useComponentsVersionQuery(
     queryKey: versionKeys.components(instanceId!),
     queryFn: () => getInstanceComponentsVersion(instanceId!),
     enabled: !!instanceId && (options?.enabled ?? true),
-    refetchInterval: options?.refetchInterval,
+    staleTime: 24 * 60 * 60 * 1000, // 24 小时内数据视为新鲜，不会自动重新获取
     refetchOnWindowFocus: false,
   });
 }
