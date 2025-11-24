@@ -45,3 +45,13 @@ class APIResponse(BaseModel):
     success: bool = Field(..., description="请求是否成功")
     message: str = Field(..., description="响应消息")
     data: Optional[Any] = Field(None, description="响应数据")
+    
+    @staticmethod
+    def success(data: Optional[Any] = None, message: str = "操作成功") -> "APIResponse":
+        """创建成功响应"""
+        return APIResponse(success=True, message=message, data=data)
+    
+    @staticmethod
+    def error(message: str, data: Optional[Any] = None) -> "APIResponse":
+        """创建错误响应"""
+        return APIResponse(success=False, message=message, data=data)

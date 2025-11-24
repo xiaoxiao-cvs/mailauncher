@@ -102,7 +102,17 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {}
     throw new Error((detail && (detail.detail || detail.message)) || res.statusText)
   }
-  return res.json()
+  
+  // 解析响应
+  const json = await res.json()
+  
+  // 如果响应是标准格式 { success, message, data }，提取 data 字段
+  if (json && typeof json === 'object' && 'success' in json && 'data' in json) {
+    return json.data as T
+  }
+  
+  // 否则直接返回原始响应
+  return json as T
 }
 
 export async function apiText(path: string, init?: RequestInit): Promise<string> {

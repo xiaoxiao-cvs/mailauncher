@@ -2,7 +2,7 @@
 数据库模型 - 启动器配置
 定义启动器和 MAIBot 相关配置的 SQLAlchemy 模型
 """
-from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text, ForeignKey
+from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text, ForeignKey, JSON
 from datetime import datetime
 
 from ..core.database import Base
@@ -170,3 +170,77 @@ class DeploymentLogDB(Base):
     
     def __repr__(self):
         return f"<DeploymentLogDB(deployment_id={self.deployment_id}, level={self.level})>"
+
+
+class ScheduleTaskDB(Base):
+    """计划任务数据库模型 - 存储实例的计划任务"""
+    __tablename__ = "schedule_tasks"
+    
+    id = Column(String(50), primary_key=True)  # 任务唯一标识符 (task_xxxxx)
+    instance_id = Column(String(50), ForeignKey("instances.id"), nullable=False, index=True)  # 关联的实例 ID
+    name = Column(String(100), nullable=False)  # 任务名称
+    action = Column(String(20), nullable=False)  # 执行动作: start/stop/restart
+    schedule_type = Column(String(20), nullable=False)  # 调度类型: once/daily/weekly/monitor
+    schedule_config = Column(JSON, nullable=False)  # 调度配置 (JSON 格式)
+    enabled = Column(Boolean, default=True, nullable=False)  # 是否启用
+    last_run = Column(DateTime, nullable=True)  # 最后执行时间
+    next_run = Column(DateTime, nullable=True)  # 下次执行时间
+    created_at = Column(DateTime, default=datetime.now, nullable=False)  # 创建时间
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)  # 更新时间
+    
+    def __repr__(self):
+        return f"<ScheduleTaskDB(id={self.id}, instance_id={self.instance_id}, action={self.action})>"
+
+
+class ComponentVersionDB(Base):
+    """组件版本记录 - 存储实例组件的版本信息"""
+    __tablename__ = "component_versions"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    instance_id = Column(String(50), ForeignKey("instances.id"), nullable=False, index=True)
+    component = Column(String(50), nullable=False)  # main, napcat, napcat-ada
+    version = Column(String(100), nullable=True)  # 版本号或标签
+    commit_hash = Column(String(40), nullable=True)  # Git commit hash
+    install_method = Column(String(20), nullable=False)  # release, git, manual
+    installed_at = Column(DateTime, default=datetime.now, nullable=False)
+    
+    def __repr__(self):
+        return f"<ComponentVersionDB(instance_id={self.instance_id}, component={self.component}, version={self.version})>"
+
+
+class VersionBackupDB(Base):
+    """版本备份记录 - 存储组件更新前的完整备份"""
+    __tablename__ = "version_backups"
+    
+    id = Column(String(50), primary_key=True)  # 备份唯一标识符
+    instance_id = Column(String(50), ForeignKey("instances.id"), nullable=False, index=True)
+    component = Column(String(50), nullable=False)  # 备份的组件
+    version = Column(String(100), nullable=True)  # 备份时的版本
+    commit_hash = Column(String(40), nullable=True)  # 备份时的 commit hash
+    backup_path = Column(String(500), nullable=False)  # 备份文件存储路径
+    backup_size = Column(Integer, nullable=False, default=0)  # 备份大小(字节)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    description = Column(Text, nullable=True)  # 备份描述
+    
+    def __repr__(self):
+        return f"<VersionBackupDB(id={self.id}, instance_id={self.instance_id}, component={self.component})>"
+
+
+class UpdateHistoryDB(Base):
+    """更新历史记录 - 存储组件更新的历史记录"""
+    __tablename__ = "update_history"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    instance_id = Column(String(50), ForeignKey("instances.id"), nullable=False, index=True)
+    component = Column(String(50), nullable=False)
+    from_version = Column(String(100), nullable=True)  # 更新前版本
+    to_version = Column(String(100), nullable=True)  # 更新后版本
+    from_commit = Column(String(40), nullable=True)  # 更新前 commit
+    to_commit = Column(String(40), nullable=True)  # 更新后 commit
+    status = Column(String(20), nullable=False)  # success, failed, rollback
+    backup_id = Column(String(50), ForeignKey("version_backups.id"), nullable=True)  # 关联备份
+    error_message = Column(Text, nullable=True)  # 错误信息
+    updated_at = Column(DateTime, default=datetime.now, nullable=False)
+    
+    def __repr__(self):
+        return f"<UpdateHistoryDB(instance_id={self.instance_id}, component={self.component}, status={self.status})>"

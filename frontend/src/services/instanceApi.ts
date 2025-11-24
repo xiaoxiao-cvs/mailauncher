@@ -8,7 +8,7 @@ import { apiJson } from '@/config/api';
 
 export type InstanceStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'error';
 export type BotType = 'maibot' | 'napcat' | 'other';
-export type ComponentType = 'main' | 'napcat' | 'napcat-ada';
+export type ComponentType = 'MaiBot' | 'NapCat' | 'MaiBot-Napcat-Adapter';
 
 export interface Instance {
   id: string;

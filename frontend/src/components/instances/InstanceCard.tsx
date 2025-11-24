@@ -18,6 +18,7 @@ interface InstanceCardProps {
   onRestart: (id: string) => void;
   onDelete: (id: string) => void;
   onRename?: (id: string, newName: string) => void;
+  onUpdate?: (id: string) => void;
   loading?: boolean;
 }
 
@@ -46,10 +47,12 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
   onRestart,
   onDelete,
   onRename,
+  onUpdate,
   loading = false,
 }) => {
   const navigate = useNavigate();
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   
   // 计算组件数量（假设有 main, napcat, napcat-ada）
   const componentCount = 3;

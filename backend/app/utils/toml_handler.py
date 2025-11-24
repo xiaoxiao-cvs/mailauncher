@@ -2,7 +2,9 @@
 TOML 配置文件处理工具
 使用 tomlkit 库实现，完美保留注释、格式和空行
 """
-from typing import Any, Dict, List, Optional
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Union
 from pathlib import Path
 import tomlkit
 from tomlkit.toml_document import TOMLDocument
@@ -201,7 +203,7 @@ class TOMLWithComments:
         """
         return self.data.copy()
     
-    def _parse_key_path(self, key_path: str) -> List[str | int]:
+    def _parse_key_path(self, key_path: str) -> List[Union[str, int]]:
         """解析键路径
         
         Args:
