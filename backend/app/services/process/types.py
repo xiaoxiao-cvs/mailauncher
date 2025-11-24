@@ -25,9 +25,17 @@ class ProcessInfo:
     def is_alive(self) -> bool:
         if self.process:
             if hasattr(self.process, 'isalive'):
-                return self.process.isalive()
+                alive = self.process.isalive()
+                return alive
             elif hasattr(self.process, 'poll'):
-                return self.process.poll() is None
+                poll_result = self.process.poll()
+                alive = poll_result is None
+                if not alive:
+                    from app.core.logger import logger
+                    logger.warning(f"进程 {self.session_id} (PID: {self.pid}) 已退出，退出码: {poll_result}")
+                return alive
+        from app.core.logger import logger
+        logger.warning(f"进程 {self.session_id} 没有关联的 process 对象")
         return False
 
     def get_uptime(self) -> int:

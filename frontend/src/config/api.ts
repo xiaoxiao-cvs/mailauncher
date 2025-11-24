@@ -88,6 +88,8 @@ function buildApiUrl(path: string): string {
 
 export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   const url = buildApiUrl(path)
+  console.log('[API Request]', init?.method || 'GET', url)
+  
   const res = await fetch(url, {
     ...init,
     headers: {
@@ -95,16 +97,22 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
       ...(init && init.headers ? init.headers : {}),
     },
   })
+  
+  console.log('[API Response]', res.status, url)
+  
   if (!res.ok) {
     let detail: any = undefined
     try {
       detail = await res.json()
     } catch {}
-    throw new Error((detail && (detail.detail || detail.message)) || res.statusText)
+    const error = new Error((detail && (detail.detail || detail.message)) || res.statusText)
+    console.error('[API Error]', url, error)
+    throw error
   }
   
   // 解析响应
   const json = await res.json()
+  console.log('[API Data]', url, json)
   
   // 如果响应是标准格式 { success, message, data }，提取 data 字段
   if (json && typeof json === 'object' && 'success' in json && 'data' in json) {

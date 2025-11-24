@@ -26,7 +26,12 @@ export const instanceKeys = {
 export function useInstancesQuery(options?: { refetchInterval?: number }) {
   return useQuery({
     queryKey: instanceKeys.list(),
-    queryFn: () => instanceApi.getAllInstances(),
+    queryFn: async () => {
+      console.log('[React Query] Fetching instances list...')
+      const result = await instanceApi.getAllInstances()
+      console.log('[React Query] Instances fetched:', result)
+      return result
+    },
     refetchInterval: options?.refetchInterval,
   });
 }

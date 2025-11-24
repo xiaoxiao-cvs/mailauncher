@@ -5,6 +5,7 @@
 from typing import List, Optional, Dict
 from datetime import datetime
 import uuid
+import asyncio
 from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -66,6 +67,10 @@ class InstanceService:
                     cpu_usage += process_info.get_cpu_percent()
                     memory_usage += process_info.get_memory_mb()
         
+        return self._db_to_model_with_resources(db_instance, cpu_usage, memory_usage)
+    
+    def _db_to_model_with_resources(self, db_instance: InstanceDB, cpu_usage: float, memory_usage: float) -> Instance:
+        """将数据库模型转换为 Pydantic 模型（带资源使用情况）"""
         return Instance(
             id=db_instance.id,
             name=db_instance.name,
@@ -97,7 +102,30 @@ class InstanceService:
             result = await db.execute(select(InstanceDB))
             db_instances = result.scalars().all()
             logger.info(f"查询到 {len(db_instances)} 个实例")
-            return [self._db_to_model(inst) for inst in db_instances]
+            
+            # 批量获取所有实例的资源使用情况
+            process_manager = get_process_manager()
+            resource_usage = {}  # {instance_id: (cpu_usage, memory_usage)}
+            
+            for db_instance in db_instances:
+                if db_instance.status == InstanceStatus.RUNNING.value:
+                    cpu_usage = 0.0
+                    memory_usage = 0.0
+                    
+                    # 获取所有组件的资源使用总和
+                    for component in ["main", "napcat", "napcat-ada"]:
+                        session_id = f"{db_instance.id}_{component}"
+                        process_info = process_manager.processes.get(session_id)
+                        if process_info and process_info.is_alive():
+                            cpu_usage += process_info.get_cpu_percent()
+                            memory_usage += process_info.get_memory_mb()
+                    
+                    resource_usage[db_instance.id] = (cpu_usage, memory_usage)
+                else:
+                    resource_usage[db_instance.id] = (0.0, 0.0)
+            
+            # 转换为模型，使用预先计算的资源使用情况
+            return [self._db_to_model_with_resources(inst, *resource_usage[inst.id]) for inst in db_instances]
         except Exception as e:
             logger.error(f"获取实例列表失败: {e}")
             raise
@@ -479,6 +507,12 @@ class InstanceService:
                     
                     if success:
                         logger.info(f"组件 {component} 启动成功")
+                        # 等待一小段时间，确认进程没有立即退出
+                        await asyncio.sleep(0.5)
+                        process_info = process_manager.get_process_info(instance_id, component)
+                        if process_info and not process_info.is_alive():
+                            logger.error(f"组件 {component} 启动后立即退出")
+                            results[component] = False
                     else:
                         logger.warning(f"组件 {component} 启动失败")
                         
