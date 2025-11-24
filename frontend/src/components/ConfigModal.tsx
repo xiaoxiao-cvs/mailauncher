@@ -814,6 +814,19 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     return groups
   }
 
+  // 构建 NapCat 配置的分组结构
+  const buildNapCatGroups = (): TreeNode[] => {
+    return [
+      {
+        id: 'napcat-accounts',
+        name: '账号管理',
+        isLeaf: true,
+        data: { type: 'accounts' },
+      },
+      // 可以在这里添加更多 NapCat 配置分类
+    ]
+  }
+
   const treeData = useMemo(() => {
     if (activeConfig === 'bot' && botConfig) {
       return groupBotConfig(botConfig.data || {})
@@ -821,6 +834,8 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
       return groupModelConfig(modelConfig.data || {})
     } else if (activeConfig === 'adapter' && adapterConfig) {
       return buildTreeData(adapterConfig.data || {}, '')
+    } else if (activeConfig === 'napcat') {
+      return buildNapCatGroups()
     }
     return []
   }, [botConfig, modelConfig, adapterConfig, activeConfig])
@@ -842,6 +857,115 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     if (!selectedGroupId) return null
     return treeData.find((g) => g.id === selectedGroupId) || null
   }, [selectedGroupId, treeData])
+
+  // 渲染 NapCat 账号管理内容
+  const renderNapCatAccounts = () => {
+    return (
+      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">账号管理</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">选择用于快速登录的QQ账号</p>
+          </div>
+          <Button
+            onClick={loadNapCatAccounts}
+            disabled={loadingAccounts}
+            size="sm"
+            variant="outline"
+            className="rounded-lg"
+          >
+            {loadingAccounts ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                刷新中
+              </>
+            ) : (
+              <>
+                <RotateCw className="w-4 h-4 mr-2" />
+                刷新账号
+              </>
+            )}
+          </Button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="qq-account" className="text-sm font-medium mb-2 block">
+              选择QQ账号
+            </Label>
+            {napCatAccounts.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <p className="mb-2">暂无已登录账号</p>
+                <p className="text-xs">请先在NapCat中登录QQ账号</p>
+              </div>
+            ) : (
+              <Select value={selectedQQAccount || ''} onValueChange={(value) => {
+                setSelectedQQAccount(value)
+                setHasChanges(value !== originalQQAccount)
+              }}>
+                <SelectTrigger className="w-full bg-white dark:bg-gray-900">
+                  <SelectValue placeholder="请选择QQ账号" />
+                </SelectTrigger>
+                <SelectContent>
+                  {napCatAccounts.map((accountInfo) => (
+                    <SelectItem key={accountInfo.account} value={accountInfo.account}>
+                      <div className="flex items-center gap-3 py-1">
+                        <img
+                          src={`https://q1.qlogo.cn/g?b=qq&nk=${accountInfo.account}&s=100`}
+                          alt=""
+                          className="w-8 h-8 rounded-full"
+                          onError={(e) => {
+                            e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="gray"%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/%3E%3C/svg%3E'
+                          }}
+                        />
+                        <div className="flex flex-col">
+                          <span className="font-medium text-sm">
+                            {accountInfo.nickname !== "QQ用户" ? accountInfo.nickname : `QQ ${accountInfo.account}`}
+                          </span>
+                          <span className="text-xs text-gray-500">{accountInfo.account}</span>
+                        </div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {selectedQQAccount && (
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                已选择账号: <strong>{selectedQQAccount}</strong>
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                保存后，该账号将用于NapCat快速登录
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // 渲染 NapCat 内容区域
+  const renderNapCatContent = (group: TreeNode) => {
+    if (group.id === 'napcat-accounts') {
+      return (
+        <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+          <div className="mb-6">
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+              {group.name}
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              配置 NapCat 使用的 QQ 账号
+            </p>
+          </div>
+          {renderNapCatAccounts()}
+        </div>
+      )
+    }
+    return null
+  }
 
   // 递归渲染配置项（直接在右侧主区域展示，带编辑功能）
   const renderConfigItems = (nodes: TreeNode[] | undefined, level: number = 0): React.ReactNode => {
@@ -1279,25 +1403,26 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-             {/* Edit Mode Switcher */}
-            <div className="flex bg-gray-100/80 dark:bg-gray-800/80 p-1 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
-              <button
-                onClick={() => {
-                  setEditMode('tree')
-                  setHasChanges(false)
-                }}
-                className={`flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                  editMode === 'tree'
-                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                }`}
-                title="可视化模式"
-              >
-                <FileJson className="w-4 h-4" />
-                {!isMobile && <span className="hidden md:inline">可视化</span>}
-              </button>
-              <button
-                onClick={() => {
+             {/* Edit Mode Switcher - 只在非 NapCat 配置时显示 */}
+            {activeConfig !== 'napcat' && (
+              <div className="flex bg-gray-100/80 dark:bg-gray-800/80 p-1 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
+                <button
+                  onClick={() => {
+                    setEditMode('tree')
+                    setHasChanges(false)
+                  }}
+                  className={`flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                    editMode === 'tree'
+                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  }`}
+                  title="可视化模式"
+                >
+                  <FileJson className="w-4 h-4" />
+                  {!isMobile && <span className="hidden md:inline">可视化</span>}
+                </button>
+                <button
+                  onClick={() => {
                   setEditMode('text')
                   setHasChanges(rawText !== originalRawText)
                 }}
@@ -1311,9 +1436,12 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                 <FileCode className="w-4 h-4" />
                 {!isMobile && <span className="hidden md:inline">源文件</span>}
               </button>
-            </div>
+              </div>
+            )}
 
-            <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1 md:mx-2" />
+            {activeConfig !== 'napcat' && (
+              <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1 md:mx-2" />
+            )}
 
             <button
               onClick={onClose}
@@ -1381,143 +1509,6 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                         </>
                       )}
                     </Button>
-                </div>
-              </div>
-            </div>
-          ) : activeConfig === 'napcat' ? (
-            /* NapCat Configuration Mode */
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-6">
-                <div className="max-w-3xl mx-auto space-y-6">
-                  {/* 账号管理区域 */}
-                  <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">账号管理</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">选择用于快速登录的QQ账号</p>
-                      </div>
-                      <Button
-                        onClick={loadNapCatAccounts}
-                        disabled={loadingAccounts}
-                        size="sm"
-                        variant="outline"
-                        className="rounded-lg"
-                      >
-                        {loadingAccounts ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            刷新中
-                          </>
-                        ) : (
-                          <>
-                            <RotateCw className="w-4 h-4 mr-2" />
-                            刷新账号
-                          </>
-                        )}
-                      </Button>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="qq-account" className="text-sm font-medium mb-2 block">
-                          选择QQ账号
-                        </Label>
-                        {napCatAccounts.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                            <p className="mb-2">暂无已登录账号</p>
-                            <p className="text-xs">请先在NapCat中登录QQ账号</p>
-                          </div>
-                        ) : (
-                          <Select value={selectedQQAccount || ''} onValueChange={setSelectedQQAccount}>
-                            <SelectTrigger className="w-full bg-white dark:bg-gray-900">
-                              <SelectValue placeholder="请选择QQ账号" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {napCatAccounts.map((accountInfo) => (
-                                <SelectItem key={accountInfo.account} value={accountInfo.account}>
-                                  <div className="flex items-center gap-3 py-1">
-                                    <img
-                                      src={`https://q1.qlogo.cn/g?b=qq&nk=${accountInfo.account}&s=100`}
-                                      alt=""
-                                      className="w-8 h-8 rounded-full"
-                                      onError={(e) => {
-                                        e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="gray"%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/%3E%3C/svg%3E'
-                                      }}
-                                    />
-                                    <div className="flex flex-col">
-                                      <span className="font-medium text-sm">
-                                        {accountInfo.nickname !== "QQ用户" ? accountInfo.nickname : `QQ ${accountInfo.account}`}
-                                      </span>
-                                      <span className="text-xs text-gray-500">{accountInfo.account}</span>
-                                    </div>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-
-                      {selectedQQAccount && (
-                        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                          <p className="text-sm text-blue-700 dark:text-blue-300">
-                            已选择账号: <strong>{selectedQQAccount}</strong>
-                          </p>
-                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                            保存后，该账号将用于NapCat快速登录
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer Actions */}
-              <div className="flex items-center justify-end px-6 py-4 border-t border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md">
-                <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedQQAccount(originalQQAccount)
-                      setHasChanges(false)
-                    }}
-                    disabled={selectedQQAccount === originalQQAccount}
-                    className="rounded-lg"
-                  >
-                    重置
-                  </Button>
-                  <Button
-                    variant="default"
-                    onClick={async () => {
-                      setSaving(true)
-                      try {
-                        await instanceApi.updateInstance(instanceId!, { qq_account: selectedQQAccount } as any)
-                        setOriginalQQAccount(selectedQQAccount)
-                        toast.success('保存成功')
-                        setHasChanges(false)
-                      } catch (error) {
-                        console.error('保存失败:', error)
-                        toast.error('保存失败')
-                      } finally {
-                        setSaving(false)
-                      }
-                    }}
-                    disabled={selectedQQAccount === originalQQAccount || saving}
-                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 rounded-lg min-w-[100px]"
-                  >
-                    {saving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        保存中
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4 mr-2" />
-                        保存
-                      </>
-                    )}
-                  </Button>
                 </div>
               </div>
             </div>
@@ -1596,19 +1587,23 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                 <div className="flex-1 overflow-y-auto scrollbar-thin">
                   <div className={`p-4 md:p-6 lg:p-8 max-w-4xl mx-auto pb-20 ${isCompact ? 'px-4' : ''}`}>
                     {selectedGroup ? (
-                      <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                        <div className="mb-6">
-                            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-                            {selectedGroup.name}
-                            </h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                配置 {selectedGroup.name} 的相关参数
-                            </p>
+                      activeConfig === 'napcat' ? (
+                        renderNapCatContent(selectedGroup)
+                      ) : (
+                        <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                          <div className="mb-6">
+                              <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                              {selectedGroup.name}
+                              </h3>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                  配置 {selectedGroup.name} 的相关参数
+                              </p>
+                          </div>
+                          <div className="space-y-6">
+                              {renderConfigItems(selectedGroup.children)}
+                          </div>
                         </div>
-                        <div className="space-y-6">
-                            {renderConfigItems(selectedGroup.children)}
-                        </div>
-                      </div>
+                      )
                     ) : (
                       <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400 dark:text-gray-600">
                         <div className="w-24 h-24 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-6">
@@ -1620,6 +1615,56 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                   </div>
                 </div>
               </div>
+              
+              {/* NapCat Footer Actions */}
+              {activeConfig === 'napcat' && (
+                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end px-6 py-4 border-t border-gray-200/50 dark:border-gray-700/50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md">
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedQQAccount(originalQQAccount)
+                        setHasChanges(false)
+                      }}
+                      disabled={selectedQQAccount === originalQQAccount}
+                      className="rounded-lg"
+                    >
+                      重置
+                    </Button>
+                    <Button
+                      variant="default"
+                      onClick={async () => {
+                        setSaving(true)
+                        try {
+                          await instanceApi.updateInstance(instanceId!, { qq_account: selectedQQAccount } as any)
+                          setOriginalQQAccount(selectedQQAccount)
+                          toast.success('保存成功')
+                          setHasChanges(false)
+                        } catch (error) {
+                          console.error('保存失败:', error)
+                          toast.error('保存失败')
+                        } finally {
+                          setSaving(false)
+                        }
+                      }}
+                      disabled={selectedQQAccount === originalQQAccount || saving}
+                      className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 rounded-lg min-w-[100px]"
+                    >
+                      {saving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          保存中
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          保存
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
