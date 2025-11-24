@@ -3,7 +3,7 @@
  * 显示所有实例的卡片网格
  */
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { InstanceCard } from '@/components/instances/InstanceCard';
 import { Plus, RefreshCw, AlertCircle, Server } from 'lucide-react';
 import {
@@ -32,10 +32,33 @@ export const InstanceListPage: React.FC = () => {
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const previousPositions = useRef<Map<string, DOMRect>>(new Map());
   const hasAnimatedRef = useRef<Set<string>>(new Set());
+  const previousIndexMap = useRef<Map<string, number>>(new Map());
+  const runningStartOrderRef = useRef<Map<string, number>>(new Map());
+  const nextStartOrderRef = useRef<number>(1);
+  const previousOrderHash = useRef<string>('');
+  const isInitialRender = useRef<boolean>(true);
   
   // 对实例进行排序：运行中的在前，按状态和时间排序
   const instances = React.useMemo(() => {
     const list = instanceData?.instances || [];
+    
+    // 首次加载时，为已运行的实例初始化启动顺序（按运行时间降序）
+    const runningInstances = list.filter(inst => 
+      inst.status === 'running' || inst.status === 'starting'
+    );
+    
+    if (runningInstances.length > 0 && runningStartOrderRef.current.size === 0) {
+      // 按运行时间降序排序，运行时间长的获得更小的序号（排在前面）
+      const sortedByRunTime = [...runningInstances].sort((a, b) => 
+        (b.run_time || 0) - (a.run_time || 0)
+      );
+      
+      sortedByRunTime.forEach((instance) => {
+        runningStartOrderRef.current.set(instance.id, nextStartOrderRef.current);
+        nextStartOrderRef.current += 1;
+      });
+    }
+    
     return [...list].sort((a, b) => {
       // 运行中的实例优先
       const aRunning = a.status === 'running' || a.status === 'starting';
@@ -44,65 +67,137 @@ export const InstanceListPage: React.FC = () => {
       if (aRunning && !bRunning) return -1;
       if (!aRunning && bRunning) return 1;
       
-      // 相同状态下，按运行时间排序（运行中）或更新时间（已停止）
+      // 相同状态下，按启动顺序排序（运行中）或名称排序（已停止）
       if (aRunning && bRunning) {
+        // 按启动顺序排序：先启动的在前面
+        const aOrder = runningStartOrderRef.current.get(a.id) || 0;
+        const bOrder = runningStartOrderRef.current.get(b.id) || 0;
+        
+        if (aOrder !== 0 && bOrder !== 0) {
+          return aOrder - bOrder;
+        }
+        // 如果某个没有启动顺序（刚启动），按运行时间排序
         return (b.run_time || 0) - (a.run_time || 0);
       }
       
-      // 已停止的按更新时间排序
-      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      // 已停止的按名称排序（字母顺序）
+      return a.name.localeCompare(b.name, 'zh-CN');
     });
   }, [instanceData?.instances]);
   
-  // 标记新实例已经动画过
+  // 标记新实例已经动画过，并更新启动顺序
   useEffect(() => {
     instances.forEach(instance => {
       if (!hasAnimatedRef.current.has(instance.id)) {
         hasAnimatedRef.current.add(instance.id);
       }
+      
+      // 为刚启动的实例分配启动顺序
+      const isRunning = instance.status === 'running' || instance.status === 'starting';
+      if (isRunning && !runningStartOrderRef.current.has(instance.id)) {
+        runningStartOrderRef.current.set(instance.id, nextStartOrderRef.current);
+        nextStartOrderRef.current += 1;
+      }
+      
+      // 清理已停止实例的启动顺序
+      if (!isRunning && runningStartOrderRef.current.has(instance.id)) {
+        runningStartOrderRef.current.delete(instance.id);
+      }
     });
   }, [instances]);
   
-  // FLIP 动画: 记录位置变化并应用动画
-  useEffect(() => {
+  // FLIP 动画的正确实现
+  // 关键：必须在 DOM 更新前记录旧位置，在 DOM 更新后记录新位置
+  useLayoutEffect(() => {
     if (instances.length === 0) return;
     
-    // First: 记录当前位置
-    const currentPositions = new Map<string, DOMRect>();
-    instances.forEach(instance => {
+    // 检查顺序是否真的改变了
+    const currentOrderHash = instances.map(inst => inst.id).join(',');
+    const orderChanged = previousOrderHash.current !== currentOrderHash;
+    
+    // 首次渲染或顺序没变：只记录位置，不执行动画
+    if (isInitialRender.current || !orderChanged) {
+      if (isInitialRender.current) {
+        console.log('[FLIP] 首次渲染，记录初始位置');
+        isInitialRender.current = false;
+      }
+      
+      instances.forEach((instance, index) => {
+        const element = cardRefs.current.get(instance.id);
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          previousPositions.current.set(instance.id, rect);
+          previousIndexMap.current.set(instance.id, index);
+        }
+      });
+      previousOrderHash.current = currentOrderHash;
+      return;
+    }
+    
+    console.log(`[FLIP] 顺序改变: ${previousOrderHash.current} → ${currentOrderHash}`);
+    
+    // Step 1 (Last): 记录所有元素的新位置
+    const newPositions = new Map<string, DOMRect>();
+    const newIndexMap = new Map<string, number>();
+    
+    instances.forEach((instance, index) => {
       const element = cardRefs.current.get(instance.id);
       if (element) {
-        currentPositions.set(instance.id, element.getBoundingClientRect());
+        const rect = element.getBoundingClientRect();
+        newPositions.set(instance.id, rect);
+        newIndexMap.set(instance.id, index);
       }
     });
     
-    // Last: 比较位置变化
-    instances.forEach(instance => {
+    // Step 2 (Invert & Play): 执行 FLIP 动画
+    instances.forEach((instance, currentIndex) => {
       const element = cardRefs.current.get(instance.id);
       const oldPos = previousPositions.current.get(instance.id);
-      const newPos = currentPositions.get(instance.id);
+      const newPos = newPositions.get(instance.id);
+      const oldIndex = previousIndexMap.current.get(instance.id);
       
-      if (element && oldPos && newPos) {
-        const deltaX = oldPos.left - newPos.left;
-        const deltaY = oldPos.top - newPos.top;
+      if (!element || !oldPos || !newPos || oldIndex === undefined) return;
+      
+      // 计算位置差
+      const deltaX = oldPos.left - newPos.left;
+      const deltaY = oldPos.top - newPos.top;
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      
+      // 跳过条件
+      const indexChanged = oldIndex !== currentIndex;
+      const isAlreadyFirst = oldIndex === 0 && currentIndex === 0;
+      
+      console.log(`[FLIP] ${instance.name}: index ${oldIndex}→${currentIndex}, ΔX=${deltaX.toFixed(0)}, ΔY=${deltaY.toFixed(0)}`);
+      
+      // 严格判断：必须在同一行内（垂直位置相近）
+      const isOnSameRow = Math.abs(deltaY) < 30;
+      // 且有明显的水平位置交换
+      const hasHorizontalMovement = Math.abs(deltaX) > 100;
+      
+      if (distance > 5 && indexChanged && !isAlreadyFirst && isOnSameRow && hasHorizontalMovement) {
+        console.log(`  ✓ 执行动画 (同行交换)`);
         
-        // 只有移动距离超过5px时才触发动画，避免微小抖动
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        if (distance > 5) {
-          element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-          element.style.transition = 'none';
-          
-          // Play: 触发动画回到新位置
-          requestAnimationFrame(() => {
-            element.style.transform = '';
-            element.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-          });
-        }
+        // Invert: 瞬间移到旧位置（只应用水平偏移，忽略垂直偏移）
+        element.style.transform = `translateX(${deltaX}px)`;
+        element.style.transition = 'none';
+        
+        // 强制重绘
+        void element.offsetHeight;
+        
+        // Play: 动画到新位置
+        requestAnimationFrame(() => {
+          element.style.transform = '';
+          element.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        });
+      } else {
+        console.log(`  ✗ 跳过: sameRow=${isOnSameRow}, hasHorizontal=${hasHorizontalMovement}`);
       }
     });
     
-    // 更新位置记录
-    previousPositions.current = currentPositions;
+    // Step 3: 更新记录供下次使用
+    previousPositions.current = newPositions;
+    previousIndexMap.current = newIndexMap;
+    previousOrderHash.current = currentOrderHash;
   }, [instances]);
   
   // 处理启动实例

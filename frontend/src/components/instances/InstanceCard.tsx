@@ -201,12 +201,12 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
         
         {/* 操作按钮区域 */}
         <div className="flex items-center gap-3 pt-2">
-          {/* 启动/停止按钮 - 缩短宽度 */}
+          {/* 启动/停止按钮 - 自适应宽度 */}
           {isStopped || instance.status === 'error' ? (
             <button
               onClick={(e) => handleButtonClick(e, () => onStart(instance.id))}
               disabled={loading || isTransitioning}
-              className="flex-none w-[calc(100%-6.75rem)] flex items-center justify-center gap-2 h-10 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full 
+              className="flex-1 flex items-center justify-center gap-2 h-10 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full 
                        hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
                        transition-all duration-200 shadow-lg shadow-gray-900/20 dark:shadow-white/10 text-sm font-semibold"
             >
@@ -223,7 +223,7 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
             <button
               onClick={(e) => handleButtonClick(e, () => onStop(instance.id))}
               disabled={loading || isTransitioning}
-              className="flex-none w-[calc(100%-9.25rem)] flex items-center justify-center gap-2 h-10 bg-white dark:bg-gray-800 text-red-500 border border-red-200 dark:border-red-900/30 rounded-full 
+              className="flex-1 flex items-center justify-center gap-2 h-10 bg-white dark:bg-gray-800 text-red-500 border border-red-200 dark:border-red-900/30 rounded-full 
                        hover:bg-red-50 dark:hover:bg-red-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
                        transition-all duration-200 text-sm font-semibold"
             >
@@ -242,7 +242,7 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
           <button
             onClick={(e) => handleButtonClick(e, () => setIsRenameModalOpen(true))}
             disabled={loading || isTransitioning}
-            className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full 
+            className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full 
                      hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:scale-95 disabled:opacity-50
                      transition-all duration-300"
             title="重命名"
@@ -255,7 +255,7 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
             <button
               onClick={(e) => handleButtonClick(e, () => onRestart(instance.id))}
               disabled={loading || isTransitioning}
-              className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full 
+              className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full 
                        hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:scale-95 disabled:opacity-50
                        transition-all duration-300"
               title="重启"
@@ -268,7 +268,7 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
           <button
             onClick={(e) => handleButtonClick(e, () => onDelete(instance.id))}
             disabled={loading || isRunning || isTransitioning}
-            className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full 
+            className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full 
                      hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 active:scale-95 disabled:opacity-50
                      transition-all duration-300"
             title={isRunning ? '请先停止实例再删除' : '删除实例'}
