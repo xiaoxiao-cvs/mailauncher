@@ -54,15 +54,15 @@ export const VersionManagementSection: React.FC<VersionManagementSectionProps> =
     return (
       <TabsTrigger 
         value={name}
-        className="relative px-6 py-2 text-sm font-medium data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 transition-all duration-300"
+        className="relative px-4 py-1.5 text-xs font-medium data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 transition-all duration-200 rounded-md"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span>{name}</span>
           {isChecking ? (
-            <Loader2 className="w-2 h-2 animate-spin text-blue-500" />
+            <Loader2 className="w-1.5 h-1.5 animate-spin text-blue-500" />
           ) : (
-            <div className={`w-2 h-2 rounded-full transition-colors duration-300 ${
-              hasUpdate ? 'bg-yellow-500 shadow-[0_0_4px_rgba(234,179,8,0.6)]' : 'bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.6)]'
+            <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-200 ${
+              hasUpdate ? 'bg-yellow-500' : 'bg-green-500'
             }`} />
           )}
         </div>
@@ -73,60 +73,54 @@ export const VersionManagementSection: React.FC<VersionManagementSectionProps> =
   const renderContent = (name: DisplayComponentType) => {
     const data = getComponentData(name);
     
-    if (!data) return <div className="p-8 text-center text-gray-500">加载中...</div>;
+    if (!data) return <div className="p-4 text-center text-gray-500 text-sm">加载中...</div>;
 
     const githubInfo = data.github_info;
     const isUpToDate = !data.has_update;
 
     return (
-      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        {/* Long Card - Latest Commit Info */}
+      <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {/* Compact Card - Latest Commit Info */}
         <div 
           onClick={() => setIsVisualizerOpen(true)}
-          className="group relative overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.01]"
+          className="group relative overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-3 cursor-pointer hover:shadow-md transition-all duration-200"
         >
-          <div className="absolute top-0 right-0 p-3 opacity-50 group-hover:opacity-100 transition-opacity">
-            <ArrowRight className="w-5 h-5 text-gray-400" />
+          <div className="absolute top-2 right-2 opacity-40 group-hover:opacity-100 transition-opacity">
+            <ArrowRight className="w-4 h-4 text-gray-400" />
           </div>
 
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-xl ${isUpToDate ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'} dark:bg-opacity-20`}>
-                <GitCommit className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">最新提交</h4>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-gray-600 dark:text-gray-300">
-                    {githubInfo?.latest_commit_short || data.latest_commit?.substring(0, 7) || 'Unknown'}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {githubInfo?.commit_date && formatDistanceToNow(new Date(githubInfo.commit_date), { addSuffix: true, locale: zhCN })}
-                  </span>
-                </div>
-              </div>
+          <div className="flex items-start gap-2 pr-6">
+            <div className={`p-1.5 rounded-lg ${isUpToDate ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'} dark:bg-opacity-20 shrink-0`}>
+              <GitCommit className="w-4 h-4" />
             </div>
-
-            <div className="pl-1">
-              <p className="text-base font-medium text-gray-900 dark:text-gray-100 line-clamp-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="font-mono text-xs bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300">
+                  {githubInfo?.latest_commit_short || data.latest_commit?.substring(0, 7) || 'Unknown'}
+                </span>
+                <span className="text-[10px] text-gray-400 truncate">
+                  {githubInfo?.commit_date && formatDistanceToNow(new Date(githubInfo.commit_date), { addSuffix: true, locale: zhCN })}
+                </span>
+              </div>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1 mb-1">
                 {githubInfo?.commit_message || '无法获取提交信息'}
               </p>
-              <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                <User className="w-3 h-3" />
-                <span>{githubInfo?.author || 'Unknown Author'}</span>
+              <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                <User className="w-2.5 h-2.5" />
+                <span className="truncate">{githubInfo?.author || 'Unknown'}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <div className={`w-2 h-2 rounded-full ${isUpToDate ? 'bg-green-500' : 'bg-yellow-500'}`} />
-            <span>{isUpToDate ? '当前已是最新版本' : `落后 ${data.commits_behind || '?'} 个版本`}</span>
+        {/* Compact Actions */}
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-1.5 text-gray-500">
+            <div className={`w-1.5 h-1.5 rounded-full ${isUpToDate ? 'bg-green-500' : 'bg-yellow-500'}`} />
+            <span className="truncate">{isUpToDate ? '最新' : `落后 ${data.commits_behind || '?'} 个版本`}</span>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex gap-2 shrink-0">
             <Button 
               variant="outline" 
               size="sm"
@@ -135,22 +129,23 @@ export const VersionManagementSection: React.FC<VersionManagementSectionProps> =
                 refetch();
               }}
               disabled={isLoading}
+              className="h-7 px-2 text-xs"
             >
-              检查更新
+              检查
             </Button>
             {!isUpToDate && (
               <Button 
                 size="sm"
-                className="bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
+                className="h-7 px-2 text-xs bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
                 onClick={() => handleUpdate(COMPONENT_MAP[name])}
                 disabled={updateMutation.isPending}
               >
                 {updateMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                 ) : (
-                  <GitBranch className="w-4 h-4 mr-2" />
+                  <GitBranch className="w-3 h-3 mr-1" />
                 )}
-                立即更新
+                更新
               </Button>
             )}
           </div>
@@ -167,9 +162,9 @@ export const VersionManagementSection: React.FC<VersionManagementSectionProps> =
   };
 
   return (
-    <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm">
+    <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-4 border border-white/40 dark:border-gray-700/40 shadow-sm">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as DisplayComponentType)} className="w-full">
-        <TabsList className="w-full bg-gray-100/50 dark:bg-gray-800/50 p-1 rounded-xl mb-6">
+        <TabsList className="w-full bg-gray-100/50 dark:bg-gray-800/50 p-0.5 rounded-lg mb-3">
           {renderTabTrigger('MaiBot')}
           {renderTabTrigger('ADA')}
         </TabsList>
