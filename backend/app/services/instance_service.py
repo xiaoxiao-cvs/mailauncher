@@ -103,6 +103,7 @@ class InstanceService:
             run_time=db_instance.run_time,
             cpu_usage=round(cpu_usage, 1),
             memory_usage=round(memory_usage, 1),
+            qq_account=db_instance.qq_account,
         )
     
     async def get_all_instances(self, db: AsyncSession) -> List[Instance]:
@@ -196,6 +197,7 @@ class InstanceService:
                 created_at=now,
                 updated_at=now,
                 run_time=0,
+                qq_account=instance_data.qq_account,
             )
             
             db.add(db_instance)
@@ -498,6 +500,7 @@ class InstanceService:
                         instance_path=instance_path,
                         component=component,
                         python_path=db_instance.python_path,
+                        qq_account=db_instance.qq_account,
                     )
                     results[component] = success
                     
@@ -801,6 +804,46 @@ class InstanceService:
             "pid": process_info.pid,
             "uptime": process_info.get_uptime(),
         }
+    
+    async def get_napcat_accounts(
+        self,
+        db: AsyncSession,
+        instance_id: str,
+    ) -> Optional[List[str]]:
+        """获取 NapCat 已登录的 QQ 账号列表
+        
+        Args:
+            db: 数据库会话
+            instance_id: 实例 ID
+            
+        Returns:
+            已登录的 QQ 账号列表，如果实例不存在则返回 None
+        """
+        try:
+            result = await db.execute(
+                select(InstanceDB).where(InstanceDB.id == instance_id)
+            )
+            db_instance = result.scalar_one_or_none()
+            
+            if not db_instance:
+                logger.warning(f"实例 {instance_id} 不存在")
+                return None
+            
+            # 获取实例路径
+            instance_dir = db_instance.instance_path or db_instance.name
+            instance_path = self.instances_dir / instance_dir
+            if not instance_path.exists():
+                logger.warning(f"实例路径不存在: {instance_path}")
+                return []
+            
+            # 从 NapCat 目录获取已登录账号
+            from .process.utils import get_napcat_logged_accounts
+            accounts = get_napcat_logged_accounts(instance_path)
+            return accounts
+            
+        except Exception as e:
+            logger.error(f"获取 NapCat 账号列表失败 {instance_id}: {e}", exc_info=True)
+            raise
 
 
 # 依赖注入函数（单例）

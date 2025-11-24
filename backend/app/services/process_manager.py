@@ -61,6 +61,7 @@ class ProcessManager:
         instance_path: Path,
         component: str,
         python_path: Optional[str] = None,
+        qq_account: Optional[str] = None,
     ) -> Tuple[str, str]:
         """
         根据组件类型获取启动命令和工作目录
@@ -69,6 +70,7 @@ class ProcessManager:
             instance_path: 实例路径
             component: 组件类型 (main, napcat, napcat-ada)
             python_path: Python 可执行文件路径
+            qq_account: QQ 账号（用于 NapCat 快速登录）
             
         Returns:
             (command, cwd) 元组
@@ -84,7 +86,6 @@ class ProcessManager:
             command = f"{python_cmd} bot.py"
             
         elif component == "napcat":
-            qq_account = os.environ.get("QQ_ACCOUNT", None)
             command, cwd = build_napcat_command(instance_path, qq_account)
             
         elif component == "napcat-ada":
@@ -169,6 +170,7 @@ class ProcessManager:
         instance_path: Path,
         component: str,
         python_path: Optional[str] = None,
+        qq_account: Optional[str] = None,
     ) -> bool:
         """
         启动进程
@@ -178,12 +180,13 @@ class ProcessManager:
             instance_path: 实例路径
             component: 组件类型 (main, napcat, napcat-ada)
             python_path: Python 可执行文件路径
+            qq_account: QQ 账号（用于 NapCat 快速登录）
             
         Returns:
             是否启动成功
         """
         try:
-            command, cwd = self._get_command_and_cwd(instance_path, component, python_path)
+            command, cwd = self._get_command_and_cwd(instance_path, component, python_path, qq_account)
             
             if self.is_windows:
                 return await self.start_process_windows(instance_id, component, command, cwd)

@@ -134,6 +134,7 @@ class InstanceDB(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)  # 更新时间
     last_run = Column(DateTime, nullable=True)  # 最后运行时间
     run_time = Column(Integer, default=0, nullable=False)  # 总运行时间（秒）
+    qq_account = Column(String(20), nullable=True)  # QQ 账号（用于 NapCat 快速登录）
     
     def __repr__(self):
         return f"<InstanceDB(id={self.id}, name={self.name}, status={self.status})>"

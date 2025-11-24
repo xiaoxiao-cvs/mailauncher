@@ -190,6 +190,23 @@ async def stop_component(
     return SuccessResponse(success=True, message=f"组件 {component} 已停止")
 
 
+@router.get("/{instance_id}/napcat/accounts")
+async def get_napcat_accounts(
+    instance_id: str,
+    db: AsyncSession = Depends(get_db),
+    service: InstanceService = Depends(get_instance_service),
+):
+    """获取 NapCat 已登录的 QQ 账号列表"""
+    accounts = await service.get_napcat_accounts(db, instance_id)
+    if accounts is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"实例 {instance_id} 不存在")
+    return {
+        "success": True,
+        "accounts": accounts,
+        "message": f"找到 {len(accounts)} 个已登录账号"
+    }
+
+
 @router.get("/{instance_id}/component/{component}/status")
 async def get_component_status(
     instance_id: str,

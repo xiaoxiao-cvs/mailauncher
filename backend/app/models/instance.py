@@ -30,6 +30,7 @@ class InstanceBase(BaseModel):
     bot_type: BotType = Field(default=BotType.MAIBOT, description="机器人类型")
     bot_version: Optional[str] = Field(None, description="机器人版本")
     description: Optional[str] = Field(None, max_length=500, description="实例描述")
+    qq_account: Optional[str] = Field(None, max_length=20, description="QQ 账号（用于 NapCat 快速登录）")
 
 
 class InstanceCreate(InstanceBase):
@@ -44,6 +45,7 @@ class InstanceUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=500)
     python_path: Optional[str] = None
     config_path: Optional[str] = None
+    qq_account: Optional[str] = Field(None, max_length=20, description="QQ 账号")
 
 
 class Instance(InstanceBase):
