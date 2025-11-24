@@ -99,8 +99,16 @@ export const VersionManagerModal: React.FC<VersionManagerModalProps> = ({
   const hasUpdateAvailable = components.some((c) => c.has_update);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="relative w-full max-w-4xl max-h-[90vh] bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 backdrop-blur-sm">
+      {/* 背景遮罩 */}
+      <div 
+        className="absolute inset-0 backdrop-blur-md transition-opacity"
+        onClick={onClose}
+      />
+      
+      {/* Modal 容器 */}
+      <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <div className="relative w-full max-w-4xl max-h-[90vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-white/20 dark:border-white/10 animate-in zoom-in-95 duration-300 ring-1 ring-black/5 pointer-events-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
@@ -360,6 +368,7 @@ export const VersionManagerModal: React.FC<VersionManagerModalProps> = ({
               )}
             </TabsContent>
           </Tabs>
+        </div>
         </div>
       </div>
     </div>

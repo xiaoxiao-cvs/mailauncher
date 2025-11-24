@@ -17,26 +17,43 @@ class VersionService:
     
     # GitHub 仓库配置
     GITHUB_REPOS = {
-        "main": {
-            "owner": "MaiMemo",
-            "repo": "MaiBotCore",
-            "has_releases": False  # Maibot 没有 release，只能对比 commit
+        "MaiBot": {
+            "owner": "Mai-with-u",
+            "repo": "MaiBot",
+            "has_releases": False  # MaiBot 没有 release，只能对比 commit
         },
-        "napcat": {
+        "NapCat": {
             "owner": "NapNeko",
             "repo": "NapCatQQ",
             "has_releases": True
         },
-        "napcat-ada": {
-            "owner": "NapNeko",
-            "repo": "Adapter",
-            "has_releases": True
+        "MaiBot-Napcat-Adapter": {
+            "owner": "Mai-with-u",
+            "repo": "MaiBot-Napcat-Adapter",
+            "has_releases": False
         }
     }
     
     def __init__(self):
+        from ..core.config import settings
         self.github_api_base = "https://api.github.com"
         self.timeout = 30.0
+        self.github_token = settings.GITHUB_TOKEN
+        
+        if self.github_token:
+            logger.info(f"GitHub Token 已配置 (前10位: {self.github_token[:10]}...)")
+        else:
+            logger.warning("未配置 GitHub Token，API 请求受限（每小时60次）")
+        
+    def _get_headers(self) -> Dict[str, str]:
+        """获取 GitHub API 请求头"""
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28"
+        }
+        if self.github_token:
+            headers["Authorization"] = f"Bearer {self.github_token}"
+        return headers
     
     async def check_github_version(self, component: str) -> Optional[Dict[str, Any]]:
         """
@@ -81,7 +98,7 @@ class VersionService:
             url = f"{self.github_api_base}/repos/{owner}/{repo}/releases/latest"
             
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(url)
+                response = await client.get(url, headers=self._get_headers())
                 
                 if response.status_code == 404:
                     logger.warning(f"{owner}/{repo} 没有发布任何 release")
@@ -106,6 +123,12 @@ class VersionService:
                         for asset in data.get("assets", [])
                     ]
                 }
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 403:
+                logger.error(f"GitHub API 速率限制已超限。请配置 GITHUB_TOKEN 环境变量以提高限制")
+            else:
+                logger.error(f"获取 {owner}/{repo} release 失败: {e}")
+            return None
         except Exception as e:
             logger.error(f"获取 {owner}/{repo} release 失败: {e}")
             return None
@@ -116,7 +139,7 @@ class VersionService:
             url = f"{self.github_api_base}/repos/{owner}/{repo}/commits/{branch}"
             
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(url)
+                response = await client.get(url, headers=self._get_headers())
                 response.raise_for_status()
                 data = response.json()
                 
@@ -133,6 +156,12 @@ class VersionService:
                     "author": data["commit"]["author"]["name"],
                     "html_url": data["html_url"]
                 }
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 403:
+                logger.error(f"GitHub API 速率限制已超限。请配置有效的 GITHUB_TOKEN 环境变量")
+            else:
+                logger.error(f"获取 {owner}/{repo} commit 失败: {e}")
+            return None
         except Exception as e:
             logger.error(f"获取 {owner}/{repo} commit 失败: {e}")
             return None
@@ -159,7 +188,7 @@ class VersionService:
             url = f"{self.github_api_base}/repos/{owner}/{repo}/compare/{base}...{head}"
             
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(url)
+                response = await client.get(url, headers=self._get_headers())
                 
                 if response.status_code == 404:
                     logger.warning(f"无法对比 {base}...{head}，可能 commit 不存在")
@@ -241,8 +270,8 @@ class VersionService:
         不同组件有不同的版本文件位置
         """
         try:
-            if component == "main":
-                # Maibot 的版本可能在 __version__.py 或 setup.py
+            if component == "MaiBot":
+                # MaiBot 的版本可能在 __version__.py 或 setup.py
                 version_file = component_path / "maibot" / "__version__.py"
                 if version_file.exists():
                     content = version_file.read_text()
@@ -250,8 +279,8 @@ class VersionService:
                     if match:
                         return match.group(1)
             
-            elif component in ["napcat", "napcat-ada"]:
-                # NapCat 的版本在 package.json
+            elif component in ["NapCat", "MaiBot-Napcat-Adapter"]:
+                # NapCat 和 Adapter 的版本在 package.json
                 package_json = component_path / "package.json"
                 if package_json.exists():
                     import json
@@ -278,7 +307,7 @@ class VersionService:
             params = {"per_page": limit}
             
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(url, params=params)
+                response = await client.get(url, params=params, headers=self._get_headers())
                 response.raise_for_status()
                 data = response.json()
                 

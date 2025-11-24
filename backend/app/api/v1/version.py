@@ -3,12 +3,13 @@
 提供组件版本检查、更新、备份管理等接口
 """
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from pathlib import Path
 
 from ...core.database import get_db
 from ...core.logger import logger
+from ...core.config import settings
 from ...models.response import APIResponse
 from ...services.version_service import version_service
 from ...services.component_update_service import ComponentUpdateService
@@ -23,25 +24,35 @@ router = APIRouter(prefix="/versions", tags=["版本管理"])
 @router.get("/instances/{instance_id}/components")
 async def get_instance_components_version(
     instance_id: str,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     获取实例所有组件的版本信息
     """
     try:
+        logger.info(f"开始获取实例 {instance_id} 的组件版本信息")
+        
         # 验证实例存在
-        instance = instance_service.get_instance(instance_id, db)
+        instance = await instance_service.get_instance(db, instance_id)
         if not instance:
+            logger.warning(f"实例 {instance_id} 不存在")
             raise HTTPException(status_code=404, detail="实例不存在")
         
-        instance_path = Path(instance.path)
+        # 构建完整的实例路径（instance_path 是相对路径）
+        instances_base = settings.ensure_instances_dir()
+        instance_path = instances_base / instance.instance_path
+        logger.debug(f"实例相对路径: {instance.instance_path}")
+        logger.debug(f"实例完整路径: {instance_path}")
+        
         components_info = []
         
         # 检查每个组件的版本
-        for component in ["main", "napcat", "napcat-ada"]:
+        for component in ["MaiBot", "NapCat", "MaiBot-Napcat-Adapter"]:
+            logger.debug(f"检查组件: {component}")
             component_path = instance_path / component
             
             if not component_path.exists():
+                logger.debug(f"组件 {component} 未安装,路径不存在: {component_path}")
                 components_info.append({
                     "component": component,
                     "installed": False,
@@ -50,11 +61,15 @@ async def get_instance_components_version(
                 continue
             
             # 获取本地版本信息
+            logger.debug(f"获取组件 {component} 的本地版本信息")
             local_version = version_service.get_local_version_from_file(component_path, component)
             local_commit = version_service.get_local_commit_hash(component_path)
+            logger.debug(f"组件 {component} - 本地版本: {local_version}, commit: {local_commit}")
             
             # 检查 GitHub 最新版本
+            logger.debug(f"检查组件 {component} 的 GitHub 版本")
             github_info = await version_service.check_github_version(component)
+            logger.debug(f"组件 {component} GitHub 信息: {github_info}")
             
             component_info = {
                 "component": component,
@@ -99,12 +114,17 @@ async def get_instance_components_version(
             
             components_info.append(component_info)
         
-        return APIResponse.success(data=components_info)
+        logger.info(f"成功获取 {len(components_info)} 个组件的版本信息")
+        return {
+            "success": True,
+            "message": "操作成功",
+            "data": components_info
+        }
     
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"获取组件版本失败: {e}", exc_info=True)
+        logger.error(f"获取组件版本失败: {type(e).__name__}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -112,20 +132,22 @@ async def get_instance_components_version(
 async def check_component_update(
     instance_id: str,
     component: str,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     检查单个组件的更新详情（包括提交对比）
     """
     try:
-        instance = instance_service.get_instance(instance_id, db)
+        instance = await instance_service.get_instance(db, instance_id)
         if not instance:
             raise HTTPException(status_code=404, detail="实例不存在")
         
-        if component not in ["main", "napcat", "napcat-ada"]:
+        if component not in ["MaiBot", "NapCat", "MaiBot-Napcat-Adapter"]:
             raise HTTPException(status_code=400, detail="无效的组件名称")
         
-        instance_path = Path(instance.path)
+        # 构建完整的实例路径
+        instances_base = settings.ensure_instances_dir()
+        instance_path = instances_base / instance.instance_path
         component_path = instance_path / component
         
         if not component_path.exists():
@@ -164,7 +186,11 @@ async def check_component_update(
                     result["has_update"] = True
                     result["comparison"] = comparison
         
-        return APIResponse.success(data=result)
+        return {
+            "success": True,
+            "message": "操作成功",
+            "data": result
+        }
     
     except HTTPException:
         raise
@@ -178,7 +204,7 @@ async def update_component(
     instance_id: str,
     component: str,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     create_backup: bool = True,
     update_method: str = "git"  # git or release
 ):
@@ -190,14 +216,16 @@ async def update_component(
         update_method: 更新方式 (git 或 release)
     """
     try:
-        instance = instance_service.get_instance(instance_id, db)
+        instance = await instance_service.get_instance(db, instance_id)
         if not instance:
             raise HTTPException(status_code=404, detail="实例不存在")
         
-        if component not in ["main", "napcat", "napcat-ada"]:
+        if component not in ["MaiBot", "NapCat", "MaiBot-Napcat-Adapter"]:
             raise HTTPException(status_code=400, detail="无效的组件名称")
         
-        instance_path = Path(instance.path)
+        # 构建完整的实例路径
+        instances_base = settings.ensure_instances_dir()
+        instance_path = instances_base / instance.instance_path
         component_path = instance_path / component
         
         if not component_path.exists():
@@ -213,7 +241,7 @@ async def update_component(
         # 创建备份
         backup_id = None
         if create_backup:
-            backup_id = update_service.create_full_backup(
+            backup_id = await update_service.create_full_backup(
                 component=component,
                 component_path=component_path,
                 db=db,
@@ -265,19 +293,20 @@ async def update_component(
         
         # 清理旧备份（保留最近 3 个）
         if success and create_backup:
-            update_service.delete_old_backups(db, instance_id, keep_count=3)
+            await update_service.delete_old_backups(db, instance_id, keep_count=3)
         
         if success:
-            return APIResponse.success(
-                message="更新成功",
-                data={
+            return {
+                "success": True,
+                "message": "更新成功",
+                "data": {
                     "backup_id": backup_id,
                     "old_version": old_version,
                     "new_version": new_version,
                     "old_commit": old_commit[:7] if old_commit else None,
                     "new_commit": new_commit[:7] if new_commit else None
                 }
-            )
+            }
         else:
             raise HTTPException(status_code=500, detail="更新失败")
     
@@ -306,7 +335,7 @@ async def update_component(
 async def get_backups(
     instance_id: str,
     component: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     获取实例的备份列表
@@ -315,16 +344,22 @@ async def get_backups(
         component: 组件名称（可选）
     """
     try:
-        instance = instance_service.get_instance(instance_id, db)
+        instance = await instance_service.get_instance(db, instance_id)
         if not instance:
             raise HTTPException(status_code=404, detail="实例不存在")
         
-        instance_path = Path(instance.path)
+        # 构建完整的实例路径
+        instances_base = settings.ensure_instances_dir()
+        instance_path = instances_base / instance.instance_path
         update_service = ComponentUpdateService(instance_path)
         
-        backups = update_service.get_backups_list(db, instance_id, component)
+        backups = await update_service.get_backups_list(db, instance_id, component)
         
-        return APIResponse.success(data=backups)
+        return {
+            "success": True,
+            "message": "操作成功",
+            "data": backups
+        }
     
     except HTTPException:
         raise
@@ -337,33 +372,39 @@ async def get_backups(
 async def restore_backup(
     instance_id: str,
     backup_id: str,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     从备份恢复组件
     """
     try:
-        instance = instance_service.get_instance(instance_id, db)
+        instance = await instance_service.get_instance(db, instance_id)
         if not instance:
             raise HTTPException(status_code=404, detail="实例不存在")
         
         # 获取备份信息
         from ...models.db_models import VersionBackupDB
-        backup = db.query(VersionBackupDB).filter_by(
+        from sqlalchemy import select
+        
+        stmt = select(VersionBackupDB).filter_by(
             id=backup_id,
             instance_id=instance_id
-        ).first()
+        )
+        result = await db.execute(stmt)
+        backup = result.scalar_one_or_none()
         
         if not backup:
             raise HTTPException(status_code=404, detail="备份不存在")
         
-        instance_path = Path(instance.path)
+        # 构建完整的实例路径
+        instances_base = settings.ensure_instances_dir()
+        instance_path = instances_base / instance.instance_path
         component_path = instance_path / backup.component
         
         update_service = ComponentUpdateService(instance_path)
         
         # 执行恢复
-        success = update_service.restore_from_backup(
+        success = await update_service.restore_from_backup(
             backup_id=backup_id,
             component_path=component_path,
             db=db
@@ -380,16 +421,17 @@ async def restore_backup(
                 backup_id=backup_id
             )
             db.add(update_history)
-            db.commit()
+            await db.commit()
             
-            return APIResponse.success(
-                message="恢复成功",
-                data={
+            return {
+                "success": True,
+                "message": "恢复成功",
+                "data": {
                     "backup_id": backup_id,
                     "component": backup.component,
                     "restored_version": backup.version
                 }
-            )
+            }
         else:
             raise HTTPException(status_code=500, detail="恢复失败")
     
@@ -405,7 +447,7 @@ async def get_update_history(
     instance_id: str,
     component: Optional[str] = None,
     limit: int = 20,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     获取更新历史记录
@@ -415,16 +457,20 @@ async def get_update_history(
         limit: 返回记录数量限制
     """
     try:
-        instance = instance_service.get_instance(instance_id, db)
+        instance = await instance_service.get_instance(db, instance_id)
         if not instance:
             raise HTTPException(status_code=404, detail="实例不存在")
         
-        query = db.query(UpdateHistoryDB).filter_by(instance_id=instance_id)
+        from sqlalchemy import select
+        
+        stmt = select(UpdateHistoryDB).filter_by(instance_id=instance_id)
         
         if component:
-            query = query.filter_by(component=component)
+            stmt = stmt.filter_by(component=component)
         
-        history = query.order_by(UpdateHistoryDB.updated_at.desc()).limit(limit).all()
+        stmt = stmt.order_by(UpdateHistoryDB.updated_at.desc()).limit(limit)
+        result_obj = await db.execute(stmt)
+        history = result_obj.scalars().all()
         
         result = [
             {
@@ -442,7 +488,11 @@ async def get_update_history(
             for record in history
         ]
         
-        return APIResponse.success(data=result)
+        return {
+            "success": True,
+            "message": "操作成功",
+            "data": result
+        }
     
     except HTTPException:
         raise
@@ -460,13 +510,17 @@ async def get_component_releases(
     获取组件的 Release 历史列表
     """
     try:
-        if component not in ["main", "napcat", "napcat-ada"]:
+        if component not in ["MaiBot", "NapCat", "MaiBot-Napcat-Adapter"]:
             raise HTTPException(status_code=400, detail="无效的组件名称")
         
         repo_config = version_service.GITHUB_REPOS[component]
         
         if not repo_config["has_releases"]:
-            return APIResponse.success(data=[], message="该组件不使用 Release 发布")
+            return {
+                "success": True,
+                "message": "该组件不使用 Release 发布",
+                "data": []
+            }
         
         releases = await version_service.get_all_releases(
             owner=repo_config["owner"],
@@ -474,7 +528,11 @@ async def get_component_releases(
             limit=limit
         )
         
-        return APIResponse.success(data=releases)
+        return {
+            "success": True,
+            "message": "操作成功",
+            "data": releases
+        }
     
     except HTTPException:
         raise

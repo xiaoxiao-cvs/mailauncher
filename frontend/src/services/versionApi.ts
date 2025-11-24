@@ -7,7 +7,7 @@ import { apiJson } from '@/config/api';
 // ==================== 类型定义 ====================
 
 export interface ComponentVersionInfo {
-  component: 'main' | 'napcat' | 'napcat-ada';
+  component: 'MaiBot' | 'NapCat' | 'MaiBot-Napcat-Adapter';
   installed: boolean;
   local_version?: string;
   local_commit?: string;
@@ -224,9 +224,9 @@ export function formatFileSize(bytes: number): string {
  */
 export function getComponentDisplayName(component: string): string {
   const names: Record<string, string> = {
-    main: 'Maibot',
-    napcat: 'NapCat',
-    'napcat-ada': 'Adapter',
+    'MaiBot': 'MaiBot',
+    'NapCat': 'NapCat',
+    'MaiBot-Napcat-Adapter': 'Adapter',
   };
   return names[component] || component;
 }

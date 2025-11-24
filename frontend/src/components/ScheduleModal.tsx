@@ -218,7 +218,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     <div className="fixed inset-0 z-[100] animate-in fade-in duration-200">
       {/* 背景遮罩 */}
       <div 
-        className="absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity"
+        className="absolute inset-0 backdrop-blur-md transition-opacity"
         onClick={onClose}
       />
       

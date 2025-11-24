@@ -14,7 +14,8 @@ from datetime import datetime
 import uuid
 import json
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
 
 from ..core.logger import logger
 from ..models.db_models import VersionBackupDB, UpdateHistoryDB, ComponentVersionDB
@@ -56,11 +57,11 @@ class ComponentUpdateService:
         self.backup_base_path = instance_path / ".backups"
         self.backup_base_path.mkdir(parents=True, exist_ok=True)
     
-    def create_full_backup(
+    async def create_full_backup(
         self,
         component: str,
         component_path: Path,
-        db: Session,
+        db: AsyncSession,
         instance_id: str,
         description: Optional[str] = None
     ) -> Optional[str]:
@@ -133,7 +134,7 @@ class ComponentUpdateService:
                 description=description or f"更新前自动备份"
             )
             db.add(backup_record)
-            db.commit()
+            await db.commit()
             
             logger.info(f"备份完成: {backup_id}, 大小: {total_size / 1024 / 1024:.2f} MB")
             return backup_id
@@ -428,11 +429,11 @@ class ComponentUpdateService:
         except Exception as e:
             logger.error(f"安装依赖失败: {e}", exc_info=True)
     
-    def restore_from_backup(
+    async def restore_from_backup(
         self,
         backup_id: str,
         component_path: Path,
-        db: Session
+        db: AsyncSession
     ) -> bool:
         """
         从备份恢复组件
@@ -447,7 +448,9 @@ class ComponentUpdateService:
         """
         try:
             # 查询备份记录
-            backup = db.query(VersionBackupDB).filter_by(id=backup_id).first()
+            stmt = select(VersionBackupDB).filter_by(id=backup_id)
+            result = await db.execute(stmt)
+            backup = result.scalar_one_or_none()
             if not backup:
                 logger.error(f"备份记录不存在: {backup_id}")
                 return False
@@ -503,7 +506,7 @@ class ComponentUpdateService:
                 else:
                     item.unlink(missing_ok=True)
     
-    def get_backups_list(self, db: Session, instance_id: str, component: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def get_backups_list(self, db: AsyncSession, instance_id: str, component: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         获取备份列表
         
@@ -516,12 +519,14 @@ class ComponentUpdateService:
             备份列表
         """
         try:
-            query = db.query(VersionBackupDB).filter_by(instance_id=instance_id)
+            stmt = select(VersionBackupDB).filter_by(instance_id=instance_id)
             
             if component:
-                query = query.filter_by(component=component)
+                stmt = stmt.filter_by(component=component)
             
-            backups = query.order_by(VersionBackupDB.created_at.desc()).all()
+            stmt = stmt.order_by(VersionBackupDB.created_at.desc())
+            result = await db.execute(stmt)
+            backups = result.scalars().all()
             
             return [
                 {
@@ -537,10 +542,10 @@ class ComponentUpdateService:
             ]
             
         except Exception as e:
-            logger.error(f"获取备份列表失败: {e}")
+            logger.error(f"获取备份列表失败: {e}", exc_info=True)
             return []
     
-    def delete_old_backups(self, db: Session, instance_id: str, keep_count: int = 3):
+    async def delete_old_backups(self, db: AsyncSession, instance_id: str, keep_count: int = 3):
         """
         删除旧备份，保留最近的 N 个
         
@@ -551,9 +556,11 @@ class ComponentUpdateService:
         """
         try:
             # 获取所有备份，按时间倒序
-            backups = db.query(VersionBackupDB).filter_by(
+            stmt = select(VersionBackupDB).filter_by(
                 instance_id=instance_id
-            ).order_by(VersionBackupDB.created_at.desc()).all()
+            ).order_by(VersionBackupDB.created_at.desc())
+            result = await db.execute(stmt)
+            backups = result.scalars().all()
             
             # 删除超出保留数量的备份
             for backup in backups[keep_count:]:
@@ -562,11 +569,12 @@ class ComponentUpdateService:
                     backup_dir = backup_path.parent
                     shutil.rmtree(backup_dir, ignore_errors=True)
                 
-                db.delete(backup)
+                # 标记对象为删除 (在 AsyncSession 中 delete 是同步方法)
+                await db.delete(backup)
             
-            db.commit()
+            await db.commit()
             logger.info(f"清理旧备份完成，保留最近 {keep_count} 个备份")
             
         except Exception as e:
             logger.error(f"清理备份失败: {e}")
-            db.rollback()
+            await db.rollback()

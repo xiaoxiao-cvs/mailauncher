@@ -12,7 +12,7 @@ import { getApiBaseUrl } from '@/config/api';
 
 interface TerminalComponentProps {
   instanceId: string;
-  component: 'main' | 'napcat' | 'napcat-ada';
+  component: 'MaiBot' | 'NapCat' | 'MaiBot-Napcat-Adapter';
   className?: string;
   isRunning?: boolean; // 组件是否正在运行
 }
