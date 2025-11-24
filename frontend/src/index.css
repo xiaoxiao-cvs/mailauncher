@@ -165,3 +165,32 @@
 .animation-delay-4000 {
   animation-delay: 4s;
 }
+
+/* 实例卡片网格重排序动画 */
+@layer utilities {
+  .instance-grid-container {
+    display: grid;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .instance-card-item {
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* FLIP 动画技术支持 */
+  @keyframes slideIn {
+    from {
+      transform: translateY(30px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  .instance-card-enter {
+    animation: slideIn 0.8s cubic-bezier(0.4, 0, 0.2, 1) both;
+    opacity: 0;
+  }
+}

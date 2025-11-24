@@ -5,6 +5,7 @@
 from typing import List, Optional, Dict
 from datetime import datetime
 import uuid
+import asyncio
 from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,8 +51,42 @@ class InstanceService:
         """生成唯一的实例 ID"""
         return f"inst_{uuid.uuid4().hex[:12]}"
     
-    def _db_to_model(self, db_instance: InstanceDB) -> Instance:
+    async def _db_to_model(self, db_instance: InstanceDB) -> Instance:
         """将数据库模型转换为 Pydantic 模型"""
+        # 获取资源使用情况
+        cpu_usage = 0.0
+        memory_usage = 0.0
+        
+        # 如果实例正在运行，获取所有组件的资源使用总和
+        if db_instance.status == InstanceStatus.RUNNING.value:
+            cpu_usage, memory_usage = await self._get_instance_resources(db_instance.id)
+        
+        return self._db_to_model_with_resources(db_instance, cpu_usage, memory_usage)
+    
+    async def _get_instance_resources(self, instance_id: str) -> tuple[float, float]:
+        """异步获取实例所有组件的资源使用情况（CPU%, 内存MB）"""
+        def _get_resources_sync():
+            """同步获取资源，在线程中执行"""
+            cpu_total = 0.0
+            memory_total = 0.0
+            process_manager = get_process_manager()
+            
+            for component in ["main", "napcat", "napcat-ada"]:
+                session_id = f"{instance_id}_{component}"
+                process_info = process_manager.processes.get(session_id)
+                if process_info and process_info.is_alive():
+                    # 获取进程及其所有子进程的资源
+                    cpu, mem = process_info.get_resources_with_children()
+                    cpu_total += cpu
+                    memory_total += mem
+            
+            return cpu_total, memory_total
+        
+        # 在线程池中执行同步的 psutil 调用
+        return await asyncio.to_thread(_get_resources_sync)
+    
+    def _db_to_model_with_resources(self, db_instance: InstanceDB, cpu_usage: float, memory_usage: float) -> Instance:
+        """将数据库模型转换为 Pydantic 模型（带资源使用情况）"""
         return Instance(
             id=db_instance.id,
             name=db_instance.name,
@@ -66,6 +101,9 @@ class InstanceService:
             updated_at=db_instance.updated_at,
             last_run=db_instance.last_run,
             run_time=db_instance.run_time,
+            cpu_usage=round(cpu_usage, 1),
+            memory_usage=round(memory_usage, 1),
+            qq_account=db_instance.qq_account,
         )
     
     async def get_all_instances(self, db: AsyncSession) -> List[Instance]:
@@ -81,7 +119,10 @@ class InstanceService:
             result = await db.execute(select(InstanceDB))
             db_instances = result.scalars().all()
             logger.info(f"查询到 {len(db_instances)} 个实例")
-            return [self._db_to_model(inst) for inst in db_instances]
+            
+            # 使用 asyncio.gather 并发获取所有实例的资源信息
+            instances = await asyncio.gather(*[self._db_to_model(inst) for inst in db_instances])
+            return list(instances)
         except Exception as e:
             logger.error(f"获取实例列表失败: {e}")
             raise
@@ -102,7 +143,7 @@ class InstanceService:
             )
             db_instance = result.scalar_one_or_none()
             if db_instance:
-                return self._db_to_model(db_instance)
+                return await self._db_to_model(db_instance)
             return None
         except Exception as e:
             logger.error(f"获取实例 {instance_id} 失败: {e}")
@@ -156,6 +197,7 @@ class InstanceService:
                 created_at=now,
                 updated_at=now,
                 run_time=0,
+                qq_account=instance_data.qq_account,
             )
             
             db.add(db_instance)
@@ -163,7 +205,7 @@ class InstanceService:
             await db.refresh(db_instance)
             
             logger.info(f"成功创建实例: {instance_id} ({instance_data.name})")
-            return self._db_to_model(db_instance)
+            return await self._db_to_model(db_instance)
             
         except ValueError as e:
             await db.rollback()
@@ -282,7 +324,7 @@ class InstanceService:
             await db.refresh(db_instance)
             
             logger.info(f"成功更新实例: {instance_id}")
-            return self._db_to_model(db_instance)
+            return await self._db_to_model(db_instance)
             
         except ValueError as e:
             await db.rollback()
@@ -449,6 +491,7 @@ class InstanceService:
                 components_to_start = components
             
             logger.info(f"启动实例 {instance_id} 的组件: {components_to_start}")
+            logger.info(f"实例QQ账号: {db_instance.qq_account}")
             
             # 启动各个组件
             for component in components_to_start:
@@ -458,11 +501,18 @@ class InstanceService:
                         instance_path=instance_path,
                         component=component,
                         python_path=db_instance.python_path,
+                        qq_account=db_instance.qq_account,
                     )
                     results[component] = success
                     
                     if success:
                         logger.info(f"组件 {component} 启动成功")
+                        # 等待一小段时间，确认进程没有立即退出
+                        await asyncio.sleep(0.5)
+                        process_info = process_manager.get_process_info(instance_id, component)
+                        if process_info and not process_info.is_alive():
+                            logger.error(f"组件 {component} 启动后立即退出")
+                            results[component] = False
                     else:
                         logger.warning(f"组件 {component} 启动失败")
                         
@@ -755,6 +805,47 @@ class InstanceService:
             "pid": process_info.pid,
             "uptime": process_info.get_uptime(),
         }
+    
+    async def get_napcat_accounts(
+        self,
+        db: AsyncSession,
+        instance_id: str,
+    ) -> Optional[List[Dict[str, str]]]:
+        """获取 NapCat 已登录的 QQ 账号列表（包含昵称）
+        
+        Args:
+            db: 数据库会话
+            instance_id: 实例 ID
+            
+        Returns:
+            已登录的 QQ 账号列表，格式: [{"account": "123456", "nickname": "昵称"}, ...]
+            如果实例不存在则返回 None
+        """
+        try:
+            result = await db.execute(
+                select(InstanceDB).where(InstanceDB.id == instance_id)
+            )
+            db_instance = result.scalar_one_or_none()
+            
+            if not db_instance:
+                logger.warning(f"实例 {instance_id} 不存在")
+                return None
+            
+            # 获取实例路径
+            instance_dir = db_instance.instance_path or db_instance.name
+            instance_path = self.instances_dir / instance_dir
+            if not instance_path.exists():
+                logger.warning(f"实例路径不存在: {instance_path}")
+                return []
+            
+            # 从 NapCat 目录获取已登录账号
+            from .process.utils import get_napcat_logged_accounts
+            accounts = get_napcat_logged_accounts(instance_path)
+            return accounts
+            
+        except Exception as e:
+            logger.error(f"获取 NapCat 账号列表失败 {instance_id}: {e}", exc_info=True)
+            raise
 
 
 # 依赖注入函数（单例）

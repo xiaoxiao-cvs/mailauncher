@@ -3,7 +3,7 @@
  * 用于可视化编辑 Bot Config 和 Model Config
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { X, Save, Settings, Loader2, FileCode, FileJson, Info, Plus, XIcon, Check } from 'lucide-react'
+import { X, Save, Settings, Loader2, FileCode, FileJson, Info, Plus, XIcon, Check, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,6 +28,14 @@ import {
   ConfigWithComments,
   ConfigUpdateRequest,
 } from '@/services/configApi'
+import { instanceApi } from '@/services/instanceApi'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface ConfigModalProps {
   isOpen: boolean
@@ -36,7 +44,7 @@ interface ConfigModalProps {
   defaultActive?: 'bot' | 'model' | 'adapter'
 }
 
-type ConfigType = 'bot' | 'model' | 'adapter'
+type ConfigType = 'bot' | 'model' | 'adapter' | 'napcat'
 
 interface TreeNode {
   id: string
@@ -61,6 +69,12 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<any>(null)
   const [hasChanges, setHasChanges] = useState(false)
+  
+  // NapCat相关状态
+  const [napCatAccounts, setNapCatAccounts] = useState<Array<{account: string; nickname: string}>>([])
+  const [selectedQQAccount, setSelectedQQAccount] = useState<string | null>(null)
+  const [originalQQAccount, setOriginalQQAccount] = useState<string | null>(null)
+  const [loadingAccounts, setLoadingAccounts] = useState(false)
   
   // Tag 添加状态：记录哪个路径正在添加新项
   const [addingTagPath, setAddingTagPath] = useState<string | null>(null)
@@ -159,6 +173,34 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     }
   }
   
+  // 加载NapCat已登录账号
+  const loadNapCatAccounts = async () => {
+    if (!instanceId) return
+    setLoadingAccounts(true)
+    try {
+      const [accountsResponse, instanceData] = await Promise.all([
+        instanceApi.getNapCatAccounts(instanceId),
+        instanceApi.getInstance(instanceId)
+      ])
+      
+      if (accountsResponse.success) {
+        setNapCatAccounts(accountsResponse.accounts)
+        // 设置当前实例的qq_account
+        const currentAccount = (instanceData as any).qq_account || null
+        setSelectedQQAccount(currentAccount)
+        setOriginalQQAccount(currentAccount)
+        toast.success(accountsResponse.message || `找到 ${accountsResponse.accounts.length} 个已登录账号`)
+      } else {
+        toast.error(accountsResponse.message || '获取账号列表失败')
+      }
+    } catch (error) {
+      console.error('获取NapCat账号失败:', error)
+      toast.error('获取账号列表失败')
+    } finally {
+      setLoadingAccounts(false)
+    }
+  }
+
   // 当切换配置类型时，更新rawText并清除选中状态
   useEffect(() => {
     // 清除选中的路径和编辑值
@@ -181,6 +223,9 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
         setRawText(text)
         setOriginalRawText(text)
       }).catch(err => console.error('加载Adapter原始配置失败:', err))
+    } else if (activeConfig === 'napcat') {
+      // 加载NapCat账号列表
+      loadNapCatAccounts()
     }
   }, [activeConfig, botConfig, modelConfig, adapterConfig, instanceId])
 
@@ -1193,7 +1238,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                   </h2>
                   {!isMobile && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 font-medium hidden sm:block">
-                      {activeConfig === 'bot' ? 'Bot Configuration' : activeConfig === 'model' ? 'Model Configuration' : 'Adapter Configuration'}
+                      {activeConfig === 'bot' ? 'Bot Configuration' : activeConfig === 'model' ? 'Model Configuration' : activeConfig === 'adapter' ? 'Adapter Configuration' : 'NapCat Configuration'}
                     </p>
                   )}
                </div>
@@ -1202,7 +1247,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
             {/* Config Type Switcher */}
             {!isCompact ? (
               <div className="flex bg-gray-100/80 dark:bg-gray-800/80 p-1 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
-                {(['bot', 'model', 'adapter'] as const).map((type) => (
+                {(['bot', 'model', 'adapter', 'napcat'] as const).map((type) => (
                   <button
                     key={type}
                     onClick={() => setActiveConfig(type)}
@@ -1212,7 +1257,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                     }`}
                   >
-                    {type === 'bot' ? 'Bot' : type === 'model' ? 'Model' : 'Adapter'}
+                    {type === 'bot' ? 'Bot' : type === 'model' ? 'Model' : type === 'adapter' ? 'Adapter' : 'NapCat'}
                   </button>
                 ))}
               </div>
@@ -1227,6 +1272,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                     <option value="bot">Bot Config</option>
                     <option value="model">Model Config</option>
                     <option value="adapter">Adapter Config</option>
+                    <option value="napcat">NapCat</option>
                  </select>
               </div>
             )}
@@ -1335,6 +1381,143 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                         </>
                       )}
                     </Button>
+                </div>
+              </div>
+            </div>
+          ) : activeConfig === 'napcat' ? (
+            /* NapCat Configuration Mode */
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="max-w-3xl mx-auto space-y-6">
+                  {/* 账号管理区域 */}
+                  <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">账号管理</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">选择用于快速登录的QQ账号</p>
+                      </div>
+                      <Button
+                        onClick={loadNapCatAccounts}
+                        disabled={loadingAccounts}
+                        size="sm"
+                        variant="outline"
+                        className="rounded-lg"
+                      >
+                        {loadingAccounts ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            刷新中
+                          </>
+                        ) : (
+                          <>
+                            <RotateCw className="w-4 h-4 mr-2" />
+                            刷新账号
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="qq-account" className="text-sm font-medium mb-2 block">
+                          选择QQ账号
+                        </Label>
+                        {napCatAccounts.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                            <p className="mb-2">暂无已登录账号</p>
+                            <p className="text-xs">请先在NapCat中登录QQ账号</p>
+                          </div>
+                        ) : (
+                          <Select value={selectedQQAccount || ''} onValueChange={setSelectedQQAccount}>
+                            <SelectTrigger className="w-full bg-white dark:bg-gray-900">
+                              <SelectValue placeholder="请选择QQ账号" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {napCatAccounts.map((accountInfo) => (
+                                <SelectItem key={accountInfo.account} value={accountInfo.account}>
+                                  <div className="flex items-center gap-3 py-1">
+                                    <img
+                                      src={`https://q1.qlogo.cn/g?b=qq&nk=${accountInfo.account}&s=100`}
+                                      alt=""
+                                      className="w-8 h-8 rounded-full"
+                                      onError={(e) => {
+                                        e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="gray"%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/%3E%3C/svg%3E'
+                                      }}
+                                    />
+                                    <div className="flex flex-col">
+                                      <span className="font-medium text-sm">
+                                        {accountInfo.nickname !== "QQ用户" ? accountInfo.nickname : `QQ ${accountInfo.account}`}
+                                      </span>
+                                      <span className="text-xs text-gray-500">{accountInfo.account}</span>
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+
+                      {selectedQQAccount && (
+                        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                          <p className="text-sm text-blue-700 dark:text-blue-300">
+                            已选择账号: <strong>{selectedQQAccount}</strong>
+                          </p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            保存后，该账号将用于NapCat快速登录
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="flex items-center justify-end px-6 py-4 border-t border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md">
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedQQAccount(originalQQAccount)
+                      setHasChanges(false)
+                    }}
+                    disabled={selectedQQAccount === originalQQAccount}
+                    className="rounded-lg"
+                  >
+                    重置
+                  </Button>
+                  <Button
+                    variant="default"
+                    onClick={async () => {
+                      setSaving(true)
+                      try {
+                        await instanceApi.updateInstance(instanceId!, { qq_account: selectedQQAccount } as any)
+                        setOriginalQQAccount(selectedQQAccount)
+                        toast.success('保存成功')
+                        setHasChanges(false)
+                      } catch (error) {
+                        console.error('保存失败:', error)
+                        toast.error('保存失败')
+                      } finally {
+                        setSaving(false)
+                      }
+                    }}
+                    disabled={selectedQQAccount === originalQQAccount || saving}
+                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 rounded-lg min-w-[100px]"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        保存中
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        保存
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
             </div>

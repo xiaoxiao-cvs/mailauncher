@@ -30,6 +30,7 @@ class InstanceBase(BaseModel):
     bot_type: BotType = Field(default=BotType.MAIBOT, description="机器人类型")
     bot_version: Optional[str] = Field(None, description="机器人版本")
     description: Optional[str] = Field(None, max_length=500, description="实例描述")
+    qq_account: Optional[str] = Field(None, max_length=20, description="QQ 账号（用于 NapCat 快速登录）")
 
 
 class InstanceCreate(InstanceBase):
@@ -44,6 +45,7 @@ class InstanceUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=500)
     python_path: Optional[str] = None
     config_path: Optional[str] = None
+    qq_account: Optional[str] = Field(None, max_length=20, description="QQ 账号")
 
 
 class Instance(InstanceBase):
@@ -57,6 +59,8 @@ class Instance(InstanceBase):
     updated_at: datetime = Field(default_factory=datetime.now, description="更新时间")
     last_run: Optional[datetime] = Field(None, description="最后运行时间")
     run_time: int = Field(default=0, description="总运行时间（秒）")
+    cpu_usage: Optional[float] = Field(default=0.0, description="CPU 使用率（百分比）")
+    memory_usage: Optional[float] = Field(default=0.0, description="内存使用量（MB）")
     
     class Config:
         json_schema_extra = {

@@ -16,14 +16,12 @@ import {
   Play,
   Square,
   RotateCw,
-  Activity,
   Clock,
   Server,
   ChevronDown,
   Loader2,
+  FileText,
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -242,34 +240,6 @@ export const InstanceDetailPage: React.FC = () => {
     }
   };
   
-  // 格式化时间
-  const formatTime = (dateString?: string) => {
-    if (!dateString) return '从未运行';
-    try {
-      return formatDistanceToNow(new Date(dateString), {
-        addSuffix: true,
-        locale: zhCN,
-      });
-    } catch {
-      return '未知';
-    }
-  };
-  
-  // 格式化运行时长
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return '0秒';
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    
-    const parts = [];
-    if (hours > 0) parts.push(`${hours}小时`);
-    if (minutes > 0) parts.push(`${minutes}分钟`);
-    if (secs > 0 || parts.length === 0) parts.push(`${secs}秒`);
-    
-    return parts.join(' ');
-  };
-  
   const isRunning = instance.status === 'running';
   const isStopped = instance.status === 'stopped';
   
@@ -330,28 +300,6 @@ export const InstanceDetailPage: React.FC = () => {
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
         {/* Left Panel: Stats & Actions */}
         <div className="col-span-4 flex flex-col gap-6 overflow-y-auto scrollbar-thin pr-2 pb-2">
-          {/* Stats Card */}
-          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm animate-slide-up opacity-0">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-blue-500" />
-              运行状态
-            </h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-white/20 dark:border-gray-600/20">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Maibot 版本</span>
-                <span className="font-semibold text-gray-700 dark:text-gray-200">{instance.bot_version || '未知'}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-white/20 dark:border-gray-600/20">
-                <span className="text-sm text-gray-500 dark:text-gray-400">运行时长</span>
-                <span className="font-semibold text-gray-700 dark:text-gray-200">{formatDuration(instance.run_time)}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-white/20 dark:border-gray-600/20">
-                <span className="text-sm text-gray-500 dark:text-gray-400">最后启动</span>
-                <span className="font-semibold text-gray-700 dark:text-gray-200">{formatTime(instance.last_run)}</span>
-              </div>
-            </div>
-          </div>
-
           {/* Quick Actions */}
           <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm animate-slide-up opacity-0">
             <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
@@ -374,7 +322,7 @@ export const InstanceDetailPage: React.FC = () => {
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">计划</span>
               </button>
               <button className="flex flex-col items-center justify-center p-4 bg-orange-50/50 dark:bg-orange-900/10 hover:bg-orange-100/50 dark:hover:bg-orange-900/20 rounded-2xl border border-orange-100/50 dark:border-orange-800/30 transition-all duration-200 hover:scale-[1.02] active:scale-95">
-                <Activity className="w-6 h-6 text-orange-600 dark:text-orange-400 mb-2" />
+                <FileText className="w-6 h-6 text-orange-600 dark:text-orange-400 mb-2" />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">日志</span>
               </button>
               <button className="flex flex-col items-center justify-center p-4 bg-gray-50/50 dark:bg-gray-700/10 hover:bg-gray-100/50 dark:hover:bg-gray-700/20 rounded-2xl border border-gray-100/50 dark:border-gray-600/30 transition-all duration-200 hover:scale-[1.02] active:scale-95">

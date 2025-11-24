@@ -17,7 +17,7 @@ export const ComponentVersionCard: React.FC<ComponentVersionCardProps> = ({
   onOpenVersionManager,
 }) => {
   const { data: components = [], isLoading } = useComponentsVersionQuery(instanceId, {
-    refetchInterval: 60000, // 每分钟自动刷新
+    manualFetch: true, // 手动触发获取，不自动加载
   });
   
   const checkAllMutation = useCheckAllUpdates(instanceId);

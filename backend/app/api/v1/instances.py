@@ -114,8 +114,10 @@ async def start_instance(
     service: InstanceService = Depends(get_instance_service),
 ):
     """启动实例"""
-    success = await service.start_instance(db, instance_id)
-    if not success:
+    logger.info(f"收到启动实例请求: {instance_id}")
+    results = await service.start_instance(db, instance_id)
+    logger.info(f"启动实例结果: {results}")
+    if "error" in results:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"实例 {instance_id} 不存在")
     return SuccessResponse(success=True, message=f"实例 {instance_id} 启动成功")
 
@@ -154,7 +156,14 @@ async def start_component(
     service: InstanceService = Depends(get_instance_service),
 ):
     """启动实例的指定组件 (main, napcat, napcat-ada)"""
-    success = await service.start_component(db, instance_id, component)
+    # 组件名称映射：前端名称 -> 后端内部名称
+    component_map = {
+        'MaiBot': 'main',
+        'NapCat': 'napcat',
+        'MaiBot-Napcat-Adapter': 'napcat-ada',
+    }
+    internal_component = component_map.get(component, component)
+    success = await service.start_component(db, instance_id, internal_component)
     if not success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"组件 {component} 启动失败")
     return SuccessResponse(success=True, message=f"组件 {component} 已启动")
@@ -168,10 +177,34 @@ async def stop_component(
     service: InstanceService = Depends(get_instance_service),
 ):
     """停止实例的指定组件 (main, napcat, napcat-ada)"""
-    success = await service.stop_component(db, instance_id, component)
+    # 组件名称映射：前端名称 -> 后端内部名称
+    component_map = {
+        'MaiBot': 'main',
+        'NapCat': 'napcat',
+        'MaiBot-Napcat-Adapter': 'napcat-ada',
+    }
+    internal_component = component_map.get(component, component)
+    success = await service.stop_component(db, instance_id, internal_component)
     if not success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"组件 {component} 停止失败")
     return SuccessResponse(success=True, message=f"组件 {component} 已停止")
+
+
+@router.get("/{instance_id}/napcat/accounts")
+async def get_napcat_accounts(
+    instance_id: str,
+    db: AsyncSession = Depends(get_db),
+    service: InstanceService = Depends(get_instance_service),
+):
+    """获取 NapCat 已登录的 QQ 账号列表"""
+    accounts = await service.get_napcat_accounts(db, instance_id)
+    if accounts is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"实例 {instance_id} 不存在")
+    return {
+        "success": True,
+        "accounts": accounts,
+        "message": f"找到 {len(accounts)} 个已登录账号"
+    }
 
 
 @router.get("/{instance_id}/component/{component}/status")
@@ -181,7 +214,14 @@ async def get_component_status(
     service: InstanceService = Depends(get_instance_service),
 ):
     """获取组件状态"""
-    return await service.get_component_status(instance_id, component)
+    # 组件名称映射：前端名称 -> 后端内部名称
+    component_map = {
+        'MaiBot': 'main',
+        'NapCat': 'napcat',
+        'MaiBot-Napcat-Adapter': 'napcat-ada',
+    }
+    internal_component = component_map.get(component, component)
+    return await service.get_component_status(instance_id, internal_component)
 
 
 @router.websocket("/{instance_id}/component/{component}/terminal")
@@ -196,15 +236,23 @@ async def terminal_websocket(
     提供实时的终端输出和输入交互
     支持查询参数 history 指定返回的历史日志行数
     """
+    # 组件名称映射：前端名称 -> 后端内部名称
+    component_map = {
+        'MaiBot': 'main',
+        'NapCat': 'napcat',
+        'MaiBot-Napcat-Adapter': 'napcat-ada',
+    }
+    internal_component = component_map.get(component, component)
+    
     process_manager = get_process_manager()
     ws_manager = get_connection_manager()
     monitor_task = None
     
     try:
-        session_id = f"{instance_id}_{component}"
+        session_id = f"{instance_id}_{internal_component}"
         await ws_manager.connect(websocket, session_id)
         logger.info(f"终端 WebSocket 已连接: {instance_id}/{component}, 请求历史: {history} 行")
-        pi = process_manager.get_process_info(instance_id, component)
+        pi = process_manager.get_process_info(instance_id, internal_component)
         if pi and pi.is_alive():
             await websocket.send_json({
                 "type": "connected",
@@ -219,7 +267,7 @@ async def terminal_websocket(
         
         # 发送历史日志
         if history > 0:
-            history_lines = process_manager.get_output_history(instance_id, component, history)
+            history_lines = process_manager.get_output_history(instance_id, internal_component, history)
             if history_lines:
                 await websocket.send_json({
                     "type": "history",
@@ -232,7 +280,7 @@ async def terminal_websocket(
                 return
             async def read_output_broadcast():
                 try:
-                    pi_local = process_manager.get_process_info(instance_id, component)
+                    pi_local = process_manager.get_process_info(instance_id, internal_component)
                     if not pi_local or not pi_local.process:
                         return
                     process = pi_local.process
@@ -306,7 +354,7 @@ async def terminal_websocket(
             task = asyncio.create_task(read_output_broadcast())
             _terminal_output_tasks[session_id] = task
 
-        pi = process_manager.get_process_info(instance_id, component)
+        pi = process_manager.get_process_info(instance_id, internal_component)
         if pi and pi.is_alive():
             await ensure_reader()
         else:
@@ -316,7 +364,7 @@ async def terminal_websocket(
                 try:
                     while True:
                         await asyncio.sleep(1)
-                        pi2 = process_manager.get_process_info(instance_id, component)
+                        pi2 = process_manager.get_process_info(instance_id, internal_component)
                         if pi2 and pi2.is_alive():
                             if not connected_notified:
                                 try:
@@ -340,7 +388,7 @@ async def terminal_websocket(
                     if message.get("type") == "input":
                         # 发送用户输入到进程
                         data = message.get("data", "")
-                        pi_cur = process_manager.get_process_info(instance_id, component)
+                        pi_cur = process_manager.get_process_info(instance_id, internal_component)
                         process = pi_cur.process if pi_cur else None
                         
                         # Unix PTY
@@ -363,7 +411,7 @@ async def terminal_websocket(
                         cols = message.get("cols", 80)
                         
                         # Windows winpty
-                        pi_cur2 = process_manager.get_process_info(instance_id, component)
+                        pi_cur2 = process_manager.get_process_info(instance_id, internal_component)
                         proc2 = pi_cur2.process if pi_cur2 else None
                         if hasattr(proc2, 'set_winsize'):
                             proc2.set_winsize(rows, cols)
