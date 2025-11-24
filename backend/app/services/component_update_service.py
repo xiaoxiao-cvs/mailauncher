@@ -569,7 +569,7 @@ class ComponentUpdateService:
                     backup_dir = backup_path.parent
                     shutil.rmtree(backup_dir, ignore_errors=True)
                 
-                # 标记对象为删除 (在 AsyncSession 中 delete 是同步方法)
+                # 标记对象为删除 (在 AsyncSession 中 delete 是异步方法，需要 await)
                 await db.delete(backup)
             
             await db.commit()

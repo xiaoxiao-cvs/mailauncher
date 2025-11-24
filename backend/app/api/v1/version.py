@@ -289,7 +289,7 @@ async def update_component(
             error_message=None if success else "更新执行失败"
         )
         db.add(update_history)
-        db.commit()
+        await db.commit()
         
         # 清理旧备份（保留最近 3 个）
         if success and create_backup:
@@ -324,7 +324,7 @@ async def update_component(
                 error_message=str(e)
             )
             db.add(update_history)
-            db.commit()
+            await db.commit()
         except:
             pass
         
