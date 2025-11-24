@@ -36,14 +36,18 @@ export function useComponentsVersionQuery(
   instanceId: string | undefined,
   options?: {
     enabled?: boolean;
+    manualFetch?: boolean; // 是否手动触发获取
   }
 ) {
   return useQuery({
     queryKey: versionKeys.components(instanceId!),
     queryFn: () => getInstanceComponentsVersion(instanceId!),
-    enabled: !!instanceId && (options?.enabled ?? true),
+    enabled: !!instanceId && (options?.enabled ?? true) && !(options?.manualFetch ?? false),
     staleTime: 24 * 60 * 60 * 1000, // 24 小时内数据视为新鲜，不会自动重新获取
-    refetchOnWindowFocus: false,
+    gcTime: 24 * 60 * 60 * 1000, // 缓存保持 24 小时
+    refetchOnMount: false, // 组件挂载时不自动重新获取（如果有缓存数据）
+    refetchOnWindowFocus: false, // 窗口聚焦时不自动重新获取
+    refetchOnReconnect: false, // 网络重连时不自动重新获取
   });
 }
 

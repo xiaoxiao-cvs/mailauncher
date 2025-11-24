@@ -91,13 +91,13 @@ class MAIBotConfigService:
                 instance_config_dir = self.instances_dir / instance_dir / "MaiBot" / "config"
                 
                 if instance_config_dir.exists():
-                    logger.info(f"使用实例配置目录: {instance_config_dir}")
+                    logger.debug(f"使用实例配置目录: {instance_config_dir}")
                     return instance_config_dir
                 else:
                     logger.warning(f"实例配置目录不存在: {instance_config_dir}")
         
         # 如果没有找到实例配置，返回默认配置目录
-        logger.info(f"使用默认配置目录: {self.config_dir}")
+        logger.debug(f"使用默认配置目录: {self.config_dir}")
         return self.config_dir
     
     # ==================== Bot Config ====================

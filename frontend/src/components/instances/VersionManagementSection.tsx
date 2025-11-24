@@ -23,7 +23,7 @@ export const VersionManagementSection: React.FC<VersionManagementSectionProps> =
   const [isVisualizerOpen, setIsVisualizerOpen] = useState(false);
   
   const { data: components = [], isLoading, refetch } = useComponentsVersionQuery(instanceId, {
-    refetchInterval: 60000,
+    manualFetch: true, // 手动触发获取，不自动加载
   });
 
   const updateMutation = useUpdateComponentMutation();

@@ -16,7 +16,9 @@ export const ComponentVersionCard: React.FC<ComponentVersionCardProps> = ({
   instanceId,
   onOpenVersionManager,
 }) => {
-  const { data: components = [], isLoading } = useComponentsVersionQuery(instanceId);
+  const { data: components = [], isLoading } = useComponentsVersionQuery(instanceId, {
+    manualFetch: true, // 手动触发获取，不自动加载
+  });
   
   const checkAllMutation = useCheckAllUpdates(instanceId);
   
