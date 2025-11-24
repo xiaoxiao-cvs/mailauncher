@@ -51,7 +51,7 @@ class InstanceService:
         """生成唯一的实例 ID"""
         return f"inst_{uuid.uuid4().hex[:12]}"
     
-    def _db_to_model(self, db_instance: InstanceDB) -> Instance:
+    async def _db_to_model(self, db_instance: InstanceDB) -> Instance:
         """将数据库模型转换为 Pydantic 模型"""
         # 获取资源使用情况
         cpu_usage = 0.0
@@ -59,15 +59,31 @@ class InstanceService:
         
         # 如果实例正在运行，获取所有组件的资源使用总和
         if db_instance.status == InstanceStatus.RUNNING.value:
-            process_manager = get_process_manager()
-            for component in ["main", "napcat", "napcat-ada"]:
-                session_id = f"{db_instance.id}_{component}"
-                process_info = process_manager.processes.get(session_id)
-                if process_info and process_info.is_alive():
-                    cpu_usage += process_info.get_cpu_percent()
-                    memory_usage += process_info.get_memory_mb()
+            cpu_usage, memory_usage = await self._get_instance_resources(db_instance.id)
         
         return self._db_to_model_with_resources(db_instance, cpu_usage, memory_usage)
+    
+    async def _get_instance_resources(self, instance_id: str) -> tuple[float, float]:
+        """异步获取实例所有组件的资源使用情况（CPU%, 内存MB）"""
+        def _get_resources_sync():
+            """同步获取资源，在线程中执行"""
+            cpu_total = 0.0
+            memory_total = 0.0
+            process_manager = get_process_manager()
+            
+            for component in ["main", "napcat", "napcat-ada"]:
+                session_id = f"{instance_id}_{component}"
+                process_info = process_manager.processes.get(session_id)
+                if process_info and process_info.is_alive():
+                    # 获取进程及其所有子进程的资源
+                    cpu, mem = process_info.get_resources_with_children()
+                    cpu_total += cpu
+                    memory_total += mem
+            
+            return cpu_total, memory_total
+        
+        # 在线程池中执行同步的 psutil 调用
+        return await asyncio.to_thread(_get_resources_sync)
     
     def _db_to_model_with_resources(self, db_instance: InstanceDB, cpu_usage: float, memory_usage: float) -> Instance:
         """将数据库模型转换为 Pydantic 模型（带资源使用情况）"""
@@ -103,29 +119,9 @@ class InstanceService:
             db_instances = result.scalars().all()
             logger.info(f"查询到 {len(db_instances)} 个实例")
             
-            # 批量获取所有实例的资源使用情况
-            process_manager = get_process_manager()
-            resource_usage = {}  # {instance_id: (cpu_usage, memory_usage)}
-            
-            for db_instance in db_instances:
-                if db_instance.status == InstanceStatus.RUNNING.value:
-                    cpu_usage = 0.0
-                    memory_usage = 0.0
-                    
-                    # 获取所有组件的资源使用总和
-                    for component in ["main", "napcat", "napcat-ada"]:
-                        session_id = f"{db_instance.id}_{component}"
-                        process_info = process_manager.processes.get(session_id)
-                        if process_info and process_info.is_alive():
-                            cpu_usage += process_info.get_cpu_percent()
-                            memory_usage += process_info.get_memory_mb()
-                    
-                    resource_usage[db_instance.id] = (cpu_usage, memory_usage)
-                else:
-                    resource_usage[db_instance.id] = (0.0, 0.0)
-            
-            # 转换为模型，使用预先计算的资源使用情况
-            return [self._db_to_model_with_resources(inst, *resource_usage[inst.id]) for inst in db_instances]
+            # 使用 asyncio.gather 并发获取所有实例的资源信息
+            instances = await asyncio.gather(*[self._db_to_model(inst) for inst in db_instances])
+            return list(instances)
         except Exception as e:
             logger.error(f"获取实例列表失败: {e}")
             raise
@@ -146,7 +142,7 @@ class InstanceService:
             )
             db_instance = result.scalar_one_or_none()
             if db_instance:
-                return self._db_to_model(db_instance)
+                return await self._db_to_model(db_instance)
             return None
         except Exception as e:
             logger.error(f"获取实例 {instance_id} 失败: {e}")
@@ -207,7 +203,7 @@ class InstanceService:
             await db.refresh(db_instance)
             
             logger.info(f"成功创建实例: {instance_id} ({instance_data.name})")
-            return self._db_to_model(db_instance)
+            return await self._db_to_model(db_instance)
             
         except ValueError as e:
             await db.rollback()
@@ -326,7 +322,7 @@ class InstanceService:
             await db.refresh(db_instance)
             
             logger.info(f"成功更新实例: {instance_id}")
-            return self._db_to_model(db_instance)
+            return await self._db_to_model(db_instance)
             
         except ValueError as e:
             await db.rollback()

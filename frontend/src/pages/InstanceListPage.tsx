@@ -115,7 +115,6 @@ export const InstanceListPage: React.FC = () => {
     
     // 首次渲染：等入场动画结束后再记录位置
     if (isInitialRender.current) {
-      console.log('[FLIP] 首次渲染，等待入场动画结束...');
       // 等待 0.8s 入场动画 + 额外的 100ms 缓冲
       setTimeout(() => {
         instances.forEach((instance, index) => {
@@ -124,7 +123,6 @@ export const InstanceListPage: React.FC = () => {
             const rect = element.getBoundingClientRect();
             previousPositions.current.set(instance.id, rect);
             previousIndexMap.current.set(instance.id, index);
-            console.log(`  初始位置(动画后): ${instance.name} at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)})`);
           }
         });
       }, 900); // 0.8s 动画 + 0.1s 缓冲
@@ -147,8 +145,6 @@ export const InstanceListPage: React.FC = () => {
       previousOrderHash.current = currentOrderHash;
       return;
     }
-    
-    console.log(`[FLIP] 顺序改变: ${previousOrderHash.current} → ${currentOrderHash}`);
     
     // 记录新位置
     const newPositions = new Map<string, DOMRect>();
@@ -179,16 +175,10 @@ export const InstanceListPage: React.FC = () => {
       const indexChanged = oldIndex !== currentIndex;
       const isAlreadyFirst = oldIndex === 0 && currentIndex === 0;
       
-      console.log(`[FLIP] ${instance.name}: ${oldIndex}→${currentIndex}, ΔX=${deltaX.toFixed(0)}, ΔY=${deltaY.toFixed(0)}`);
-      console.log(`  旧位置: (${oldPos.left.toFixed(0)}, ${oldPos.top.toFixed(0)})`);
-      console.log(`  新位置: (${newPos.left.toFixed(0)}, ${newPos.top.toFixed(0)})`);
-      
       // 判断是否是水平交换（主要是横向移动）
       const isHorizontalSwap = Math.abs(deltaX) > 100 && Math.abs(deltaX) > Math.abs(deltaY) * 0.5;
       
       if (distance > 5 && indexChanged && !isAlreadyFirst && isHorizontalSwap) {
-        console.log(`  ✓ 执行水平交换动画`);
-        
         element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
         element.style.transition = 'none';
         void element.offsetHeight;
@@ -197,8 +187,6 @@ export const InstanceListPage: React.FC = () => {
           element.style.transform = '';
           element.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
         });
-      } else {
-        console.log(`  ✗ 跳过动画: isHorizontalSwap=${isHorizontalSwap}, alreadyFirst=${isAlreadyFirst}`);
       }
     });
     

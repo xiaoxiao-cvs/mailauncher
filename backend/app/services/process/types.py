@@ -44,13 +44,16 @@ class ProcessInfo:
         return 0
 
     def get_cpu_percent(self) -> float:
-        """获取进程 CPU 使用率（百分比）"""
+        """获取进程 CPU 使用率（百分比）
+        注意：首次调用返回 0.0，之后返回自上次调用以来的 CPU 使用率
+        """
         if not self.pid:
             return 0.0
         try:
             process = psutil.Process(self.pid)
-            # interval=0.1 避免阻塞，获取最近的 CPU 使用率
-            return round(process.cpu_percent(interval=0.1), 1)
+            # interval=None 不阻塞，返回自上次调用以来的 CPU 使用率
+            # 首次调用返回 0.0，这是预期行为
+            return round(process.cpu_percent(interval=None), 1)
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             return 0.0
 
@@ -64,4 +67,30 @@ class ProcessInfo:
             return round(process.memory_info().rss / 1024 / 1024, 1)
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             return 0.0
+    
+    def get_resources_with_children(self) -> tuple[float, float]:
+        """获取进程及其所有子进程的资源使用情况（CPU%, 内存MB）"""
+        if not self.pid:
+            return 0.0, 0.0
+        
+        try:
+            process = psutil.Process(self.pid)
+            cpu_total = process.cpu_percent(interval=None)
+            memory_total = process.memory_info().rss / 1024 / 1024
+            
+            # 获取所有子进程的资源使用
+            try:
+                children = process.children(recursive=True)
+                for child in children:
+                    try:
+                        cpu_total += child.cpu_percent(interval=None)
+                        memory_total += child.memory_info().rss / 1024 / 1024
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                        continue
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+            
+            return round(cpu_total, 1), round(memory_total, 1)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            return 0.0, 0.0
 
