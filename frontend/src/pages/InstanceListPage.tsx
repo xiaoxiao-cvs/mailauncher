@@ -107,21 +107,35 @@ export const InstanceListPage: React.FC = () => {
   }, [instances]);
   
   // FLIP 动画的正确实现
-  // 关键：必须在 DOM 更新前记录旧位置，在 DOM 更新后记录新位置
   useLayoutEffect(() => {
     if (instances.length === 0) return;
     
-    // 检查顺序是否真的改变了
     const currentOrderHash = instances.map(inst => inst.id).join(',');
     const orderChanged = previousOrderHash.current !== currentOrderHash;
     
-    // 首次渲染或顺序没变：只记录位置，不执行动画
-    if (isInitialRender.current || !orderChanged) {
-      if (isInitialRender.current) {
-        console.log('[FLIP] 首次渲染，记录初始位置');
-        isInitialRender.current = false;
-      }
+    // 首次渲染：等入场动画结束后再记录位置
+    if (isInitialRender.current) {
+      console.log('[FLIP] 首次渲染，等待入场动画结束...');
+      // 等待 0.8s 入场动画 + 额外的 100ms 缓冲
+      setTimeout(() => {
+        instances.forEach((instance, index) => {
+          const element = cardRefs.current.get(instance.id);
+          if (element) {
+            const rect = element.getBoundingClientRect();
+            previousPositions.current.set(instance.id, rect);
+            previousIndexMap.current.set(instance.id, index);
+            console.log(`  初始位置(动画后): ${instance.name} at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)})`);
+          }
+        });
+      }, 900); // 0.8s 动画 + 0.1s 缓冲
       
+      previousOrderHash.current = currentOrderHash;
+      isInitialRender.current = false;
+      return;
+    }
+    
+    // 顺序没变：更新位置记录
+    if (!orderChanged) {
       instances.forEach((instance, index) => {
         const element = cardRefs.current.get(instance.id);
         if (element) {
@@ -136,7 +150,7 @@ export const InstanceListPage: React.FC = () => {
     
     console.log(`[FLIP] 顺序改变: ${previousOrderHash.current} → ${currentOrderHash}`);
     
-    // Step 1 (Last): 记录所有元素的新位置
+    // 记录新位置
     const newPositions = new Map<string, DOMRect>();
     const newIndexMap = new Map<string, number>();
     
@@ -149,7 +163,7 @@ export const InstanceListPage: React.FC = () => {
       }
     });
     
-    // Step 2 (Invert & Play): 执行 FLIP 动画
+    // 执行 FLIP 动画
     instances.forEach((instance, currentIndex) => {
       const element = cardRefs.current.get(instance.id);
       const oldPos = previousPositions.current.get(instance.id);
@@ -158,43 +172,36 @@ export const InstanceListPage: React.FC = () => {
       
       if (!element || !oldPos || !newPos || oldIndex === undefined) return;
       
-      // 计算位置差
       const deltaX = oldPos.left - newPos.left;
       const deltaY = oldPos.top - newPos.top;
       const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
       
-      // 跳过条件
       const indexChanged = oldIndex !== currentIndex;
       const isAlreadyFirst = oldIndex === 0 && currentIndex === 0;
       
-      console.log(`[FLIP] ${instance.name}: index ${oldIndex}→${currentIndex}, ΔX=${deltaX.toFixed(0)}, ΔY=${deltaY.toFixed(0)}`);
+      console.log(`[FLIP] ${instance.name}: ${oldIndex}→${currentIndex}, ΔX=${deltaX.toFixed(0)}, ΔY=${deltaY.toFixed(0)}`);
+      console.log(`  旧位置: (${oldPos.left.toFixed(0)}, ${oldPos.top.toFixed(0)})`);
+      console.log(`  新位置: (${newPos.left.toFixed(0)}, ${newPos.top.toFixed(0)})`);
       
-      // 严格判断：必须在同一行内（垂直位置相近）
-      const isOnSameRow = Math.abs(deltaY) < 30;
-      // 且有明显的水平位置交换
-      const hasHorizontalMovement = Math.abs(deltaX) > 100;
+      // 判断是否是水平交换（主要是横向移动）
+      const isHorizontalSwap = Math.abs(deltaX) > 100 && Math.abs(deltaX) > Math.abs(deltaY) * 0.5;
       
-      if (distance > 5 && indexChanged && !isAlreadyFirst && isOnSameRow && hasHorizontalMovement) {
-        console.log(`  ✓ 执行动画 (同行交换)`);
+      if (distance > 5 && indexChanged && !isAlreadyFirst && isHorizontalSwap) {
+        console.log(`  ✓ 执行水平交换动画`);
         
-        // Invert: 瞬间移到旧位置（只应用水平偏移，忽略垂直偏移）
-        element.style.transform = `translateX(${deltaX}px)`;
+        element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
         element.style.transition = 'none';
-        
-        // 强制重绘
         void element.offsetHeight;
         
-        // Play: 动画到新位置
         requestAnimationFrame(() => {
           element.style.transform = '';
           element.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
         });
       } else {
-        console.log(`  ✗ 跳过: sameRow=${isOnSameRow}, hasHorizontal=${hasHorizontalMovement}`);
+        console.log(`  ✗ 跳过动画: isHorizontalSwap=${isHorizontalSwap}, alreadyFirst=${isAlreadyFirst}`);
       }
     });
     
-    // Step 3: 更新记录供下次使用
     previousPositions.current = newPositions;
     previousIndexMap.current = newIndexMap;
     previousOrderHash.current = currentOrderHash;
