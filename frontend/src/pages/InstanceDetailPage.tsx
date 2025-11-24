@@ -9,7 +9,7 @@ import { ComponentType } from '@/services/instanceApi';
 import { TerminalComponent } from '@/components/terminal/TerminalComponent';
 import { ConfigModal } from '@/components/ConfigModal';
 import { ScheduleModal } from '@/components/ScheduleModal';
-import { ComponentVersionCard } from '@/components/instances/ComponentVersionCard';
+import { VersionManagementSection } from '@/components/instances/VersionManagementSection';
 import { VersionManagerModal } from '@/components/instances/VersionManagerModal';
 import {
   ArrowLeft,
@@ -385,10 +385,7 @@ export const InstanceDetailPage: React.FC = () => {
           </div>
 
           {/* Component Versions */}
-          <ComponentVersionCard
-            instanceId={instance.id}
-            onOpenVersionManager={() => setIsVersionManagerOpen(true)}
-          />
+          <VersionManagementSection instanceId={instance.id} />
         </div>
 
         {/* Right Panel: Terminal & Controls */}
