@@ -41,6 +41,7 @@ export interface InstanceUpdate {
   description?: string;
   python_path?: string;
   config_path?: string;
+  qq_account?: string;
 }
 
 export interface InstanceStatusResponse {
@@ -166,6 +167,13 @@ class InstanceApiClient {
 
   async getInstanceComponents(instanceId: string): Promise<ComponentType[]> {
     return apiJson<ComponentType[]>(`${this.basePath}/${instanceId}/components`)
+  }
+
+  /**
+   * 获取NapCat已登录账号列表
+   */
+  async getNapCatAccounts(instanceId: string): Promise<{success: boolean; accounts: Array<{account: string; nickname: string}>; message: string}> {
+    return apiJson<{success: boolean; accounts: Array<{account: string; nickname: string}>; message: string}>(`${this.basePath}/${instanceId}/napcat/accounts`);
   }
 }
 

@@ -6,54 +6,84 @@ from typing import Optional, List
 from app.core.logger import logger
 
 
-def get_napcat_logged_accounts(instance_path: Path) -> List[str]:
+def get_napcat_logged_accounts(instance_path: Path) -> List[dict]:
   """
-  获取 NapCat 已登录的 QQ 账号列表
+  获取 NapCat 已登录的 QQ 账号列表（包含昵称）
   
   Args:
       instance_path: 实例路径
       
   Returns:
-      已登录的 QQ 账号列表
+      已登录的 QQ 账号列表，格式: [{"account": "123456", "nickname": "昵称"}, ...]
   """
+  import re
+  import json
+  from pathlib import Path as PathlibPath
+  
   accounts = []
-  napcat_dir = instance_path / "NapCat"
+  account_info = {}  # {account: nickname}
   
-  # 检查登录标记文件是否存在
-  login_flag = napcat_dir / ".logged_in"
-  if not login_flag.exists():
-    logger.debug(f"NapCat 登录标记文件不存在: {login_flag}")
-    return accounts
+  # macOS: NapCat 使用系统 QQ，数据存储在用户容器中
+  if platform.system() == "Darwin":
+    qq_container = PathlibPath.home() / "Library/Containers/com.tencent.qq/Data/Library/Application Support/QQ/NapCat/config"
+    if qq_container.exists():
+      # 扫描 napcat_{QQ号}.json 文件
+      for config_file in qq_container.glob("napcat_*.json"):
+        match = re.search(r'napcat_(\d+)\.json', config_file.name)
+        if match:
+          account = match.group(1)
+          if account not in accounts:
+            accounts.append(account)
+            account_info[account] = "QQ用户"
+      
+      # 也从 onebot11 配置文件中提取
+      for config_file in qq_container.glob("onebot11_*.json"):
+        match = re.search(r'onebot11_(\d+)\.json', config_file.name)
+        if match:
+          account = match.group(1)
+          if account not in accounts:
+            accounts.append(account)
+            account_info[account] = "QQ用户"
+  else:
+    # Linux/Windows: 检查实例目录中的 NapCat 配置
+    napcat_dir = instance_path / "NapCat"
+    
+    # 检查 config 目录中的配置文件
+    config_dir = napcat_dir / "config"
+    if config_dir.exists():
+      # 扫描带账号的配置文件
+      for config_file in config_dir.glob("napcat_*.json"):
+        match = re.search(r'napcat_(\d+)\.json', config_file.name)
+        if match:
+          account = match.group(1)
+          if account not in accounts:
+            accounts.append(account)
+            # 尝试从配置文件读取昵称
+            try:
+              with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                nickname = config.get('account', {}).get('nickname') or config.get('nickname') or "QQ用户"
+                account_info[account] = nickname
+            except Exception as e:
+              logger.debug(f"读取配置文件 {config_file} 失败: {e}")
+              account_info[account] = "QQ用户"
+      
+      for config_file in config_dir.glob("onebot11_*.json"):
+        match = re.search(r'onebot11_(\d+)\.json', config_file.name)
+        if match:
+          account = match.group(1)
+          if account not in accounts:
+            accounts.append(account)
+            account_info[account] = "QQ用户"
   
-  # 检查 QQ 数据目录（macOS/Linux）
-  qq_data_dir = napcat_dir / "QQ"
-  if qq_data_dir.exists():
-    # 扫描 QQ 数据目录下的账号文件夹
-    for item in qq_data_dir.iterdir():
-      if item.is_dir() and item.name.isdigit():
-        accounts.append(item.name)
+  # 构建结果列表
+  result = [
+    {"account": account, "nickname": account_info.get(account, "QQ用户")}
+    for account in sorted(set(accounts))
+  ]
   
-  # 检查 config 目录中的配置文件
-  config_dir = napcat_dir / "config"
-  if config_dir.exists():
-    onebot_config = config_dir / "onebot11.json"
-    if onebot_config.exists():
-      try:
-        import json
-        with open(onebot_config, 'r', encoding='utf-8') as f:
-          config = json.load(f)
-          # 尝试从配置中读取账号信息
-          if isinstance(config, dict) and 'account' in config:
-            account = str(config['account'])
-            if account and account not in accounts:
-              accounts.append(account)
-      except Exception as e:
-        logger.warning(f"读取 NapCat 配置文件失败: {e}")
-  
-  # 去重并排序
-  accounts = sorted(list(set(accounts)))
-  logger.info(f"从 NapCat 获取到 {len(accounts)} 个已登录账号: {accounts}")
-  return accounts
+  logger.info(f"从 NapCat 获取到 {len(result)} 个已登录账号: {result}")
+  return result
 
 
 def resolve_python(instance_path: Path, python_path: str | None) -> str:
@@ -74,17 +104,22 @@ def build_napcat_command(instance_path: Path, qq_account: Optional[str]) -> tupl
   start_sh = Path(cwd) / "start.sh"
   start_ps1 = Path(cwd) / "start.ps1"
   start_bat = Path(cwd) / "start.bat"
-  login_flag = Path(cwd) / ".logged_in"
 
   if not (start_sh.exists() or start_ps1.exists() or start_bat.exists()):
     raise FileNotFoundError(f"NapCat 启动脚本不存在: {start_sh} 或 {start_ps1} 或 {start_bat}")
 
   is_windows = platform.system() == "Windows"
+  
+  logger.info(f"构建 NapCat 启动命令，QQ账号参数: {qq_account}")
 
   def with_arg(cmd: str) -> str:
-    if login_flag.exists() and qq_account:
+    # 如果指定了QQ账号，则使用快速登录
+    # 注意：start.sh 脚本接收 QQ 账号作为位置参数，不是 -q 选项
+    if qq_account:
       logger.info(f"使用 QQ 账号快速启动: {qq_account}")
-      return f"{cmd} \"{qq_account}\""
+      return f"{cmd} {qq_account}"
+    else:
+      logger.info("未指定QQ账号，将使用二维码登录")
     return cmd
 
   if is_windows:

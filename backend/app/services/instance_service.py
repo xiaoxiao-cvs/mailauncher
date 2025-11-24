@@ -491,6 +491,7 @@ class InstanceService:
                 components_to_start = components
             
             logger.info(f"启动实例 {instance_id} 的组件: {components_to_start}")
+            logger.info(f"实例QQ账号: {db_instance.qq_account}")
             
             # 启动各个组件
             for component in components_to_start:
@@ -809,15 +810,16 @@ class InstanceService:
         self,
         db: AsyncSession,
         instance_id: str,
-    ) -> Optional[List[str]]:
-        """获取 NapCat 已登录的 QQ 账号列表
+    ) -> Optional[List[Dict[str, str]]]:
+        """获取 NapCat 已登录的 QQ 账号列表（包含昵称）
         
         Args:
             db: 数据库会话
             instance_id: 实例 ID
             
         Returns:
-            已登录的 QQ 账号列表，如果实例不存在则返回 None
+            已登录的 QQ 账号列表，格式: [{"account": "123456", "nickname": "昵称"}, ...]
+            如果实例不存在则返回 None
         """
         try:
             result = await db.execute(

@@ -571,105 +571,39 @@ class NapCatInstaller:
         
         start_script = napcat_dir / "start.sh"
         
-        # 创建主启动脚本（无头模式，使用环境变量加载 NapCat）
+        # 创建主启动脚本
         start_script.write_text(f"""#!/bin/bash
-# NapCat 启动脚本 (macOS 无头模式)
-# 自动生成 - 请勿手动修改
-
 SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
 QQ_APP="/Applications/QQ.app"
 QQ_BIN="$QQ_APP/Contents/MacOS/QQ"
 NAPCAT_DIR="$SCRIPT_DIR/napcat"
-QQ_ACCOUNT="${{1:-$QQ_ACCOUNT}}"
-LOGIN_FLAG="$SCRIPT_DIR/.logged_in"
+QQ_ACCOUNT="$1"
 
-# 颜色定义
-RED='\\033[0;31m'
-GREEN='\\033[0;32m'
-BLUE='\\033[0;34m'
-YELLOW='\\033[0;33m'
-NC='\\033[0m'
-
-# 检查 QQ.app
 if [ ! -d "$QQ_APP" ]; then
-    echo -e "${{RED}}错误: 未找到 QQ.app${{NC}}"
-    echo "请先安装 QQ for macOS: https://im.qq.com/macqq/"
+    echo "错误: 未找到 QQ.app"
     exit 1
 fi
 
-if [ ! -f "$QQ_BIN" ]; then
-    echo -e "${{RED}}错误: QQ 可执行文件不存在: $QQ_BIN${{NC}}"
-    exit 1
-fi
-
-# 检查 NapCat 插件
 if [ ! -f "$NAPCAT_DIR/napcat.mjs" ]; then
-    echo -e "${{RED}}错误: NapCat 插件不存在: $NAPCAT_DIR/napcat.mjs${{NC}}"
+    echo "错误: NapCat 插件不存在"
     exit 1
 fi
 
-echo -e "${{BLUE}}========================================${{NC}}"
-echo -e "${{GREEN}}启动 NapCat (macOS 无头模式)${{NC}}"
-echo -e "${{BLUE}}========================================${{NC}}"
+echo "========================================"
+echo "启动 NapCat"
+echo "========================================"
 echo "NapCat 插件: $NAPCAT_DIR"
-echo ""
 
-# 设置环境变量以加载 NapCat
 export NAPCAT_PATH="$NAPCAT_DIR"
+export NODE_OPTIONS="--import=file://$NAPCAT_DIR/napcat.mjs"
 
-# 检查是否首次启动
-if [ ! -f "$LOGIN_FLAG" ]; then
-    echo -e "${{YELLOW}}检测到首次启动，将启动 WebUI 和二维码登录...${{NC}}"
-    echo -e "${{YELLOW}}请使用手机 QQ 扫描下方终端显示的二维码进行登录${{NC}}"
-    echo -e "${{YELLOW}}登录成功后，程序会自动创建登录标记${{NC}}"
-    echo ""
-    echo "工作目录: $SCRIPT_DIR"
-    echo ""
-    
-    # 首次启动：无头模式，不带 QQ 账号
-    # 通过 NODE_OPTIONS 加载 NapCat
-    export NODE_OPTIONS="--import=file://$NAPCAT_DIR/napcat.mjs"
-    
-    # 所有输出都会显示在终端中，包括二维码
-    # --no-sandbox: 无头模式，不显示 GUI 窗口
-    "$QQ_BIN" --no-sandbox
-    
-    # 如果正常退出，创建登录标记
-    if [ $? -eq 0 ]; then
-        touch "$LOGIN_FLAG"
-        echo -e "${{GREEN}}登录成功！登录标记已创建${{NC}}"
-        echo -e "${{GREEN}}下次启动将使用快速登录模式${{NC}}"
-    fi
+if [ -n "$QQ_ACCOUNT" ]; then
+    echo "QQ 账号: $QQ_ACCOUNT"
+    echo "使用快速登录模式 (-q)"
+    "$QQ_BIN" --no-sandbox -q "$QQ_ACCOUNT"
 else
-    # 已经登录过
-    if [ -z "$QQ_ACCOUNT" ]; then
-        echo -e "${{YELLOW}}提示: 未提供 QQ 账号，使用默认启动模式${{NC}}"
-        echo "如需指定账号登录，请使用:"
-        echo "  方式 1: ./start.sh <QQ账号>"
-        echo "  方式 2: export QQ_ACCOUNT=<QQ账号> && ./start.sh"
-        echo ""
-        echo "工作目录: $SCRIPT_DIR"
-        echo ""
-        
-        # 通过 NODE_OPTIONS 加载 NapCat
-        export NODE_OPTIONS="--import=file://$NAPCAT_DIR/napcat.mjs"
-        
-        # 无头模式启动（不带账号）
-        # --no-sandbox: 无头模式，不显示 GUI 窗口
-        "$QQ_BIN" --no-sandbox
-    else
-        echo "QQ 账号: $QQ_ACCOUNT"
-        echo "工作目录: $SCRIPT_DIR"
-        echo ""
-        
-        # 通过 NODE_OPTIONS 加载 NapCat
-        export NODE_OPTIONS="--import=file://$NAPCAT_DIR/napcat.mjs"
-        
-        # 无头模式启动（带账号快速登录）
-        # --no-sandbox: 无头模式，不显示 GUI 窗口
-        # -q: 快速登录指定账号
-        "$QQ_BIN" --no-sandbox -q "$QQ_ACCOUNT"
-    fi
+    echo "无账号参数，使用默认模式"
+    "$QQ_BIN" --no-sandbox
 fi
 """, encoding='utf-8')
         start_script.chmod(0o755)

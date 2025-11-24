@@ -77,6 +77,8 @@ class ProcessManager:
         """
         python_cmd = resolve_python(instance_path, python_path)
         
+        logger.info(f"_get_command_and_cwd 接收到的参数 - component: {component}, qq_account: {qq_account}")
+        
         if component == "main":
             # MaiBot 主程序 - 在 MaiBot 子目录下
             cwd = str(instance_path / "MaiBot")
@@ -86,7 +88,9 @@ class ProcessManager:
             command = f"{python_cmd} bot.py"
             
         elif component == "napcat":
+            logger.info(f"准备构建 NapCat 命令，qq_account: {qq_account}")
             command, cwd = build_napcat_command(instance_path, qq_account)
+            logger.info(f"构建完成的 NapCat 命令: {command}")
             
         elif component == "napcat-ada":
             # NapCat 适配器 - 在 MaiBot-Napcat-Adapter 子目录下
