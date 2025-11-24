@@ -52,6 +52,20 @@ class InstanceService:
     
     def _db_to_model(self, db_instance: InstanceDB) -> Instance:
         """将数据库模型转换为 Pydantic 模型"""
+        # 获取资源使用情况
+        cpu_usage = 0.0
+        memory_usage = 0.0
+        
+        # 如果实例正在运行，获取所有组件的资源使用总和
+        if db_instance.status == InstanceStatus.RUNNING.value:
+            process_manager = get_process_manager()
+            for component in ["main", "napcat", "napcat-ada"]:
+                session_id = f"{db_instance.id}_{component}"
+                process_info = process_manager.processes.get(session_id)
+                if process_info and process_info.is_alive():
+                    cpu_usage += process_info.get_cpu_percent()
+                    memory_usage += process_info.get_memory_mb()
+        
         return Instance(
             id=db_instance.id,
             name=db_instance.name,
@@ -66,6 +80,8 @@ class InstanceService:
             updated_at=db_instance.updated_at,
             last_run=db_instance.last_run,
             run_time=db_instance.run_time,
+            cpu_usage=round(cpu_usage, 1),
+            memory_usage=round(memory_usage, 1),
         )
     
     async def get_all_instances(self, db: AsyncSession) -> List[Instance]:

@@ -25,6 +25,7 @@ loguru==0.7.2
 
 # 进程管理
 pywinpty==2.0.13; sys_platform == 'win32'  # Windows PTY 支持
+psutil==6.1.0  # 进程资源监控
 
 # 任务调度
 APScheduler==3.10.4

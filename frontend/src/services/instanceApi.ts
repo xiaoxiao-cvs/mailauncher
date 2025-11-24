@@ -23,6 +23,8 @@ export interface Instance {
   updated_at: string;
   last_run?: string;
   run_time: number;
+  cpu_usage?: number;
+  memory_usage?: number;
 }
 
 export interface InstanceCreate {

@@ -6,7 +6,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { InstanceCard } from '@/components/instances/InstanceCard';
 import { Plus, RefreshCw, AlertCircle, Server } from 'lucide-react';
-import { animate } from 'animejs';
 import {
   useInstancesQuery,
   useStartInstanceMutation,
@@ -30,23 +29,70 @@ export const InstanceListPage: React.FC = () => {
   const updateMutation = useUpdateInstanceMutation();
   
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const hasAnimated = useRef(false);
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const previousPositions = useRef<Map<string, DOMRect>>(new Map());
   
-  const instances = instanceData?.instances || [];
-
-  // 列表动画
+  // 对实例进行排序：运行中的在前，按状态和时间排序
+  const instances = React.useMemo(() => {
+    const list = instanceData?.instances || [];
+    return [...list].sort((a, b) => {
+      // 运行中的实例优先
+      const aRunning = a.status === 'running' || a.status === 'starting';
+      const bRunning = b.status === 'running' || b.status === 'starting';
+      
+      if (aRunning && !bRunning) return -1;
+      if (!aRunning && bRunning) return 1;
+      
+      // 相同状态下，按运行时间排序（运行中）或更新时间（已停止）
+      if (aRunning && bRunning) {
+        return (b.run_time || 0) - (a.run_time || 0);
+      }
+      
+      // 已停止的按更新时间排序
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    });
+  }, [instanceData?.instances]);
+  
+  // FLIP 动画: 记录位置变化并应用动画
   useEffect(() => {
-    if (instances.length > 0 && !hasAnimated.current) {
-      animate('.instance-card-item', {
-        translateY: [30, 0],
-        opacity: [0, 1],
-        delay: (_: any, i: number) => i * 100,
-        easing: 'easeOutExpo',
-        duration: 1000
-      });
-      hasAnimated.current = true;
-    }
-  }, [instances.length]);
+    if (instances.length === 0) return;
+    
+    // First: 记录当前位置
+    const currentPositions = new Map<string, DOMRect>();
+    instances.forEach(instance => {
+      const element = cardRefs.current.get(instance.id);
+      if (element) {
+        currentPositions.set(instance.id, element.getBoundingClientRect());
+      }
+    });
+    
+    // Last: 比较位置变化
+    instances.forEach(instance => {
+      const element = cardRefs.current.get(instance.id);
+      const oldPos = previousPositions.current.get(instance.id);
+      const newPos = currentPositions.get(instance.id);
+      
+      if (element && oldPos && newPos) {
+        const deltaX = oldPos.left - newPos.left;
+        const deltaY = oldPos.top - newPos.top;
+        
+        // Invert: 如果位置有变化，先移动到旧位置
+        if (deltaX !== 0 || deltaY !== 0) {
+          element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+          element.style.transition = 'none';
+          
+          // Play: 触发动画回到新位置
+          requestAnimationFrame(() => {
+            element.style.transform = '';
+            element.style.transition = 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+          });
+        }
+      }
+    });
+    
+    // 更新位置记录
+    previousPositions.current = currentPositions;
+  }, [instances]);
   
   // 处理启动实例
   const handleStart = async (id: string) => {
@@ -204,9 +250,19 @@ export const InstanceListPage: React.FC = () => {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 instance-grid-container">
           {instances.map((instance) => (
-            <div key={instance.id} className="instance-card-item opacity-0">
+            <div 
+              key={instance.id}
+              ref={(el) => {
+                if (el) {
+                  cardRefs.current.set(instance.id, el);
+                } else {
+                  cardRefs.current.delete(instance.id);
+                }
+              }}
+              className="instance-card-item opacity-0"
+            >
               <InstanceCard
                 instance={instance}
                 onStart={handleStart}

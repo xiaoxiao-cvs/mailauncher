@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Instance } from '@/services/instanceApi';
-import { Play, Square, RotateCw, Trash2, Server, Pencil } from 'lucide-react';
+import { Play, Square, RotateCw, Trash2, Server, Pencil, Clock, Info } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { InstanceRenameModal } from './InstanceRenameModal';
@@ -22,13 +22,22 @@ interface InstanceCardProps {
   loading?: boolean;
 }
 
-// 状态颜色映射
+// 状态颜色映射 - 用于卡片背景
 const statusColors = {
-  running: 'bg-[#34C759] shadow-[0_0_8px_rgba(52,199,89,0.6)]',
-  stopped: 'bg-[#8E8E93]',
-  starting: 'bg-[#FFCC00] animate-pulse',
-  stopping: 'bg-[#FF9500] animate-pulse',
-  error: 'bg-[#FF3B30]',
+  running: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400',
+  stopped: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
+  starting: 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400',
+  stopping: 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400',
+  error: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
+};
+
+// 状态文本颜色 - 用于指示点
+const statusTextColors = {
+  running: 'bg-green-500',
+  stopped: 'bg-gray-400',
+  starting: 'bg-yellow-500',
+  stopping: 'bg-orange-500',
+  error: 'bg-red-500',
 };
 
 // 状态文本映射
@@ -47,12 +56,10 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
   onRestart,
   onDelete,
   onRename,
-  onUpdate,
   loading = false,
 }) => {
   const navigate = useNavigate();
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   
   // 计算组件数量（假设有 main, napcat, napcat-ada）
   const componentCount = 3;
@@ -119,56 +126,73 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
       <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
       
       <div className="p-6 relative z-10">
-        {/* 头部：名称和状态 */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            {/* 状态指示点 */}
-            <div className={`w-3 h-3 rounded-full ${statusColors[instance.status]} transition-all duration-300`} />
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-              {instance.name}
-            </h3>
-          </div>
+        {/* 头部：名称和 Info 图标 */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+            {instance.name}
+          </h3>
           
-          {/* 状态文本 */}
-          <span className={`text-xs font-medium px-3 py-1 rounded-full backdrop-blur-md
-            ${isRunning 
-              ? 'bg-green-500/10 text-green-600 dark:text-green-400' 
-              : 'bg-gray-500/10 text-gray-500 dark:text-gray-400'}
-          `}>
-            {statusTexts[instance.status]}
-          </span>
+          {/* Info 图标按钮 */}
+          <button
+            onClick={(e) => handleButtonClick(e, () => {
+              // TODO: 展示详细信息弹窗
+              console.log('查看实例详情:', instance.id);
+            })}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300
+                     hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:scale-95
+                     transition-all duration-300"
+            title="查看详情"
+          >
+            <Info className="w-4 h-4" />
+          </button>
         </div>
         
-        {/* 描述 */}
-        {instance.description && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-6 h-10 leading-relaxed">
-            {instance.description}
-          </p>
-        )}
+        {/* 资源使用文本 - 每10秒自动更新 */}
+        <div className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+          CPU {instance.cpu_usage !== undefined && instance.cpu_usage > 0 
+            ? `${instance.cpu_usage.toFixed(1)}%` 
+            : '0%'} / 内存 {instance.memory_usage !== undefined && instance.memory_usage > 0 
+            ? `${instance.memory_usage.toFixed(0)}MB` 
+            : '0MB'}
+        </div>
         
         {/* 信息网格 */}
-        <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-6 text-xs">
-          <div className="flex flex-col gap-1">
-            <span className="text-gray-400 dark:text-gray-500">组件</span>
-            <span className="font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
-              <Server className="w-3 h-3" />
-              {componentCount} 个
-            </span>
+        {/* 极简徽章式状态显示 */}
+        <div className="flex items-center gap-2 mb-4 text-xs flex-wrap">
+          {/* 运行状态徽章 */}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${statusColors[instance.status]} transition-all duration-300`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${statusTextColors[instance.status]} ${isRunning ? 'animate-pulse' : ''}`} />
+            <span className="font-medium">{statusTexts[instance.status]}</span>
           </div>
           
-          <div className="flex flex-col gap-1">
-            <span className="text-gray-400 dark:text-gray-500">版本</span>
-            <span className="font-medium text-gray-700 dark:text-gray-300">
-              {instance.bot_version || 'N/A'}
-            </span>
+          {/* 运行时间徽章 */}
+          {isRunning && instance.run_time !== undefined && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+              <Clock className="w-3 h-3" />
+              <span className="font-medium">{formatRunTime(instance.run_time)}</span>
+            </div>
+          )}
+          
+          {/* 最后运行徽章 */}
+          {!isRunning && instance.last_run && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+              <RotateCw className="w-3 h-3" />
+              <span className="font-medium">{formatLastRun(instance.last_run)}</span>
+            </div>
+          )}
+          
+          {/* 组件数徽章 */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400">
+            <Server className="w-3 h-3" />
+            <span className="font-medium">{componentCount}</span>
           </div>
           
-          <div className="flex flex-col gap-1 col-span-2">
-            <span className="text-gray-400 dark:text-gray-500">运行状态</span>
-            <span className="font-medium text-gray-700 dark:text-gray-300">
-              {isRunning ? `已运行 ${formatRunTime(instance.run_time)}` : `上次运行 ${formatLastRun(instance.last_run)}`}
-            </span>
-          </div>
+          {/* 版本徽章 */}
+          {instance.bot_version && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+              <span className="font-medium text-[10px]">v{instance.bot_version}</span>
+            </div>
+          )}
         </div>
         
         {/* 操作按钮区域 */}

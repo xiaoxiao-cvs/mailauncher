@@ -57,6 +57,8 @@ class Instance(InstanceBase):
     updated_at: datetime = Field(default_factory=datetime.now, description="更新时间")
     last_run: Optional[datetime] = Field(None, description="最后运行时间")
     run_time: int = Field(default=0, description="总运行时间（秒）")
+    cpu_usage: Optional[float] = Field(default=0.0, description="CPU 使用率（百分比）")
+    memory_usage: Optional[float] = Field(default=0.0, description="内存使用量（MB）")
     
     class Config:
         json_schema_extra = {

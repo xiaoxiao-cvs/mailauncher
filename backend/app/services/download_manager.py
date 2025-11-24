@@ -462,7 +462,7 @@ class DownloadManager:
                         name=task.instance_name,
                         bot_type=bot_type,
                         bot_version=bot_version,
-                        description=f"通过下载任务创建于 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                        description=None,  # 不再自动生成描述，让用户自行填写
                         python_path=None,  # 使用共享虚拟环境
                         config_path=str(instance_dir / "MaiBot" / "config.json") if DownloadItemType.MAIBOT in task.selected_items else None,
                     )
