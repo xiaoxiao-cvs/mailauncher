@@ -273,7 +273,7 @@ class InstanceService:
             await db.refresh(db_instance)
             
             logger.info(f"成功创建实例记录: {instance_id} ({instance_data.name})")
-            return self._db_to_model(db_instance)
+            return await self._db_to_model(db_instance)
             
         except ValueError as e:
             await db.rollback()
@@ -480,9 +480,12 @@ class InstanceService:
                 components_to_start = ["main"]
                 
                 # 检查是否存在其他组件（使用实际的目录名）
-                # NapCat: 检查 NapCat/start.sh 是否存在
-                napcat_start = instance_path / "NapCat" / "start.sh"
-                if napcat_start.exists():
+                # NapCat: 检查启动脚本是否存在（跨平台支持）
+                napcat_dir = instance_path / "NapCat"
+                napcat_start_sh = napcat_dir / "start.sh"   # macOS
+                napcat_launcher_user = napcat_dir / "launcher-user.bat"  # Windows (用户模式)
+                napcat_launcher = napcat_dir / "launcher.bat"  # Windows
+                if napcat_start_sh.exists() or napcat_launcher_user.exists() or napcat_launcher.exists():
                     components_to_start.append("napcat")
                 # Adapter: 检查 MaiBot-Napcat-Adapter/main.py 是否存在
                 if (instance_path / "MaiBot-Napcat-Adapter").exists():
@@ -566,8 +569,12 @@ class InstanceService:
         if not instance_path.exists():
             return []
         components: List[str] = ["main"]
-        napcat_start = instance_path / "NapCat" / "start.sh"
-        if napcat_start.exists():
+        # NapCat: 检查启动脚本是否存在（跨平台支持）
+        napcat_dir = instance_path / "NapCat"
+        napcat_start_sh = napcat_dir / "start.sh"   # macOS
+        napcat_launcher_user = napcat_dir / "launcher-user.bat"  # Windows (用户模式)
+        napcat_launcher = napcat_dir / "launcher.bat"  # Windows
+        if napcat_start_sh.exists() or napcat_launcher_user.exists() or napcat_launcher.exists():
             components.append("napcat")
         if (instance_path / "MaiBot-Napcat-Adapter").exists():
             components.append("napcat-ada")

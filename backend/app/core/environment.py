@@ -2,6 +2,7 @@
 环境配置模块
 负责检查和管理系统环境配置，包括 Python、Git 等
 """
+import locale
 import os
 import platform
 import shutil
@@ -9,6 +10,95 @@ import subprocess
 from pathlib import Path
 from typing import Optional, List, Dict
 from dataclasses import dataclass
+
+
+def get_console_encoding() -> str:
+    """
+    获取控制台编码（跨平台）
+    
+    Windows 中文版默认使用 GBK/GB2312 编码，而 Unix 系统通常使用 UTF-8。
+    此函数自动检测当前系统的控制台编码。
+    
+    Returns:
+        控制台编码名称，如 'utf-8', 'gbk', 'cp936' 等
+    """
+    if platform.system() == "Windows":
+        # Windows: 尝试获取控制台代码页
+        try:
+            # 首先检查环境变量（如果用户设置了 PYTHONIOENCODING）
+            env_encoding = os.environ.get("PYTHONIOENCODING")
+            if env_encoding:
+                return env_encoding.split(":")[0]  # 可能是 "utf-8:surrogateescape" 格式
+            
+            # 使用 chcp 命令获取当前代码页
+            result = subprocess.run(
+                ["chcp"],
+                capture_output=True,
+                text=True,
+                shell=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                output = result.stdout.strip()
+                # chcp 输出格式: "Active code page: 65001" 或中文 "活动代码页: 936"
+                if "65001" in output:
+                    return "utf-8"
+                elif "936" in output or "936" in output:
+                    return "gbk"
+                elif "950" in output:
+                    return "big5"
+                elif "932" in output:
+                    return "shift_jis"
+                # 尝试提取代码页数字
+                import re
+                match = re.search(r'\d+', output)
+                if match:
+                    codepage = match.group()
+                    return f"cp{codepage}"
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
+            pass
+        
+        # Fallback: 使用系统默认编码
+        return locale.getpreferredencoding(False) or "gbk"
+    
+    # Unix 系统通常使用 UTF-8
+    return "utf-8"
+
+
+def decode_console_output(data: bytes, errors: str = "replace") -> str:
+    """
+    解码控制台输出（跨平台）
+    
+    此函数会尝试使用正确的编码解码控制台输出。
+    先尝试 UTF-8，失败后使用系统编码，再失败则使用 replace 策略。
+    
+    Args:
+        data: 要解码的字节数据
+        errors: 错误处理策略 ('strict', 'replace', 'ignore')
+        
+    Returns:
+        解码后的字符串
+    """
+    if not data:
+        return ""
+    
+    # 首先尝试 UTF-8（最常见的编码）
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        pass
+    
+    # Windows 上尝试系统编码
+    if platform.system() == "Windows":
+        console_encoding = get_console_encoding()
+        if console_encoding and console_encoding.lower() != "utf-8":
+            try:
+                return data.decode(console_encoding)
+            except (UnicodeDecodeError, LookupError):
+                pass
+    
+    # 最后使用 UTF-8 + replace 策略
+    return data.decode("utf-8", errors=errors)
 
 
 @dataclass

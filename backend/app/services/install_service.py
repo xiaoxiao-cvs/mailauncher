@@ -10,6 +10,7 @@ import platform
 import shutil
 
 from ..core.logger import logger
+from ..core.environment import decode_console_output
 
 
 class InstallService:
@@ -150,10 +151,8 @@ class InstallService:
                 if not line_bytes:
                     break
                 
-                try:
-                    line = line_bytes.decode('utf-8').rstrip()
-                except UnicodeDecodeError:
-                    line = line_bytes.decode('utf-8', errors='replace').rstrip()
+                # 使用跨平台编码解码
+                line = decode_console_output(line_bytes).rstrip()
                 
                 if line:
                     logger.info(f"  {line}")
@@ -196,10 +195,8 @@ class InstallService:
                 if not line_bytes:
                     break
                 
-                try:
-                    line = line_bytes.decode('utf-8').rstrip()
-                except UnicodeDecodeError:
-                    line = line_bytes.decode('utf-8', errors='replace').rstrip()
+                # 使用跨平台编码解码
+                line = decode_console_output(line_bytes).rstrip()
                 
                 if line:
                     logger.info(f"  {line}")
@@ -251,10 +248,8 @@ class InstallService:
                 if not line_bytes:
                     break
                 
-                try:
-                    line = line_bytes.decode('utf-8').rstrip()
-                except UnicodeDecodeError:
-                    line = line_bytes.decode('utf-8', errors='replace').rstrip()
+                # 使用跨平台编码解码
+                line = decode_console_output(line_bytes).rstrip()
                 
                 if line:
                     logger.info(f"  {line}")
@@ -298,10 +293,8 @@ class InstallService:
                 if not line_bytes:
                     break
                 
-                try:
-                    line = line_bytes.decode('utf-8').rstrip()
-                except UnicodeDecodeError:
-                    line = line_bytes.decode('utf-8', errors='replace').rstrip()
+                # 使用跨平台编码解码
+                line = decode_console_output(line_bytes).rstrip()
                 
                 if line:
                     logger.info(f"  {line}")
@@ -430,11 +423,8 @@ class InstallService:
                 if not line_bytes:
                     break
                 
-                # 解码
-                try:
-                    line = line_bytes.decode('utf-8').rstrip()
-                except UnicodeDecodeError:
-                    line = line_bytes.decode('utf-8', errors='replace').rstrip()
+                # 使用跨平台编码解码
+                line = decode_console_output(line_bytes).rstrip()
                 
                 if line:
                     # 立即记录到日志
@@ -518,11 +508,8 @@ class InstallService:
                 if not line_bytes:
                     break
                 
-                # 尝试解码 (支持UTF-8)
-                try:
-                    line = line_bytes.decode('utf-8').rstrip()
-                except UnicodeDecodeError:
-                    line = line_bytes.decode('utf-8', errors='replace').rstrip()
+                # 使用跨平台编码解码
+                line = decode_console_output(line_bytes).rstrip()
                 
                 if line:
                     # 输出到日志
@@ -959,12 +946,12 @@ class InstallService:
                 shutil.copy(env_template, env_file)
                 
                 # 设置默认端口
-                with open(env_file, "r") as f:
+                with open(env_file, "r", encoding="utf-8") as f:
                     content = f.read()
                 
                 # 确保端口设置为 8000
                 if "PORT=" not in content:
-                    with open(env_file, "a") as f:
+                    with open(env_file, "a", encoding="utf-8") as f:
                         f.write("\nHOST=127.0.0.1\nPORT=8000\n")
                 
                 if progress_callback:

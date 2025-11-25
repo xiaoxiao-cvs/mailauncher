@@ -20,6 +20,7 @@ from ...services.process_manager import get_process_manager
 from ...core.websocket import get_connection_manager
 from ...core.database import get_db
 from ...core.logger import logger
+from ...core.environment import decode_console_output
 
 router = APIRouter(tags=["instances"])
 _terminal_output_tasks = {}
@@ -309,7 +310,8 @@ async def terminal_websocket(
                                 line = await process.stdout.readline()
                                 if not line:
                                     break
-                                text = line.decode('utf-8', errors='replace')
+                                # 使用跨平台编码解码
+                                text = decode_console_output(line)
                                 process_manager.add_output_to_buffer(instance_id, component, text)
                                 await ws_manager.send_message(session_id, {"type": "output", "data": text})
                             except Exception as e:
@@ -416,7 +418,7 @@ async def terminal_websocket(
                         if hasattr(proc2, 'set_winsize'):
                             proc2.set_winsize(rows, cols)
                             logger.debug(f"Windows 终端大小已调整: {rows}x{cols}")
-                        # Unix PTY
+                        # Unix PTY (fcntl/termios 仅在 Unix 系统可用)
                         elif hasattr(proc2, 'master_fd') and hasattr(proc2, 'is_pty'):
                             try:
                                 import fcntl
@@ -425,6 +427,11 @@ async def terminal_websocket(
                                 winsize = struct.pack("HHHH", rows, cols, 0, 0)
                                 fcntl.ioctl(proc2.master_fd, termios.TIOCSWINSZ, winsize)
                                 logger.debug(f"Unix 终端大小已调整: {rows}x{cols}")
+                            except ImportError:
+                                # Windows 上 fcntl/termios 不可用，这是正常的
+                                logger.debug("fcntl/termios 模块不可用 (Windows 平台)")
+                            except OSError as e:
+                                logger.warning(f"调整 Unix 终端大小失败 (OSError): {e}")
                             except Exception as e:
                                 logger.warning(f"调整 Unix 终端大小失败: {e}")
                         # Fallback for other types or older winpty versions

@@ -27,17 +27,28 @@ def start_process_windows(instance_id: str, component: str, command: str, cwd: s
             logger.info("检测到 Windows 10+ (ConPTY 可用)，优先使用 ConPTY 后端")
         logger.info(f"启动 Windows 进程: {instance_id}_{component}, 命令: {command}, 工作目录: {cwd}")
 
+        # 解析命令为参数列表，正确处理带引号的路径
+        import shlex
+        try:
+            # 尝试用 shlex 解析（处理引号）
+            args = shlex.split(command, posix=False)
+            logger.info(f"解析后的命令参数: {args}")
+        except ValueError:
+            # 如果解析失败，直接使用原命令
+            args = command
+            logger.info(f"shlex 解析失败，使用原命令: {args}")
+        
         try:
             pty_process = PtyProcess.spawn(
-                command,
+                args,
                 dimensions=(rows, cols),
                 cwd=cwd,
             )
         except Exception as spawn_error:
-            logger.warning(f"直接启动失败,尝试使用 cmd.exe: {spawn_error}")
-            cmd_wrapper = f'cmd.exe /c "{command}"'
+            logger.warning(f"列表参数启动失败: {spawn_error}，尝试字符串命令")
+            # 回退到字符串命令
             pty_process = PtyProcess.spawn(
-                cmd_wrapper,
+                command,
                 dimensions=(rows, cols),
                 cwd=cwd,
             )

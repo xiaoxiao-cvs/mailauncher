@@ -137,7 +137,6 @@ export const InstanceDetailPage: React.FC = () => {
     if (!instance) return;
     
     const allComponents: ComponentType[] = ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'];
-    const anyRunning = allComponents.some(comp => getComponentStatus(comp)?.running);
     
     // 只在当前选中的组件已经在运行时才自动切换
     if (selectedStartTarget !== 'all' && 
@@ -153,11 +152,8 @@ export const InstanceDetailPage: React.FC = () => {
       }
     }
     
-    // 如果没有任何组件运行，确保显示 'all'
-    if (!anyRunning && selectedStartTarget !== 'all') {
-      setSelectedStartTarget('all');
-    }
-  }, [maibotStatus, napcatStatus, adapterStatus, instance, selectedStartTarget]);
+    // 注意：不再强制重置为 'all'，允许用户自由选择单个组件启动
+  }, [maibotStatus, napcatStatus, adapterStatus, instance]);
   
   if (!instance) {
     return (
@@ -440,11 +436,19 @@ export const InstanceDetailPage: React.FC = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuRadioGroup value={selectedStartTarget} onValueChange={(v) => setSelectedStartTarget(v as any)}>
-                          {!hasAnyComponentRunning && <DropdownMenuRadioItem value="all">所有组件</DropdownMenuRadioItem>}
-                          {!getComponentStatus('MaiBot')?.running && <DropdownMenuRadioItem value="MaiBot">MaiBot</DropdownMenuRadioItem>}
-                          {!getComponentStatus('NapCat')?.running && <DropdownMenuRadioItem value="NapCat">NapCat</DropdownMenuRadioItem>}
-                          {!getComponentStatus('MaiBot-Napcat-Adapter')?.running && <DropdownMenuRadioItem value="MaiBot-Napcat-Adapter">Adapter</DropdownMenuRadioItem>}
+                        <DropdownMenuRadioGroup value={selectedStartTarget} onValueChange={(v) => setSelectedStartTarget(v as ComponentType | 'all')}>
+                          {!hasAnyComponentRunning && (
+                            <DropdownMenuRadioItem value="all">所有组件</DropdownMenuRadioItem>
+                          )}
+                          {!getComponentStatus('MaiBot')?.running && (
+                            <DropdownMenuRadioItem value="MaiBot">MaiBot</DropdownMenuRadioItem>
+                          )}
+                          {!getComponentStatus('NapCat')?.running && (
+                            <DropdownMenuRadioItem value="NapCat">NapCat</DropdownMenuRadioItem>
+                          )}
+                          {!getComponentStatus('MaiBot-Napcat-Adapter')?.running && (
+                            <DropdownMenuRadioItem value="MaiBot-Napcat-Adapter">Adapter</DropdownMenuRadioItem>
+                          )}
                         </DropdownMenuRadioGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>

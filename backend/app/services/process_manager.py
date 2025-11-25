@@ -14,6 +14,7 @@ from pathlib import Path
 from datetime import datetime
 
 from ..core.logger import logger
+from ..core.environment import decode_console_output
 from .process.windows import start_process_windows
 from .process.unix import start_process_unix_sync, start_process_unix_async
 from .process.types import ProcessInfo
@@ -419,7 +420,8 @@ class ProcessManager:
                             line = await process.stdout.readline()
                             if not line:
                                 break
-                            text = line.decode('utf-8', errors='replace')
+                            # 使用跨平台编码解码
+                            text = decode_console_output(line)
                             self.add_output_to_buffer(instance_id, component, text)
                             await self.ws_manager.send_message(session_id, {"type": "output", "data": text})
                         except Exception:

@@ -87,50 +87,83 @@ def get_napcat_logged_accounts(instance_path: Path) -> List[dict]:
 
 
 def resolve_python(instance_path: Path, python_path: str | None) -> str:
+  """解析 Python 路径，返回带引号的路径（用于命令行）"""
   if python_path:
+    # 如果路径包含空格，需要加引号
+    if ' ' in python_path:
+      return f'"{python_path}"'
     return python_path
   venv_python = instance_path / ".venv" / "bin" / "python"
   if not venv_python.exists():
     venv_python = instance_path / ".venv" / "Scripts" / "python.exe"
   if venv_python.exists():
     logger.info(f"使用虚拟环境 Python: {venv_python}")
-    return str(venv_python)
+    path_str = str(venv_python)
+    # 如果路径包含空格，需要加引号
+    if ' ' in path_str:
+      return f'"{path_str}"'
+    return path_str
   logger.warning(f"未找到虚拟环境 Python，使用系统 Python: {sys.executable}")
-  return sys.executable
+  exe_path = sys.executable
+  if ' ' in exe_path:
+    return f'"{exe_path}"'
+  return exe_path
 
 
 def build_napcat_command(instance_path: Path, qq_account: Optional[str]) -> tuple[str, str]:
-  cwd = str(instance_path / "NapCat")
-  start_sh = Path(cwd) / "start.sh"
-  start_ps1 = Path(cwd) / "start.ps1"
-  start_bat = Path(cwd) / "start.bat"
-
-  if not (start_sh.exists() or start_ps1.exists() or start_bat.exists()):
-    raise FileNotFoundError(f"NapCat 启动脚本不存在: {start_sh} 或 {start_ps1} 或 {start_bat}")
+  """构建 NapCat 启动命令
+  
+  Args:
+      instance_path: 实例路径
+      qq_account: QQ 账号（用于快速登录），可选
+      
+  Returns:
+      (命令字符串, 工作目录)
+  """
+  napcat_dir = instance_path / "NapCat"
+  cwd = str(napcat_dir)
+  start_sh = napcat_dir / "start.sh"   # macOS
+  start_bat = napcat_dir / "start.bat"  # Windows
 
   is_windows = platform.system() == "Windows"
   
   logger.info(f"构建 NapCat 启动命令，QQ账号参数: {qq_account}")
 
-  def with_arg(cmd: str) -> str:
-    # 如果指定了QQ账号，则使用快速登录
-    # 注意：start.sh 脚本接收 QQ 账号作为位置参数，不是 -q 选项
+  if is_windows:
+    # Windows: 直接使用 NapCat 官方的 launcher-user.bat（用户模式，无需管理员权限）
+    launcher_user_bat = napcat_dir / "launcher-user.bat"
+    launcher_bat = napcat_dir / "launcher.bat"
+    
+    # 优先使用 launcher-user.bat
+    if launcher_user_bat.exists():
+      launcher = "launcher-user.bat"
+    elif launcher_bat.exists():
+      launcher = "launcher.bat"
+    else:
+      raise FileNotFoundError(
+        f"NapCat 启动脚本不存在: {launcher_user_bat}\n"
+        f"请重新安装 NapCat。"
+      )
+    
     if qq_account:
       logger.info(f"使用 QQ 账号快速启动: {qq_account}")
-      return f"{cmd} {qq_account}"
+      cmd = f'cmd /c {launcher} -q {qq_account}'
     else:
       logger.info("未指定QQ账号，将使用二维码登录")
-    return cmd
-
-  if is_windows:
-    if start_ps1.exists():
-      cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File \"start.ps1\""
-      return with_arg(cmd), cwd
-    if start_bat.exists():
-      cmd = "cmd.exe /c \"start.bat\""
-      return with_arg(cmd), cwd
-    cmd = "bash \"start.sh\""
-    return with_arg(cmd), cwd
+      cmd = f'cmd /c {launcher}'
+    return cmd, cwd
   else:
-    cmd = "bash \"start.sh\""
-    return with_arg(cmd), cwd
+    # macOS: 使用 start.sh
+    if not start_sh.exists():
+      raise FileNotFoundError(
+        f"NapCat 启动脚本不存在: {start_sh}\n"
+        f"请重新安装 NapCat。"
+      )
+    
+    if qq_account:
+      logger.info(f"使用 QQ 账号快速启动: {qq_account}")
+      cmd = f'bash "start.sh" {qq_account}'
+    else:
+      logger.info("未指定QQ账号，将使用二维码登录")
+      cmd = 'bash "start.sh"'
+    return cmd, cwd
