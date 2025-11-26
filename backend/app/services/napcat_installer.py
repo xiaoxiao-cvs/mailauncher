@@ -4,6 +4,8 @@ NapCat 安装服务
 完全使用 Python 实现 NapCat 的下载、解压和配置，
 不依赖外部 shell 脚本,提供更好的跨平台兼容性和错误处理。
 
+支持平台: macOS, Windows
+
 LEGAL NOTICE - NapCat Integration:
 - NapCat is licensed under a Limited Redistribution License
 - Copyright © 2024 Mlikiowa
@@ -15,13 +17,9 @@ LEGAL NOTICE - NapCat Integration:
   * No unauthorized modification or redistribution
   * See full license: https://github.com/NapNeko/NapCatQQ/blob/main/LICENSE
 """
-import asyncio
-import json
 import platform
 import shutil
 import ssl
-import struct
-import tarfile
 import tempfile
 import zipfile
 from pathlib import Path
@@ -31,15 +29,31 @@ import aiohttp
 
 from ..core.logger import logger
 
+# 平台检测：Windows 上 chmod 无效，跳过权限设置
+_is_windows = platform.system() == "Windows"
+
+
+def _set_executable(file_path: Path) -> None:
+    """设置文件为可执行权限 (Unix only)
+    
+    Args:
+        file_path: 文件路径
+    
+    Note:
+        Windows 上 chmod(0o755) 无效，Windows 通过文件扩展名判断可执行性
+    """
+    if not _is_windows and file_path.exists():
+        try:
+            file_path.chmod(0o755)
+        except OSError as e:
+            logger.warning(f"设置文件权限失败 {file_path}: {e}")
+
 
 class NapCatInstaller:
-    """NapCat 安装器"""
+    """NapCat 安装器 (支持 macOS 和 Windows)"""
     
-    # NapCat 下载地址
-    # macOS/Linux: 通用Shell包
+    # NapCat 下载地址 - 通用Shell包（无头版本）
     NAPCAT_SHELL_URL = "https://github.com/NapNeko/NapCatQQ/releases/latest/download/NapCat.Shell.zip"
-    # Windows: 一键部署包 (包含QQ和NapCat)
-    NAPCAT_WINDOWS_ONEKEY_URL = "https://github.com/NapNeko/NapCatQQ/releases/latest/download/NapCat.Shell.Windows.OneKey.zip"
     
     def __init__(self):
         """初始化安装器"""
@@ -55,9 +69,8 @@ class NapCatInstaller:
         安装 NapCat
         
         流程:
-        - Linux: 下载 Linux QQ deb 包 → 解压 → 安装 NapCat
-        - macOS: 使用系统已安装的 QQ → 安装 NapCat
-        - Windows: 使用系统已安装的 QQ → 安装 NapCat
+        - macOS: 使用系统已安装的 QQ → 下载 NapCat → 创建启动脚本
+        - Windows: 下载 NapCat Shell 包 → 使用官方 launcher.bat
 
         Args:
             instance_dir: 实例目录
@@ -74,7 +87,6 @@ class NapCatInstaller:
             
             # 定义路径
             napcat_dir = instance_dir / "NapCat"
-            napcat_plugin_dir = napcat_dir / "napcat"
             config_dir = napcat_dir / "config"
             
             # 创建目录
@@ -100,52 +112,48 @@ class NapCatInstaller:
                 
                 logger.info(f"检测到 QQ 安装: {qq_app_path}")
                 
+                napcat_plugin_dir = napcat_dir / "napcat"
+                
                 # 下载和安装 NapCat
                 with tempfile.TemporaryDirectory() as temp_dir:
                     temp_path = Path(temp_dir)
-                    await self._install_napcat_macos(
-                        temp_path, napcat_plugin_dir, qq_app_path, progress_callback
+                    await self._download_and_extract_napcat(
+                        temp_path, napcat_plugin_dir, progress_callback
                     )
                 
                 # 创建 macOS 启动脚本
                 await self._create_start_script_macos(napcat_dir, qq_app_path, progress_callback)
                 
+                start_script_path = napcat_dir / "start.sh"
+                
             elif self.system == "Windows":
-                # Windows 系统：使用官方一键部署包 (内置QQ和NapCat)
+                # Windows 系统：下载 NapCat Shell 包，直接使用官方 launcher-user.bat
                 if progress_callback:
-                    await progress_callback("[下载] 下载 NapCat Windows 一键包...", "info")
+                    await progress_callback("[下载] 准备下载 NapCat Shell 包...", "info")
                 
-                logger.info("Windows 使用官方一键部署包")
-                
-                # 下载和安装 NapCat 一键包
+                # 下载和解压 NapCat（直接解压到 napcat_dir）
                 with tempfile.TemporaryDirectory() as temp_dir:
                     temp_path = Path(temp_dir)
-                    await self._install_napcat_windows_onekey(
+                    await self._download_and_extract_napcat_windows(
                         temp_path, napcat_dir, progress_callback
                     )
                 
-                # Windows 一键包说明
-                if progress_callback:
-                    await progress_callback("[说明] Windows 一键包配置完成", "info")
+                # 创建 README 说明文件
+                await self._create_readme_windows(napcat_dir, progress_callback)
+                
+                # 使用官方的 launcher-user.bat 作为启动脚本
+                launcher_user = napcat_dir / "launcher-user.bat"
+                if launcher_user.exists():
+                    start_script_path = launcher_user
+                else:
+                    start_script_path = napcat_dir / "launcher.bat"
                 
             else:
-                error_msg = f"暂不支持的操作系统: {self.system}"
+                error_msg = f"不支持的操作系统: {self.system}，仅支持 macOS 和 Windows"
                 logger.error(error_msg)
                 if progress_callback:
                     await progress_callback(f"[错误] {error_msg}", "error")
                 return False
-            
-            # 确定启动脚本路径
-            if self.system == "Windows":
-                # Windows 使用一键包自带的启动脚本
-                bootmain_bat = napcat_dir / "bootmain" / "napcat.bat"
-                if bootmain_bat.exists():
-                    start_script_path = bootmain_bat
-                else:
-                    # 如果是未安装的一键包，指向安装程序
-                    start_script_path = napcat_dir / "NapCatInstaller.exe"
-            else:
-                start_script_path = napcat_dir / "start.sh"
             
             logger.info(f"NapCat 安装成功: {napcat_dir}")
             if progress_callback:
@@ -166,275 +174,13 @@ class NapCatInstaller:
                 await progress_callback(f"[错误] NapCat 安装失败: {str(e)}", "error")
             return False
     
-    async def _extract_deb_package(self, deb_file: Path, output_dir: Path) -> Optional[Path]:
-        """
-        解析 ar 格式的 deb 包并提取 data.tar.* 文件
-        
-        ar 格式：
-        - 全局头：8字节 "!<arch>\n"
-        - 文件条目：每个条目60字节头 + 文件内容
-        
-        Args:
-            deb_file: deb 包路径
-            output_dir: 输出目录
-            
-        Returns:
-            提取的 data.tar.* 文件路径
-        """
-        try:
-            with open(deb_file, 'rb') as f:
-                # 读取全局头
-                magic = f.read(8)
-                if magic != b'!<arch>\n':
-                    logger.error(f"不是有效的 ar 归档文件: {magic}")
-                    return None
-                
-                # 解析每个文件条目
-                while True:
-                    # 读取文件头（60字节）
-                    header = f.read(60)
-                    if len(header) < 60:
-                        break
-                    
-                    # 解析头部
-                    # 格式: name(16) mtime(12) uid(6) gid(6) mode(8) size(10) magic(2)
-                    name = header[0:16].decode('ascii').strip()
-                    size_str = header[48:58].decode('ascii').strip()
-                    magic = header[58:60]
-                    
-                    if magic != b'\x60\n':
-                        logger.warning(f"无效的文件条目魔数: {magic}")
-                        break
-                    
-                    try:
-                        size = int(size_str)
-                    except ValueError:
-                        logger.error(f"无法解析文件大小: {size_str}")
-                        break
-                    
-                    # 读取文件内容
-                    content = f.read(size)
-                    
-                    # ar 归档要求每个文件以偶数字节对齐
-                    if size % 2 == 1:
-                        f.read(1)
-                    
-                    # 检查是否是 data.tar.* 文件
-                    if name.startswith('data.tar'):
-                        # 移除末尾的 '/' 如果有
-                        clean_name = name.rstrip('/')
-                        output_file = output_dir / clean_name
-                        
-                        logger.info(f"找到数据文件: {clean_name} (大小: {size} 字节)")
-                        
-                        # 写入文件
-                        with open(output_file, 'wb') as out_f:
-                            out_f.write(content)
-                        
-                        return output_file
-                
-                logger.error("在 deb 包中未找到 data.tar.* 文件")
-                return None
-                
-        except Exception as e:
-            logger.error(f"解析 deb 包失败: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-            return None
-    
-    async def _install_linux_qq(
-        self,
-        temp_path: Path,
-        qq_dir: Path,
-        progress_callback: Optional[Callable[[str, str], Any]] = None,
-    ):
-        """下载并安装 Linux QQ"""
-        if progress_callback:
-            await progress_callback("[下载] 下载 Linux QQ...", "info")
-        
-        deb_file = temp_path / "qq.deb"
-        
-        # 创建 SSL 上下文，禁用证书验证（用于处理自签名证书问题）
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-        
-        # 下载 deb 包
-        connector = aiohttp.TCPConnector(ssl=ssl_context)
-        async with aiohttp.ClientSession(connector=connector) as session:
-            async with session.get(self.LINUX_QQ_URL) as response:
-                if response.status != 200:
-                    raise Exception(f"下载 QQ 失败: HTTP {response.status}")
-                
-                with open(deb_file, 'wb') as f:
-                    downloaded = 0
-                    total = int(response.headers.get('content-length', 0))
-                    async for chunk in response.content.iter_chunked(8192):
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total > 0 and progress_callback:
-                            percent = (downloaded / total) * 100
-                            if int(percent) % 10 == 0:  # 每10%报告一次
-                                await progress_callback(
-                                    f"下载进度: {percent:.0f}%", "info"
-                                )
-        
-        if progress_callback:
-            await progress_callback("[完成] Linux QQ 下载完成", "success")
-        
-        # 解压 deb 包
-        if progress_callback:
-            await progress_callback("[解压] 解压 Linux QQ...", "info")
-        
-        # deb 包是 ar 归档，使用 Python 直接解析
-        logger.info("开始从 deb 包提取文件...")
-        
-        # 使用 Python 解析 ar 归档格式
-        data_tar_path = await self._extract_deb_package(deb_file, temp_path)
-        
-        if not data_tar_path or not data_tar_path.exists():
-            raise Exception("无法从 deb 包中提取数据文件")
-        
-        logger.info(f"成功提取数据文件: {data_tar_path.name}")
-        
-        # 解压 data.tar.xz
-        qq_temp = temp_path / "qq_extracted"
-        qq_temp.mkdir()
-        
-        with tarfile.open(data_tar_path) as tar:
-            tar.extractall(qq_temp)
-        
-        # 复制 QQ 文件
-        qq_source = qq_temp / "opt" / "QQ"
-        if not qq_source.exists():
-            raise Exception("QQ 文件目录不存在")
-        
-        if qq_dir.exists():
-            shutil.rmtree(qq_dir)
-        shutil.copytree(qq_source, qq_dir)
-        
-        # 设置可执行权限
-        qq_bin = qq_dir / "qq"
-        if qq_bin.exists():
-            qq_bin.chmod(0o755)
-        
-        if progress_callback:
-            await progress_callback("[完成] Linux QQ 安装完成", "success")
-    
-    async def _install_napcat(
+    async def _download_and_extract_napcat(
         self,
         temp_path: Path,
         napcat_plugin_dir: Path,
-        qq_dir: Path,
         progress_callback: Optional[Callable[[str, str], Any]] = None,
     ):
-        """下载并安装 NapCat"""
-        if progress_callback:
-            await progress_callback("[下载] 下载 NapCat...", "info")
-        
-        napcat_zip = temp_path / "napcat.zip"
-        
-        # 创建 SSL 上下文，禁用证书验证
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-        
-        # 下载 NapCat
-        connector = aiohttp.TCPConnector(ssl=ssl_context)
-        async with aiohttp.ClientSession(connector=connector) as session:
-            async with session.get(self.NAPCAT_SHELL_URL, allow_redirects=True) as response:
-                if response.status != 200:
-                    raise Exception(f"下载 NapCat 失败: HTTP {response.status}")
-                
-                with open(napcat_zip, 'wb') as f:
-                    downloaded = 0
-                    total = int(response.headers.get('content-length', 0))
-                    async for chunk in response.content.iter_chunked(8192):
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total > 0 and progress_callback:
-                            percent = (downloaded / total) * 100
-                            if int(percent) % 10 == 0:
-                                await progress_callback(
-                                    f"下载进度: {percent:.0f}%", "info"
-                                )
-        
-        if progress_callback:
-            await progress_callback("[完成] NapCat 下载完成", "success")
-        
-        # 解压 NapCat
-        if progress_callback:
-            await progress_callback("[解压] 解压 NapCat...", "info")
-        
-        napcat_temp = temp_path / "napcat_extracted"
-        with zipfile.ZipFile(napcat_zip, 'r') as zip_ref:
-            zip_ref.extractall(napcat_temp)
-        
-        # NapCat.Shell.zip 解压后可能有个 NapCat 子文件夹
-        napcat_source = napcat_temp / "NapCat"
-        if not napcat_source.exists():
-            # 如果没有子文件夹，直接使用解压目录
-            napcat_source = napcat_temp
-        
-        # 复制到目标位置
-        if napcat_plugin_dir.exists():
-            shutil.rmtree(napcat_plugin_dir)
-        shutil.copytree(napcat_source, napcat_plugin_dir)
-        
-        # 设置权限
-        for file in napcat_plugin_dir.rglob("*"):
-            if file.is_file() and (file.suffix in ['.sh', '.mjs', '.js'] or 'bin' in file.parts):
-                try:
-                    file.chmod(0o755)
-                except:
-                    pass
-        
-        if progress_callback:
-            await progress_callback("[完成] NapCat 解压完成", "success")
-        
-        # 集成到 QQ
-        if progress_callback:
-            await progress_callback("[配置] 集成 NapCat 到 QQ...", "info")
-        
-        app_path = qq_dir / "resources" / "app"
-        app_path.mkdir(parents=True, exist_ok=True)
-        
-        # 创建 loadNapCat.js
-        load_script = app_path / "loadNapCat.js"
-        load_script.write_text(f"""(async () => {{
-    await import('file://{napcat_plugin_dir.resolve()}/napcat.mjs');
-}})();
-""")
-        
-        # 修改 package.json
-        package_json = app_path / "package.json"
-        if package_json.exists():
-            # 备份
-            shutil.copy(package_json, app_path / "package.json.bak")
-            
-            # 修改 main 字段
-            with open(package_json, 'r', encoding='utf-8') as f:
-                pkg = json.load(f)
-            pkg['main'] = './loadNapCat.js'
-            with open(package_json, 'w', encoding='utf-8') as f:
-                json.dump(pkg, f, indent=2, ensure_ascii=False)
-        else:
-            # 创建新的 package.json
-            pkg = {"main": "./loadNapCat.js"}
-            with open(package_json, 'w', encoding='utf-8') as f:
-                json.dump(pkg, f, indent=2, ensure_ascii=False)
-        
-        if progress_callback:
-            await progress_callback("[完成] NapCat 集成完成", "success")
-    
-    async def _install_napcat_macos(
-        self,
-        temp_path: Path,
-        napcat_plugin_dir: Path,
-        qq_app_path: Path,
-        progress_callback: Optional[Callable[[str, str], Any]] = None,
-    ):
-        """下载并安装 NapCat (macOS) - 无需修改系统 QQ.app"""
+        """下载并解压 NapCat (macOS)"""
         if progress_callback:
             await progress_callback("[下载] 下载 NapCat...", "info")
         
@@ -486,49 +232,40 @@ class NapCatInstaller:
             shutil.rmtree(napcat_plugin_dir)
         shutil.copytree(napcat_source, napcat_plugin_dir)
         
-        # 设置权限
+        # 设置权限 (Unix only)
         for file in napcat_plugin_dir.rglob("*"):
             if file.is_file() and (file.suffix in ['.sh', '.mjs', '.js'] or 'bin' in file.parts):
-                try:
-                    file.chmod(0o755)
-                except:
-                    pass
+                _set_executable(file)
         
         if progress_callback:
             await progress_callback("[完成] NapCat 解压完成", "success")
-        
-        # macOS 策略：不修改系统 QQ.app，通过环境变量加载 NapCat
-        if progress_callback:
-            await progress_callback("[配置] 配置 NapCat 加载方式...", "info")
-        
-        logger.info("macOS 使用环境变量方式加载 NapCat，无需修改系统 QQ.app")
-        
-        if progress_callback:
-            await progress_callback("[完成] NapCat 配置完成", "success")
     
-    async def _install_napcat_windows_onekey(
+    async def _download_and_extract_napcat_windows(
         self,
         temp_path: Path,
         napcat_dir: Path,
         progress_callback: Optional[Callable[[str, str], Any]] = None,
     ):
-        """下载并安装 NapCat Windows 一键包 (内置QQ和NapCat)"""
-        if progress_callback:
-            await progress_callback("[下载] 下载 NapCat Windows 一键包...", "info")
+        """下载并解压 NapCat Windows Shell 包
         
-        napcat_zip = temp_path / "napcat_windows_onekey.zip"
+        直接解压到 napcat_dir，保留官方目录结构（包含 launcher.bat）
+        """
+        if progress_callback:
+            await progress_callback("[下载] 下载 NapCat Shell 包...", "info")
+        
+        napcat_zip = temp_path / "napcat_shell.zip"
         
         # 创建 SSL 上下文，禁用证书验证
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
         
-        # 下载 NapCat Windows 一键包
+        # 下载 NapCat Shell 包
         connector = aiohttp.TCPConnector(ssl=ssl_context)
         async with aiohttp.ClientSession(connector=connector) as session:
-            async with session.get(self.NAPCAT_WINDOWS_ONEKEY_URL, allow_redirects=True) as response:
+            async with session.get(self.NAPCAT_SHELL_URL, allow_redirects=True) as response:
                 if response.status != 200:
-                    raise Exception(f"下载 NapCat Windows 一键包失败: HTTP {response.status}")
+                    raise Exception(f"下载 NapCat Shell 包失败: HTTP {response.status}")
                 
                 with open(napcat_zip, 'wb') as f:
                     downloaded = 0
@@ -544,20 +281,75 @@ class NapCatInstaller:
                                 )
         
         if progress_callback:
-            await progress_callback("[完成] NapCat Windows 一键包下载完成", "success")
+            await progress_callback("[完成] NapCat Shell 包下载完成", "success")
         
-        # 解压 NapCat 一键包
+        # 解压 NapCat
         if progress_callback:
-            await progress_callback("[解压] 解压 NapCat 一键包...", "info")
+            await progress_callback("[解压] 解压 NapCat...", "info")
         
-        # 直接解压到 napcat_dir
+        napcat_temp = temp_path / "napcat_extracted"
         with zipfile.ZipFile(napcat_zip, 'r') as zip_ref:
-            zip_ref.extractall(napcat_dir)
+            zip_ref.extractall(napcat_temp)
+        
+        # NapCat.Shell.zip 解压后结构：
+        # - 可能直接是文件（launcher.bat, napcat.mjs 等）
+        # - 或者有个 NapCat 子文件夹
+        napcat_source = napcat_temp / "NapCat"
+        if not napcat_source.exists():
+            napcat_source = napcat_temp
+        
+        # 检查是否存在 launcher.bat（官方启动脚本）
+        launcher_bat = napcat_source / "launcher.bat"
+        if not launcher_bat.exists():
+            logger.warning(f"未找到 launcher.bat，将查找其他目录结构")
+            # 尝试在子目录中查找
+            for subdir in napcat_source.iterdir():
+                if subdir.is_dir() and (subdir / "launcher.bat").exists():
+                    napcat_source = subdir
+                    launcher_bat = napcat_source / "launcher.bat"
+                    logger.info(f"在子目录找到 launcher.bat: {launcher_bat}")
+                    break
+        
+        # 清理目标目录中的旧文件（保留 config 目录）
+        config_backup = None
+        config_dir = napcat_dir / "config"
+        if config_dir.exists():
+            config_backup = temp_path / "config_backup"
+            shutil.copytree(config_dir, config_backup)
+        
+        # 清理 napcat_dir 中除了必要文件外的内容
+        for item in napcat_dir.iterdir():
+            if item.name not in ["config", "start.bat", "README.md"]:
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+        
+        # 复制新文件到目标位置
+        for item in napcat_source.iterdir():
+            dest = napcat_dir / item.name
+            if item.is_dir():
+                if dest.exists():
+                    shutil.rmtree(dest)
+                shutil.copytree(item, dest)
+            else:
+                shutil.copy2(item, dest)
+        
+        # 恢复 config 目录
+        if config_backup and config_backup.exists():
+            if config_dir.exists():
+                shutil.rmtree(config_dir)
+            shutil.copytree(config_backup, config_dir)
+        
+        # 验证 launcher.bat 存在
+        launcher_bat = napcat_dir / "launcher.bat"
+        if not launcher_bat.exists():
+            raise Exception("NapCat Shell 包解压后未找到 launcher.bat，请检查下载的文件是否完整")
+        
+        logger.info(f"NapCat Shell 包解压完成，launcher.bat 路径: {launcher_bat}")
         
         if progress_callback:
-            await progress_callback("[完成] NapCat Windows 一键包解压完成", "success")
-        
-        logger.info(f"Windows 一键包安装完成: {napcat_dir}")
+            await progress_callback("[完成] NapCat 解压完成", "success")
     
     async def _create_start_script_macos(
         self,
@@ -606,54 +398,18 @@ else
     "$QQ_BIN" --no-sandbox
 fi
 """, encoding='utf-8')
-        start_script.chmod(0o755)
-        
-        # 创建重置登录脚本
-        reset_script = napcat_dir / "reset_login.sh"
-        reset_script.write_text(f"""#!/bin/bash
-# NapCat 重置登录脚本 (macOS)
-# 用于重新扫码登录
-
-SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
-LOGIN_FLAG="$SCRIPT_DIR/.logged_in"
-
-# 颜色定义
-RED='\\033[0;31m'
-GREEN='\\033[0;32m'
-YELLOW='\\033[0;33m'
-NC='\\033[0m'
-
-echo -e "${{YELLOW}}========================================${{NC}}"
-echo -e "${{YELLOW}}重置 NapCat 登录状态${{NC}}"
-echo -e "${{YELLOW}}========================================${{NC}}"
-
-if [ -f "$LOGIN_FLAG" ]; then
-    rm -f "$LOGIN_FLAG"
-    echo -e "${{GREEN}}✓ 登录标记已删除${{NC}}"
-    echo -e "${{GREEN}}下次启动将重新进行扫码登录${{NC}}"
-else
-    echo -e "${{YELLOW}}! 未找到登录标记，已经是首次登录状态${{NC}}"
-fi
-
-echo ""
-echo "提示: 运行 ./start.sh 开始重新登录"
-""", encoding='utf-8')
-        reset_script.chmod(0o755)
+        _set_executable(start_script)
         
         # 创建 README 说明文件
         readme = napcat_dir / "README.md"
-        readme.write_text(f"""# NapCat 使用说明 (macOS 无头模式)
+        readme.write_text("""# NapCat 使用说明 (macOS)
 
 ## 目录结构
 - `napcat/` - NapCat 插件文件
 - `config/` - 配置文件目录
-- `start.sh` - 启动脚本（无头模式）
-- `reset_login.sh` - 重置登录状态脚本
+- `start.sh` - 启动脚本
 
 ## 启动说明
-
-### 无头模式 (Headless Mode)
-本启动器使用无头模式运行 NapCat，所有输出（包括二维码、日志）都会显示在启动器的终端窗口中。
 
 ### 首次启动
 首次启动时，二维码会直接显示在终端中：
@@ -662,214 +418,55 @@ echo "提示: 运行 ./start.sh 开始重新登录"
 ```
 **请在启动器的终端窗口中查看二维码，使用手机 QQ 扫描完成登录。**
 
-### 后续启动
-登录成功后，可以使用以下方式快速启动：
-
-方式 1: 使用 QQ 账号参数
+### 快速登录
+登录成功后，可以使用 QQ 账号参数快速启动：
 ```bash
 ./start.sh <你的QQ号>
 ```
-
-方式 2: 设置环境变量
-```bash
-export QQ_ACCOUNT=<你的QQ号>
-./start.sh
-```
-
-方式 3: 默认启动（不带账号）
-```bash
-./start.sh
-```
-
-### 重新登录
-如需重新扫码登录（例如换账号），可以运行：
-```bash
-./reset_login.sh
-```
-然后重新执行 `./start.sh` 进行扫码登录。
-
-""", encoding='utf-8')
-        
-        if progress_callback:
-            await progress_callback("[完成] 启动脚本和说明文档创建完成", "success")
-    
-    async def _create_start_script(
-        self,
-        napcat_dir: Path,
-        qq_dir: Path,
-        progress_callback: Optional[Callable[[str, str], Any]] = None,
-    ):
-        """创建启动脚本（Linux 无头模式）"""
-        if progress_callback:
-            await progress_callback("[创建] 创建启动脚本...", "info")
-        
-        start_script = napcat_dir / "start.sh"
-        
-        # 创建主启动脚本
-        start_script.write_text(f"""#!/bin/bash
-# NapCat 启动脚本 (Linux 无头模式)
-# 自动生成 - 请勿手动修改
-
-SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
-QQ_BIN="$SCRIPT_DIR/QQ/qq"
-QQ_ACCOUNT="${{1:-$QQ_ACCOUNT}}"
-LOGIN_FLAG="$SCRIPT_DIR/.logged_in"
-
-# 颜色定义
-RED='\\033[0;31m'
-GREEN='\\033[0;32m'
-BLUE='\\033[0;34m'
-YELLOW='\\033[0;33m'
-NC='\\033[0m'
-
-# 检查 QQ 可执行文件
-if [ ! -f "$QQ_BIN" ]; then
-    echo -e "${{RED}}错误: QQ 可执行文件不存在: $QQ_BIN${{NC}}"
-    exit 1
-fi
-
-echo -e "${{BLUE}}========================================${{NC}}"
-echo -e "${{GREEN}}启动 NapCat (Linux 无头模式)${{NC}}"
-echo -e "${{BLUE}}========================================${{NC}}"
-
-# 检查是否首次启动
-if [ ! -f "$LOGIN_FLAG" ]; then
-    echo -e "${{YELLOW}}检测到首次启动，将启动 WebUI 和二维码登录...${{NC}}"
-    echo -e "${{YELLOW}}请使用手机 QQ 扫描下方终端显示的二维码进行登录${{NC}}"
-    echo -e "${{YELLOW}}登录成功后，程序会自动创建登录标记${{NC}}"
-    echo ""
-    echo "工作目录: $SCRIPT_DIR"
-    echo ""
-    
-    # 首次启动：无头模式，不带 QQ 账号，启动 WebUI 和二维码
-    # 所有输出（包括二维码）都会显示在终端中
-    "$QQ_BIN" --no-sandbox
-    
-    # 如果启动成功且登录成功，创建登录标记
-    if [ $? -eq 0 ]; then
-        echo -e "${{GREEN}}登录成功！创建登录标记...${{NC}}"
-        touch "$LOGIN_FLAG"
-        echo -e "${{GREEN}}下次启动将使用快速登录模式${{NC}}"
-    fi
-else
-    # 已经登录过，检查是否提供了 QQ 账号
-    if [ -z "$QQ_ACCOUNT" ]; then
-        echo -e "${{YELLOW}}提示: 未提供 QQ 账号，使用默认启动模式${{NC}}"
-        echo "如需指定账号登录，请使用:"
-        echo "  方式 1: ./start.sh <QQ账号>"
-        echo "  方式 2: export QQ_ACCOUNT=<QQ账号> && ./start.sh"
-        echo ""
-        echo "工作目录: $SCRIPT_DIR"
-        echo ""
-        
-        # 无头模式启动（不带账号）
-        "$QQ_BIN" --no-sandbox
-    else
-        echo "QQ 账号: $QQ_ACCOUNT"
-        echo "工作目录: $SCRIPT_DIR"
-        echo ""
-        
-        # 无头模式启动（带账号快速登录）
-        "$QQ_BIN" --no-sandbox -q "$QQ_ACCOUNT"
-    fi
-fi
-""", encoding='utf-8')
-        start_script.chmod(0o755)
-        
-        # 创建重置登录脚本
-        reset_script = napcat_dir / "reset_login.sh"
-        reset_script.write_text(f"""#!/bin/bash
-# NapCat 重置登录脚本
-# 用于重新扫码登录
-
-SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
-LOGIN_FLAG="$SCRIPT_DIR/.logged_in"
-
-# 颜色定义
-RED='\\033[0;31m'
-GREEN='\\033[0;32m'
-YELLOW='\\033[0;33m'
-NC='\\033[0m'
-
-echo -e "${{YELLOW}}========================================${{NC}}"
-echo -e "${{YELLOW}}重置 NapCat 登录状态${{NC}}"
-echo -e "${{YELLOW}}========================================${{NC}}"
-
-if [ -f "$LOGIN_FLAG" ]; then
-    rm -f "$LOGIN_FLAG"
-    echo -e "${{GREEN}}✓ 登录标记已删除${{NC}}"
-    echo -e "${{GREEN}}下次启动将重新进行扫码登录${{NC}}"
-else
-    echo -e "${{YELLOW}}! 未找到登录标记，已经是首次登录状态${{NC}}"
-fi
-
-echo ""
-echo "提示: 运行 ./start.sh 开始重新登录"
-""", encoding='utf-8')
-        reset_script.chmod(0o755)
-        
-        # 创建 README 说明文件
-        readme = napcat_dir / "README.md"
-        readme.write_text(f"""# NapCat 使用说明 (Linux 无头模式)
-
-## 目录结构
-- `QQ/` - Linux QQ 程序文件
-- `napcat/` - NapCat 插件文件
-- `config/` - 配置文件目录
-- `start.sh` - 启动脚本（无头模式）
-- `reset_login.sh` - 重置登录状态脚本
-
-## 启动说明
-
-### 无头模式 (Headless Mode)
-本启动器使用无头模式运行 NapCat，所有输出（包括二维码、日志）都会显示在启动器的终端窗口中。
-
-### 首次启动
-首次启动时，二维码会直接显示在终端中：
-```bash
-./start.sh
-```
-**请在启动器的终端窗口中查看二维码，使用手机 QQ 扫描完成登录。**
-
-### 后续启动
-登录成功后，可以使用以下方式快速启动：
-
-方式 1: 使用 QQ 账号参数
-```bash
-./start.sh <你的QQ号>
-```
-
-方式 2: 设置环境变量
-```bash
-export QQ_ACCOUNT=<你的QQ号>
-./start.sh
-```
-
-方式 3: 默认启动（不带账号）
-```bash
-./start.sh
-```
-
-### 重新登录
-如需重新扫码登录（例如换账号），可以运行：
-```bash
-./reset_login.sh
-```
-然后重新执行 `./start.sh` 进行扫码登录。
-
-## 配置文件
-配置文件位于 `config/` 目录下，可以根据需要修改 NapCat 的配置。
-
 
 ## 技术支持
 - NapCat 项目: https://github.com/NapNeko/NapCatQQ
-- 问题反馈: 请到项目 GitHub 提交 Issue
 """, encoding='utf-8')
         
         if progress_callback:
-            await progress_callback("[完成] 启动脚本和说明文档创建完成", "success")
+            await progress_callback("[完成] 启动脚本创建完成", "success")
     
+    async def _create_readme_windows(
+        self,
+        napcat_dir: Path,
+        progress_callback: Optional[Callable[[str, str], Any]] = None,
+    ):
+        """创建 Windows README 说明文件"""
+        if progress_callback:
+            await progress_callback("[创建] 创建说明文件...", "info")
+        
+        # 创建 README
+        readme = napcat_dir / "README.md"
+        readme.write_text("""# NapCat 使用说明 (Windows)
 
+## 目录结构
+- `launcher-user.bat` - NapCat 官方启动脚本（用户模式，推荐）
+- `launcher.bat` - NapCat 官方启动脚本（管理员模式）
+- `config/` - 配置文件目录
+
+## 启动说明
+
+### 首次启动
+首次启动时，二维码会直接显示在终端中。
+**请在启动器的终端窗口中查看二维码，使用手机 QQ 扫描完成登录。**
+
+### 快速登录
+登录成功后，可以使用 `-q` 参数加 QQ 账号快速启动：
+```cmd
+launcher-user.bat -q <你的QQ号>
+```
+
+## 技术支持
+- NapCat 项目: https://github.com/NapNeko/NapCatQQ
+""", encoding='utf-8')
+        
+        if progress_callback:
+            await progress_callback("[完成] 说明文件创建完成", "success")
 
 
 # 单例实例

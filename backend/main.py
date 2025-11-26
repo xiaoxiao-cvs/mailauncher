@@ -135,11 +135,19 @@ def main():
             host=settings.HOST,
             port=settings.PORT,
             reload=True,
-            log_level="info"
+            reload_includes=["*.py"],
+            reload_excludes=["*.pyc", "__pycache__/*"],
+            log_level="info",
+            # Windows 上使用 StatReload 避免 multiprocessing 问题
+            use_colors=True
         )
 
 
 if __name__ == "__main__":
+    # Windows 上 multiprocessing 需要 freeze_support
+    import multiprocessing
+    multiprocessing.freeze_support()
+    
     # 检查是否是 multiprocessing 的子进程
     # 子进程的 sys.argv 会包含 '-c' 参数,用于执行 Python 代码
     import sys
