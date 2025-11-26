@@ -221,15 +221,13 @@ export function useSetPythonDefaultMutation() {
   return useMutation({
     mutationFn: async (path: string) => {
       const apiUrl = getApiUrl();
-      // 从路径中提取版本号（简化处理）
-      const version = path.split('/').pop() || 'unknown';
       
       const response = await fetch(`${apiUrl}/environment/python/default`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ version, path }),
+        body: JSON.stringify({ python_path: path }),
       });
 
       const data = await response.json();
