@@ -45,12 +45,13 @@ class ProcessManager:
             
         self.processes: Dict[str, ProcessInfo] = {}  # session_id -> ProcessInfo
         self.is_windows = platform.system() == "Windows"
-        self.pty_rows = int(os.environ.get("PTY_ROWS", 24))
-        self.pty_cols = int(os.environ.get("PTY_COLS", 80))
+        # 增加默认列数以支持二维码等宽字符内容的正确显示
+        self.pty_rows = int(os.environ.get("PTY_ROWS", 30))
+        self.pty_cols = int(os.environ.get("PTY_COLS", 120))
         self.output_readers: Dict[str, asyncio.Task] = {}
         from ..core.websocket import get_connection_manager
         self.ws_manager = get_connection_manager()
-        logger.info(f"进程管理器初始化 - 平台: {platform.system()}")
+        logger.info(f"进程管理器初始化 - 平台: {platform.system()}, PTY: {self.pty_rows}x{self.pty_cols}")
         self.__class__._initialized = True
     
     def _get_session_id(self, instance_id: str, component: str) -> str:
@@ -122,10 +123,14 @@ class ProcessManager:
             rows=self.pty_rows, cols=self.pty_cols
         )
         if ok and process_info:
+            # 重启时保留旧日志，在末尾添加分隔标记
             if session_id in self.processes:
-                prev = self.processes[session_id]
-                process_info.output_buffer = prev.output_buffer
-                process_info.buffer_size = max(prev.buffer_size, process_info.buffer_size)
+                old_buffer = self.processes[session_id].output_buffer
+                # 保留旧日志的后半部分（最多500条），为新日志留出空间
+                keep_lines = min(len(old_buffer), 500)
+                process_info.output_buffer = old_buffer[-keep_lines:] + [f"\n{'='*50}\n[进程重启] 新会话开始\n{'='*50}\n"]
+            else:
+                process_info.output_buffer = [f"\n{'='*50}\n[进程启动] 会话开始\n{'='*50}\n"]
             self.processes[session_id] = process_info
             logger.info(f"Windows 进程启动成功: {session_id}, PID: {process_info.pid}")
             await self._ensure_output_reader(session_id)
@@ -148,10 +153,14 @@ class ProcessManager:
             rows=self.pty_rows, cols=self.pty_cols
         )
         if ok and process_info:
+            # 重启时保留旧日志，在末尾添加分隔标记
             if session_id in self.processes:
-                prev = self.processes[session_id]
-                process_info.output_buffer = prev.output_buffer
-                process_info.buffer_size = max(prev.buffer_size, process_info.buffer_size)
+                old_buffer = self.processes[session_id].output_buffer
+                # 保留旧日志的后半部分（最多500条），为新日志留出空间
+                keep_lines = min(len(old_buffer), 500)
+                process_info.output_buffer = old_buffer[-keep_lines:] + [f"\n{'='*50}\n[进程重启] 新会话开始\n{'='*50}\n"]
+            else:
+                process_info.output_buffer = [f"\n{'='*50}\n[进程启动] 会话开始\n{'='*50}\n"]
             self.processes[session_id] = process_info
             logger.info(f"Unix PTY 进程启动成功: {session_id}, PID: {process_info.pid}")
             await self._ensure_output_reader(session_id)
@@ -159,10 +168,14 @@ class ProcessManager:
         else:
             ok2, process_info2 = await start_process_unix_async(instance_id, component, command, cwd)
             if ok2 and process_info2:
+                # 重启时保留旧日志，在末尾添加分隔标记
                 if session_id in self.processes:
-                    prev = self.processes[session_id]
-                    process_info2.output_buffer = prev.output_buffer
-                    process_info2.buffer_size = max(prev.buffer_size, process_info2.buffer_size)
+                    old_buffer = self.processes[session_id].output_buffer
+                    # 保留旧日志的后半部分（最多500条），为新日志留出空间
+                    keep_lines = min(len(old_buffer), 500)
+                    process_info2.output_buffer = old_buffer[-keep_lines:] + [f"\n{'='*50}\n[进程重启] 新会话开始\n{'='*50}\n"]
+                else:
+                    process_info2.output_buffer = [f"\n{'='*50}\n[进程启动] 会话开始\n{'='*50}\n"]
                 self.processes[session_id] = process_info2
                 logger.info(f"Unix 进程启动成功: {session_id}, PID: {process_info2.pid}")
                 await self._ensure_output_reader(session_id)
@@ -289,6 +302,8 @@ class ProcessManager:
                 pi = self.processes[session_id]
                 pi.process = None
                 pi.pid = None
+                # 保留输出缓冲区以便重启时查看历史日志
+                logger.debug(f"进程 {session_id} 已停止，保留输出缓冲区")
             # 停止输出读取器
             try:
                 if session_id in self.output_readers:

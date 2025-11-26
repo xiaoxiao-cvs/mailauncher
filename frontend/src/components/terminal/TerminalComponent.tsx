@@ -7,6 +7,7 @@ import React, { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
 import '@xterm/xterm/css/xterm.css';
 import { getApiBaseUrl } from '@/config/api';
 
@@ -37,7 +38,10 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
       cursorBlink: true,
       cursorStyle: 'block',
       fontSize: 14,
-      fontFamily: '"Cascadia Code", Consolas, "Courier New", monospace',
+      fontFamily: '"Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Fira Code", Consolas, "DejaVu Sans Mono", "Courier New", monospace',
+      // 确保字符宽度一致，有助于二维码正确显示
+      letterSpacing: 0,
+      lineHeight: 1,
       theme: {
         background: '#1e1e1e',
         foreground: '#d4d4d4',
@@ -60,9 +64,11 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
         brightWhite: '#e5e5e5',
       },
       rows: 30,
-      cols: 100,
+      cols: 120,  // 增加列数以容纳二维码
       scrollback: 1000,
       convertEol: true,
+      // Unicode 支持设置
+      allowProposedApi: true,
     });
     
     // 打开终端（必须先打开才能加载插件）
@@ -77,6 +83,11 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     const webLinks = new WebLinksAddon();
     term.loadAddon(webLinks);
     
+    // 加载 Unicode11 插件以支持宽字符（二维码等）
+    const unicode11 = new Unicode11Addon();
+    term.loadAddon(unicode11);
+    term.unicode.activeVersion = '11';
+    
     // 适配终端大小
     setTimeout(() => {
       try {
@@ -87,13 +98,6 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     }, 0);
     
     terminalInstance.current = term;
-    
-    // 显示欢迎信息
-    term.writeln('\x1b[1;36m========================================\x1b[0m');
-    term.writeln(`\x1b[1;33m实例:\x1b[0m ${instanceId}`);
-    term.writeln(`\x1b[1;33m组件:\x1b[0m ${component}`);
-    term.writeln('\x1b[1;36m========================================\x1b[0m');
-    term.writeln('');
     
     // 窗口大小改变时重新适配
     const handleResize = () => {
@@ -129,8 +133,17 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     const term = terminalInstance.current;
     if (!term) return;
     
-    // 组件正在运行,建立 WebSocket 连接
+    // 清空终端内容，准备显示新会话
+    term.clear();
+    
+    // 显示新会话的头部信息
+    term.writeln('\x1b[1;36m========================================\x1b[0m');
+    term.writeln(`\x1b[1;33m实例:\x1b[0m ${instanceId}`);
+    term.writeln(`\x1b[1;33m组件:\x1b[0m ${component}`);
+    term.writeln('\x1b[1;36m========================================\x1b[0m');
     term.writeln('');
+    
+    // 组件正在运行,建立 WebSocket 连接
     term.writeln('\x1b[1;32m正在连接终端...\x1b[0m');
     
     // 使用统一的 API 配置获取后端地址

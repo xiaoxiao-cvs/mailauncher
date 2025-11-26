@@ -34,8 +34,8 @@ class ProcessInfo:
                     from app.core.logger import logger
                     logger.warning(f"进程 {self.session_id} (PID: {self.pid}) 已退出，退出码: {poll_result}")
                 return alive
-        from app.core.logger import logger
-        logger.warning(f"进程 {self.session_id} 没有关联的 process 对象")
+        # 进程对象为 None，表示进程已被停止或从未启动，直接返回 False
+        # 这是预期行为，不需要记录警告
         return False
 
     def get_uptime(self) -> int:
