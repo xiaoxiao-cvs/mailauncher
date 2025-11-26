@@ -10,9 +10,8 @@ import { useState, useEffect } from 'react'
 
 export const VENV_TYPES = [
   { value: 'venv', label: 'venv', desc: 'Python 内置虚拟环境' },
-  { value: 'virtualenv', label: 'virtualenv', desc: '第三方虚拟环境工具' },
+  { value: 'uv', label: 'uv', desc: '快速的 Python 包管理器' },
   { value: 'conda', label: 'conda', desc: 'Conda 环境管理' },
-  { value: 'poetry', label: 'poetry', desc: 'Poetry 依赖管理' },
 ]
 
 interface PythonEnvironmentProps {
@@ -197,7 +196,7 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
             <LoaderIcon className="w-5 h-5 animate-spin mx-auto text-[#023e8a] dark:text-white" />
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {VENV_TYPES.map((type) => (
               <button
                 key={type.value}
@@ -206,13 +205,13 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
                   saveVenvMutation.mutate(type.value)
                 }}
                 disabled={saveVenvMutation.isPending}
-                className={`p-2.5 rounded-lg border transition-all text-left ${
+                className={`p-2 rounded-lg border transition-all text-center ${
                   localVenvType === type.value
                     ? 'bg-[#023e8a]/10 dark:bg-white/10 border-[#023e8a] dark:border-white'
                     : 'bg-white/40 dark:bg-[#3a3a3a]/50 border-[#023e8a]/10 dark:border-[#3a3a3a] hover:bg-white/60 dark:hover:bg-[#3a3a3a]/70'
                 } disabled:opacity-60`}
               >
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex flex-col items-center gap-1">
                   <span className="text-sm font-semibold text-[#023e8a] dark:text-white">
                     {type.label}
                   </span>
@@ -220,7 +219,7 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
                     <CheckCircle2Icon className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
                   )}
                 </div>
-                <p className="text-[10px] text-[#023e8a]/60 dark:text-white/60">
+                <p className="text-[10px] text-[#023e8a]/60 dark:text-white/60 mt-1">
                   {type.desc}
                 </p>
               </button>
