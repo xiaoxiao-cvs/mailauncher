@@ -122,7 +122,8 @@ export function usePythonVersionsQuery() {
         throw new Error('获取 Python 版本失败');
       }
       
-      return data.data.versions as PythonVersion[];
+      // 后端直接返回数组，不是 { versions: [...] } 结构
+      return data.data as PythonVersion[];
     },
     staleTime: 300000, // Python 安装变化不频繁，缓存 5 分钟
   });
