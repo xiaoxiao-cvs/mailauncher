@@ -27,7 +27,7 @@ export function EnvironmentConfig({ stepColor, onGitStatusChange }: EnvironmentC
   // 本地状态
   const [localPath, setLocalPath] = useState(deploymentPath)
   const [pathError, setPathError] = useState<string | null>(null)
-  const [pathSuccess, setPathSuccess] = useState(false)
+  const [pathSuccess, setPathSuccess] = useState<string | null>(null)
   
   // 同步路径
   useEffect(() => {
@@ -66,12 +66,12 @@ export function EnvironmentConfig({ stepColor, onGitStatusChange }: EnvironmentC
     if (newPath) {
       savePathMutation.mutate(newPath, {
         onSuccess: () => {
-          setPathSuccess(true)
+          setPathSuccess('路径保存成功')
           setPathError(null)
         },
         onError: (error) => {
           setPathError(String(error))
-          setPathSuccess(false)
+          setPathSuccess(null)
         },
       })
     }
