@@ -25,20 +25,30 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
   const random = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 
   useEffect(() => {
-    // 背景光斑呼吸动画
+    // 背景光斑缓慢漂移动画
     if (blobRef1.current && blobRef2.current) {
       animate(
-        [blobRef1.current, blobRef2.current],
+        blobRef1.current,
         {
-          translateX: () => random(-50, 50),
-          translateY: () => random(-50, 50),
-          scale: [1, 1.2],
-          opacity: [0.3, 0.5],
-          duration: () => random(3000, 5000),
-          delay: () => random(0, 1000),
+          translateX: [-20, 20],
+          translateY: [-15, 15],
+          scale: [1, 1.05],
+          duration: 8000,
           direction: 'alternate',
           loop: true,
-          easing: 'easeInOutSine'
+          easing: 'easeInOutQuad'
+        }
+      )
+      animate(
+        blobRef2.current,
+        {
+          translateX: [15, -15],
+          translateY: [10, -10],
+          scale: [1, 1.08],
+          duration: 10000,
+          direction: 'alternate',
+          loop: true,
+          easing: 'easeInOutQuad'
         }
       )
     }
@@ -85,7 +95,7 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
 
   return (
     <div 
-      className="min-h-screen bg-[#F5F5F7] dark:bg-[#000000] flex items-center justify-center p-4 overflow-hidden relative transition-colors duration-700 font-sans"
+      className="min-h-screen bg-[#F5F5F7] dark:bg-[#000000] flex items-center justify-center p-12 overflow-hidden relative transition-colors duration-700 font-sans"
       style={{
         ['--step-color' as string]: currentStepData.color,
       } as React.CSSProperties}
@@ -94,20 +104,18 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
           ref={blobRef1}
-          className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] rounded-full blur-[120px] opacity-30 transition-colors duration-1000 ease-in-out"
-          style={{ backgroundColor: currentStepData.color }}
+          className="absolute top-[-30%] left-[-20%] w-[70vw] h-[70vw] rounded-full blur-[150px] opacity-10 bg-[#007AFF]/30 dark:bg-[#0A84FF]/20"
         />
         <div 
           ref={blobRef2}
-          className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] rounded-full blur-[100px] opacity-20 transition-colors duration-1000 ease-in-out delay-300"
-          style={{ backgroundColor: currentStepData.color }}
+          className="absolute bottom-[-30%] right-[-20%] w-[50vw] h-[50vw] rounded-full blur-[120px] opacity-5 bg-[#007AFF]/20 dark:bg-[#0A84FF]/10"
         />
       </div>
 
-      {/* 主窗口容器 - 覆盖70%页面，自适应高度 */}
-      <div className="relative w-[90vw] md:w-[85vw] lg:w-[80vw] xl:w-[70vw] min-h-[600px] max-h-[90vh] h-[85vh] z-10 flex bg-white/80 dark:bg-[#1E1E1E]/80 backdrop-blur-2xl rounded-[20px] shadow-2xl border border-white/40 dark:border-white/10 overflow-hidden transition-all duration-500">
-        {/* 左侧：侧边栏 - 响应式宽度 */}
-        <div className="hidden md:flex w-[220px] lg:w-[260px] xl:w-[280px] flex-shrink-0 border-r border-black/5 dark:border-white/5 bg-gray-50/30 dark:bg-[#252525]/30 flex-col">
+      {/* 主窗口容器 */}
+      <div className="relative w-[90vw] md:w-[85vw] lg:w-[80vw] xl:w-[70vw] min-h-[600px] max-h-[90vh] h-[85vh] z-10 flex bg-white/70 dark:bg-[#1C1C1E]/80 backdrop-blur-3xl rounded-3xl shadow-[0_8px_60px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_60px_-12px_rgba(0,0,0,0.5)] border border-white/50 dark:border-white/10 overflow-hidden transition-all duration-500">
+        {/* 左侧：侧边栏 */}
+        <div className="hidden md:flex w-[240px] lg:w-[280px] xl:w-[300px] flex-shrink-0 border-r border-black/[0.06] dark:border-white/[0.06] bg-black/[0.02] dark:bg-white/[0.02] flex-col">
           <OnboardingSidebar
             steps={ONBOARDING_STEPS}
             currentStep={currentStep}
@@ -137,7 +145,7 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
           variant="ghost"
           onClick={handleSkip}
           disabled={isAnimating}
-          className="text-[#023e8a]/60 dark:text-white/70 hover:text-[#023e8a] dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10"
+          className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
         >
           跳过引导，直接开始
         </Button>

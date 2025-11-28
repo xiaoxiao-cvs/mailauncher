@@ -12,6 +12,8 @@ import { EnvironmentDetection } from './EnvironmentDetection'
 import { EnvironmentSettings } from './EnvironmentSettings'
 import { InstallPathConfig } from './InstallPathConfig'
 
+const APPLE_BLUE = '#007AFF'
+
 /**
  * 引导步骤数据
  * 职责：存储引导流程的所有步骤配置
@@ -29,9 +31,9 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     title: '外观设置',
     subtitle: '选择你喜欢的主题风格',
     description: [],
-    icon: <PaletteIcon className="w-8 h-8" />,
-    gradient: 'from-[#a2d2ff] to-[#bde0fe]',
-    color: '#a2d2ff',
+    icon: <PaletteIcon className="w-5 h-5" />,
+    gradient: 'from-[#007AFF] to-[#007AFF]',
+    color: APPLE_BLUE,
     component: <ThemeSelector />
   },
   {
@@ -39,39 +41,39 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     title: '联通性检查',
     subtitle: '配置后端服务连接',
     description: [],
-    icon: <ServerIcon className="w-8 h-8" />,
-    gradient: 'from-[#90e0ef] to-[#00b4d8]',
-    color: '#00b4d8',
-    component: <BackendConnectivity stepColor="#00b4d8" />
+    icon: <ServerIcon className="w-5 h-5" />,
+    gradient: 'from-[#007AFF] to-[#007AFF]',
+    color: APPLE_BLUE,
+    component: <BackendConnectivity stepColor={APPLE_BLUE} />
   },
   {
     id: 3,
     title: '环境检测',
     subtitle: '检查必要的开发工具',
     description: [],
-    icon: <SearchCheckIcon className="w-8 h-8" />,
-    gradient: 'from-[#ffafcc] to-[#ffc8dd]',
-    color: '#ffafcc',
-    component: <EnvironmentDetection stepColor="#ffafcc" />
+    icon: <SearchCheckIcon className="w-5 h-5" />,
+    gradient: 'from-[#007AFF] to-[#007AFF]',
+    color: APPLE_BLUE,
+    component: <EnvironmentDetection stepColor={APPLE_BLUE} />
   },
   {
     id: 4,
     title: '环境配置',
     subtitle: '配置 Python 运行环境',
     description: [],
-    icon: <SettingsIcon className="w-8 h-8" />,
-    gradient: 'from-[#cdb4db] to-[#ffc8dd]',
-    color: '#cdb4db',
-    component: <EnvironmentSettings stepColor="#cdb4db" />
+    icon: <SettingsIcon className="w-5 h-5" />,
+    gradient: 'from-[#007AFF] to-[#007AFF]',
+    color: APPLE_BLUE,
+    component: <EnvironmentSettings stepColor={APPLE_BLUE} />
   },
   {
     id: 5,
     title: '安装配置',
     subtitle: '设置 Bot 实例安装位置',
     description: [],
-    icon: <FolderOpenIcon className="w-8 h-8" />,
-    gradient: 'from-[#bde0fe] to-[#a2d2ff]',
-    color: '#bde0fe',
-    component: <InstallPathConfig stepColor="#bde0fe" />
+    icon: <FolderOpenIcon className="w-5 h-5" />,
+    gradient: 'from-[#007AFF] to-[#007AFF]',
+    color: APPLE_BLUE,
+    component: <InstallPathConfig stepColor={APPLE_BLUE} />
   }
 ]

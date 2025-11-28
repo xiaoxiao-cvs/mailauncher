@@ -66,35 +66,35 @@ export function InstallPathConfig({ stepColor }: InstallPathConfigProps) {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div className="space-y-4 sm:space-y-6">
       {/* 安装路径配置 */}
-      <div className="p-3 sm:p-4 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a]">
-        <div className="flex items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+      <div className="p-5 sm:p-6 rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:bg-[#2e2e2e] dark:shadow-none">
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-5">
           <div 
-            className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white shadow-sm flex-shrink-0"
             style={iconStyle(stepColor)}
           >
-            <FolderOpenIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+            <FolderOpenIcon className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm sm:text-base font-semibold text-[#023e8a] dark:text-white">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
               安装路径
             </h3>
-            <p className="text-xs sm:text-sm text-[#023e8a]/60 dark:text-white/60">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Bot 实例将被安装到此目录
             </p>
           </div>
         </div>
 
         {isLoadingPath ? (
-          <div className="py-4 sm:py-6 text-center">
-            <LoaderIcon className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mx-auto text-[#023e8a] dark:text-white" />
-            <p className="text-xs sm:text-sm text-[#023e8a]/70 dark:text-white/70 mt-2">加载中...</p>
+          <div className="py-6 sm:py-8 text-center">
+            <LoaderIcon className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto text-[#007AFF] dark:text-white" />
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">加载中...</p>
           </div>
         ) : (
-          <div className="space-y-2 sm:space-y-3">
+          <div className="space-y-3 sm:space-y-4">
             {/* 路径输入和选择 */}
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
                 <input
                   type="text"
@@ -102,29 +102,26 @@ export function InstallPathConfig({ stepColor }: InstallPathConfigProps) {
                   onChange={(e) => handlePathChange(e.target.value)}
                   placeholder="选择或输入安装路径"
                   disabled={savePathMutation.isPending}
-                  className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm rounded-lg border bg-white dark:bg-[#3a3a3a] text-[#023e8a] dark:text-white placeholder:text-[#023e8a]/40 dark:placeholder:text-white/40 focus:outline-none focus:ring-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono ${
+                  className={`w-full px-4 py-3 text-sm sm:text-base rounded-xl border-0 bg-gray-50 dark:bg-[#3a3a3a]/50 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono ${
                     pathError
-                      ? 'border-red-300 dark:border-red-700 focus:ring-red-200 dark:focus:ring-red-800'
+                      ? 'focus:ring-red-500/30 bg-red-50/50'
                       : pathSuccess
-                      ? 'border-green-300 dark:border-green-700 focus:ring-green-200 dark:focus:ring-green-800'
-                      : 'border-[#023e8a]/20 dark:border-[#3a3a3a] focus:ring-[#023e8a]/20'
+                      ? 'focus:ring-green-500/30 bg-green-50/50'
+                      : 'focus:ring-[#007AFF]/30'
                   }`}
                 />
                 {savePathMutation.isPending && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <LoaderIcon className="w-4 h-4 animate-spin text-[#023e8a] dark:text-white" />
+                    <LoaderIcon className="w-4 h-4 animate-spin text-[#007AFF] dark:text-white" />
                   </div>
                 )}
               </div>
               <Button
                 onClick={handleSelectFolder}
                 disabled={savePathMutation.isPending}
-                size="sm"
-                className="text-white border-0 px-4 sm:px-5 py-2.5 sm:py-3 shadow-md hover:shadow-lg transition-all disabled:opacity-60 w-full sm:w-auto"
-                style={iconStyle(stepColor)}
+                className="h-12 px-6 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-[#3a3a3a] dark:hover:bg-[#4a4a4a] text-gray-900 dark:text-white border-0 transition-colors shadow-none"
               >
-                <FolderOpenIcon className="w-4 h-4 mr-2" />
-                浏览
+                浏览...
               </Button>
             </div>
 

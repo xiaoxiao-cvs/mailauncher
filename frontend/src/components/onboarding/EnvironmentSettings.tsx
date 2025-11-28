@@ -55,48 +55,48 @@ export function EnvironmentSettings({ stepColor }: EnvironmentSettingsProps) {
   }, [venvType])
 
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div className="space-y-4 sm:space-y-6">
       {/* Python 版本选择 */}
-      <div className="p-3 sm:p-4 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a]">
-        <div className="flex items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+      <div className="p-5 sm:p-6 rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:bg-[#2e2e2e] dark:shadow-none">
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-5">
           <div 
-            className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white shadow-sm flex-shrink-0"
             style={iconStyle(stepColor)}
           >
             {isLoadingPython ? (
-              <LoaderIcon className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+              <LoaderIcon className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" />
             ) : (
-              <span className="text-xs sm:text-sm font-bold">Py</span>
+              <span className="text-sm sm:text-base font-bold">Py</span>
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm sm:text-base font-semibold text-[#023e8a] dark:text-white">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
               默认 Python 版本
             </h3>
-            <p className="text-xs sm:text-sm text-[#023e8a]/60 dark:text-white/60">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               新建实例时使用的 Python 版本
             </p>
           </div>
         </div>
 
         {pythonError ? (
-          <div className="flex items-start gap-2 p-2 sm:p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+          <div className="flex items-start gap-2 p-3 sm:p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30">
             <AlertCircleIcon className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-            <p className="text-xs sm:text-sm text-red-700 dark:text-red-300 break-words">{pythonError}</p>
+            <p className="text-sm text-red-700 dark:text-red-300 break-words">{pythonError}</p>
           </div>
         ) : isLoadingPython ? (
-          <div className="py-4 sm:py-6 text-center">
-            <LoaderIcon className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mx-auto text-[#023e8a] dark:text-white" />
-            <p className="text-xs sm:text-sm text-[#023e8a]/70 dark:text-white/70 mt-2">加载中...</p>
+          <div className="py-6 sm:py-8 text-center">
+            <LoaderIcon className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto text-[#007AFF] dark:text-white" />
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">加载中...</p>
           </div>
         ) : pythonVersions.length > 0 ? (
-          <div className="space-y-2 sm:space-y-3">
+          <div className="space-y-3 sm:space-y-4">
             {/* 当前选中的版本 - 下拉选择器 */}
             <div className="relative">
               <button
                 onClick={() => setShowPythonDropdown(!showPythonDropdown)}
                 disabled={savePythonMutation.isPending}
-                className="w-full flex items-center justify-between py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg bg-white/40 dark:bg-[#3a3a3a]/50 hover:bg-white/60 dark:hover:bg-[#3a3a3a]/70 transition-all disabled:opacity-60 border border-[#023e8a]/10 dark:border-[#3a3a3a]"
+                className="w-full flex items-center justify-between py-3 sm:py-4 px-4 sm:px-5 rounded-xl bg-gray-50 dark:bg-[#3a3a3a]/50 hover:bg-gray-100 dark:hover:bg-[#3a3a3a]/70 transition-all disabled:opacity-60"
               >
                 <div className="flex-1 text-left min-w-0">
                   {localSelectedPython ? (
@@ -173,30 +173,30 @@ export function EnvironmentSettings({ stepColor }: EnvironmentSettingsProps) {
       </div>
 
       {/* 虚拟环境类型选择 */}
-      <div className="p-3 sm:p-4 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a]">
-        <div className="flex items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+      <div className="p-5 sm:p-6 rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:bg-[#2e2e2e] dark:shadow-none">
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-5">
           <div 
-            className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white shadow-sm flex-shrink-0"
             style={iconStyle(stepColor)}
           >
-            <span className="text-xs sm:text-sm font-bold">Env</span>
+            <span className="text-sm sm:text-base font-bold">Env</span>
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm sm:text-base font-semibold text-[#023e8a] dark:text-white">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
               虚拟环境类型
             </h3>
-            <p className="text-xs sm:text-sm text-[#023e8a]/60 dark:text-white/60">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               新建实例时使用的虚拟环境管理器
             </p>
           </div>
         </div>
 
         {isLoadingVenv ? (
-          <div className="py-4 sm:py-6 text-center">
-            <LoaderIcon className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mx-auto text-[#023e8a] dark:text-white" />
+          <div className="py-6 sm:py-8 text-center">
+            <LoaderIcon className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto text-[#007AFF] dark:text-white" />
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
             {VENV_TYPES.map((type) => (
               <button
                 key={type.value}
@@ -205,21 +205,23 @@ export function EnvironmentSettings({ stepColor }: EnvironmentSettingsProps) {
                   saveVenvMutation.mutate(type.value)
                 }}
                 disabled={saveVenvMutation.isPending}
-                className={`p-2 sm:p-3 rounded-lg border transition-all text-center ${
+                className={`p-3 sm:p-4 rounded-xl border transition-all text-center ${
                   localVenvType === type.value
-                    ? 'bg-[#023e8a]/10 dark:bg-white/10 border-[#023e8a] dark:border-white shadow-sm'
-                    : 'bg-white/40 dark:bg-[#3a3a3a]/50 border-[#023e8a]/10 dark:border-[#3a3a3a] hover:bg-white/60 dark:hover:bg-[#3a3a3a]/70'
+                    ? 'bg-[#007AFF]/5 dark:bg-white/10 border-[#007AFF] dark:border-white shadow-sm'
+                    : 'bg-gray-50 dark:bg-[#3a3a3a]/50 border-transparent hover:bg-gray-100 dark:hover:bg-[#3a3a3a]/70'
                 } disabled:opacity-60`}
               >
-                <div className="flex flex-col items-center gap-1 sm:gap-1.5">
-                  <span className="text-sm sm:text-base font-semibold text-[#023e8a] dark:text-white">
+                <div className="flex flex-col items-center gap-1.5 sm:gap-2">
+                  <span className={`text-sm sm:text-base font-semibold ${
+                    localVenvType === type.value ? 'text-[#007AFF] dark:text-white' : 'text-gray-700 dark:text-gray-300'
+                  }`}>
                     {type.label}
                   </span>
                   {localVenvType === type.value && (
-                    <CheckCircle2Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600 dark:text-green-400" />
+                    <CheckCircle2Icon className="w-4 h-4 text-[#007AFF] dark:text-white" />
                   )}
                 </div>
-                <p className="text-xs text-[#023e8a]/60 dark:text-white/60 mt-1 sm:mt-1.5 hidden sm:block">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 sm:mt-2 hidden sm:block">
                   {type.desc}
                 </p>
               </button>
@@ -228,8 +230,8 @@ export function EnvironmentSettings({ stepColor }: EnvironmentSettingsProps) {
         )}
 
         {/* 说明 */}
-        <div className="mt-2 sm:mt-3 p-2 sm:p-2.5 rounded-lg bg-gray-50 dark:bg-[#3a3a3a]/30 border border-gray-200 dark:border-[#3a3a3a]">
-          <p className="text-xs text-[#023e8a]/60 dark:text-white/60">
+        <div className="mt-3 sm:mt-4 p-3 sm:p-4 rounded-xl bg-gray-50 dark:bg-[#3a3a3a]/30 border border-gray-100 dark:border-[#3a3a3a]">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             推荐使用 <strong>uv</strong> 以获得最快的包安装速度，或使用 <strong>venv</strong> 保持兼容性
           </p>
         </div>

@@ -15,8 +15,9 @@ export function useOnboardingAnimation() {
       animate(contentRef.current, {
         opacity: [0, 1],
         translateY: [30, 0],
+        scale: [0.96, 1],
         duration: 800,
-        ease: 'out(2)'
+        easing: 'spring(1, 80, 10, 0)'
       })
     }
   }, [])
@@ -33,16 +34,17 @@ export function useOnboardingAnimation() {
     setIsAnimating(true)
 
     // 根据方向设置退出和入场动画
-    const exitY = direction === 'next' ? -30 : 30  // 下一步向上退出，上一步向下退出
-    const enterY = direction === 'next' ? 30 : -30 // 下一步从下进入，上一步从上进入
+    const exitY = direction === 'next' ? -20 : 20  // 减小位移距离
+    const enterY = direction === 'next' ? 20 : -20
 
     // 退出动画
     if (contentRef.current) {
       animate(contentRef.current, {
         opacity: [1, 0],
         translateY: [0, exitY],
-        duration: 300,
-        ease: 'in(2)',
+        scale: [1, 0.98],
+        duration: 250,
+        easing: 'easeInQuad',
         complete: () => {
           callback()
           
@@ -52,8 +54,9 @@ export function useOnboardingAnimation() {
               animate(contentRef.current, {
                 opacity: [0, 1],
                 translateY: [enterY, 0],
-                duration: 400,
-                ease: 'out(2)',
+                scale: [0.98, 1],
+                duration: 600,
+                easing: 'spring(1, 90, 12, 0)',
                 complete: () => setIsAnimating(false)
               })
             }
