@@ -22,8 +22,10 @@ export interface OnboardingStep {
   isSettingsStep?: boolean
   /** 是否为环境检查步骤 */
   isEnvironmentStep?: boolean
-  /** Tabs 配置（如果有则显示 Tabs） */
+  /** Tabs 配置（如果有则显示 Tabs）- 已废弃，使用 component */
   tabs?: OnboardingTab[]
+  /** 步骤组件（直接渲染组件，无需 Tabs） */
+  component?: React.ReactNode
 }
 
 /**

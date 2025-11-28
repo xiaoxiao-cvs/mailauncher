@@ -104,10 +104,10 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
         />
       </div>
 
-      {/* 主窗口容器 */}
-      <div className="relative w-full max-w-5xl h-[720px] z-10 flex bg-white/80 dark:bg-[#1E1E1E]/80 backdrop-blur-2xl rounded-[20px] shadow-2xl border border-white/40 dark:border-white/10 overflow-hidden transition-all duration-500">
-        {/* 左侧：侧边栏 */}
-        <div className="w-[280px] flex-shrink-0 border-r border-black/5 dark:border-white/5 bg-gray-50/30 dark:bg-[#252525]/30 flex flex-col">
+      {/* 主窗口容器 - 覆盖70%页面，自适应高度 */}
+      <div className="relative w-[90vw] md:w-[85vw] lg:w-[80vw] xl:w-[70vw] min-h-[600px] max-h-[90vh] h-[85vh] z-10 flex bg-white/80 dark:bg-[#1E1E1E]/80 backdrop-blur-2xl rounded-[20px] shadow-2xl border border-white/40 dark:border-white/10 overflow-hidden transition-all duration-500">
+        {/* 左侧：侧边栏 - 响应式宽度 */}
+        <div className="hidden md:flex w-[220px] lg:w-[260px] xl:w-[280px] flex-shrink-0 border-r border-black/5 dark:border-white/5 bg-gray-50/30 dark:bg-[#252525]/30 flex-col">
           <OnboardingSidebar
             steps={ONBOARDING_STEPS}
             currentStep={currentStep}
