@@ -3,14 +3,12 @@
  * 创新设计：毛玻璃卡片 + 渐变色 + 动态数字动画
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   PieChart,
   Pie,
   Cell,
   ResponsiveContainer,
-  Tooltip,
-  Legend,
 } from 'recharts';
 import {
   Activity,
@@ -61,18 +59,18 @@ const REFRESH_INTERVALS = [
   { value: 60000, label: '60 秒' },
 ];
 
-// 模型颜色配置 - 渐变色系
+// 模型颜色配置 - 从红/粉渐变到紫/蓝（数量越多越红）
 const MODEL_COLORS = [
-  '#6366f1', // Indigo
-  '#8b5cf6', // Violet
-  '#a855f7', // Purple
-  '#d946ef', // Fuchsia
+  '#f43f5e', // Rose - 最多
   '#ec4899', // Pink
-  '#f43f5e', // Rose
-  '#f97316', // Orange
-  '#eab308', // Yellow
-  '#22c55e', // Green
+  '#d946ef', // Fuchsia
+  '#a855f7', // Purple
+  '#8b5cf6', // Violet
+  '#6366f1', // Indigo
+  '#3b82f6', // Blue
+  '#06b6d4', // Cyan
   '#14b8a6', // Teal
+  '#22c55e', // Green - 最少
 ];
 
 // ==================== 工具函数 ====================
@@ -212,23 +210,124 @@ function StatCard({ title, value, formatter, icon, trend, gradient, delay = 0 }:
 
 // ==================== 模型饼图组件 ====================
 
-interface ModelPieChartProps {
+// ==================== 模型分布组合组件（左侧列表 + 右侧饼图 + 连线） ==
+
+interface ModelDistributionProps {
   data: ModelStats[];
   type: 'cost' | 'requests' | 'tokens';
 }
 
-function ModelPieChart({ data, type }: ModelPieChartProps) {
-  const chartData = useMemo(() => {
-    return data.map((model, index) => ({
-      name: model.display_name || model.model_name,
-      value: type === 'cost' ? model.total_cost : 
-             type === 'requests' ? model.request_count : 
-             model.total_tokens,
-      color: MODEL_COLORS[index % MODEL_COLORS.length],
-    })).filter(d => d.value > 0);
+function ModelDistribution({ data, type }: ModelDistributionProps) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [animated, setAnimated] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const listItemRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const pieContainerRef = useRef<HTMLDivElement>(null);
+  const [lineCoords, setLineCoords] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  
+  // 动画效果
+  useEffect(() => {
+    setAnimated(false);
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setAnimated(true);
+      });
+    });
+    return () => cancelAnimationFrame(raf);
   }, [data, type]);
   
-  const total = chartData.reduce((sum, d) => sum + d.value, 0);
+  // 根据类型获取对应的值
+  const getValue = useCallback((model: ModelStats) => {
+    switch (type) {
+      case 'cost': return model.total_cost;
+      case 'requests': return model.request_count;
+      case 'tokens': return model.total_tokens;
+    }
+  }, [type]);
+  
+  // 排序后的数据（从大到小）
+  const sortedData = useMemo(() => {
+    return [...data]
+      .map((model, originalIndex) => ({ model, originalIndex }))
+      .sort((a, b) => getValue(b.model) - getValue(a.model))
+      .slice(0, 5);
+  }, [data, getValue]);
+  
+  const chartData = useMemo(() => {
+    return sortedData.map((item, index) => ({
+      name: item.model.display_name || item.model.model_name,
+      value: getValue(item.model),
+      color: MODEL_COLORS[index % MODEL_COLORS.length],
+      model: item.model,
+    })).filter(d => d.value > 0);
+  }, [sortedData, getValue]);
+  
+  const total = useMemo(() => chartData.reduce((sum, d) => sum + d.value, 0), [chartData]);
+  
+  // 格式化显示值
+  const formatValue = (model: ModelStats) => {
+    switch (type) {
+      case 'cost': return formatCurrency(model.total_cost);
+      case 'requests': return `${formatNumber(model.request_count)} 次`;
+      case 'tokens': return formatNumber(model.total_tokens);
+    }
+  };
+  
+  const maxValue = Math.max(...sortedData.map(item => getValue(item.model)), 1);
+  
+  // 计算扇形中心点位置
+  const calculateSectorCenter = useCallback((index: number) => {
+    if (!containerRef.current || !pieContainerRef.current || !listItemRefs.current[index]) return null;
+    
+    const container = containerRef.current.getBoundingClientRect();
+    const pieContainer = pieContainerRef.current.getBoundingClientRect();
+    const listItem = listItemRefs.current[index]?.getBoundingClientRect();
+    
+    if (!listItem || total === 0) return null;
+    
+    // 列表项右侧中心点
+    const x1 = listItem.right - container.left;
+    const y1 = listItem.top + listItem.height / 2 - container.top;
+    
+    // 饼图中心（相对于容器）
+    const pieCenterX = pieContainer.left + pieContainer.width / 2 - container.left;
+    const pieCenterY = pieContainer.top + pieContainer.height / 2 - container.top;
+    
+    // 计算该扇区的角度位置
+    // recharts 饼图默认从 0°（右侧）开始，逆时针方向
+    let startAngle = 0;
+    for (let i = 0; i < index; i++) {
+      if (chartData[i]) {
+        startAngle += (chartData[i].value / total) * 360;
+      }
+    }
+    const segmentAngle = chartData[index] ? (chartData[index].value / total) * 360 : 0;
+    const midAngle = startAngle + segmentAngle / 2;
+    
+    // 转换为弧度（recharts 默认逆时针，角度从右侧 0° 开始）
+    const radians = (midAngle * Math.PI) / 180;
+    
+    // 扇形中心点（在内外半径的中间位置）
+    const innerRadius = 50;
+    const outerRadius = 80;
+    const midRadius = (innerRadius + outerRadius) / 2;
+    
+    const x2 = pieCenterX + Math.cos(radians) * midRadius;
+    const y2 = pieCenterY - Math.sin(radians) * midRadius;
+    
+    return { x1, y1, x2, y2 };
+  }, [chartData, total]);
+  
+  const handleMouseEnter = useCallback((index: number) => {
+    setHoveredIndex(index);
+    const coords = calculateSectorCenter(index);
+    setLineCoords(coords);
+  }, [calculateSectorCenter]);
+  
+  const handleMouseLeave = useCallback(() => {
+    setHoveredIndex(null);
+    setLineCoords(null);
+  }, []);
   
   if (chartData.length === 0) {
     return (
@@ -241,108 +340,132 @@ function ModelPieChart({ data, type }: ModelPieChartProps) {
     );
   }
   
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      const percentage = ((data.value / total) * 100).toFixed(1);
-      return (
-        <div className="bg-white dark:bg-gray-800 px-4 py-3 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700">
-          <p className="font-semibold text-gray-900 dark:text-white">{data.name}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {type === 'cost' && formatCurrency(data.value)}
-            {type === 'requests' && `${formatNumber(data.value)} 次`}
-            {type === 'tokens' && `${formatNumber(data.value)} tokens`}
-            <span className="ml-2 text-gray-400">({percentage}%)</span>
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-  
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <PieChart>
-        <Pie
-          data={chartData}
-          cx="50%"
-          cy="50%"
-          innerRadius={60}
-          outerRadius={100}
-          paddingAngle={2}
-          dataKey="value"
-          animationBegin={0}
-          animationDuration={800}
+    <div ref={containerRef} className="relative flex gap-4" style={{ minHeight: '280px' }}>
+      {/* 连接线 SVG - 从列表项连接到扇形中心 */}
+      {lineCoords && hoveredIndex !== null && (
+        <svg 
+          className="absolute inset-0 pointer-events-none z-10"
+          style={{ overflow: 'visible' }}
         >
-          {chartData.map((entry, index) => (
-            <Cell 
-              key={`cell-${index}`} 
-              fill={entry.color}
-              stroke="transparent"
-              className="hover:opacity-80 transition-opacity cursor-pointer"
-            />
-          ))}
-        </Pie>
-        <Tooltip content={<CustomTooltip />} />
-        <Legend 
-          verticalAlign="bottom"
-          height={36}
-          formatter={(value) => (
-            <span className="text-sm text-gray-600 dark:text-gray-300">{value}</span>
-          )}
-        />
-      </PieChart>
-    </ResponsiveContainer>
-  );
-}
-
-// ==================== 模型列表组件 ====================
-
-interface ModelListProps {
-  data: ModelStats[];
-}
-
-function ModelList({ data }: ModelListProps) {
-  if (data.length === 0) {
-    return (
-      <div className="text-center py-8 text-gray-400">
-        <Cpu className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">暂无模型数据</p>
-      </div>
-    );
-  }
-  
-  const maxRequests = Math.max(...data.map(m => m.request_count));
-  
-  return (
-    <div className="space-y-3">
-      {data.slice(0, 5).map((model, index) => (
-        <div key={model.model_name} className="group">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <div 
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length] }}
-              />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-[140px]">
-                {model.display_name || model.model_name}
+          <defs>
+            <linearGradient id={`line-gradient-${hoveredIndex}`} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={MODEL_COLORS[hoveredIndex % MODEL_COLORS.length]} stopOpacity="0.6" />
+              <stop offset="100%" stopColor={MODEL_COLORS[hoveredIndex % MODEL_COLORS.length]} stopOpacity="0.9" />
+            </linearGradient>
+          </defs>
+          <path
+            d={`M ${lineCoords.x1} ${lineCoords.y1} 
+                Q ${(lineCoords.x1 + lineCoords.x2) / 2} ${lineCoords.y1}, 
+                  ${lineCoords.x2} ${lineCoords.y2}`}
+            fill="none"
+            stroke={`url(#line-gradient-${hoveredIndex})`}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeDasharray="6 4"
+          />
+          <circle
+            cx={lineCoords.x1}
+            cy={lineCoords.y1}
+            r="4"
+            fill={MODEL_COLORS[hoveredIndex % MODEL_COLORS.length]}
+          />
+          <circle
+            cx={lineCoords.x2}
+            cy={lineCoords.y2}
+            r="5"
+            fill={MODEL_COLORS[hoveredIndex % MODEL_COLORS.length]}
+            className="animate-pulse"
+          />
+        </svg>
+      )}
+      
+      {/* 左侧：模型列表（已排序） */}
+      <div className="flex-1 space-y-2 pr-2">
+        {sortedData.map((item, index) => (
+          <div 
+            key={`${item.model.model_name}-${type}`}
+            ref={el => listItemRefs.current[index] = el}
+            className={cn(
+              "group cursor-pointer transition-all duration-200 p-2 rounded-lg",
+              hoveredIndex === index 
+                ? "bg-gray-100 dark:bg-gray-800 scale-[1.02]" 
+                : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
+            )}
+            onMouseEnter={() => handleMouseEnter(index)}
+            onMouseLeave={handleMouseLeave}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <div 
+                  className={cn(
+                    "w-3 h-3 rounded-full transition-transform duration-200",
+                    hoveredIndex === index && "scale-125"
+                  )}
+                  style={{ backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length] }}
+                />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-[120px]">
+                  {item.model.display_name || item.model.model_name}
+                </span>
+              </div>
+              <span className={cn(
+                "text-sm transition-colors duration-200",
+                hoveredIndex === index 
+                  ? "text-gray-900 dark:text-white font-medium"
+                  : "text-gray-500 dark:text-gray-400"
+              )}>
+                {formatValue(item.model)}
               </span>
             </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {formatNumber(model.request_count)} 次
-            </span>
+            <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div 
+                className="h-full rounded-full transition-all duration-700 ease-out"
+                style={{ 
+                  width: animated 
+                    ? `${maxValue > 0 ? (getValue(item.model) / maxValue) * 100 : 0}%`
+                    : '0%',
+                  backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length],
+                  transitionDelay: `${index * 80}ms`,
+                  opacity: hoveredIndex === null || hoveredIndex === index ? 1 : 0.4,
+                }}
+              />
+            </div>
           </div>
-          <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-            <div 
-              className="h-full rounded-full transition-all duration-500 ease-out"
-              style={{ 
-                width: `${(model.request_count / maxRequests) * 100}%`,
-                backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length],
-              }}
-            />
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
+      
+      {/* 右侧：饼图 */}
+      <div ref={pieContainerRef} className="w-[200px] flex-shrink-0" onMouseLeave={handleMouseLeave}>
+        <ResponsiveContainer width="100%" height={280}>
+          <PieChart onMouseLeave={handleMouseLeave}>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              innerRadius={50}
+              outerRadius={80}
+              paddingAngle={2}
+              dataKey="value"
+              animationBegin={0}
+              animationDuration={800}
+              onMouseEnter={(_, index) => handleMouseEnter(index)}
+              onMouseLeave={handleMouseLeave}
+            >
+              {chartData.map((entry, index) => (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={entry.color}
+                  stroke="transparent"
+                  className="cursor-pointer transition-opacity duration-200"
+                  style={{
+                    opacity: hoveredIndex === null || hoveredIndex === index ? 1 : 0.4,
+                  }}
+                />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -571,12 +694,13 @@ export function StatsDashboard() {
       
       {/* 图表区域 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 模型消耗饼图 */}
+        {/* 模型使用分布 - 饼图/条状图切换 */}
         <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               模型使用分布
             </h3>
+            {/* 数据类型切换 */}
             <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
               {(['cost', 'requests', 'tokens'] as const).map((type) => (
                 <button
@@ -596,21 +720,12 @@ export function StatsDashboard() {
               ))}
             </div>
           </div>
-          <ModelPieChart data={modelStats} type={chartType} />
-        </div>
-        
-        {/* 模型列表 */}
-        <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            模型使用排行
-          </h3>
-          <ModelList data={modelStats} />
+          
+          {/* 模型分布：左侧列表 + 右侧饼图 */}
+          <ModelDistribution data={modelStats} type={chartType} />
           
           {/* 效率指标 */}
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4">
-              效率指标
-            </h4>
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -625,6 +740,15 @@ export function StatsDashboard() {
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">每小时 Token</p>
               </div>
             </div>
+          </div>
+        </div>
+        
+        {/* 右侧空白卡片 - 预留给对话内容 */}
+        <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 flex items-center justify-center">
+          <div className="text-center text-gray-400 dark:text-gray-500">
+            <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
+            <p className="text-sm">对话内容</p>
+            <p className="text-xs mt-1 opacity-75">即将推出</p>
           </div>
         </div>
       </div>
