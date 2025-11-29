@@ -2,11 +2,13 @@
 统计信息 API 路由
 提供 MaiBot 实例的统计数据查询接口
 """
+import traceback
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.database import get_db
+from ...core.logger import logger
 from ...models.response import APIResponse
 from ...models.stats import (
     TimeRange,
@@ -22,7 +24,6 @@ router = APIRouter()
 
 @router.get(
     "/overview",
-    response_model=APIResponse,
     summary="获取统计概览",
     description="获取所有实例的统计概览数据，适用于首页展示",
 )
@@ -44,20 +45,20 @@ async def get_stats_overview(
     """
     try:
         overview = await stats_service.get_overview(db, time_range)
-        return APIResponse.success(
+        return APIResponse.ok(
             data=overview.model_dump(),
             message="获取统计概览成功"
         )
     except Exception as e:
+        logger.error(f"获取统计概览失败: {e}\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取统计概览失败: {str(e)}"
+            detail=f"获取统计概览失败: {type(e).__name__}: {str(e)}"
         )
 
 
 @router.get(
     "/aggregated",
-    response_model=APIResponse,
     summary="获取聚合统计",
     description="获取多实例的聚合统计数据，支持指定实例筛选",
 )
@@ -93,7 +94,7 @@ async def get_aggregated_stats(
             ids_list = [id.strip() for id in instance_ids.split(",") if id.strip()]
         
         aggregated = await stats_service.get_aggregated_stats(db, time_range, ids_list)
-        return APIResponse.success(
+        return APIResponse.ok(
             data=aggregated.model_dump(),
             message="获取聚合统计成功"
         )
@@ -106,7 +107,6 @@ async def get_aggregated_stats(
 
 @router.get(
     "/instances/{instance_id}",
-    response_model=APIResponse,
     summary="获取实例统计",
     description="获取单个实例的详细统计数据",
 )
@@ -136,7 +136,7 @@ async def get_instance_stats(
                 detail=f"实例 {instance_id} 不存在"
             )
         
-        return APIResponse.success(
+        return APIResponse.ok(
             data=instance_stats.model_dump(),
             message="获取实例统计成功"
         )
@@ -151,9 +151,8 @@ async def get_instance_stats(
 
 @router.get(
     "/instances/{instance_id}/models",
-    response_model=APIResponse,
-    summary="获取实例模型统计",
-    description="获取单个实例的模型使用统计",
+    summary="获取模型统计",
+    description="获取实例的模型使用统计",
 )
 async def get_instance_model_stats(
     instance_id: str,
@@ -191,7 +190,7 @@ async def get_instance_model_stats(
         # 限制返回数量
         model_stats = instance_stats.model_stats[:limit]
         
-        return APIResponse.success(
+        return APIResponse.ok(
             data={
                 "instance_id": instance_id,
                 "time_range": time_range.value,
@@ -210,7 +209,6 @@ async def get_instance_model_stats(
 
 @router.post(
     "/cache/invalidate",
-    response_model=APIResponse,
     summary="清除统计缓存",
     description="手动清除统计数据缓存",
 )
@@ -228,7 +226,7 @@ async def invalidate_stats_cache(
     """
     try:
         stats_service.invalidate_cache(instance_id)
-        return APIResponse.success(
+        return APIResponse.ok(
             message="缓存已清除"
         )
     except Exception as e:

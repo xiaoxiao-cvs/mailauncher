@@ -83,6 +83,12 @@ class StatsService:
         self.__class__._initialized = True
         logger.info("统计服务已初始化")
     
+    @classmethod
+    def reset(cls):
+        """重置单例（用于测试或重新初始化）"""
+        cls._instance = None
+        cls._initialized = False
+    
     def _get_maibot_db_path(self, instance_path: str) -> Optional[Path]:
         """获取 MaiBot 实例的数据库路径
         
@@ -93,18 +99,24 @@ class StatsService:
             数据库文件路径，如果不存在返回 None
         """
         instances_dir = settings.ensure_instances_dir()
-        # 数据库路径: {instances_dir}/{instance_path}/MaiBot/data/maibot.db
-        db_path = Path(instances_dir) / instance_path / "MaiBot" / "data" / "maibot.db"
         
-        if db_path.exists():
-            return db_path
+        # 可能的数据库路径（按优先级排序）
+        possible_paths = [
+            # 标准路径: {instances_dir}/{instance_path}/MaiBot/data/MaiBot.db
+            Path(instances_dir) / instance_path / "MaiBot" / "data" / "MaiBot.db",
+            # 小写版本
+            Path(instances_dir) / instance_path / "MaiBot" / "data" / "maibot.db",
+            # 不带 MaiBot 子目录
+            Path(instances_dir) / instance_path / "data" / "MaiBot.db",
+            Path(instances_dir) / instance_path / "data" / "maibot.db",
+        ]
         
-        # 尝试备选路径 (不带 MaiBot 子目录)
-        alt_db_path = Path(instances_dir) / instance_path / "data" / "maibot.db"
-        if alt_db_path.exists():
-            return alt_db_path
+        for db_path in possible_paths:
+            if db_path.exists():
+                logger.debug(f"找到 MaiBot 数据库: {db_path}")
+                return db_path
         
-        logger.debug(f"MaiBot 数据库不存在: {db_path}")
+        logger.debug(f"MaiBot 数据库不存在于可能路径中: {possible_paths[0]}")
         return None
     
     async def _query_llm_usage(
@@ -227,13 +239,13 @@ class StatsService:
                 if not await cursor.fetchone():
                     return 0.0
                 
-                # 查询在线时间记录
+                # 查询在线时间记录 - 使用 start_timestamp 和 end_timestamp（datetime类型）
                 query = """
                     SELECT SUM(duration) 
                     FROM online_time
-                    WHERE start_time >= ? AND start_time <= ?
+                    WHERE start_timestamp >= ? AND end_timestamp <= ?
                 """
-                cursor = await db.execute(query, (start_time.timestamp(), end_time.timestamp()))
+                cursor = await db.execute(query, (start_time.isoformat(), end_time.isoformat()))
                 row = await cursor.fetchone()
                 return float(row[0]) if row and row[0] else 0.0
                 
