@@ -4,8 +4,9 @@
  * 支持动态刷新频率：有队列时1秒，15秒无消息3秒，30秒无消息5秒
  */
 
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
+import { Sparkline, SPARKLINE_COLORS } from '@/components/ui/sparkline';
 import {
   useInstanceMessageQueueQuery,
   useAllMessageQueuesQuery,
@@ -29,6 +30,12 @@ const IDLE_THRESHOLDS = {
   TO_NORMAL: 15000,  // 15秒无消息降到 NORMAL
   TO_SLOW: 30000,    // 30秒无消息降到 SLOW
 } as const;
+
+// 历史数据配置
+const HISTORY_CONFIG = {
+  MAX_POINTS: 15,  // 最多保留 15 个历史数据点
+} as const;
+
 import {
   MessageSquare,
   Loader2,
@@ -250,6 +257,42 @@ export function MessageQueuePanel({ instanceId, className }: MessageQueuePanelPr
     return { connectedCount, totalProcessed, hasAnyConnected, totalInstances };
   }, [allInstancesData]);
   
+  // ==================== 历史数据追踪 ====================
+  // 用于迷你折线图展示处理消息数量的趋势
+  const [processedHistory, setProcessedHistory] = useState<number[]>([]);
+  const lastProcessedRef = useRef<number>(0);
+  
+  // 更新历史数据
+  const updateHistory = useCallback((newValue: number) => {
+    setProcessedHistory(prev => {
+      // 如果值没有变化且不是第一次，不添加新点
+      if (prev.length > 0 && prev[prev.length - 1] === newValue) {
+        return prev;
+      }
+      const newHistory = [...prev, newValue];
+      // 保留最近的 MAX_POINTS 个数据点
+      if (newHistory.length > HISTORY_CONFIG.MAX_POINTS) {
+        return newHistory.slice(-HISTORY_CONFIG.MAX_POINTS);
+      }
+      return newHistory;
+    });
+  }, []);
+  
+  // 当 totalProcessed 变化时更新历史数据
+  useEffect(() => {
+    if (stats.totalProcessed !== lastProcessedRef.current) {
+      lastProcessedRef.current = stats.totalProcessed;
+      updateHistory(stats.totalProcessed);
+    }
+  }, [stats.totalProcessed, updateHistory]);
+  
+  // 初始化时添加第一个数据点
+  useEffect(() => {
+    if (stats.hasAnyConnected && processedHistory.length === 0) {
+      updateHistory(stats.totalProcessed);
+    }
+  }, [stats.hasAnyConnected, stats.totalProcessed, processedHistory.length, updateHistory]);
+  
   // 追踪需要退出动画的消息ID（正在播放退出动画）
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
   // 追踪已完全移除的消息ID（动画播放完毕，不再显示）
@@ -376,7 +419,7 @@ export function MessageQueuePanel({ instanceId, className }: MessageQueuePanelPr
     )}>
       {/* 标题栏 */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             消息队列
           </h3>
@@ -395,10 +438,26 @@ export function MessageQueuePanel({ instanceId, className }: MessageQueuePanelPr
             )} />
             <span>{refetchInterval / 1000}s</span>
           </div>
-        </div>
-        <div className="flex items-center gap-3 text-xs text-gray-500">
+          {/* 已处理统计 - 左移到这里 */}
           {stats.hasAnyConnected && (
-            <span>已处理: {stats.totalProcessed}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              已处理: {stats.totalProcessed}
+            </span>
+          )}
+        </div>
+        {/* 迷你折线图 - 显示处理消息趋势 */}
+        <div className="flex items-center">
+          {stats.hasAnyConnected && processedHistory.length >= 2 && (
+            <Sparkline
+              data={processedHistory}
+              color={SPARKLINE_COLORS.cyan}
+              width={80}
+              height={24}
+              strokeWidth={2}
+              animate={true}
+              animationDuration={800}
+              showGradient={true}
+            />
           )}
         </div>
       </div>

@@ -24,6 +24,7 @@ import {
   Cpu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Sparkline, SPARKLINE_COLORS } from '@/components/ui/sparkline';
 import {
   useStatsOverviewQuery,
   useInstanceStatsQuery,
@@ -156,9 +157,11 @@ interface StatCardProps {
   trend?: number;
   gradient: string;
   delay?: number;
+  sparklineData?: number[];
+  sparklineColor?: string;
 }
 
-function StatCard({ title, value, formatter, icon, trend, gradient, delay = 0 }: StatCardProps) {
+function StatCard({ title, value, formatter, icon, trend, gradient, delay = 0, sparklineData, sparklineColor }: StatCardProps) {
   const [isVisible, setIsVisible] = useState(false);
   
   useEffect(() => {
@@ -183,27 +186,47 @@ function StatCard({ title, value, formatter, icon, trend, gradient, delay = 0 }:
       />
       
       <div className="relative flex items-start justify-between">
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            <AnimatedNumber value={value} formatter={formatter} />
-          </p>
-          {trend !== undefined && (
-            <div className={cn(
-              "flex items-center gap-1 text-xs font-medium",
-              trend >= 0 ? "text-green-600" : "text-red-500"
-            )}>
-              <TrendingUp className={cn("w-3 h-3", trend < 0 && "rotate-180")} />
-              <span>{Math.abs(trend).toFixed(1)}%</span>
-            </div>
-          )}
+        {/* 左侧：图标 + 内容 */}
+        <div className="flex items-start gap-3">
+          {/* 图标 - 左移到这里 */}
+          <div className={cn(
+            "p-3 rounded-xl flex-shrink-0",
+            gradient
+          )}>
+            {icon}
+          </div>
+          {/* 标题和数值 */}
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <AnimatedNumber value={value} formatter={formatter} />
+            </p>
+            {trend !== undefined && (
+              <div className={cn(
+                "flex items-center gap-1 text-xs font-medium",
+                trend >= 0 ? "text-green-600" : "text-red-500"
+              )}>
+                <TrendingUp className={cn("w-3 h-3", trend < 0 && "rotate-180")} />
+                <span>{Math.abs(trend).toFixed(1)}%</span>
+              </div>
+            )}
+          </div>
         </div>
-        <div className={cn(
-          "p-3 rounded-xl",
-          gradient
-        )}>
-          {icon}
-        </div>
+        {/* 右侧：迷你折线图 */}
+        {sparklineData && (
+          <div className="absolute bottom-3 right-4">
+            <Sparkline
+              data={sparklineData}
+              color={sparklineColor || SPARKLINE_COLORS.cyan}
+              width={80}
+              height={24}
+              strokeWidth={1.5}
+              animate={true}
+              animationDuration={800}
+              showGradient={false}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -506,6 +529,47 @@ export function StatsDashboard() {
   const [selectedInstance, setSelectedInstance] = useState<string | null>(null);
   const [chartType, setChartType] = useState<'cost' | 'requests' | 'tokens'>('cost');
   
+  // ==================== 历史数据追踪（用于迷你折线图）==================== 
+  const HISTORY_MAX_POINTS = 12;
+  
+  // 各指标的历史数据
+  const [statsHistory, setStatsHistory] = useState<{
+    requests: number[];
+    cost: number[];
+    tokens: number[];
+    responseTime: number[];
+    onlineTime: number[];
+    messages: number[];
+    replies: number[];
+  }>({
+    requests: [],
+    cost: [],
+    tokens: [],
+    responseTime: [],
+    onlineTime: [],
+    messages: [],
+    replies: [],
+  });
+  
+  // 上次记录的值（用于判断是否需要添加新点）
+  const lastValuesRef = useRef<{
+    requests: number;
+    cost: number;
+    tokens: number;
+    responseTime: number;
+    onlineTime: number;
+    messages: number;
+    replies: number;
+  }>({
+    requests: 0,
+    cost: 0,
+    tokens: 0,
+    responseTime: 0,
+    onlineTime: 0,
+    messages: 0,
+    replies: 0,
+  });
+  
   // 获取实例列表
   const { data: instancesData } = useInstancesQuery();
   const instances = instancesData?.instances;
@@ -540,6 +604,69 @@ export function StatsDashboard() {
   const lastUpdatedText = lastUpdated 
     ? new Date(lastUpdated).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     : '--:--:--';
+  
+  // ==================== 更新历史数据 ====================
+  useEffect(() => {
+    if (!summary) return;
+    
+    const newValues = {
+      requests: summary.total_requests || 0,
+      cost: summary.total_cost || 0,
+      tokens: summary.total_tokens || 0,
+      responseTime: summary.avg_response_time || 0,
+      onlineTime: summary.online_time || 0,
+      messages: summary.total_messages || 0,
+      replies: summary.total_replies || 0,
+    };
+    
+    // 检查是否有任何值变化
+    const hasChanges = Object.keys(newValues).some(
+      key => newValues[key as keyof typeof newValues] !== lastValuesRef.current[key as keyof typeof newValues]
+    );
+    
+    if (hasChanges || statsHistory.requests.length === 0) {
+      setStatsHistory(prev => {
+        const addPoint = (arr: number[], val: number) => {
+          const newArr = [...arr, val];
+          return newArr.length > HISTORY_MAX_POINTS ? newArr.slice(-HISTORY_MAX_POINTS) : newArr;
+        };
+        
+        return {
+          requests: addPoint(prev.requests, newValues.requests),
+          cost: addPoint(prev.cost, newValues.cost),
+          tokens: addPoint(prev.tokens, newValues.tokens),
+          responseTime: addPoint(prev.responseTime, newValues.responseTime),
+          onlineTime: addPoint(prev.onlineTime, newValues.onlineTime),
+          messages: addPoint(prev.messages, newValues.messages),
+          replies: addPoint(prev.replies, newValues.replies),
+        };
+      });
+      
+      lastValuesRef.current = newValues;
+    }
+  }, [summary, statsHistory.requests.length, HISTORY_MAX_POINTS]);
+  
+  // 当选择的实例或时间范围变化时，重置历史数据
+  useEffect(() => {
+    setStatsHistory({
+      requests: [],
+      cost: [],
+      tokens: [],
+      responseTime: [],
+      onlineTime: [],
+      messages: [],
+      replies: [],
+    });
+    lastValuesRef.current = {
+      requests: 0,
+      cost: 0,
+      tokens: 0,
+      responseTime: 0,
+      onlineTime: 0,
+      messages: 0,
+      replies: 0,
+    };
+  }, [selectedInstance, timeRange]);
   
   return (
     <div className="h-full overflow-auto scrollbar-thin p-6 space-y-6">
@@ -664,6 +791,8 @@ export function StatsDashboard() {
           icon={<Activity className="w-5 h-5 text-white" />}
           gradient="bg-gradient-to-br from-indigo-500 to-purple-600"
           delay={0}
+          sparklineData={statsHistory.requests}
+          sparklineColor={SPARKLINE_COLORS.purple}
         />
         <StatCard
           title="总花费"
@@ -672,6 +801,8 @@ export function StatsDashboard() {
           icon={<DollarSign className="w-5 h-5 text-white" />}
           gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
           delay={100}
+          sparklineData={statsHistory.cost}
+          sparklineColor={SPARKLINE_COLORS.green}
         />
         <StatCard
           title="Token 消耗"
@@ -680,6 +811,8 @@ export function StatsDashboard() {
           icon={<Zap className="w-5 h-5 text-white" />}
           gradient="bg-gradient-to-br from-amber-500 to-orange-600"
           delay={200}
+          sparklineData={statsHistory.tokens}
+          sparklineColor={SPARKLINE_COLORS.orange}
         />
         <StatCard
           title="平均响应"
@@ -688,6 +821,8 @@ export function StatsDashboard() {
           icon={<Clock className="w-5 h-5 text-white" />}
           gradient="bg-gradient-to-br from-pink-500 to-rose-600"
           delay={300}
+          sparklineData={statsHistory.responseTime}
+          sparklineColor={SPARKLINE_COLORS.pink}
         />
       </div>
       
@@ -700,6 +835,8 @@ export function StatsDashboard() {
           icon={<Clock className="w-5 h-5 text-white" />}
           gradient="bg-gradient-to-br from-cyan-500 to-blue-600"
           delay={400}
+          sparklineData={statsHistory.onlineTime}
+          sparklineColor={SPARKLINE_COLORS.cyan}
         />
         <StatCard
           title="消息处理"
@@ -708,6 +845,8 @@ export function StatsDashboard() {
           icon={<MessageSquare className="w-5 h-5 text-white" />}
           gradient="bg-gradient-to-br from-violet-500 to-purple-600"
           delay={500}
+          sparklineData={statsHistory.messages}
+          sparklineColor={SPARKLINE_COLORS.purple}
         />
         <StatCard
           title="回复数量"
@@ -716,6 +855,8 @@ export function StatsDashboard() {
           icon={<Reply className="w-5 h-5 text-white" />}
           gradient="bg-gradient-to-br from-fuchsia-500 to-pink-600"
           delay={600}
+          sparklineData={statsHistory.replies}
+          sparklineColor={SPARKLINE_COLORS.pink}
         />
       </div>
       
