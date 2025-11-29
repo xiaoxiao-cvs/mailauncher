@@ -41,6 +41,7 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { MessageQueuePanel } from '@/components/message-queue/MessageQueuePanel';
 
 // ==================== 配置 ====================
 
@@ -744,13 +745,7 @@ export function StatsDashboard() {
         </div>
         
         {/* 右侧空白卡片 - 预留给对话内容 */}
-        <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 flex items-center justify-center">
-          <div className="text-center text-gray-400 dark:text-gray-500">
-            <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">对话内容</p>
-            <p className="text-xs mt-1 opacity-75">即将推出</p>
-          </div>
-        </div>
+        <MessageQueuePanel instanceId={selectedInstance} />
       </div>
     </div>
   );
