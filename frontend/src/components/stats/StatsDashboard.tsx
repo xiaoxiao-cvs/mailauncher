@@ -744,7 +744,7 @@ export function StatsDashboard() {
           </div>
         </div>
         
-        {/* 右侧空白卡片 - 预留给对话内容 */}
+        {/* 消息队列面板 - 根据选择显示对应实例的消息 */}
         <MessageQueuePanel instanceId={selectedInstance} />
       </div>
     </div>

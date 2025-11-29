@@ -3,6 +3,7 @@ MaiBot 消息队列监控服务
 订阅 MaiBot 的 /ws/logs WebSocket，解析日志提取消息处理状态
 """
 import asyncio
+import json
 import re
 import time
 import uuid
@@ -21,18 +22,28 @@ class MaiBotLogListener:
     """MaiBot 日志监听器 - 单个实例的 WebSocket 监听"""
     
     # 日志解析正则表达式
-    # 匹配: [群名/用户名] 开始第N次思考
+    # 匹配: [千年自管区-网上聊天室] 开始第N次思考  (群名在方括号内)
     PATTERN_THINKING = re.compile(r'\[([^\]]+)\]\s*开始第(\d+)次思考')
-    # 匹配: 决定执行X个动作: reply, ...
-    PATTERN_ACTION = re.compile(r'决定执行\d+个动作[:：]\s*(.+)')
-    # 匹配: 已将消息 '...' 发往平台
-    PATTERN_SENT = re.compile(r"已将消息\s*['\"](.{0,50})['\"]?\s*发往平台")
-    # 匹配: 429 或 rate limit
-    PATTERN_RATE_LIMIT = re.compile(r'(429|rate.?limit|too.?many.?requests)', re.IGNORECASE)
-    # 匹配: 重试
-    PATTERN_RETRY = re.compile(r'重试|retry|retrying', re.IGNORECASE)
+    # 匹配: [千年自管区-网上聊天室] 决定执行X个动作: reply  或  决定执行0个动作
+    PATTERN_ACTION = re.compile(r'\[([^\]]+)\]\s*决定执行(\d+)个动作(?:[:：]\s*(.+))?')
+    # 匹配: 已将消息 '...' 发往平台 (支持多个空格)
+    PATTERN_SENT = re.compile(r"已将消息\s+['\"](.{0,100})['\"]?\s+发往平台")
+    # 匹配: 429 或 rate limit 或 服务器负载过高
+    PATTERN_RATE_LIMIT = re.compile(r'(429|rate.?limit|too.?many.?requests|服务器负载过高)', re.IGNORECASE)
+    # 匹配: 重试次数 或 空回复
+    PATTERN_RETRY = re.compile(r'剩余重试次数[:：]\s*(\d+)|重试|retry|retrying|空回复', re.IGNORECASE)
+    # 匹配: 回复生成失败
+    PATTERN_FAILED = re.compile(r'回复生成失败|回复动作执行失败|LLM 生成失败')
     # 匹配聊天流ID: qq:123456:group 或 qq:123456:private
     PATTERN_STREAM_ID = re.compile(r'\[([a-z]+:\d+:(?:group|private))\]', re.IGNORECASE)
+    # 匹配 Planner 输出: [群名]Planner:...选择了N个动作: action1 action2
+    PATTERN_PLANNER = re.compile(r'\[([^\]]+)\]Planner:.*选择了(\d+)个动作[:：]\s*(.+)')
+    
+    # 识别日志来源模块（用于区分不同模型的报错）
+    # 识图相关的日志标识
+    MODULES_VISION = ['识图', '表情包', 'vision', 'image']
+    # 核心流程相关的日志标识（这些报错才影响消息队列）
+    MODULES_CORE = ['规划器', 'Planner', '言语', 'replyer', 'model_utils', '聊天节奏', 'generator']
     
     def __init__(
         self,
@@ -102,11 +113,45 @@ class MaiBotLogListener:
         """生成消息ID"""
         return f"msg_{uuid.uuid4().hex[:8]}"
     
-    def _parse_log_line(self, line: str):
-        """解析单行日志，更新队列状态"""
-        line = line.strip()
-        if not line:
+    def _find_active_message_by_group(self, group_name: str) -> Optional[str]:
+        """通过群名查找正在处理的消息ID"""
+        for msg_id, item in reversed(self._queue.items()):
+            if item.group_name == group_name and item.status in (MessageStatus.PLANNING, MessageStatus.GENERATING):
+                return msg_id
+        return None
+    
+    def _is_core_module_log(self, line: str) -> bool:
+        """判断日志是否来自核心流程模块（Planner/Replyer等）"""
+        return any(module in line for module in self.MODULES_CORE)
+    
+    def _is_vision_module_log(self, line: str) -> bool:
+        """判断日志是否来自识图/表情包模块"""
+        return any(module in line for module in self.MODULES_VISION)
+    
+    def _parse_log_line(self, raw_data: str):
+        """解析单行日志，更新队列状态
+        
+        日志可能是 JSON 格式或纯文本格式
+        JSON 格式: {"id": "...", "timestamp": "...", "level": "...", "module": "...", "message": "..."}
+        """
+        raw_data = raw_data.strip()
+        if not raw_data:
             return
+        
+        # 尝试解析 JSON
+        module = ""
+        message = raw_data
+        try:
+            log_obj = json.loads(raw_data)
+            if isinstance(log_obj, dict):
+                module = log_obj.get("module", "")
+                message = log_obj.get("message", "")
+                # 合并 module 和 message 用于完整匹配
+                line = f"[{module}] {message}" if module else message
+            else:
+                line = raw_data
+        except (json.JSONDecodeError, TypeError):
+            line = raw_data
         
         # 尝试提取 stream_id
         stream_match = self.PATTERN_STREAM_ID.search(line)
@@ -118,20 +163,19 @@ class MaiBotLogListener:
             group_name = thinking_match.group(1)
             cycle_count = int(thinking_match.group(2))
             
-            # 创建或更新消息
-            if stream_id and stream_id in self._active_streams:
-                msg_id = self._active_streams[stream_id]
-                if msg_id in self._queue:
-                    item = self._queue[msg_id]
-                    item.cycle_count = cycle_count
-                    item.status = MessageStatus.PLANNING
-                    return
+            # 查找是否有该群的活跃消息（用于更新思考次数）
+            existing_msg_id = self._find_active_message_by_group(group_name)
+            if existing_msg_id and existing_msg_id in self._queue:
+                item = self._queue[existing_msg_id]
+                item.cycle_count = cycle_count
+                item.status = MessageStatus.PLANNING
+                return
             
             # 新消息
             msg_id = self._generate_message_id()
             item = MessageQueueItem(
                 id=msg_id,
-                stream_id=stream_id or f"unknown:{group_name}",
+                stream_id=stream_id or f"group:{group_name}",
                 group_name=group_name,
                 status=MessageStatus.PLANNING,
                 cycle_count=cycle_count,
@@ -146,50 +190,88 @@ class MaiBotLogListener:
                 self._queue.popitem(last=False)
             return
         
-        # 2. 检测执行动作
+        # 2. 检测执行动作 (从日志中提取群名)
         action_match = self.PATTERN_ACTION.search(line)
-        if action_match and stream_id:
-            actions_str = action_match.group(1)
-            if stream_id in self._active_streams:
-                msg_id = self._active_streams[stream_id]
-                if msg_id in self._queue:
-                    item = self._queue[msg_id]
+        if action_match:
+            group_name = action_match.group(1)
+            action_count = int(action_match.group(2))
+            actions_str = action_match.group(3) or ""
+            
+            # 查找该群的活跃消息
+            msg_id = self._find_active_message_by_group(group_name)
+            if msg_id and msg_id in self._queue:
+                item = self._queue[msg_id]
+                if action_count > 0:
                     item.action_type = actions_str.strip()
                     item.status = MessageStatus.GENERATING
+                else:
+                    # 决定执行0个动作，标记为完成（无回复）
+                    item.status = MessageStatus.SENT
+                    item.sent_time = time.time()
+                    item.message_preview = "(无回复)"
+                    self._total_processed += 1
             return
         
         # 3. 检测发送成功
         sent_match = self.PATTERN_SENT.search(line)
         if sent_match:
             message_preview = sent_match.group(1)
-            # 尝试找到对应的消息
-            if stream_id and stream_id in self._active_streams:
-                msg_id = self._active_streams[stream_id]
-                if msg_id in self._queue:
-                    item = self._queue[msg_id]
+            
+            # 找到最近一个正在生成的消息并标记为已发送
+            for msg_id in reversed(list(self._queue.keys())):
+                item = self._queue[msg_id]
+                if item.status == MessageStatus.GENERATING:
                     item.status = MessageStatus.SENT
                     item.sent_time = time.time()
                     item.message_preview = message_preview[:50] if message_preview else None
                     self._total_processed += 1
-                    # 清除活跃映射
-                    del self._active_streams[stream_id]
+                    break
             return
         
-        # 4. 检测 rate limit / 重试
+        # 4. 检测 rate limit / 重试（只处理核心模块的报错）
         if self.PATTERN_RATE_LIMIT.search(line):
-            # 增加所有正在处理的消息的重试计数
-            for item in self._queue.values():
-                if item.status in (MessageStatus.PLANNING, MessageStatus.GENERATING):
-                    item.retry_count += 1
-                    item.retry_reason = "429 Rate Limit"
+            # 只有核心模块（Planner/Replyer）的报错才计入重试
+            # 识图模块的报错不影响消息队列状态
+            if self._is_vision_module_log(line) or self._is_vision_module_log(module):
+                # 识图模块报错，忽略
+                return
+            
+            # 核心模块报错，增加重试计数
+            if self._is_core_module_log(line) or self._is_core_module_log(module):
+                for item in self._queue.values():
+                    if item.status in (MessageStatus.PLANNING, MessageStatus.GENERATING):
+                        item.retry_count += 1
+                        item.retry_reason = "服务器负载过高" if "服务器负载过高" in line else "429 Rate Limit"
             return
         
-        if self.PATTERN_RETRY.search(line) and '429' not in line.lower():
-            for item in self._queue.values():
+        # 5. 检测重试/空回复（只处理核心模块）
+        retry_match = self.PATTERN_RETRY.search(line)
+        if retry_match:
+            # 识图模块的重试不计入
+            if self._is_vision_module_log(line) or self._is_vision_module_log(module):
+                return
+            
+            if self._is_core_module_log(line) or self._is_core_module_log(module):
+                for item in self._queue.values():
+                    if item.status in (MessageStatus.PLANNING, MessageStatus.GENERATING):
+                        item.retry_count += 1
+                        if "空回复" in line:
+                            item.retry_reason = "空回复重试"
+                        elif not item.retry_reason:
+                            item.retry_reason = "重试中"
+            return
+        
+        # 6. 检测回复生成失败
+        if self.PATTERN_FAILED.search(line):
+            # 找到最近一个正在处理的消息，但不立即标记为失败
+            # 因为可能会重试（开始第N次思考）
+            # 这里只是记录错误信息
+            for item in reversed(list(self._queue.values())):
                 if item.status in (MessageStatus.PLANNING, MessageStatus.GENERATING):
-                    item.retry_count += 1
                     if not item.retry_reason:
-                        item.retry_reason = "Retry"
+                        item.retry_reason = "生成失败"
+                    break
+            return
     
     async def start(self):
         """启动监听器"""
