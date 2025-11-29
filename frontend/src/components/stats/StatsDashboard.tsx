@@ -220,22 +220,23 @@ interface ModelDistributionProps {
 
 function ModelDistribution({ data, type }: ModelDistributionProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [animated, setAnimated] = useState(false);
+  const [isInitialRender, setIsInitialRender] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const listItemRefs = useRef<(HTMLDivElement | null)[]>([]);
   const pieContainerRef = useRef<HTMLDivElement>(null);
   const [lineCoords, setLineCoords] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   
-  // 动画效果
+  // 仅在首次渲染时触发入场动画
   useEffect(() => {
-    setAnimated(false);
-    const raf = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setAnimated(true);
+    if (isInitialRender) {
+      const raf = requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsInitialRender(false);
+        });
       });
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [data, type]);
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [isInitialRender]);
   
   // 根据类型获取对应的值
   const getValue = useCallback((model: ModelStats) => {
@@ -246,22 +247,36 @@ function ModelDistribution({ data, type }: ModelDistributionProps) {
     }
   }, [type]);
   
-  // 排序后的数据（从大到小）
-  const sortedData = useMemo(() => {
-    return [...data]
-      .map((model, originalIndex) => ({ model, originalIndex }))
-      .sort((a, b) => getValue(b.model) - getValue(a.model))
-      .slice(0, 5);
+  // 获取前5个模型（不排序，保持原始顺序用于渲染）
+  const top5Models = useMemo(() => {
+    // 先按当前类型排序获取前5，但保留原始数据用于稳定渲染
+    const sorted = [...data].sort((a, b) => getValue(b) - getValue(a)).slice(0, 5);
+    return sorted;
   }, [data, getValue]);
   
+  // 计算每个模型在当前排序中的位置索引
+  const positionMap = useMemo(() => {
+    const sorted = [...top5Models].sort((a, b) => getValue(b) - getValue(a));
+    const map = new Map<string, number>();
+    sorted.forEach((model, idx) => map.set(model.model_name, idx));
+    return map;
+  }, [top5Models, getValue]);
+  
+  // 为保持稳定的 key，按模型名排序渲染
+  const stableModels = useMemo(() => {
+    return [...top5Models].sort((a, b) => a.model_name.localeCompare(b.model_name));
+  }, [top5Models]);
+  
   const chartData = useMemo(() => {
-    return sortedData.map((item, index) => ({
-      name: item.model.display_name || item.model.model_name,
-      value: getValue(item.model),
+    // 按当前类型排序
+    const sorted = [...top5Models].sort((a, b) => getValue(b) - getValue(a));
+    return sorted.map((model, index) => ({
+      name: model.display_name || model.model_name,
+      value: getValue(model),
       color: MODEL_COLORS[index % MODEL_COLORS.length],
-      model: item.model,
+      model,
     })).filter(d => d.value > 0);
-  }, [sortedData, getValue]);
+  }, [top5Models, getValue]);
   
   const total = useMemo(() => chartData.reduce((sum, d) => sum + d.value, 0), [chartData]);
   
@@ -274,7 +289,10 @@ function ModelDistribution({ data, type }: ModelDistributionProps) {
     }
   };
   
-  const maxValue = Math.max(...sortedData.map(item => getValue(item.model)), 1);
+  const maxValue = Math.max(...top5Models.map(model => getValue(model)), 1);
+  
+  // 每个列表项的高度（包含 padding 和 margin）
+  const ITEM_HEIGHT = 60;
   
   // 计算扇形中心点位置
   const calculateSectorCenter = useCallback((index: number) => {
@@ -381,58 +399,66 @@ function ModelDistribution({ data, type }: ModelDistributionProps) {
         </svg>
       )}
       
-      {/* 左侧：模型列表（已排序） */}
-      <div className="flex-1 space-y-2 pr-2">
-        {sortedData.map((item, index) => (
-          <div 
-            key={`${item.model.model_name}-${type}`}
-            ref={el => listItemRefs.current[index] = el}
-            className={cn(
-              "group cursor-pointer transition-all duration-200 p-2 rounded-lg",
-              hoveredIndex === index 
-                ? "bg-gray-100 dark:bg-gray-800 scale-[1.02]" 
-                : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
-            )}
-            onMouseEnter={() => handleMouseEnter(index)}
-            onMouseLeave={handleMouseLeave}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
-                <div 
-                  className={cn(
-                    "w-3 h-3 rounded-full transition-transform duration-200",
-                    hoveredIndex === index && "scale-125"
-                  )}
-                  style={{ backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length] }}
-                />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-[120px]">
-                  {item.model.display_name || item.model.model_name}
+      {/* 左侧：模型列表（使用绝对定位实现平滑排序动画） */}
+      <div className="flex-1 pr-2 relative" style={{ height: `${stableModels.length * ITEM_HEIGHT}px` }}>
+        {stableModels.map((model) => {
+          const position = positionMap.get(model.model_name) ?? 0;
+          const colorIndex = position;
+          
+          return (
+            <div 
+              key={model.model_name}
+              ref={el => listItemRefs.current[position] = el}
+              className={cn(
+                "absolute left-0 right-0 group cursor-pointer p-2 rounded-lg transition-all duration-500 ease-out",
+                hoveredIndex === position 
+                  ? "bg-gray-100 dark:bg-gray-800 scale-[1.02]" 
+                  : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
+              )}
+              style={{
+                transform: `translateY(${position * ITEM_HEIGHT}px)`,
+              }}
+              onMouseEnter={() => handleMouseEnter(position)}
+              onMouseLeave={handleMouseLeave}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <div 
+                    className={cn(
+                      "w-3 h-3 rounded-full transition-all duration-500",
+                      hoveredIndex === position && "scale-125"
+                    )}
+                    style={{ backgroundColor: MODEL_COLORS[colorIndex % MODEL_COLORS.length] }}
+                  />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-[120px]">
+                    {model.display_name || model.model_name}
+                  </span>
+                </div>
+                <span className={cn(
+                  "text-sm transition-colors duration-200",
+                  hoveredIndex === position 
+                    ? "text-gray-900 dark:text-white font-medium"
+                    : "text-gray-500 dark:text-gray-400"
+                )}>
+                  {formatValue(model)}
                 </span>
               </div>
-              <span className={cn(
-                "text-sm transition-colors duration-200",
-                hoveredIndex === index 
-                  ? "text-gray-900 dark:text-white font-medium"
-                  : "text-gray-500 dark:text-gray-400"
-              )}>
-                {formatValue(item.model)}
-              </span>
+              <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div 
+                  className="h-full rounded-full transition-all duration-700 ease-out"
+                  style={{ 
+                    width: isInitialRender 
+                      ? '0%'
+                      : `${maxValue > 0 ? (getValue(model) / maxValue) * 100 : 0}%`,
+                    backgroundColor: MODEL_COLORS[colorIndex % MODEL_COLORS.length],
+                    transitionDelay: isInitialRender ? `${position * 80}ms` : '0ms',
+                    opacity: hoveredIndex === null || hoveredIndex === position ? 1 : 0.4,
+                  }}
+                />
+              </div>
             </div>
-            <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div 
-                className="h-full rounded-full transition-all duration-700 ease-out"
-                style={{ 
-                  width: animated 
-                    ? `${maxValue > 0 ? (getValue(item.model) / maxValue) * 100 : 0}%`
-                    : '0%',
-                  backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length],
-                  transitionDelay: `${index * 80}ms`,
-                  opacity: hoveredIndex === null || hoveredIndex === index ? 1 : 0.4,
-                }}
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       
       {/* 右侧：饼图 */}
