@@ -27,6 +27,7 @@ from ..models.db_models import InstanceDB
 from ..models.instance import InstanceStatus
 from ..core.logger import logger
 from ..core import settings
+from ..services.process_manager import get_process_manager
 
 
 class StatsCache:
@@ -229,7 +230,11 @@ class StatsService:
         start_time: datetime,
         end_time: datetime
     ) -> float:
-        """查询在线时间（秒）"""
+        """查询在线时间（秒）
+        
+        注意：MaiBot 目前可能没有 online_time 表，这个方法返回 0.0
+        在线时间应该通过 _get_instance_online_time 方法从实例记录获取
+        """
         try:
             async with aiosqlite.connect(db_path) as db:
                 # 检查表是否存在
@@ -237,6 +242,8 @@ class StatsService:
                     "SELECT name FROM sqlite_master WHERE type='table' AND name='online_time'"
                 )
                 if not await cursor.fetchone():
+                    # MaiBot 没有 online_time 表，返回 0
+                    # 在线时间将通过实例的 run_time 字段获取
                     return 0.0
                 
                 # 查询在线时间记录 - 使用 start_timestamp 和 end_timestamp（datetime类型）
@@ -252,6 +259,28 @@ class StatsService:
         except Exception as e:
             logger.error(f"查询在线时间失败 ({db_path}): {e}")
             return 0.0
+    
+    def _get_instance_online_time(self, instance: InstanceDB) -> float:
+        """从实例记录获取在线时间（秒）
+        
+        包括:
+        1. 实例的累计运行时间 (run_time)
+        2. 如果实例正在运行，加上当前进程的运行时间
+        
+        Args:
+            instance: 实例数据库对象
+            
+        Returns:
+            在线时间（秒）
+        """
+        total_time = float(instance.run_time or 0)
+        
+        # 如果实例正在运行，加上当前进程的运行时间
+        if instance.status == InstanceStatus.RUNNING.value and instance.last_run:
+            current_uptime = (datetime.now() - instance.last_run).total_seconds()
+            total_time += current_uptime
+        
+        return total_time
     
     async def _query_messages(
         self, 
@@ -336,12 +365,13 @@ class StatsService:
         # 获取数据库路径
         db_path = self._get_maibot_db_path(instance.instance_path)
         if not db_path:
-            # 返回空统计数据（实例存在但没有运行数据）
+            # MaiBot 数据库不存在，但仍返回在线时间（从实例记录获取）
+            online_time = self._get_instance_online_time(instance)
             return InstanceStats(
                 instance_id=instance_id,
                 instance_name=instance.name,
                 time_range=time_range.value,
-                summary=StatsSummary(),
+                summary=StatsSummary(online_time=online_time),
                 model_stats=[],
                 request_type_stats=[],
             )
@@ -350,14 +380,16 @@ class StatsService:
         end_time = datetime.now()
         start_time = end_time - timedelta(hours=time_range.to_hours())
         
-        # 并行查询各类统计数据
+        # 并行查询 LLM 使用数据和消息统计
         llm_task = self._query_llm_usage(db_path, start_time, end_time)
-        online_task = self._query_online_time(db_path, start_time, end_time)
         messages_task = self._query_messages(db_path, start_time, end_time)
         
-        llm_data, online_time, (total_messages, total_replies) = await asyncio.gather(
-            llm_task, online_task, messages_task
+        llm_data, (total_messages, total_replies) = await asyncio.gather(
+            llm_task, messages_task
         )
+        
+        # 获取在线时间 - 从实例记录获取
+        online_time = self._get_instance_online_time(instance)
         
         # 构建摘要
         online_hours = online_time / 3600.0 if online_time > 0 else 0.0

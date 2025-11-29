@@ -43,7 +43,7 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
       letterSpacing: 0,
       lineHeight: 1,
       theme: {
-        background: '#000000',
+        background: '#1e1e1e',
         foreground: '#d4d4d4',
         cursor: '#ffffff',
         black: '#000000',
@@ -276,7 +276,7 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
         ref={terminalRef} 
         className="h-full w-full rounded-lg overflow-hidden"
         style={{ 
-          backgroundColor: '#000000',
+          backgroundColor: '#1e1e1e',
         }}
       />
       <style>{`
