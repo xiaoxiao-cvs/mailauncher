@@ -7,7 +7,10 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build && ../.venv/bin/pyinstaller ../backend/mai-backend.spec --clean --noconfirm --distpath src-tauri/backend-dist"
+    "beforeBuildCommand": {
+      "script": "pnpm build:full",
+      "cwd": "."
+    }
   },
   "app": {
     "windows": [
@@ -47,6 +50,21 @@
       "signingIdentity": "-",
       "entitlements": null,
       "hardenedRuntime": true
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "languages": ["SimpChinese", "English"],
+      "displayLanguageSelector": true,
+      "installerIcon": "icons/icon.ico",
+      "uninstallerIcon": "icons/icon.ico",
+      "license": "../LICENSE"
     }
   },
   "plugins": {
