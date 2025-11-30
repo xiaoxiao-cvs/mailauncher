@@ -13,6 +13,8 @@ from .maibot_config import router as maibot_config_router
 from .update import router as update_router
 from .schedules import router as schedules_router
 from .version import router as version_router
+from .stats import router as stats_router
+from .message_queue import router as message_queue_router
 
 # 创建 v1 API 路由器
 api_v1_router = APIRouter()
@@ -21,6 +23,8 @@ api_v1_router = APIRouter()
 # 注意：更具体的路由（如 /config/api-providers）要在更通用的路由（如 /config）之前注册
 api_v1_router.include_router(api_providers_router, prefix="/config/api-providers", tags=["API供应商"])
 api_v1_router.include_router(maibot_config_router, prefix="/maibot", tags=["MAIBot配置"])
+api_v1_router.include_router(stats_router, prefix="/stats", tags=["统计信息"])
+api_v1_router.include_router(message_queue_router, prefix="", tags=["消息队列"])
 api_v1_router.include_router(instances_router, prefix="/instances", tags=["实例管理"])
 api_v1_router.include_router(deployments_router, prefix="/deployments", tags=["部署管理"])
 api_v1_router.include_router(schedules_router, prefix="/schedules", tags=["计划任务"])

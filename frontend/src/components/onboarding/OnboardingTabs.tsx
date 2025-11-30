@@ -21,7 +21,14 @@ interface OnboardingTabsProps {
 export function OnboardingTabs({ tabs, onTabChange, currentTab = 0, extraProps }: OnboardingTabsProps) {
   const [activeTab, setActiveTab] = useState(currentTab)
 
-  // 安全检查
+  // 当父组件的 currentTab 变化时，同步更新内部状态
+  useEffect(() => {
+    if (tabs && currentTab >= 0 && currentTab < tabs.length) {
+      setActiveTab(currentTab)
+    }
+  }, [currentTab, tabs])
+
+  // 安全检查 - 移到 hooks 之后
   if (!tabs || tabs.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-[#023e8a]/40 dark:text-white/40">
@@ -29,13 +36,6 @@ export function OnboardingTabs({ tabs, onTabChange, currentTab = 0, extraProps }
       </div>
     )
   }
-
-  // 当父组件的 currentTab 变化时，同步更新内部状态
-  useEffect(() => {
-    if (currentTab >= 0 && currentTab < tabs.length) {
-      setActiveTab(currentTab)
-    }
-  }, [currentTab, tabs.length])
 
   const handleTabClick = (index: number) => {
     if (index >= 0 && index < tabs.length) {

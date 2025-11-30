@@ -335,9 +335,9 @@ export const InstanceDetailPage: React.FC = () => {
         {/* Right Panel: Terminal & Controls */}
         <div className="col-span-8 flex flex-col gap-4 min-h-0 animate-slide-up opacity-0">
           {/* Terminal Window */}
-          <div className="flex-1 bg-[#1e1e1e] dark:bg-[#000000] rounded-3xl shadow-lg border border-gray-800/50 overflow-hidden flex flex-col">
+          <div className="flex-1 bg-[#1e1e1e] dark:bg-[#1e1e1e] rounded-3xl shadow-lg overflow-hidden flex flex-col">
             {/* Terminal Header / Tabs */}
-            <div className="flex items-center px-4 py-3 bg-[#252526] dark:bg-[#111111] border-b border-gray-800">
+            <div className="flex items-center px-4 py-3 bg-[#252526] dark:bg-[#252526] border-b border-gray-700/30">
               <div className="flex gap-2 mr-4">
                 <div className="w-3 h-3 rounded-full bg-red-500/80" />
                 <div className="w-3 h-3 rounded-full bg-yellow-500/80" />

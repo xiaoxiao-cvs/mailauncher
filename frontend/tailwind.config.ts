@@ -55,6 +55,20 @@ const config: Config = {
           '5': 'hsl(var(--chart-5))',
         },
       },
+      keyframes: {
+        'slide-in-left': {
+          '0%': { transform: 'translateX(-20px)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
+        'slide-out-right': {
+          '0%': { transform: 'translateX(0)', opacity: '1' },
+          '100%': { transform: 'translateX(20px)', opacity: '0' },
+        },
+      },
+      animation: {
+        'slide-in-left': 'slide-in-left 0.3s ease-out',
+        'slide-out-right': 'slide-out-right 0.3s ease-out forwards',
+      },
     },
   },
   plugins: [require('tailwindcss-animate')],

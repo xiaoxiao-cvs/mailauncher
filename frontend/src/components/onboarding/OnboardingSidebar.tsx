@@ -34,7 +34,7 @@ export function OnboardingSidebar({
       </div>
 
       {/* 步骤列表 */}
-      <div className="flex-1 space-y-1 overflow-y-auto scrollbar-none">
+      <div className="flex-1 space-y-3 overflow-y-auto scrollbar-none px-1">
         {steps.map((step, index) => {
           const isCompleted = index < currentStep
           const isCurrent = index === currentStep
@@ -45,12 +45,12 @@ export function OnboardingSidebar({
               key={step.id}
               onClick={() => onStepClick(index)}
               disabled={isAnimating || !isAccessible}
-              className={`w-full text-left px-3 py-2.5 rounded-[8px] transition-all duration-200 group flex items-center gap-3 select-none ${
+              className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-300 group flex items-center gap-3.5 select-none ${
                 isCurrent
-                  ? 'bg-[#007AFF] text-white shadow-sm font-medium'
+                  ? 'bg-[#007AFF] text-white shadow-[0_4px_12px_rgba(0,122,255,0.25)] font-medium scale-[1.02]'
                   : isAccessible
-                  ? 'text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 active:bg-black/10 dark:active:bg-white/15'
-                  : 'text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-60'
+                  ? 'text-gray-600 dark:text-gray-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.08] active:scale-[0.98]'
+                  : 'text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50'
               }`}
             >
               <div className={`flex items-center justify-center transition-colors ${

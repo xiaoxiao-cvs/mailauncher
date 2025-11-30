@@ -30,6 +30,15 @@ from .download import (
     VersionsResponse,
 )
 from .response import ResponseBase, ErrorResponse, SuccessResponse
+from .stats import (
+    TimeRange,
+    StatsSummary,
+    ModelStats,
+    RequestTypeStats,
+    InstanceStats,
+    AggregatedStats,
+    StatsOverview,
+)
 
 __all__ = [
     # Instance models
@@ -61,4 +70,12 @@ __all__ = [
     "ResponseBase",
     "ErrorResponse",
     "SuccessResponse",
+    # Stats models
+    "TimeRange",
+    "StatsSummary",
+    "ModelStats",
+    "RequestTypeStats",
+    "InstanceStats",
+    "AggregatedStats",
+    "StatsOverview",
 ]

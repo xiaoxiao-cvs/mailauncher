@@ -22,6 +22,7 @@ from ..models.db_models import InstanceDB
 from ..core import settings
 from ..core.logger import logger
 from .process_manager import get_process_manager
+from .message_queue_service import get_message_queue_service
 
 
 class InstanceService:
@@ -533,6 +534,17 @@ class InstanceService:
                 db_instance.status = InstanceStatus.RUNNING.value
                 db_instance.last_run = datetime.now()
                 logger.info(f"实例 {instance_id} 启动成功")
+                
+                # 启动消息队列监听器 (延迟启动，等待 MaiBot WebUI 就绪)
+                async def delayed_start_listener():
+                    await asyncio.sleep(3)  # 等待 MaiBot WebUI 启动
+                    mq_service = get_message_queue_service()
+                    await mq_service.start_listener(
+                        instance_id=instance_id,
+                        instance_name=db_instance.name,
+                        instance_path=instance_path,
+                    )
+                asyncio.create_task(delayed_start_listener())
             else:
                 db_instance.status = InstanceStatus.ERROR.value
                 logger.error(f"实例 {instance_id} 所有组件启动失败")
@@ -654,6 +666,10 @@ class InstanceService:
                 db_instance.status = InstanceStatus.STOPPED.value
                 await db.commit()
                 logger.info(f"成功停止实例: {instance_id}")
+                
+                # 停止消息队列监听器
+                mq_service = get_message_queue_service()
+                await mq_service.stop_listener(instance_id)
             else:
                 db_instance.status = InstanceStatus.ERROR.value
                 await db.commit()
