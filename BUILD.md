@@ -4,6 +4,20 @@
 
 MAI Launcher 是一个 Tauri 桌面应用，包含 FastAPI 后端和 React 前端。本指南说明如何将整个应用打包成独立的可执行文件。
 
+### 支持平台
+
+| 平台 | 架构 | 安装包格式 |
+|------|------|------------|
+| 🍎 macOS | Intel + Apple Silicon (Universal) | `.dmg` |
+| 🪟 Windows | x64 | `.exe` (NSIS) / `.msi` |
+| 🐧 Linux | x64 | `.deb` / `.AppImage` |
+
+### 自动化构建
+
+项目使用 **GitHub Actions** 自动构建和发布。当触发工作流时，会同时在 macOS 和 Windows 上并行构建，并自动创建 GitHub Release。
+
+查看 `.github/workflows/build-and-release.yml` 了解详细配置。
+
 ## 架构
 
 ```
@@ -110,9 +124,18 @@ pnpm tauri build
 ### 生成的文件
 
 打包完成后，应用程序位于：
-- **macOS**: `frontend/src-tauri/target/release/bundle/dmg/MAI Launcher_0.1.0_*.dmg`
-- **Windows**: `frontend/src-tauri/target/release/bundle/msi/MAI Launcher_0.1.0_*.msi`
-- **Linux**: `frontend/src-tauri/target/release/bundle/deb/mai-launcher_0.1.0_*.deb`
+
+**本地构建：**
+- **macOS**: `frontend/src-tauri/target/release/bundle/dmg/MAI Launcher_*.dmg`
+- **Windows NSIS**: `frontend/src-tauri/target/release/bundle/nsis/MAI Launcher_*-setup.exe`
+- **Windows MSI**: `frontend/src-tauri/target/release/bundle/msi/MAI Launcher_*.msi`
+- **Linux DEB**: `frontend/src-tauri/target/release/bundle/deb/mai-launcher_*.deb`
+- **Linux AppImage**: `frontend/src-tauri/target/release/bundle/appimage/mai-launcher_*.AppImage`
+
+**GitHub Actions 构建：**
+- **macOS Universal**: `MAI-Launcher-{version}-dev-macos-universal.dmg`
+- **Windows x64**: `MAI-Launcher-{version}-dev-windows-x64-setup.exe`
+- **Windows x64 MSI**: `MAI-Launcher-{version}-dev-windows-x64.msi`
 
 ## 配置说明
 
@@ -274,29 +297,54 @@ xattr -cr "/Applications/MAI Launcher.app"
 - `frontend/package.json`: `"version": "x.y.z"`
 - `backend/app/core/config.py`: `VERSION = "x.y.z"`
 
-### 2. 构建所有平台
+### 2. 自动构建发布（推荐）
+
+使用 GitHub Actions 自动构建所有平台：
+
+1. 进入 GitHub 仓库的 **Actions** 页面
+2. 选择 **Build and Release (Dev)** 工作流
+3. 点击 **Run workflow** 按钮
+4. 选择分支并触发构建
+
+构建完成后，会自动：
+- 同时在 macOS 和 Windows 上并行构建
+- 创建包含所有平台安装包的 GitHub Release
+- 生成 `latest.json` 更新清单文件
+- 保留最近 3 个开发版本，自动清理旧版本
+
+### 3. 本地构建
+
+如需本地构建：
 
 ```bash
-# macOS
+# macOS / Linux
 ./build.sh
 
-# Windows (在 Windows 系统上)
-build.bat  # 需要创建 Windows 版本的脚本
-
-# Linux (在 Linux 系统上)
-./build.sh
+# Windows (PowerShell)
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r backend/requirements.txt
+cd frontend
+pnpm install
+pnpm tauri build
 ```
 
-### 3. 测试
+### 4. 测试
 
 - 安装打包的应用
 - 测试核心功能
 - 检查日志系统
 - 验证前后端通信
 
-### 4. 发布
+### 5. 发布说明
 
-将生成的安装包上传到发布平台（GitHub Releases、官网等）。
+GitHub Release 会自动包含：
+- 📦 macOS Universal DMG (支持 Intel 和 Apple Silicon)
+- 📦 Windows x64 NSIS 安装程序
+- 📦 Windows x64 MSI 安装程序
+- 📄 `latest.json` 自动更新清单
+
+> ⚠️ **注意**：开发版本 (Dev) 会标记为预发布版本 (pre-release)，不会触发用户的自动更新。
 
 ## 技术栈
 
