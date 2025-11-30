@@ -24,7 +24,6 @@ import {
   Cpu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Sparkline, SPARKLINE_COLORS } from '@/components/ui/sparkline';
 import {
   useStatsOverviewQuery,
   useInstanceStatsQuery,
@@ -157,11 +156,9 @@ interface StatCardProps {
   trend?: number;
   gradient: string;
   delay?: number;
-  sparklineData?: number[];
-  sparklineColor?: string;
 }
 
-function StatCard({ title, value, formatter, icon, trend, gradient, delay = 0, sparklineData, sparklineColor }: StatCardProps) {
+function StatCard({ title, value, formatter, icon, trend, gradient, delay = 0 }: StatCardProps) {
   const [isVisible, setIsVisible] = useState(false);
   
   useEffect(() => {
@@ -185,10 +182,10 @@ function StatCard({ title, value, formatter, icon, trend, gradient, delay = 0, s
         className={cn("absolute -right-8 -top-8 w-24 h-24 rounded-full opacity-20 blur-2xl", gradient)}
       />
       
-      <div className="relative flex items-start justify-between">
-        {/* 左侧：图标 + 内容 */}
-        <div className="flex items-start gap-3">
-          {/* 图标 - 左移到这里 */}
+      <div className="relative flex items-center">
+        {/* 图标 + 内容 */}
+        <div className="flex items-center gap-3">
+          {/* 图标 */}
           <div className={cn(
             "p-3 rounded-xl flex-shrink-0",
             gradient
@@ -212,21 +209,6 @@ function StatCard({ title, value, formatter, icon, trend, gradient, delay = 0, s
             )}
           </div>
         </div>
-        {/* 右侧：迷你折线图 */}
-        {sparklineData && (
-          <div className="absolute bottom-3 right-4">
-            <Sparkline
-              data={sparklineData}
-              color={sparklineColor || SPARKLINE_COLORS.cyan}
-              width={80}
-              height={24}
-              strokeWidth={1.5}
-              animate={true}
-              animationDuration={800}
-              showGradient={false}
-            />
-          </div>
-        )}
       </div>
     </div>
   );
@@ -791,8 +773,6 @@ export function StatsDashboard() {
           icon={<Activity className="w-5 h-5 text-white" />}
           gradient="bg-gradient-to-br from-indigo-500 to-purple-600"
           delay={0}
-          sparklineData={statsHistory.requests}
-          sparklineColor={SPARKLINE_COLORS.purple}
         />
         <StatCard
           title="总花费"
@@ -801,8 +781,6 @@ export function StatsDashboard() {
           icon={<DollarSign className="w-5 h-5 text-white" />}
           gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
           delay={100}
-          sparklineData={statsHistory.cost}
-          sparklineColor={SPARKLINE_COLORS.green}
         />
         <StatCard
           title="Token 消耗"
@@ -811,8 +789,6 @@ export function StatsDashboard() {
           icon={<Zap className="w-5 h-5 text-white" />}
           gradient="bg-gradient-to-br from-amber-500 to-orange-600"
           delay={200}
-          sparklineData={statsHistory.tokens}
-          sparklineColor={SPARKLINE_COLORS.orange}
         />
         <StatCard
           title="平均响应"
@@ -821,8 +797,6 @@ export function StatsDashboard() {
           icon={<Clock className="w-5 h-5 text-white" />}
           gradient="bg-gradient-to-br from-pink-500 to-rose-600"
           delay={300}
-          sparklineData={statsHistory.responseTime}
-          sparklineColor={SPARKLINE_COLORS.pink}
         />
       </div>
       
@@ -835,8 +809,6 @@ export function StatsDashboard() {
           icon={<Clock className="w-5 h-5 text-white" />}
           gradient="bg-gradient-to-br from-cyan-500 to-blue-600"
           delay={400}
-          sparklineData={statsHistory.onlineTime}
-          sparklineColor={SPARKLINE_COLORS.cyan}
         />
         <StatCard
           title="消息处理"
@@ -845,8 +817,6 @@ export function StatsDashboard() {
           icon={<MessageSquare className="w-5 h-5 text-white" />}
           gradient="bg-gradient-to-br from-violet-500 to-purple-600"
           delay={500}
-          sparklineData={statsHistory.messages}
-          sparklineColor={SPARKLINE_COLORS.purple}
         />
         <StatCard
           title="回复数量"
@@ -855,8 +825,6 @@ export function StatsDashboard() {
           icon={<Reply className="w-5 h-5 text-white" />}
           gradient="bg-gradient-to-br from-fuchsia-500 to-pink-600"
           delay={600}
-          sparklineData={statsHistory.replies}
-          sparklineColor={SPARKLINE_COLORS.pink}
         />
       </div>
       
@@ -892,20 +860,24 @@ export function StatsDashboard() {
           {/* 模型分布：左侧列表 + 右侧饼图 */}
           <ModelDistribution data={modelStats} type={chartType} />
           
-          {/* 效率指标 */}
+          {/* 时间段总计 */}
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {formatCurrency(summary?.cost_per_hour || 0)}
+                  {formatCurrency(summary?.total_cost || 0)}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">每小时花费</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {timeRange === '1h' ? '最近1小时' : timeRange === '6h' ? '最近6小时' : timeRange === '12h' ? '最近12小时' : timeRange === '24h' ? '最近24小时' : timeRange === '7d' ? '最近7天' : '最近30天'}花费
+                </p>
               </div>
               <div className="text-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {formatNumber(summary?.tokens_per_hour || 0)}
+                  {formatNumber(summary?.total_tokens || 0)}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">每小时 Token</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {timeRange === '1h' ? '最近1小时' : timeRange === '6h' ? '最近6小时' : timeRange === '12h' ? '最近12小时' : timeRange === '24h' ? '最近24小时' : timeRange === '7d' ? '最近7天' : '最近30天'} Token
+                </p>
               </div>
             </div>
           </div>

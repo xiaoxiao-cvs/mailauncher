@@ -6,7 +6,6 @@
 
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { Sparkline, SPARKLINE_COLORS } from '@/components/ui/sparkline';
 import {
   useInstanceMessageQueueQuery,
   useAllMessageQueuesQuery,
@@ -18,9 +17,9 @@ import {
 
 // 刷新间隔配置（毫秒）
 const REFRESH_INTERVALS = {
-  FAST: 1000,      // 有队列时 1秒
-  NORMAL: 3000,    // 15秒无消息后 3秒
-  SLOW: 5000,      // 30秒无消息后 5秒（默认）
+  FAST: 800,       // 有队列时 0.8秒
+  NORMAL: 2000,    // 15秒无消息后 2秒
+  SLOW: 3000,      // 30秒无消息后 3秒（默认）
 } as const;
 
 type RefreshIntervalType = typeof REFRESH_INTERVALS[keyof typeof REFRESH_INTERVALS];
@@ -47,6 +46,8 @@ import {
   Send,
   Sparkles,
   Timer,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 // ==================== 配置 ====================
@@ -104,18 +105,48 @@ function formatDuration(startTime: number): string {
   return `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`;
 }
 
+// ==================== 实时读秒 Hook ====================
+
+function useElapsedTime(startTime: number, isActive: boolean): string {
+  const [elapsed, setElapsed] = useState(() => formatDuration(startTime));
+  
+  useEffect(() => {
+    if (!isActive) {
+      // 不活跃时只更新一次
+      setElapsed(formatDuration(startTime));
+      return;
+    }
+    
+    // 立即更新
+    setElapsed(formatDuration(startTime));
+    
+    // 每秒更新
+    const timer = setInterval(() => {
+      setElapsed(formatDuration(startTime));
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [startTime, isActive]);
+  
+  return elapsed;
+}
+
 // ==================== 消息项组件 ====================
 
 interface MessageItemProps {
   item: MessageQueueItem & { instanceName?: string };
   isExiting: boolean;
   showInstanceName?: boolean;
+  privacyMode?: boolean;  // 隐私模式：隐藏消息预览
 }
 
-function MessageItem({ item, isExiting, showInstanceName }: MessageItemProps) {
+function MessageItem({ item, isExiting, showInstanceName, privacyMode }: MessageItemProps) {
   const config = STATUS_CONFIG[item.status];
   const Icon = config.icon;
   const isProcessing = ['planning', 'generating', 'sending'].includes(item.status);
+  
+  // 使用本地计时器实时更新读秒
+  const elapsedTime = useElapsedTime(item.start_time, isProcessing);
   
   return (
     <div
@@ -160,17 +191,27 @@ function MessageItem({ item, isExiting, showInstanceName }: MessageItemProps) {
               {config.label}
             </span>
             <span className="text-xs text-gray-400">
-              {formatDuration(item.start_time)}
+              {elapsedTime}
             </span>
             {item.action_type && (
               <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                → {item.action_type}
+                → {item.action_type.toLowerCase().includes('no_reply') ? '不回复' : item.action_type}
               </span>
             )}
           </div>
           
-          {/* 重试信息 */}
-          {item.retry_count > 0 && (
+          {/* 失败信息 - 红色显示 */}
+          {item.status === 'failed' && (
+            <div className="flex items-center gap-1 mt-1">
+              <AlertCircle className="w-3 h-3 text-red-500" />
+              <span className="text-xs text-red-600 dark:text-red-400">
+                {item.retry_reason || '回复生成失败'}
+              </span>
+            </div>
+          )}
+          
+          {/* 重试信息 - 非失败状态时显示 */}
+          {item.status !== 'failed' && item.retry_count > 0 && (
             <div className="flex items-center gap-1 mt-1">
               <RefreshCw className="w-3 h-3 text-amber-500" />
               <span className="text-xs text-amber-600 dark:text-amber-400">
@@ -180,10 +221,10 @@ function MessageItem({ item, isExiting, showInstanceName }: MessageItemProps) {
             </div>
           )}
           
-          {/* 消息预览 */}
-          {item.message_preview && item.status === 'sent' && (
+          {/* 消息预览 - 隐私模式下显示"已回复" */}
+          {item.status === 'sent' && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-              "{item.message_preview}"
+              {privacyMode ? '已回复' : (item.message_preview ? `"${item.message_preview}"` : '已回复')}
             </p>
           )}
         </div>
@@ -200,8 +241,11 @@ interface MessageQueuePanelProps {
 }
 
 export function MessageQueuePanel({ instanceId, className }: MessageQueuePanelProps) {
+  // ==================== 隐私模式状态 ====================
+  const [privacyMode, setPrivacyMode] = useState(false);
+  
   // ==================== 动态刷新频率状态 ====================
-  const [refetchInterval, setRefetchInterval] = useState<RefreshIntervalType>(REFRESH_INTERVALS.SLOW);
+  const [refetchInterval, setRefetchInterval] = useState<RefreshIntervalType>(REFRESH_INTERVALS.FAST);
   const lastActiveTimeRef = useRef<number>(Date.now());
   const intervalCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
@@ -300,18 +344,20 @@ export function MessageQueuePanel({ instanceId, className }: MessageQueuePanelPr
   // 追踪已经触发过退出流程的消息ID（防止重复触发）
   const processedSentIdsRef = useRef<Set<string>>(new Set());
   
-  // 检测已发送的消息，添加退出动画
+  // 检测已发送或失败的消息，添加退出动画
   useEffect(() => {
     if (allMessages.length === 0) return;
     
-    // 找出新变成 sent 状态的消息
+    // 找出新变成 sent 或 failed 状态的消息
     allMessages.forEach((msg) => {
-      if (msg.status === 'sent' && msg.sent_time) {
+      if ((msg.status === 'sent' || msg.status === 'failed') && msg.sent_time) {
         // 只处理还没处理过的消息
         if (!processedSentIdsRef.current.has(msg.id)) {
           processedSentIdsRef.current.add(msg.id);
           
-          // 2秒后开始退出动画
+          // 失败的消息延迟更长（5秒），成功的2秒
+          const delayMs = msg.status === 'failed' ? 5000 : 2000;
+          
           setTimeout(() => {
             setExitingIds(prev => new Set([...prev, msg.id]));
             
@@ -324,7 +370,7 @@ export function MessageQueuePanel({ instanceId, className }: MessageQueuePanelPr
               });
               setRemovedIds(prev => new Set([...prev, msg.id]));
             }, 500);
-          }, 2000);
+          }, delayMs);
         }
       }
     });
@@ -445,21 +491,20 @@ export function MessageQueuePanel({ instanceId, className }: MessageQueuePanelPr
             </span>
           )}
         </div>
-        {/* 迷你折线图 - 显示处理消息趋势 */}
-        <div className="flex items-center">
-          {stats.hasAnyConnected && processedHistory.length >= 2 && (
-            <Sparkline
-              data={processedHistory}
-              color={SPARKLINE_COLORS.cyan}
-              width={80}
-              height={24}
-              strokeWidth={2}
-              animate={true}
-              animationDuration={800}
-              showGradient={true}
-            />
+        
+        {/* 隐私模式按钮 */}
+        <button
+          onClick={() => setPrivacyMode(!privacyMode)}
+          className={cn(
+            "p-1.5 rounded-lg transition-colors",
+            privacyMode 
+              ? "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+              : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 dark:text-gray-500"
           )}
-        </div>
+          title={privacyMode ? "显示回复内容" : "隐藏回复内容"}
+        >
+          {privacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        </button>
       </div>
       
       {/* 错误状态 */}
@@ -481,7 +526,7 @@ export function MessageQueuePanel({ instanceId, className }: MessageQueuePanelPr
       
       {/* 消息列表 */}
       {!isLoading && (
-        <div className="space-y-2 max-h-[400px] overflow-y-auto scrollbar-thin">
+        <div className="space-y-2 max-h-[400px] overflow-y-auto overflow-x-hidden scrollbar-thin">
           {!stats.hasAnyConnected ? (
             // 没有任何实例连接
             <div className="text-center py-6 text-gray-400">
@@ -500,6 +545,7 @@ export function MessageQueuePanel({ instanceId, className }: MessageQueuePanelPr
                 item={item}
                 isExiting={exitingIds.has(item.id)}
                 showInstanceName={!instanceId}
+                privacyMode={privacyMode}
               />
             ))
           )}

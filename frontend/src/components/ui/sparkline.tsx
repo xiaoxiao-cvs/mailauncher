@@ -89,7 +89,7 @@ export function Sparkline({
         data={chartData} 
         width={actualWidth}
         height={actualHeight}
-        margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+        margin={{ top: 2, right: 0, bottom: 0, left: 0 }}
       >
           {/* 渐变定义 */}
           {showGradient && (
@@ -102,8 +102,8 @@ export function Sparkline({
             </defs>
           )}
           
-          {/* 隐藏的 Y 轴，用于自动计算范围 */}
-          <YAxis domain={['dataMin', 'dataMax']} hide />
+          {/* 隐藏的 Y 轴，从 0 开始确保折线从底部向上延伸 */}
+          <YAxis domain={[0, 'dataMax']} hide />
           
           {/* 折线 */}
           <Line

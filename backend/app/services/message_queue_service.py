@@ -22,10 +22,17 @@ class MaiBotLogListener:
     """MaiBot 日志监听器 - 单个实例的 WebSocket 监听"""
     
     # 日志解析正则表达式
-    # 匹配: [千年自管区-网上聊天室] 开始第N次思考  (群名在方括号内)
-    PATTERN_THINKING = re.compile(r'\[([^\]]+)\]\s*开始第(\d+)次思考')
-    # 匹配: [千年自管区-网上聊天室] 决定执行X个动作: reply  或  决定执行0个动作
-    PATTERN_ACTION = re.compile(r'\[([^\]]+)\]\s*决定执行(\d+)个动作(?:[:：]\s*(.+))?')
+    # 日志格式示例（带模块前缀）:
+    #   [聊天节奏] [千年自管区-网上聊天室] 开始第7次思考(频率: 0.8)
+    #   [规划器] [千年自管区-网上聊天室]Planner:...选择了2个动作: reply reply
+    #   [聊天节奏] [千年自管区-网上聊天室] 决定执行2个动作: reply reply
+    #   [消息发送] 已将消息 '...' 发往平台'qq'
+    
+    # 匹配: [模块] [群名] 开始第N次思考  (群名在第二个方括号内)
+    # 需要跳过第一个 [模块] 部分
+    PATTERN_THINKING = re.compile(r'(?:\[[^\]]+\]\s*)?\[([^\]]+)\]\s*开始第(\d+)次思考')
+    # 匹配: [模块] [群名] 决定执行X个动作  或  [模块] [群名]Planner:...选择了X个动作
+    PATTERN_ACTION = re.compile(r'(?:\[[^\]]+\]\s*)?\[([^\]]+)\](?:\s*决定执行|Planner:.*选择了)(\d+)个动作(?:[::：]\s*(.+))?')
     # 匹配: 已将消息 '...' 发往平台 (支持多个空格)
     PATTERN_SENT = re.compile(r"已将消息\s+['\"](.{0,100})['\"]?\s+发往平台")
     # 匹配: 429 或 rate limit 或 服务器负载过高
@@ -34,6 +41,8 @@ class MaiBotLogListener:
     PATTERN_RETRY = re.compile(r'剩余重试次数[:：]\s*(\d+)|重试|retry|retrying|空回复', re.IGNORECASE)
     # 匹配: 回复生成失败
     PATTERN_FAILED = re.compile(r'回复生成失败|回复动作执行失败|LLM 生成失败')
+    # 匹配: 动作执行最终失败（带群名）: [群名] 回复动作执行失败
+    PATTERN_ACTION_FAILED = re.compile(r'(?:\[[^\]]+\]\s*)?\[([^\]]+)\]\s*回复动作执行失败')
     # 匹配聊天流ID: qq:123456:group 或 qq:123456:private
     PATTERN_STREAM_ID = re.compile(r'\[([a-z]+:\d+:(?:group|private))\]', re.IGNORECASE)
     # 匹配 Planner 输出: [群名]Planner:...选择了N个动作: action1 action2
@@ -201,11 +210,16 @@ class MaiBotLogListener:
             msg_id = self._find_active_message_by_group(group_name)
             if msg_id and msg_id in self._queue:
                 item = self._queue[msg_id]
-                if action_count > 0:
-                    item.action_type = actions_str.strip()
+                item.action_type = actions_str.strip()
+                
+                # 判断是否是 no_reply 动作（不回复）
+                is_no_reply = 'no_reply' in actions_str.lower()
+                
+                if action_count > 0 and not is_no_reply:
+                    # 有实际动作需要执行，进入生成状态
                     item.status = MessageStatus.GENERATING
                 else:
-                    # 决定执行0个动作，标记为完成（无回复）
+                    # 决定执行0个动作或 no_reply，标记为完成（无回复）
                     item.status = MessageStatus.SENT
                     item.sent_time = time.time()
                     item.message_preview = "(无回复)"
@@ -261,11 +275,24 @@ class MaiBotLogListener:
                             item.retry_reason = "重试中"
             return
         
-        # 6. 检测回复生成失败
+        # 6. 检测回复动作执行失败（最终失败，带群名）
+        action_failed_match = self.PATTERN_ACTION_FAILED.search(line)
+        if action_failed_match:
+            group_name = action_failed_match.group(1)
+            # 找到该群的活跃消息并标记为失败
+            msg_id = self._find_active_message_by_group(group_name)
+            if msg_id and msg_id in self._queue:
+                item = self._queue[msg_id]
+                item.status = MessageStatus.FAILED
+                item.sent_time = time.time()  # 记录失败时间
+                if not item.retry_reason:
+                    item.retry_reason = "回复生成失败"
+                self._total_processed += 1
+            return
+        
+        # 7. 检测一般性失败（无群名，用于记录原因）
         if self.PATTERN_FAILED.search(line):
-            # 找到最近一个正在处理的消息，但不立即标记为失败
-            # 因为可能会重试（开始第N次思考）
-            # 这里只是记录错误信息
+            # 找到最近一个正在处理的消息，记录错误原因
             for item in reversed(list(self._queue.values())):
                 if item.status in (MessageStatus.PLANNING, MessageStatus.GENERATING):
                     if not item.retry_reason:

@@ -177,7 +177,10 @@ class StatsService:
                     FROM llm_usage
                     WHERE timestamp >= ? AND timestamp <= ?
                 """
-                cursor = await db.execute(query, (start_time.isoformat(), end_time.isoformat()))
+                # 使用空格分隔的格式（与数据库存储格式一致）
+                start_str = start_time.strftime('%Y-%m-%d %H:%M:%S')
+                end_str = end_time.strftime('%Y-%m-%d %H:%M:%S')
+                cursor = await db.execute(query, (start_str, end_str))
                 rows = await cursor.fetchall()
                 
                 total_time = 0.0
@@ -252,7 +255,10 @@ class StatsService:
                     FROM online_time
                     WHERE start_timestamp >= ? AND end_timestamp <= ?
                 """
-                cursor = await db.execute(query, (start_time.isoformat(), end_time.isoformat()))
+                # 使用空格分隔的格式（与数据库存储格式一致）
+                start_str = start_time.strftime('%Y-%m-%d %H:%M:%S')
+                end_str = end_time.strftime('%Y-%m-%d %H:%M:%S')
+                cursor = await db.execute(query, (start_str, end_str))
                 row = await cursor.fetchone()
                 return float(row[0]) if row and row[0] else 0.0
                 
@@ -391,6 +397,12 @@ class StatsService:
         # 获取在线时间 - 从实例记录获取
         online_time = self._get_instance_online_time(instance)
         
+        # 计算每小时花费/Token：使用查询时间范围内的有效时间
+        # 有效时间 = min(查询时间范围, 实例在线时间)
+        query_range_seconds = time_range.to_hours() * 3600.0
+        effective_time = min(query_range_seconds, online_time) if online_time > 0 else query_range_seconds
+        effective_hours = effective_time / 3600.0 if effective_time > 0 else 0.0
+        
         # 构建摘要
         online_hours = online_time / 3600.0 if online_time > 0 else 0.0
         summary = StatsSummary(
@@ -403,8 +415,8 @@ class StatsService:
             total_messages=total_messages,
             total_replies=total_replies,
             avg_response_time=round(llm_data["avg_response_time"], 3),
-            cost_per_hour=round(llm_data["total_cost"] / online_hours, 4) if online_hours > 0 else 0.0,
-            tokens_per_hour=round(llm_data["total_tokens"] / online_hours, 1) if online_hours > 0 else 0.0,
+            cost_per_hour=round(llm_data["total_cost"] / effective_hours, 4) if effective_hours > 0 else 0.0,
+            tokens_per_hour=round(llm_data["total_tokens"] / effective_hours, 1) if effective_hours > 0 else 0.0,
         )
         
         # 构建模型统计列表
@@ -542,10 +554,13 @@ class StatsService:
                 total_time / total_summary.total_requests, 3
             )
         
-        online_hours = total_summary.online_time / 3600.0
-        if online_hours > 0:
-            total_summary.cost_per_hour = round(total_summary.total_cost / online_hours, 4)
-            total_summary.tokens_per_hour = round(total_summary.total_tokens / online_hours, 1)
+        # 每小时花费/Token：直接汇总各实例的每小时数据（已经是最近1小时的实际值）
+        total_summary.cost_per_hour = round(
+            sum(s.summary.cost_per_hour for s in valid_stats), 4
+        )
+        total_summary.tokens_per_hour = round(
+            sum(s.summary.tokens_per_hour for s in valid_stats), 1
+        )
         
         total_summary.total_cost = round(total_summary.total_cost, 4)
         
