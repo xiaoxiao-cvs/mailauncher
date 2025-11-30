@@ -108,11 +108,12 @@ class MaiBotLogListener:
         return list(self._queue.values())
     
     def _cleanup_sent_items(self):
-        """清理过期的已发送消息"""
+        """清理过期的已完成消息（已发送或失败）"""
         now = time.time()
         to_remove = []
         for msg_id, item in self._queue.items():
-            if item.status == MessageStatus.SENT and item.sent_time:
+            # 清理已发送和失败的消息
+            if item.status in (MessageStatus.SENT, MessageStatus.FAILED) and item.sent_time:
                 if now - item.sent_time > self.sent_item_ttl:
                     to_remove.append(msg_id)
         for msg_id in to_remove:

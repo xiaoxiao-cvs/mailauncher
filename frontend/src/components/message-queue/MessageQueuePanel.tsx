@@ -348,6 +348,8 @@ export function MessageQueuePanel({ instanceId, className }: MessageQueuePanelPr
   useEffect(() => {
     if (allMessages.length === 0) return;
     
+    const now = Date.now() / 1000;  // 当前时间戳（秒）
+    
     // 找出新变成 sent 或 failed 状态的消息
     allMessages.forEach((msg) => {
       if ((msg.status === 'sent' || msg.status === 'failed') && msg.sent_time) {
@@ -357,6 +359,21 @@ export function MessageQueuePanel({ instanceId, className }: MessageQueuePanelPr
           
           // 失败的消息延迟更长（5秒），成功的2秒
           const delayMs = msg.status === 'failed' ? 5000 : 2000;
+          const delaySeconds = delayMs / 1000;
+          
+          // 计算消息已经完成了多久
+          const elapsedSinceComplete = now - msg.sent_time;
+          
+          // 如果消息完成时间已经超过延迟时间，直接隐藏不播放动画
+          // 这处理了页面切换回来时的情况
+          if (elapsedSinceComplete > delaySeconds + 1) {
+            // 已经过了足够久，直接移除
+            setRemovedIds(prev => new Set([...prev, msg.id]));
+            return;
+          }
+          
+          // 计算剩余需要等待的时间
+          const remainingDelay = Math.max(0, delayMs - elapsedSinceComplete * 1000);
           
           setTimeout(() => {
             setExitingIds(prev => new Set([...prev, msg.id]));
@@ -370,7 +387,7 @@ export function MessageQueuePanel({ instanceId, className }: MessageQueuePanelPr
               });
               setRemovedIds(prev => new Set([...prev, msg.id]));
             }, 500);
-          }, delayMs);
+          }, remainingDelay);
         }
       }
     });
