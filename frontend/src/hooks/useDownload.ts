@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { getApiUrl } from '@/config/api'
+import { tauriInvoke } from '@/services/tauriInvoke'
 import type { DownloadItem, MaibotVersion } from '@/types/download'
 import logger from '@/utils/logger'
 
@@ -146,25 +146,24 @@ export function useDownload() {
   }, [downloadItems])
 
   /**
-   * 从后端加载部署路径
+   * 从 Rust 后端加载部署路径
    */
   const loadDeploymentPath = useCallback(async () => {
     downloadLogger.info('加载部署路径配置')
     setIsLoadingPath(true)
     try {
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/environment/config`)
-      const data = await response.json()
+      // PathConfig: { id, name, path, path_type, is_verified, description, ... }
+      const pathConfig = await tauriInvoke<{ path: string } | null>('get_path', { name: 'instances_dir' })
       
-      if (data.success) {
-        setDeploymentPath(data.data.instances_dir)
-        downloadLogger.success('部署路径加载成功', { path: data.data.instances_dir })
+      if (pathConfig) {
+        setDeploymentPath(pathConfig.path)
+        downloadLogger.success('部署路径加载成功', { path: pathConfig.path })
       } else {
-        throw new Error(data.message || '加载失败')
+        downloadLogger.info('未找到已保存的部署路径')
+        setDeploymentPath('')
       }
     } catch (error) {
       downloadLogger.error('加载部署路径失败', error)
-      // 使用默认值
       setDeploymentPath('')
     } finally {
       setIsLoadingPath(false)
@@ -261,11 +260,9 @@ export function useDownload() {
     downloadLogger.info('开始批量下载和安装')
 
     try {
-      const apiUrl = getApiUrl()
-      
-      // 构建下载任务数据
+      // 构建下载任务数据（与 Rust DownloadTaskCreate 结构对应）
       const selectedItemsArray = Array.from(selectedItems)
-      const taskData = {
+      const data = {
         instance_name: instanceName.trim(),
         deployment_path: deploymentPath,
         maibot_version_source: selectedMaibotVersion.source,
@@ -285,24 +282,11 @@ export function useDownload() {
         // 注意: venv_type 不需要前端传递，后端会从数据库读取用户在引导页配置的值
       }
 
-      downloadLogger.info('创建下载任务', taskData)
+      downloadLogger.info('创建下载任务', data)
 
-      // 创建下载任务
-      const response = await fetch(`${apiUrl}/downloads`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(taskData)
-      })
+      // Rust 命令直接返回 DownloadTask，无 {success, data} 包装
+      const task = await tauriInvoke<{ id: string }>('create_download_task', { data })
 
-      const result = await response.json()
-      
-      if (!result.success) {
-        throw new Error(result.message || '创建下载任务失败')
-      }
-
-      const task = result.data
       const taskId = task.id
       downloadLogger.success('下载任务已创建', { taskId })
 
