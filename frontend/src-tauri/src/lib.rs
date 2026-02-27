@@ -97,7 +97,10 @@ async fn init_rust_services() -> AppState {
 
     info!("[初始化] Rust 服务初始化完成");
 
-    AppState { db: pool }
+    AppState {
+        db: pool,
+        process_manager: services::process_service::ProcessManager::new(),
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -150,12 +153,25 @@ pub fn run() {
         .manage(BackendProcess(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             greet,
+            // 实例管理
             commands::instance::get_all_instances,
             commands::instance::get_instance,
             commands::instance::get_instance_status,
             commands::instance::create_instance,
             commands::instance::update_instance,
             commands::instance::delete_instance,
+            // 进程管理
+            commands::process::start_instance,
+            commands::process::stop_instance,
+            commands::process::restart_instance,
+            commands::process::start_component,
+            commands::process::stop_component,
+            commands::process::get_component_status,
+            commands::process::get_instance_components,
+            // 终端交互
+            commands::process::terminal_write,
+            commands::process::terminal_get_history,
+            commands::process::terminal_resize,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
