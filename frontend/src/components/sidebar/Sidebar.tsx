@@ -134,7 +134,7 @@ export function Sidebar() {
       </div>
 
       {/* 中间：主导航区域 */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-thin">
         {SIDEBAR_NAV_ITEMS.map((item) => (
           <SidebarNavItemComponent
             key={item.id}

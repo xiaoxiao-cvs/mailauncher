@@ -1,9 +1,6 @@
-import { RefObject, useState, useEffect, useCallback } from 'react'
+import { RefObject } from 'react'
 import { Button } from '@/components/ui/button'
 import { ArrowRightIcon, CheckCircle2Icon } from 'lucide-react'
-import { ThemeSelector } from '@/components/theme'
-import { EnvironmentCheck } from './EnvironmentCheck'
-import { OnboardingTabs } from './OnboardingTabs'
 import type { OnboardingStep } from '@/types/onboarding'
 
 interface OnboardingContentProps {
@@ -29,186 +26,99 @@ export function OnboardingContent({
   onNext,
   onPrevious
 }: OnboardingContentProps) {
-  const [currentTabIndex, setCurrentTabIndex] = useState(0)
-  const [isBackendConnected, setIsBackendConnected] = useState(false)
-  const [recheckFn, setRecheckFn] = useState<(() => void) | null>(null)
-  const [isGitAvailable, setIsGitAvailable] = useState(false)
-  
-  const hasTabs = currentStepData.tabs && currentStepData.tabs.length > 0
-  const isLastTab = hasTabs && currentTabIndex === (currentStepData.tabs?.length ?? 0) - 1
-
-  // 当步骤改变时，重置 Tab 索引
-  useEffect(() => {
-    setCurrentTabIndex(0)
-  }, [currentStep])
-
-  // 处理后端连接状态变化
-  const handleBackendStatusChange = useCallback((connected: boolean) => {
-    setIsBackendConnected(connected)
-  }, [])
-
-  // 处理 Git 状态变化
-  const handleGitStatusChange = useCallback((available: boolean) => {
-    setIsGitAvailable(available)
-  }, [])
-
-  // 注册重新检查功能
-  const handleRecheckRequest = useCallback((checkFn: () => void) => {
-    setRecheckFn(() => checkFn)
-  }, [])
-
-  // 处理下一页（Tab）或下一步
-  const handleNext = () => {
-    if (hasTabs && !isLastTab) {
-      // 如果有 Tabs 且不是最后一个 Tab，切换到下一个 Tab
-      setCurrentTabIndex(prev => prev + 1)
-    } else {
-      // 否则，进入下一步
-      setCurrentTabIndex(0) // 重置 Tab 索引
-      onNext()
-    }
-  }
-
-  // 处理上一页（Tab）或上一步
-  const handlePrevious = () => {
-    if (hasTabs && currentTabIndex > 0) {
-      // 如果有 Tabs 且不是第一个 Tab，切换到上一个 Tab
-      setCurrentTabIndex(prev => prev - 1)
-    } else {
-      // 否则，返回上一步
-      onPrevious()
-    }
-  }
 
   return (
-    <div className="flex-1 h-full flex flex-col p-8 md:p-12 overflow-hidden">
+    <div className="flex-1 h-full flex flex-col p-6 sm:p-8 md:p-10 lg:p-12 xl:p-16 overflow-hidden">
       {/* 内容区域 - 包含移动端指示器以确保动画一致 */}
-      <div ref={contentRef} className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
+      <div ref={contentRef} className="flex-1 flex flex-col w-full min-h-0">
         {/* 移动端步骤指示器 */}
-        <div className="md:hidden flex justify-center gap-2 mb-6">
+        <div className="md:hidden flex justify-center gap-2 mb-8">
           {steps.map((step, index) => (
             <div
               key={step.id}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                index === currentStep ? 'w-8 bg-blue-500' : 'w-1.5 bg-gray-200 dark:bg-gray-700'
+              className={`h-1 rounded-full transition-all duration-500 ${
+                index === currentStep ? 'w-8 bg-[#007AFF]' : index < currentStep ? 'w-2 bg-[#007AFF]/40' : 'w-2 bg-gray-200 dark:bg-white/10'
               }`}
             />
           ))}
         </div>
 
         {/* 标题区域 */}
-        <div className="mb-10 text-center md:text-left">
-          <div className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-gray-100 dark:bg-white/10 mb-4">
-            <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
-              Step {currentStep + 1} of {steps.length}
-            </span>
-          </div>
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-3 tracking-tight">
+        <div className="mb-8 sm:mb-10 text-center md:text-left flex-shrink-0">
+          <p className="text-[13px] font-semibold text-[#007AFF] dark:text-[#0A84FF] mb-4 tracking-wide uppercase opacity-80">
+            Step {currentStep + 1} of {steps.length}
+          </p>
+          <h2 className="text-4xl md:text-5xl font-semibold text-gray-900 dark:text-white mb-4 tracking-tight leading-tight">
             {currentStepData.title}
           </h2>
-          <p className="text-lg text-gray-500 dark:text-gray-400 font-medium leading-relaxed">
+          <p className="text-xl text-gray-500 dark:text-gray-400 font-normal leading-relaxed max-w-xl">
             {currentStepData.subtitle}
           </p>
         </div>
 
-        {/* 内容区域 - 根据步骤类型显示不同内容 */}
-        <div className="flex-1 overflow-y-auto scrollbar-none -mx-4 px-4 mb-6">
-          {hasTabs ? (
-            /* 显示 Tabs */
-            <OnboardingTabs
-              tabs={currentStepData.tabs!}
-              stepColor={currentStepData.color}
-              currentTab={currentTabIndex}
-              onTabChange={(_tabId, tabIndex) => setCurrentTabIndex(tabIndex)}
-              extraProps={{
-                onStatusChange: handleBackendStatusChange,
-                onRecheckRequest: handleRecheckRequest,
-                onGitStatusChange: handleGitStatusChange
-              }}
-            />
-          ) : currentStepData.isSettingsStep ? (
-            /* 设置表单 */
+        {/* 内容区域 - 直接渲染步骤组件 */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-300/50 dark:scrollbar-thumb-white/10 scrollbar-track-transparent min-h-0 mb-6">
+          <div className="pr-2">
+          {currentStepData.component ? (
+            /* 直接渲染步骤组件 */
+            currentStepData.component
+          ) : currentStepData.description.length > 0 ? (
+            /* 特性列表（向后兼容） */
             <div className="space-y-4">
-              <ThemeSelector />
-            </div>
-          ) : currentStepData.isEnvironmentStep ? (
-            /* 环境检查 */
-            <EnvironmentCheck stepColor={currentStepData.color} />
-          ) : (
-            /* 特性列表 */
-            <div className="space-y-3">
               {currentStepData.description.map((item, index) => (
                 <div 
                   key={index}
-                  className="flex items-start gap-4 p-4 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-white/10"
+                  className="flex items-start gap-4 p-5 rounded-2xl bg-gray-50/80 dark:bg-white/[0.03] transition-all duration-200 hover:bg-gray-100/80 dark:hover:bg-white/[0.06]"
                 >
                   <div 
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm flex-shrink-0 mt-0.5"
-                    style={{ backgroundColor: currentStepData.color }}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0 mt-0.5 bg-[#007AFF]"
                   >
                     {index + 1}
                   </div>
-                  <p className="text-gray-700 dark:text-gray-200 leading-relaxed text-[15px]">
+                  <p className="text-gray-700 dark:text-gray-200 leading-relaxed text-[16px]">
                     {item}
                   </p>
                 </div>
               ))}
             </div>
+          ) : (
+            /* 空状态 */
+            <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
+              <p>暂无内容</p>
+            </div>
           )}
+          </div>
         </div>
 
         {/* 底部按钮 */}
-        <div className="flex items-center justify-between gap-4 pt-6 border-t border-gray-200 dark:border-white/10 mt-auto">
+        <div className="flex items-center justify-between gap-4 pt-6 border-t border-gray-200/60 dark:border-white/[0.06] flex-shrink-0">
           <div className="flex items-center gap-2">
-            {(currentStep > 0 || (hasTabs && currentTabIndex > 0)) && (
+            {currentStep > 0 && (
               <Button
                 variant="ghost"
-                onClick={handlePrevious}
+                onClick={onPrevious}
                 disabled={isAnimating}
-                className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full px-6"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-full px-6 h-11 transition-colors"
               >
-                {hasTabs && currentTabIndex > 0 ? 'Back' : 'Back'}
-              </Button>
-            )}
-            {/* 重新检查按钮 - 仅在联通性检查标签显示 */}
-            {hasTabs && currentStepData.tabs?.[currentTabIndex]?.id === 'connectivity' && recheckFn && (
-              <Button
-                variant="outline"
-                onClick={recheckFn}
-                disabled={isAnimating}
-                className="rounded-full border-gray-200 dark:border-white/10"
-              >
-                Check Again
+                上一步
               </Button>
             )}
           </div>
           
           <Button
-            onClick={handleNext}
-            disabled={
-              isAnimating || 
-              (hasTabs && currentStepData.tabs?.[currentTabIndex]?.id === 'connectivity' && !isBackendConnected) ||
-              (hasTabs && currentStepData.tabs?.[currentTabIndex]?.id === 'environment' && !isGitAvailable)
-            }
-            className="rounded-full px-8 py-6 text-[15px] font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed text-white"
-            style={{
-              backgroundColor: currentStepData.color,
-            }}
+            onClick={onNext}
+            disabled={isAnimating}
+            className="rounded-full px-8 h-12 text-[15px] font-medium shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed text-white bg-[#007AFF] hover:bg-[#0071E3] dark:bg-[#0A84FF] dark:hover:bg-[#0077ED] active:scale-[0.98]"
           >
-            {currentStep === steps.length - 1 && (!hasTabs || isLastTab) ? (
+            {currentStep === steps.length - 1 ? (
               <>
-                <CheckCircle2Icon className="w-5 h-5 mr-2" />
-                Get Started
-              </>
-            ) : hasTabs && !isLastTab ? (
-              <>
-                Continue
-                <ArrowRightIcon className="w-5 h-5 ml-2" />
+                开始使用
+                <CheckCircle2Icon className="w-4 h-4 ml-2" />
               </>
             ) : (
               <>
-                Continue
-                <ArrowRightIcon className="w-5 h-5 ml-2" />
+                继续
+                <ArrowRightIcon className="w-4 h-4 ml-2" />
               </>
             )}
           </Button>

@@ -6,7 +6,7 @@ import { InstanceListPage } from './InstanceListPage'
  */
 export function InstancesPage() {
   return (
-    <div className="h-full overflow-auto relative z-10">
+    <div className="h-full overflow-auto scrollbar-thin relative z-10">
       <InstanceListPage />
     </div>
   )

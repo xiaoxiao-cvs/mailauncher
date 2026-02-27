@@ -3,107 +3,29 @@ name: Build and Release (Dev)
 on:
   workflow_dispatch:  # 手动触发
 
+env:
+  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
 jobs:
-  build-macos:
-    runs-on: [self-hosted, macOS, ARM64]
-    
-    defaults:
-      run:
-        shell: bash
-    
+  # 准备阶段：获取版本信息和提交记录
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      timestamp: ${{ steps.version.outputs.timestamp }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
+      commits: ${{ steps.commits.outputs.commits }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 获取完整历史以便获取提交信息
+          fetch-depth: 0
 
-      - name: Cache Python virtual environment
-        uses: actions/cache@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          path: .venv
-          key: ${{ runner.os }}-python3.11-venv-${{ hashFiles('backend/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-python3.11-venv-
-
-      - name: Cache pnpm dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            frontend/node_modules
-            ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
-      - name: Cache Rust build
-        uses: actions/cache@v4
-        with:
-          path: |
-            frontend/src-tauri/target
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-rust-${{ hashFiles('frontend/src-tauri/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-rust-
-
-      - name: Verify Python installation
-        run: |
-          /usr/local/bin/python3.11 --version || python3.11 --version
-          which python3.11 || echo "python3.11 not in PATH"
-
-      - name: Verify Node.js installations installation
-        run: |
-          node --version
-          pnpm --version
-          which node
-          which pnpm
-
-      - name: Verify Rust installation
-        run: |
-          rustc --version
-          cargo --version
-          which rustc
-
-      - name: Setup Python virtual environment
-        run: |
-          /usr/local/bin/python3.11 -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip
-          pip install -r backend/requirements.txt
-          # 确保 pyinstaller 在 PATH 中
-          echo "${PWD}/.venv/bin" >> "$GITHUB_PATH"
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: pnpm install
-
-      - name: Build Tauri app
-        working-directory: frontend
-        run: pnpm tauri build
-
-      - name: Get commit messages
-        id: commits
-        run: |
-          # 获取上次发布的标签
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          
-          # 如果没有标签,获取所有提交的第一句
-          if [ -z "$LAST_TAG" ]; then
-            COMMITS=$(git log --pretty=format:"- %s" --no-merges)
-          else
-            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s" --no-merges)
-          fi
-          
-          # 如果没有新提交,使用当前提交
-          if [ -z "$COMMITS" ]; then
-            COMMITS=$(git log -1 --pretty=format:"- %s")
-          fi
-          
-          # 保存到文件并设置输出
-          echo "$COMMITS" > commits.txt
-          echo "commits<<EOF" >> $GITHUB_OUTPUT
-          echo "$COMMITS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          node-version: '20'
 
       - name: Get version and timestamp
         id: version
@@ -115,10 +37,76 @@ jobs:
           echo "timestamp=${TIMESTAMP}" >> $GITHUB_OUTPUT
           echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
 
+      - name: Get commit messages
+        id: commits
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s" --no-merges -20)
+          else
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s" --no-merges)
+          fi
+          if [ -z "$COMMITS" ]; then
+            COMMITS=$(git log -1 --pretty=format:"- %s")
+          fi
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  # macOS 构建 (Intel + Apple Silicon Universal)
+  build-macos:
+    needs: prepare
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: frontend/src-tauri
+
+      - name: Setup Python virtual environment
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          echo "${PWD}/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install
+
+      - name: Build Tauri app (Universal Binary)
+        working-directory: frontend
+        run: pnpm tauri build --target universal-apple-darwin
+
       - name: Find DMG file
         id: find_dmg
         run: |
-          DMG_PATH=$(find frontend/src-tauri/target/release/bundle/dmg -name "*.dmg" | head -n 1)
+          DMG_PATH=$(find frontend/src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -n 1)
           if [ -z "$DMG_PATH" ]; then
             echo "Error: DMG file not found!"
             exit 1
@@ -126,41 +114,204 @@ jobs:
           echo "dmg_path=${DMG_PATH}" >> $GITHUB_OUTPUT
           echo "dmg_name=$(basename ${DMG_PATH})" >> $GITHUB_OUTPUT
 
+      - name: Find signature file
+        id: find_sig
+        run: |
+          SIG_PATH=$(find frontend/src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg.sig" | head -n 1)
+          if [ -n "$SIG_PATH" ]; then
+            echo "sig_path=${SIG_PATH}" >> $GITHUB_OUTPUT
+            echo "signature=$(cat ${SIG_PATH})" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: |
+            ${{ steps.find_dmg.outputs.dmg_path }}
+            ${{ steps.find_sig.outputs.sig_path }}
+          if-no-files-found: error
+
+  # Windows 构建
+  build-windows:
+    needs: prepare
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: frontend/src-tauri
+
+      - name: Setup Python virtual environment
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\Activate.ps1
+          pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Add Python venv to PATH
+        shell: pwsh
+        run: |
+          echo "${{ github.workspace }}\.venv\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install
+
+      - name: Build Tauri app
+        working-directory: frontend
+        shell: pwsh
+        run: pnpm tauri build
+
+      - name: Find NSIS installer
+        id: find_nsis
+        shell: pwsh
+        run: |
+          $nsisPath = Get-ChildItem -Path "frontend/src-tauri/target/release/bundle/nsis" -Filter "*.exe" | Select-Object -First 1
+          if ($nsisPath) {
+            echo "nsis_path=$($nsisPath.FullName)" >> $env:GITHUB_OUTPUT
+            echo "nsis_name=$($nsisPath.Name)" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Error "NSIS installer not found!"
+            exit 1
+          }
+
+      - name: Find MSI installer
+        id: find_msi
+        shell: pwsh
+        run: |
+          $msiPath = Get-ChildItem -Path "frontend/src-tauri/target/release/bundle/msi" -Filter "*.msi" | Select-Object -First 1
+          if ($msiPath) {
+            echo "msi_path=$($msiPath.FullName)" >> $env:GITHUB_OUTPUT
+            echo "msi_name=$($msiPath.Name)" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Find signature files
+        id: find_sigs
+        shell: pwsh
+        run: |
+          $nsisSig = Get-ChildItem -Path "frontend/src-tauri/target/release/bundle/nsis" -Filter "*.exe.sig" | Select-Object -First 1
+          if ($nsisSig) {
+            echo "nsis_sig_path=$($nsisSig.FullName)" >> $env:GITHUB_OUTPUT
+            $sigContent = Get-Content $nsisSig.FullName -Raw
+            echo "nsis_signature=$sigContent" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installers
+          path: |
+            frontend/src-tauri/target/release/bundle/nsis/*.exe
+            frontend/src-tauri/target/release/bundle/nsis/*.exe.sig
+            frontend/src-tauri/target/release/bundle/msi/*.msi
+            frontend/src-tauri/target/release/bundle/msi/*.msi.sig
+          if-no-files-found: error
+
+  # 发布阶段
+  release:
+    needs: [prepare, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-dmg
+          path: artifacts/macos
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installers
+          path: artifacts/windows
+
+      - name: List artifacts
+        run: |
+          echo "=== macOS Artifacts ==="
+          find artifacts/macos -type f -ls
+          echo "=== Windows Artifacts ==="
+          find artifacts/windows -type f -ls
+
       - name: Clean old dev releases
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 获取所有 dev 标签的 release，按创建时间排序
           echo "正在检查现有的 Dev 版本..."
           RELEASES=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             "https://api.github.com/repos/${{ github.repository }}/releases" | \
             jq -r '.[] | select(.tag_name | contains("-dev.")) | {id: .id, tag: .tag_name, created: .created_at} | @json')
           
-          # 计算现有 dev release 数量
-          COUNT=$(echo "$RELEASES" | wc -l | tr -d ' ')
+          COUNT=$(echo "$RELEASES" | grep -c "id" || echo "0")
           echo "找到 $COUNT 个 Dev 版本"
           
-          # 如果已经有 3 个或更多，删除最旧的
           if [ "$COUNT" -ge 3 ]; then
             echo "Dev 版本数量达到上限，开始删除最旧的版本..."
-            # 获取最旧的 release（按创建时间排序，取第一个）
             OLDEST=$(echo "$RELEASES" | head -1)
             RELEASE_ID=$(echo "$OLDEST" | jq -r '.id')
             TAG_NAME=$(echo "$OLDEST" | jq -r '.tag')
             
             echo "删除 Release ID: $RELEASE_ID (Tag: $TAG_NAME)"
-            
-            # 删除 release
             curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
               "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID"
-            
-            # 删除对应的 tag
             curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
               "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$TAG_NAME"
-            
             echo "已删除旧版本: $TAG_NAME"
-          else
-            echo "当前 Dev 版本数量未超过限制，无需删除"
+          fi
+
+      - name: Get artifact paths
+        id: artifacts
+        run: |
+          # macOS
+          DMG_PATH=$(find artifacts/macos -name "*.dmg" | head -n 1)
+          DMG_SIG_PATH=$(find artifacts/macos -name "*.dmg.sig" | head -n 1)
+          echo "dmg_path=${DMG_PATH}" >> $GITHUB_OUTPUT
+          echo "dmg_name=$(basename ${DMG_PATH})" >> $GITHUB_OUTPUT
+          if [ -f "$DMG_SIG_PATH" ]; then
+            echo "dmg_sig=$(cat ${DMG_SIG_PATH})" >> $GITHUB_OUTPUT
+          fi
+          
+          # Windows NSIS
+          NSIS_PATH=$(find artifacts/windows -name "*.exe" | head -n 1)
+          NSIS_SIG_PATH=$(find artifacts/windows -name "*.exe.sig" | head -n 1)
+          echo "nsis_path=${NSIS_PATH}" >> $GITHUB_OUTPUT
+          echo "nsis_name=$(basename ${NSIS_PATH})" >> $GITHUB_OUTPUT
+          if [ -f "$NSIS_SIG_PATH" ]; then
+            echo "nsis_sig=$(cat ${NSIS_SIG_PATH})" >> $GITHUB_OUTPUT
+          fi
+          
+          # Windows MSI
+          MSI_PATH=$(find artifacts/windows -name "*.msi" | head -n 1)
+          MSI_SIG_PATH=$(find artifacts/windows -name "*.msi.sig" | head -n 1)
+          if [ -f "$MSI_PATH" ]; then
+            echo "msi_path=${MSI_PATH}" >> $GITHUB_OUTPUT
+            echo "msi_name=$(basename ${MSI_PATH})" >> $GITHUB_OUTPUT
+          fi
+          if [ -f "$MSI_SIG_PATH" ]; then
+            echo "msi_sig=$(cat ${MSI_SIG_PATH})" >> $GITHUB_OUTPUT
           fi
 
       - name: Create Release
@@ -169,34 +320,106 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.version.outputs.tag_name }}
-          release_name: ${{ steps.version.outputs.version }} (${{ steps.version.outputs.timestamp }})
+          tag_name: ${{ needs.prepare.outputs.tag_name }}
+          release_name: 开发版本 ${{ needs.prepare.outputs.version }} (${{ needs.prepare.outputs.timestamp }})
           body: |
             ## MAI Launcher 开发构建版本
             
-            **版本:** ${{ steps.version.outputs.version }}
-            **构建时间:** ${{ steps.version.outputs.timestamp }}
-            **平台:** macOS (Apple Silicon)
+            **版本:** ${{ needs.prepare.outputs.version }}
+            **构建时间:** ${{ needs.prepare.outputs.timestamp }}
+            
+            ### 支持平台
+            | 平台 | 架构 | 安装包 |
+            |------|------|--------|
+            | 🍎 macOS | Intel + Apple Silicon (Universal) | `.dmg` |
+            | 🪟 Windows | x64 | `.exe` (NSIS) / `.msi` |
             
             ### 更新内容
-            ${{ steps.commits.outputs.commits }}
+            ${{ needs.prepare.outputs.commits }}
             
             ### 安装说明
-            1. 下载下方的 DMG 文件
+            
+            #### macOS
+            1. 下载 `.dmg` 文件
             2. 打开 DMG 文件
             3. 将 MAI Launcher 拖拽到应用程序文件夹
-            4. 从应用程序启动
+            4. 首次运行时，右键点击应用选择"打开"以绕过 Gatekeeper
             
-            > 注意: 这是开发版本,可能包含未修复的问题。
+            #### Windows
+            1. 下载 `.exe` (推荐) 或 `.msi` 安装包
+            2. 运行安装程序
+            3. 按照安装向导完成安装
+            4. 从开始菜单或桌面启动 MAI Launcher
+            
+            > ⚠️ **注意:** 这是开发版本，可能包含未修复的问题。请勿在生产环境中使用。
           draft: false
           prerelease: true
 
-      - name: Upload DMG to Release
+      - name: Upload macOS DMG
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.find_dmg.outputs.dmg_path }}
-          asset_name: MAI-Launcher-${{ steps.version.outputs.version }}-dev-${{ steps.version.outputs.timestamp }}.dmg
+          asset_path: ${{ steps.artifacts.outputs.dmg_path }}
+          asset_name: MAI-Launcher-${{ needs.prepare.outputs.version }}-dev-macos-universal.dmg
           asset_content_type: application/x-apple-diskimage
+
+      - name: Upload Windows NSIS installer
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.artifacts.outputs.nsis_path }}
+          asset_name: MAI-Launcher-${{ needs.prepare.outputs.version }}-dev-windows-x64-setup.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
+
+      - name: Upload Windows MSI installer
+        if: steps.artifacts.outputs.msi_path != ''
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.artifacts.outputs.msi_path }}
+          asset_name: MAI-Launcher-${{ needs.prepare.outputs.version }}-dev-windows-x64.msi
+          asset_content_type: application/x-msi
+
+      - name: Generate update manifest (latest.json)
+        run: |
+          cat > latest.json << 'EOF'
+          {
+            "version": "${{ needs.prepare.outputs.tag_name }}",
+            "notes": "开发版本更新",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "platforms": {
+              "darwin-aarch64": {
+                "signature": "${{ steps.artifacts.outputs.dmg_sig }}",
+                "url": "https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare.outputs.tag_name }}/MAI-Launcher-${{ needs.prepare.outputs.version }}-dev-macos-universal.dmg"
+              },
+              "darwin-x86_64": {
+                "signature": "${{ steps.artifacts.outputs.dmg_sig }}",
+                "url": "https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare.outputs.tag_name }}/MAI-Launcher-${{ needs.prepare.outputs.version }}-dev-macos-universal.dmg"
+              },
+              "windows-x86_64": {
+                "signature": "${{ steps.artifacts.outputs.nsis_sig }}",
+                "url": "https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare.outputs.tag_name }}/MAI-Launcher-${{ needs.prepare.outputs.version }}-dev-windows-x64-setup.exe"
+              }
+            }
+          }
+          EOF
+          
+          # 替换日期
+          sed -i "s/\$(date -u +%Y-%m-%dT%H:%M:%SZ)/$(date -u +%Y-%m-%dT%H:%M:%SZ)/g" latest.json
+          cat latest.json
+
+      - name: Upload latest.json to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./latest.json
+          asset_name: latest.json
+          asset_content_type: application/json

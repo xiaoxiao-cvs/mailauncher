@@ -24,6 +24,7 @@ interface InstanceStore {
   stopInstance: (instanceId: string) => Promise<void>;
   restartInstance: (instanceId: string) => Promise<void>;
   deleteInstance: (instanceId: string) => Promise<void>;
+  updateInstanceName: (instanceId: string, newName: string) => Promise<void>;
   
   // 组件操作
   startComponent: (instanceId: string, component: ComponentType) => Promise<void>;
@@ -176,6 +177,29 @@ export const useInstanceStore = create<InstanceStore>((set, get) => ({
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : '删除实例失败',
+        loading: false 
+      });
+      throw error;
+    }
+  },
+  
+  // 更新实例名称
+  updateInstanceName: async (instanceId: string, newName: string) => {
+    set({ loading: true, error: null });
+    try {
+      const updatedInstance = await instanceApi.updateInstance(instanceId, { name: newName });
+      
+      // 更新实例列表中的对应实例
+      set(state => ({
+        instances: state.instances.map(inst =>
+          inst.id === instanceId ? updatedInstance : inst
+        ),
+        selectedInstance: state.selectedInstance?.id === instanceId ? updatedInstance : state.selectedInstance,
+        loading: false
+      }));
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : '更新实例名称失败',
         loading: false 
       });
       throw error;

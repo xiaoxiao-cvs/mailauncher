@@ -22,7 +22,7 @@ export function OnboardingSidebar({
 }: OnboardingSidebarProps) {
   return (
     <div className="h-full flex flex-col p-4">
-      {/* Logo 区域 - macOS 风格 */}
+      {/* Logo 区域 */}
       <div className="flex items-center gap-3 px-3 py-6 mb-2 select-none">
         <div className="w-8 h-8 rounded-[8px] bg-gradient-to-b from-blue-500 to-blue-600 flex items-center justify-center shadow-sm ring-1 ring-black/5 dark:ring-white/10">
           <BotIcon className="w-5 h-5 text-white" />
@@ -33,8 +33,8 @@ export function OnboardingSidebar({
         </div>
       </div>
 
-      {/* 步骤列表 - 侧边栏菜单风格 */}
-      <div className="flex-1 space-y-1 overflow-y-auto scrollbar-none">
+      {/* 步骤列表 */}
+      <div className="flex-1 space-y-3 overflow-y-auto scrollbar-none px-1">
         {steps.map((step, index) => {
           const isCompleted = index < currentStep
           const isCurrent = index === currentStep
@@ -45,12 +45,12 @@ export function OnboardingSidebar({
               key={step.id}
               onClick={() => onStepClick(index)}
               disabled={isAnimating || !isAccessible}
-              className={`w-full text-left px-3 py-2.5 rounded-[8px] transition-all duration-200 group flex items-center gap-3 select-none ${
+              className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-300 group flex items-center gap-3.5 select-none ${
                 isCurrent
-                  ? 'bg-[#007AFF] text-white shadow-sm font-medium'
+                  ? 'bg-[#007AFF] text-white shadow-[0_4px_12px_rgba(0,122,255,0.25)] font-medium scale-[1.02]'
                   : isAccessible
-                  ? 'text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 active:bg-black/10 dark:active:bg-white/15'
-                  : 'text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-60'
+                  ? 'text-gray-600 dark:text-gray-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.08] active:scale-[0.98]'
+                  : 'text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50'
               }`}
             >
               <div className={`flex items-center justify-center transition-colors ${
@@ -81,7 +81,7 @@ export function OnboardingSidebar({
       {/* 底部版本号或其他信息 */}
       <div className="px-3 py-4 mt-auto border-t border-black/5 dark:border-white/5">
         <p className="text-[10px] text-gray-400 dark:text-gray-600 text-center font-medium">
-          Designed by Apple Style
+          MAI Launcher
         </p>
       </div>
     </div>

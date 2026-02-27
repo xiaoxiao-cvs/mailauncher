@@ -1,6 +1,12 @@
 import { Button } from '@/components/ui/button'
 import { CheckCircle2Icon, XCircleIcon, LoaderIcon, AlertCircleIcon, ChevronDownIcon } from 'lucide-react'
-import { useGitCheck } from '@/hooks/useGitCheck'
+import { 
+  useGitEnvironmentQuery,
+  usePythonVersionsQuery,
+  usePythonDefaultQuery,
+  useSetPythonDefaultMutation
+} from '@/hooks/queries/useEnvironmentQueries'
+import { useState, useEffect } from 'react'
 
 interface GitCheckProps {
   stepColor: string
@@ -14,22 +20,33 @@ const iconStyle = (color: string) => ({ backgroundColor: color })
  * 职责：检查 Git 环境并选择默认 Python 版本
  */
 export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
-  // 使用自定义 hook 管理 Git 和 Python 环境
-  const {
-    gitInfo,
-    isCheckingGit,
-    gitError,
-    checkGitEnvironment,
-    pythonVersions,
-    selectedPython,
-    setSelectedPython,
-    isLoadingPython,
-    pythonError,
-    showPythonDropdown,
-    setShowPythonDropdown,
-    isSavingPython,
-    savePythonDefault
-  } = useGitCheck({ onGitStatusChange })
+  // Git 环境检查
+  const { data: gitInfo, isLoading: isCheckingGit, error: gitErrorObj, refetch: checkGitEnvironment } = useGitEnvironmentQuery()
+  const gitError = gitErrorObj ? String(gitErrorObj) : null
+  
+  // Python 版本管理
+  const { data: pythonVersions = [], isLoading: isLoadingPython, error: pythonErrorObj } = usePythonVersionsQuery()
+  const pythonError = pythonErrorObj ? String(pythonErrorObj) : null
+  const { data: selectedPython } = usePythonDefaultQuery()
+  const savePythonMutation = useSetPythonDefaultMutation()
+  
+  // 本地状态
+  const [showPythonDropdown, setShowPythonDropdown] = useState(false)
+  const [localSelectedPython, setLocalSelectedPython] = useState(selectedPython || '')
+  
+  // 同步 selectedPython 到本地状态
+  useEffect(() => {
+    if (selectedPython) {
+      setLocalSelectedPython(selectedPython)
+    }
+  }, [selectedPython])
+  
+  // 通知父组件 Git 状态变化
+  useEffect(() => {
+    if (gitInfo && onGitStatusChange) {
+      onGitStatusChange(gitInfo.is_available)
+    }
+  }, [gitInfo, onGitStatusChange])
 
   return (
     <div className="space-y-4">
@@ -61,7 +78,7 @@ export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={checkGitEnvironment}
+            onClick={() => checkGitEnvironment()}
             disabled={isCheckingGit}
             className="bg-white/60 dark:bg-[#3a3a3a] border-[#023e8a]/20 dark:border-[#3a3a3a] text-xs h-8"
           >
@@ -166,18 +183,18 @@ export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
           <div className="relative">
             <button
               onClick={() => setShowPythonDropdown(!showPythonDropdown)}
-              disabled={isSavingPython}
+              disabled={savePythonMutation.isPending}
               className="w-full flex items-center justify-between py-2 px-3 rounded-lg bg-white/40 dark:bg-[#3a3a3a]/50 hover:bg-white/60 dark:hover:bg-[#3a3a3a]/70 transition-all disabled:opacity-60"
             >
               <div className="flex-1 text-left">
-                {selectedPython ? (
+                {localSelectedPython ? (
                   <div>
                     <div className="text-xs font-medium text-[#023e8a] dark:text-white">
-                      {pythonVersions.find(v => v.path === selectedPython)?.version || '未选择'}
+                      {pythonVersions.find(v => v.path === localSelectedPython)?.version || '未选择'}
                     </div>
-                    <div className="text-xs text-[#023e8a]/60 dark:text-white/60 font-mono truncate">
-                      {selectedPython}
-                    </div>
+                      <div className="text-xs text-[#023e8a]/60 dark:text-white/60 font-mono truncate">
+                        {typeof localSelectedPython === 'string' ? localSelectedPython : ''}
+                      </div>
                   </div>
                 ) : (
                   <div className="text-xs text-[#023e8a]/60 dark:text-white/60">
@@ -194,11 +211,12 @@ export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
                   <button
                     key={version.path}
                     onClick={() => {
-                      setSelectedPython(version.path)
-                      savePythonDefault(version.path)
+                      setLocalSelectedPython(version.path)
+                      setShowPythonDropdown(false)
+                      savePythonMutation.mutate(version.path)
                     }}
                     className={`w-full text-left px-3 py-2 hover:bg-[#023e8a]/5 dark:hover:bg-white/5 transition-colors ${
-                      version.path === selectedPython ? 'bg-[#023e8a]/10 dark:bg-white/10' : ''
+                      version.path === localSelectedPython ? 'bg-[#023e8a]/10 dark:bg-white/10' : ''
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -210,7 +228,7 @@ export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
                           {version.path}
                         </div>
                       </div>
-                      {version.path === selectedPython && (
+                      {version.path === localSelectedPython && (
                         <CheckCircle2Icon className="w-4 h-4 text-green-600 dark:text-green-400 ml-2 flex-shrink-0" />
                       )}
                     </div>

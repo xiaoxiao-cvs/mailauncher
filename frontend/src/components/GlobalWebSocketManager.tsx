@@ -6,19 +6,21 @@ import { TaskStatus } from '@/types/notification'
 import { mapServerStatusToTaskStatus } from '@/utils/taskStatus'
 
 /**
- * 全局 WebSocket 管理器组件
+ * 全局任务事件管理器组件
  * 职责：
- * - 在任何页面都保持 WebSocket 连接
- * - 监听全局任务状态
- * - 实时更新通知
+ * - 在任何页面都监听活跃安装任务的 Tauri 事件
+ * - 实时更新通知和任务状态
+ *
+ * 底层通过 useWebSocket hook（已迁移为 Tauri 事件监听）实现。
  */
 export function GlobalWebSocketManager() {
   const { currentTask, updateTaskStatus, completeTask } = useInstallTask()
   const { updateTaskProgress } = useNotificationContext()
 
-  const taskId = currentTask?.taskId || null
+  // 只在有活跃任务时才传递 taskId，避免无效连接
+  const taskId = currentTask?.isActive ? currentTask.taskId : null
 
-  // WebSocket 连接
+  // Tauri 事件监听（通过 useWebSocket hook）
   useWebSocket(taskId, {
     onProgress: (message) => {
       if (message.percentage !== undefined && taskId) {

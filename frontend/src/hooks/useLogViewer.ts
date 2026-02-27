@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react'
 import { logManager } from '@/utils/logger'
-import { getApiUrl } from '@/config/api'
+import { tauriInvoke } from '@/services/tauriInvoke'
 
 export interface LogFile {
   name: string
@@ -25,12 +25,8 @@ export function useLogViewer() {
   const loadLogs = async () => {
     setLoading(true)
     try {
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/logger/frontend/files`)
-      const data = await response.json()
-      if (data.success) {
-        setLogs(data.data)
-      }
+      const files = await tauriInvoke<LogFile[]>('list_log_files')
+      setLogs(files)
     } catch (error) {
       console.error('加载日志列表失败:', error)
     } finally {
@@ -42,12 +38,10 @@ export function useLogViewer() {
   const loadLogContent = async (filePath: string) => {
     setLoading(true)
     try {
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/logger/frontend/content?path=${encodeURIComponent(filePath)}`)
-      const data = await response.json()
-      if (data.success) {
-        setLogContent(data.data)
-      }
+      const result = await tauriInvoke<{ content: string }>('get_log_content', {
+        fileName: filePath,
+      })
+      setLogContent(result.content)
     } catch (error) {
       console.error('加载日志内容失败:', error)
       setLogContent('加载日志失败')
@@ -61,18 +55,12 @@ export function useLogViewer() {
     await logManager.flush()
     
     try {
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/logger/frontend/export`)
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `mai-launcher-frontend-logs-${new Date().toISOString()}.zip`
-      a.click()
-      URL.revokeObjectURL(url)
+      const zipPath = await tauriInvoke<string>('export_logs')
+      // Rust 返回 zip 文件路径，提示用户
+      alert(`日志已导出到: ${zipPath}`)
     } catch (error) {
       console.error('导出日志失败:', error)
-      alert('导出日志失败，请检查后端连接')
+      alert('导出日志失败')
     }
   }
 
@@ -80,19 +68,13 @@ export function useLogViewer() {
   const handleClear = async () => {
     if (confirm('确定要清除所有前端日志吗？此操作不可恢复。')) {
       try {
-        const apiUrl = getApiUrl()
-        const response = await fetch(`${apiUrl}/logger/frontend/clear`, {
-          method: 'DELETE'
-        })
-        const data = await response.json()
-        if (data.success) {
-          setLogs([])
-          setSelectedLog(null)
-          setLogContent('')
-        }
+        await tauriInvoke<void>('clear_logs')
+        setLogs([])
+        setSelectedLog(null)
+        setLogContent('')
       } catch (error) {
         console.error('清除日志失败:', error)
-        alert('清除日志失败，请检查后端连接')
+        alert('清除日志失败')
       }
     }
   }

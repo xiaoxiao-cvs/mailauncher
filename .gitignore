@@ -69,3 +69,6 @@ backend/data
 backend/deployments
 
 .trae
+
+# Plan file (local reference only)
+Plan.txt

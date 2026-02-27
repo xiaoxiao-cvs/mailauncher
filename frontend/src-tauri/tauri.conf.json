@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build && ../.venv/bin/pyinstaller ../backend/mai-backend.spec --clean --noconfirm --distpath src-tauri/backend-dist"
+    "beforeBuildCommand": "pnpm build"
   },
   "app": {
     "windows": [
@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src *; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+      "csp": "default-src 'self'; connect-src 'self' https: wss:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
     }
   },
   "bundle": {
@@ -37,8 +37,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "Resources/**/*",
-      "backend-dist/mai-backend/**/*"
+      "Resources/**/*"
     ],
     "macOS": {
       "frameworks": [],
@@ -47,6 +46,30 @@
       "signingIdentity": "-",
       "entitlements": null,
       "hardenedRuntime": true
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/xiaoxiao-cvs/mailauncher/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYzNDM2RDM2MTIyMTQ3NkQKUldSdFJ5RVNObTFEWThCNHZvd3lRM3JvaHkzbGk5ckt3MGxHM2NuaWxudFhrM1lZNHFYS3hKMDcK",
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

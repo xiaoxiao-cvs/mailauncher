@@ -7,7 +7,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-// import { Sidebar } from '@/components/sidebar'
 import { InstallOverview } from '@/components/install/InstallOverview'
 import { useDownload, useInstallOverview } from '@/hooks'
 import { useInstallTask } from '@/contexts/InstallTaskContext'

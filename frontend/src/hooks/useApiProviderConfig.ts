@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getApiUrl } from '@/config/api'
+import { tauriInvoke } from '@/services/tauriInvoke'
 import { environmentLogger } from '@/utils/logger'
 
 export interface ApiProvider {
@@ -41,6 +41,8 @@ interface SaveStatus {
 
 /**
  * API 供应商配置逻辑 Hook
+ *
+ * 通过 Tauri invoke 直接调用 Rust 命令。
  */
 export function useApiProviderConfig() {
   const [providers, setProviders] = useState<ApiProvider[]>([])
@@ -60,17 +62,9 @@ export function useApiProviderConfig() {
     environmentLogger.info('加载 API 供应商配置')
     
     try {
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/config/api-providers`)
-      const data = await response.json()
-      
-      if (data.success && data.data.providers) {
-        setProviders(data.data.providers)
-        environmentLogger.success('API 供应商加载成功', data.data.providers)
-      } else {
-        setProviders([])
-        environmentLogger.info('暂无供应商配置')
-      }
+      const result = await tauriInvoke<ApiProvider[]>('get_api_providers')
+      setProviders(result ?? [])
+      environmentLogger.success('API 供应商加载成功', result)
     } catch (error) {
       environmentLogger.error('加载 API 供应商失败', error)
       setProviders([])
@@ -96,21 +90,7 @@ export function useApiProviderConfig() {
     // 如果供应商有ID（已保存到数据库），则调用后端删除
     if (provider.id) {
       try {
-        const apiUrl = getApiUrl()
-        const response = await fetch(`${apiUrl}/config/api-providers/${provider.id}`, {
-          method: 'DELETE'
-        })
-        const data = await response.json()
-        
-        if (!data.success) {
-          environmentLogger.error('删除供应商失败', data)
-          setSaveStatus({
-            success: false,
-            message: data.message || '删除供应商失败'
-          })
-          return
-        }
-        
+        await tauriInvoke('delete_api_provider', { id: provider.id })
         environmentLogger.success('供应商已删除', { name: provider.name, id: provider.id })
       } catch (error) {
         environmentLogger.error('删除供应商失败', error)
@@ -193,51 +173,29 @@ export function useApiProviderConfig() {
       // 首先保存配置（如果还没有ID）
       if (!provider.id) {
         environmentLogger.info('供应商无ID，先保存以获取ID', { provider: provider.name })
-        const apiUrl = getApiUrl()
-        const saveResponse = await fetch(`${apiUrl}/config/api-providers`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ providers: [provider] })
+        
+        const created = await tauriInvoke<ApiProvider>('create_api_provider', {
+          name: provider.name,
+          baseUrl: provider.base_url,
+          apiKey: provider.api_key,
+          isEnabled: provider.is_enabled
         })
         
-        const saveData = await saveResponse.json()
-        environmentLogger.info('保存响应', { success: saveData.success, data: saveData })
-        
-        if (saveData.success && saveData.data.providers[0]) {
-          provider.id = saveData.data.providers[0].id
-          environmentLogger.success('获取到供应商ID', { id: provider.id })
-        } else {
-          // 保存失败，记录错误但不继续验证
-          environmentLogger.error('保存供应商配置失败，无法验证', saveData)
-          const newProviders = [...providers]
-          newProviders[index].isValidating = false
-          setProviders(newProviders)
-          return
-        }
+        provider.id = created.id
+        environmentLogger.success('获取到供应商ID', { id: provider.id })
       }
 
-      // 测试连接
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/config/api-providers/${provider.id}/fetch-models`, {
-        method: 'POST'
+      // 测试连接 — 远程获取模型列表
+      const data = await tauriInvoke<{ models: string[]; modelsCount: number }>('fetch_provider_models', {
+        providerId: provider.id
       })
-      const data = await response.json()
 
       const newProviders = [...providers]
       newProviders[index].isValidating = false
-      
-      if (data.success) {
-        newProviders[index].isValid = true
-        newProviders[index].model_count = data.data.model_count
-        newProviders[index].models_updated_at = new Date().toISOString()
-        environmentLogger.success('API Key 验证成功', data.data)
-      } else {
-        newProviders[index].isValid = false
-        environmentLogger.error('API Key 验证失败', data)
-      }
-      
+      newProviders[index].isValid = true
+      newProviders[index].model_count = data.modelsCount
+      newProviders[index].models_updated_at = new Date().toISOString()
+      environmentLogger.success('API Key 验证成功', data)
       setProviders(newProviders)
     } catch (error) {
       const newProviders = [...providers]
@@ -264,30 +222,22 @@ export function useApiProviderConfig() {
     environmentLogger.info('准备保存的供应商', { validCount: validProviders.length, providers: validProviders.map(p => p.name) })
     
     try {
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/config/api-providers`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ providers: validProviders })
-      })
+      // 将 ApiProvider 映射为 ProviderInput 格式（Rust 端 save_all_providers 的参数）
+      const providerInputs = validProviders.map(p => ({
+        name: p.name,
+        base_url: p.base_url,
+        api_key: p.api_key,
+        is_enabled: p.is_enabled
+      }))
       
-      const data = await response.json()
-      
-      if (data.success) {
-        setSaveStatus({ success: true, message: '✓ 已自动保存' })
-        environmentLogger.success('API 供应商配置自动保存成功')
-        // 重新加载以获取ID
-        await loadProviders()
-        setTimeout(() => setSaveStatus(null), 2000)
-      } else {
-        setSaveStatus({ success: false, message: '自动保存失败' })
-        environmentLogger.error('自动保存 API 供应商配置失败', data)
-        setTimeout(() => setSaveStatus(null), 3000)
-      }
+      await tauriInvoke('save_all_providers', { providers: providerInputs })
+      setSaveStatus({ success: true, message: '✓ 已自动保存' })
+      environmentLogger.success('API 供应商配置自动保存成功')
+      // 重新加载以获取ID
+      await loadProviders()
+      setTimeout(() => setSaveStatus(null), 2000)
     } catch (error) {
-      setSaveStatus({ success: false, message: '连接后端服务失败' })
+      setSaveStatus({ success: false, message: '自动保存失败' })
       environmentLogger.error('自动保存 API 供应商配置异常', error)
       setTimeout(() => setSaveStatus(null), 3000)
     }

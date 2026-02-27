@@ -14,7 +14,7 @@ interface ConnectivityCheckProps {
  * 检查后端连接、GitHub 和 Gitee 的延迟
  */
 export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest }: ConnectivityCheckProps) {
-  // 使用自定义 hook 管理连接检查
+  // 使用原有的 hook 管理连接检查
   const {
     tempUrl,
     hasUnsavedChanges,

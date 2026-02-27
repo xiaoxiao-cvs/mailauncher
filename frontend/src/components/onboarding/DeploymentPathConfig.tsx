@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { FolderOpenIcon, LoaderIcon } from 'lucide-react'
-import { useDeploymentPath } from '@/hooks/useDeploymentPath'
+import { useDeploymentPathQuery, useSavePathMutation } from '@/hooks/queries/useEnvironmentQueries'
+import { open } from '@tauri-apps/plugin-dialog'
+import { useState, useEffect } from 'react'
 
 interface DeploymentPathConfigProps {
   stepColor: string
@@ -13,15 +15,55 @@ const iconStyle = (color: string) => ({ backgroundColor: color })
  * 职责：配置 Bot 实例的部署目录
  */
 export function DeploymentPathConfig({ stepColor }: DeploymentPathConfigProps) {
-  // 使用自定义 hook 管理部署路径
-  const {
-    deploymentPath,
-    pathError,
-    pathSuccess,
-    isSavingPath,
-    handleSelectFolder,
-    handlePathChange
-  } = useDeploymentPath()
+  // 部署路径管理
+  const { data: deploymentPath = '' } = useDeploymentPathQuery()
+  const savePathMutation = useSavePathMutation()
+  
+  // 本地状态
+  const [localPath, setLocalPath] = useState(deploymentPath)
+  const [pathError, setPathError] = useState<string | null>(null)
+  const [pathSuccess, setPathSuccess] = useState(false)
+  
+  // 同步路径
+  useEffect(() => {
+    setLocalPath(deploymentPath)
+  }, [deploymentPath])
+  
+  // 选择文件夹
+  const handleSelectFolder = async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: '选择部署路径',
+      })
+      if (selected && typeof selected === 'string') {
+        handlePathChange(selected)
+      }
+    } catch (error) {
+      console.error('选择文件夹失败:', error)
+    }
+  }
+  
+  // 处理路径变化
+  const handlePathChange = (newPath: string) => {
+    setLocalPath(newPath)
+    setPathError(null)
+    setPathSuccess(false)
+    
+    if (newPath) {
+      savePathMutation.mutate(newPath, {
+        onSuccess: () => {
+          setPathSuccess(true)
+          setPathError(null)
+        },
+        onError: (error) => {
+          setPathError(String(error))
+          setPathSuccess(false)
+        },
+      })
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -48,10 +90,10 @@ export function DeploymentPathConfig({ stepColor }: DeploymentPathConfigProps) {
             <div className="flex-1 relative">
               <input
                 type="text"
-                value={deploymentPath}
+                value={localPath}
                 onChange={(e) => handlePathChange(e.target.value)}
                 placeholder="/path/to/deployments"
-                disabled={isSavingPath}
+                disabled={savePathMutation.isPending}
                 className={`w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-[#3a3a3a] text-[#023e8a] dark:text-white placeholder:text-[#023e8a]/40 dark:placeholder:text-white/40 focus:outline-none focus:ring-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
                   pathError
                     ? 'border-red-300 dark:border-red-700 focus:ring-red-200 dark:focus:ring-red-800'
@@ -65,7 +107,7 @@ export function DeploymentPathConfig({ stepColor }: DeploymentPathConfigProps) {
                   {pathError}
                 </p>
               )}
-              {isSavingPath && (
+              {savePathMutation.isPending && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                   <LoaderIcon className="w-4 h-4 animate-spin text-[#023e8a] dark:text-white" />
                 </div>
@@ -74,7 +116,7 @@ export function DeploymentPathConfig({ stepColor }: DeploymentPathConfigProps) {
             <Button
               onClick={handleSelectFolder}
               size="sm"
-              disabled={isSavingPath}
+              disabled={savePathMutation.isPending}
               className="text-white border-0 px-4 shadow-md hover:shadow-lg transition-all text-xs disabled:opacity-60"
               style={iconStyle(stepColor)}
             >

@@ -26,7 +26,7 @@ export function MainLayout() {
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 relative z-10 overflow-auto p-4">
+      <main className="flex-1 relative z-10 overflow-auto scrollbar-thin p-4">
         <Outlet />
       </main>
     </div>

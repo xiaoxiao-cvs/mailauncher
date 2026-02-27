@@ -5,24 +5,23 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useInstanceStore } from '@/stores/instanceStore';
-import { ComponentType, instanceApi } from '@/services/instanceApi';
+import { ComponentType } from '@/services/instanceApi';
 import { TerminalComponent } from '@/components/terminal/TerminalComponent';
-import { useSmartPolling } from '@/hooks/useSmartPolling';
 import { ConfigModal } from '@/components/ConfigModal';
+import { ScheduleModal } from '@/components/ScheduleModal';
+import { VersionManagementSection } from '@/components/instances/VersionManagementSection';
+import { VersionManagerModal } from '@/components/instances/VersionManagerModal';
 import {
   ArrowLeft,
   Play,
   Square,
   RotateCw,
-  Activity,
   Clock,
   Server,
   ChevronDown,
   Loader2,
+  FileText,
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,100 +33,116 @@ import {
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { animate, utils } from 'animejs';
+import {
+  useInstanceQuery,
+  useComponentStatusQuery,
+  useStartInstanceMutation,
+  useStopInstanceMutation,
+  useRestartInstanceMutation,
+  useStartComponentMutation,
+  useStopComponentMutation,
+} from '@/hooks/queries/useInstanceQueries';
 
 export const InstanceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
-  const {
-    instances,
-    selectedInstance,
-    loading,
-    fetchInstance,
-    startInstance,
-    stopInstance,
-    restartInstance,
-    startComponent,
-    stopComponent,
-    fetchComponentStatus,
-    componentStatuses,
-  } = useInstanceStore();
+  // 使用 React Query hooks
+  const { data: instance, isLoading } = useInstanceQuery(id, { refetchInterval: 10000 });
   
-  const [selectedComponent, setSelectedComponent] = useState<ComponentType>('main');
+  // 组件状态查询
+  const { data: maibotStatus } = useComponentStatusQuery(id, 'MaiBot', { refetchInterval: 10000 });
+  const { data: napcatStatus } = useComponentStatusQuery(id, 'NapCat', { refetchInterval: 10000 });
+  const { data: adapterStatus } = useComponentStatusQuery(id, 'MaiBot-Napcat-Adapter', { refetchInterval: 10000 });
+  
+  // Mutations
+  const startInstanceMutation = useStartInstanceMutation();
+  const stopInstanceMutation = useStopInstanceMutation();
+  const restartInstanceMutation = useRestartInstanceMutation();
+  const startComponentMutation = useStartComponentMutation();
+  const stopComponentMutation = useStopComponentMutation();
+  
+  const [selectedComponent, setSelectedComponent] = useState<ComponentType>('MaiBot');
   const [actionLoading, setActionLoading] = useState<'start' | 'stop' | 'restart' | null>(null);
   const [selectedStartTarget, setSelectedStartTarget] = useState<ComponentType | 'all'>('all');
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
-  
-  const instance = selectedInstance || instances.find((i) => i.id === id);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isVersionManagerOpen, setIsVersionManagerOpen] = useState(false);
 
-  // Animation effect
-  useEffect(() => {
-    // Fade in header
-    animate('.animate-fade-in', {
-      opacity: [0, 1],
-      translateY: [-10, 0],
-      duration: 600,
-      easing: 'easeOutExpo',
-      delay: 100
-    });
-
-    // Slide up cards
-    animate('.animate-slide-up', {
-      opacity: [0, 1],
-      translateY: [20, 0],
-      duration: 800,
-      delay: utils.stagger(100, {start: 200}),
-      easing: 'easeOutExpo'
-    });
-  }, []);
-  
-  // 加载实例数据并设置轮询
-  useEffect(() => {
-    if (id) {
-      fetchInstance(id);
+  // 获取组件状态的辅助函数
+  const getComponentStatus = (component: ComponentType) => {
+    switch (component) {
+      case 'MaiBot':
+        return maibotStatus;
+      case 'NapCat':
+        return napcatStatus;
+      case 'MaiBot-Napcat-Adapter':
+        return adapterStatus;
+      default:
+        return undefined;
     }
-  }, [id, fetchInstance]);
+  };
   
-  // 实例数据轮询
-  useSmartPolling(() => {
-    if (id) fetchInstance(id);
-  }, [id], { intervalMs: 10000, leading: false });
+  // Animation effect - 只在 ID 改变且实例存在时执行动画
+  const animatedRef = React.useRef<string | null>(null);
+  const [shouldAnimate, setShouldAnimate] = React.useState(false);
   
-  // 加载组件列表
-  const [components, setComponents] = useState<ComponentType[]>([]);
+  // 当实例加载完成后，触发动画标记
   useEffect(() => {
-    if (!id || !instance) return;
+    if (instance && id && !shouldAnimate) {
+      setShouldAnimate(true);
+    }
+  }, [id, instance?.id, shouldAnimate]);
+  
+  // 实际执行动画
+  useEffect(() => {
+    if (!shouldAnimate || !id) return;
     
-    instanceApi.getInstanceComponents(id).then((comps) => {
-      setComponents(comps);
-      // 初始加载状态
-      comps.forEach((component) => {
-        fetchComponentStatus(id, component).catch(console.error);
-      });
-    }).catch(console.error);
-  }, [id, instance]);
-  
-  // 组件状态轮询
-  useSmartPolling(() => {
-    if (id && components.length > 0) {
-      components.forEach((component) => {
-        fetchComponentStatus(id, component).catch(console.error);
-      });
-    }
-  }, [id, components], { intervalMs: 10000, leading: false });
+    // 如果已经为当前实例执行过动画，跳过
+    if (animatedRef.current === id) return;
+    
+    animatedRef.current = id;
+    
+    // 延迟执行动画,确保 DOM 已经渲染
+    const timer = setTimeout(() => {
+      // 检查元素是否存在再执行动画
+      const fadeInElements = document.querySelectorAll('.animate-fade-in');
+      if (fadeInElements.length > 0) {
+        animate('.animate-fade-in', {
+          opacity: [0, 1],
+          translateY: [-10, 0],
+          duration: 600,
+          easing: 'easeOutExpo',
+          delay: 100
+        });
+      }
+
+      const slideUpElements = document.querySelectorAll('.animate-slide-up');
+      if (slideUpElements.length > 0) {
+        animate('.animate-slide-up', {
+          opacity: [0, 1],
+          translateY: [20, 0],
+          duration: 800,
+          delay: utils.stagger(100, {start: 200}),
+          easing: 'easeOutExpo'
+        });
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [shouldAnimate, id]); // 依赖动画触发标记和 id
   
   // 自动更新 selectedStartTarget - 当当前选中的组件启动后，切换到下一个未启动的组件
   useEffect(() => {
     if (!instance) return;
     
-    const components: ComponentType[] = ['main', 'napcat', 'napcat-ada'];
-    const anyRunning = components.some(comp => getComponentStatus(comp)?.running);
+    const allComponents: ComponentType[] = ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'];
     
     // 只在当前选中的组件已经在运行时才自动切换
     if (selectedStartTarget !== 'all' && 
         getComponentStatus(selectedStartTarget as ComponentType)?.running) {
       // 查找第一个未运行的组件
-      const nextComponent = components.find(comp => !getComponentStatus(comp)?.running);
+      const nextComponent = allComponents.find(comp => !getComponentStatus(comp)?.running);
       
       if (nextComponent) {
         setSelectedStartTarget(nextComponent);
@@ -137,17 +152,14 @@ export const InstanceDetailPage: React.FC = () => {
       }
     }
     
-    // 如果没有任何组件运行，确保显示 'all'
-    if (!anyRunning && selectedStartTarget !== 'all') {
-      setSelectedStartTarget('all');
-    }
-  }, [componentStatuses, instance]);
+    // 注意：不再强制重置为 'all'，允许用户自由选择单个组件启动
+  }, [maibotStatus, napcatStatus, adapterStatus, instance]);
   
   if (!instance) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          {loading ? (
+          {isLoading ? (
             <>
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
               <p className="text-gray-600 dark:text-gray-400">加载中...</p>
@@ -168,23 +180,17 @@ export const InstanceDetailPage: React.FC = () => {
     );
   }
   
-  // 获取组件状态
-  const getComponentStatus = (component: ComponentType) => {
-    return componentStatuses[instance.id]?.[component];
-  };
-  
   // 处理实例启动
   const handleStartInstance = async (component?: ComponentType) => {
     setActionLoading('start');
     try {
-      await fetchInstance(instance.id);
       if (component) {
         // 启动单个组件
-        await startComponent(instance.id, component);
+        await startComponentMutation.mutateAsync({ instanceId: instance.id, component });
         // 启动单个组件后不改变选择状态，保持启动按钮可见
       } else {
         // 启动所有组件
-        await startInstance(instance.id);
+        await startInstanceMutation.mutateAsync(instance.id);
         // 启动所有组件后重置选择
         setSelectedStartTarget('all');
       }
@@ -199,11 +205,10 @@ export const InstanceDetailPage: React.FC = () => {
   const handleStopInstance = async (component?: ComponentType) => {
     setActionLoading('stop');
     try {
-      await fetchInstance(instance.id);
       if (component) {
-        await stopComponent(instance.id, component);
+        await stopComponentMutation.mutateAsync({ instanceId: instance.id, component });
       } else {
-        await stopInstance(instance.id);
+        await stopInstanceMutation.mutateAsync(instance.id);
       }
     } catch (error) {
       console.error('停止失败:', error);
@@ -216,14 +221,13 @@ export const InstanceDetailPage: React.FC = () => {
   const handleRestartInstance = async (component?: ComponentType) => {
     setActionLoading('restart');
     try {
-      await fetchInstance(instance.id);
       if (component) {
         // 重启单个组件：先停止再启动
-        await stopComponent(instance.id, component);
+        await stopComponentMutation.mutateAsync({ instanceId: instance.id, component });
         await new Promise(resolve => setTimeout(resolve, 1000));
-        await startComponent(instance.id, component);
+        await startComponentMutation.mutateAsync({ instanceId: instance.id, component });
       } else {
-        await restartInstance(instance.id);
+        await restartInstanceMutation.mutateAsync(instance.id);
       }
     } catch (error) {
       console.error('重启失败:', error);
@@ -232,51 +236,23 @@ export const InstanceDetailPage: React.FC = () => {
     }
   };
   
-  // 格式化时间
-  const formatTime = (dateString?: string) => {
-    if (!dateString) return '从未运行';
-    try {
-      return formatDistanceToNow(new Date(dateString), {
-        addSuffix: true,
-        locale: zhCN,
-      });
-    } catch {
-      return '未知';
-    }
-  };
-  
-  // 格式化运行时长
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return '0秒';
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    
-    const parts = [];
-    if (hours > 0) parts.push(`${hours}小时`);
-    if (minutes > 0) parts.push(`${minutes}分钟`);
-    if (secs > 0 || parts.length === 0) parts.push(`${secs}秒`);
-    
-    return parts.join(' ');
-  };
-  
   const isRunning = instance.status === 'running';
   const isStopped = instance.status === 'stopped';
   
   // 检查是否有任何组件在运行
-  const hasAnyComponentRunning = ['main', 'napcat', 'napcat-ada'].some(
-    (comp) => componentStatuses[instance.id]?.[comp as ComponentType]?.running
+  const hasAnyComponentRunning = ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'].some(
+    (comp) => getComponentStatus(comp as ComponentType)?.running
   );
   
   // 检查是否所有组件都在运行
-  const allComponentsRunning = ['main', 'napcat', 'napcat-ada'].every(
-    (comp) => componentStatuses[instance.id]?.[comp as ComponentType]?.running
+  const allComponentsRunning = ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'].every(
+    (comp) => getComponentStatus(comp as ComponentType)?.running
   );
   
   return (
     <div className="h-full flex flex-col p-6 gap-6 overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between animate-fade-in opacity-0">
+      <header className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/instances')}
@@ -319,29 +295,7 @@ export const InstanceDetailPage: React.FC = () => {
       {/* Main Content Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
         {/* Left Panel: Stats & Actions */}
-        <div className="col-span-4 flex flex-col gap-6 overflow-y-auto pr-2 pb-2">
-          {/* Stats Card */}
-          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm animate-slide-up opacity-0">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-blue-500" />
-              运行状态
-            </h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-white/20 dark:border-gray-600/20">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Maibot 版本</span>
-                <span className="font-semibold text-gray-700 dark:text-gray-200">{instance.bot_version || '未知'}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-white/20 dark:border-gray-600/20">
-                <span className="text-sm text-gray-500 dark:text-gray-400">运行时长</span>
-                <span className="font-semibold text-gray-700 dark:text-gray-200">{formatDuration(instance.run_time)}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-white/20 dark:border-gray-600/20">
-                <span className="text-sm text-gray-500 dark:text-gray-400">最后启动</span>
-                <span className="font-semibold text-gray-700 dark:text-gray-200">{formatTime(instance.last_run)}</span>
-              </div>
-            </div>
-          </div>
-
+        <div className="col-span-4 flex flex-col gap-6 overflow-y-auto scrollbar-thin pr-2 pb-2">
           {/* Quick Actions */}
           <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm animate-slide-up opacity-0">
             <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
@@ -356,12 +310,15 @@ export const InstanceDetailPage: React.FC = () => {
                 <Server className="w-6 h-6 text-blue-600 dark:text-blue-400 mb-2" />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">配置</span>
               </button>
-              <button className="flex flex-col items-center justify-center p-4 bg-purple-50/50 dark:bg-purple-900/10 hover:bg-purple-100/50 dark:hover:bg-purple-900/20 rounded-2xl border border-purple-100/50 dark:border-purple-800/30 transition-all duration-200 hover:scale-[1.02] active:scale-95">
+              <button 
+                onClick={() => setIsScheduleModalOpen(true)}
+                className="flex flex-col items-center justify-center p-4 bg-purple-50/50 dark:bg-purple-900/10 hover:bg-purple-100/50 dark:hover:bg-purple-900/20 rounded-2xl border border-purple-100/50 dark:border-purple-800/30 transition-all duration-200 hover:scale-[1.02] active:scale-95"
+              >
                 <Clock className="w-6 h-6 text-purple-600 dark:text-purple-400 mb-2" />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">计划</span>
               </button>
               <button className="flex flex-col items-center justify-center p-4 bg-orange-50/50 dark:bg-orange-900/10 hover:bg-orange-100/50 dark:hover:bg-orange-900/20 rounded-2xl border border-orange-100/50 dark:border-orange-800/30 transition-all duration-200 hover:scale-[1.02] active:scale-95">
-                <Activity className="w-6 h-6 text-orange-600 dark:text-orange-400 mb-2" />
+                <FileText className="w-6 h-6 text-orange-600 dark:text-orange-400 mb-2" />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">日志</span>
               </button>
               <button className="flex flex-col items-center justify-center p-4 bg-gray-50/50 dark:bg-gray-700/10 hover:bg-gray-100/50 dark:hover:bg-gray-700/20 rounded-2xl border border-gray-100/50 dark:border-gray-600/30 transition-all duration-200 hover:scale-[1.02] active:scale-95">
@@ -370,14 +327,17 @@ export const InstanceDetailPage: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Component Versions */}
+          <VersionManagementSection instanceId={instance.id} />
         </div>
 
         {/* Right Panel: Terminal & Controls */}
         <div className="col-span-8 flex flex-col gap-4 min-h-0 animate-slide-up opacity-0">
           {/* Terminal Window */}
-          <div className="flex-1 bg-[#1e1e1e] dark:bg-[#000000] rounded-3xl shadow-lg border border-gray-800/50 overflow-hidden flex flex-col">
+          <div className="flex-1 bg-[#1e1e1e] dark:bg-[#1e1e1e] rounded-3xl shadow-lg overflow-hidden flex flex-col">
             {/* Terminal Header / Tabs */}
-            <div className="flex items-center px-4 py-3 bg-[#252526] dark:bg-[#111111] border-b border-gray-800">
+            <div className="flex items-center px-4 py-3 bg-[#252526] dark:bg-[#252526] border-b border-gray-700/30">
               <div className="flex gap-2 mr-4">
                 <div className="w-3 h-3 rounded-full bg-red-500/80" />
                 <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
@@ -390,14 +350,14 @@ export const InstanceDetailPage: React.FC = () => {
                 className="flex-1"
               >
                 <TabsList className="bg-transparent h-auto p-0 gap-2">
-                  {['main', 'napcat', 'napcat-ada'].map((comp) => (
+                  {['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'].map((comp) => (
                     <TabsTrigger 
                       key={comp}
                       value={comp}
                       className="relative px-3 py-1 text-xs font-medium text-gray-400 data-[state=active]:text-white data-[state=active]:bg-gray-700/50 rounded-md transition-all"
                     >
                       <span className="flex items-center gap-2">
-                        {comp === 'main' ? 'Maibot' : comp === 'napcat' ? 'NapCat' : 'Ada'}
+                        {comp === 'MaiBot' ? 'MaiBot' : comp === 'NapCat' ? 'NapCat' : 'Adapter'}
                         <span 
                           className={`w-1.5 h-1.5 rounded-full transition-colors ${
                             getComponentStatus(comp as ComponentType)?.running 
@@ -415,31 +375,31 @@ export const InstanceDetailPage: React.FC = () => {
             {/* Terminal Content */}
             <div className="flex-1 relative">
               <Tabs value={selectedComponent} className="h-full">
-                <TabsContent value="main" className="h-full m-0">
+                <TabsContent value="MaiBot" className="h-full m-0">
                   <TerminalComponent
-                    key={`${instance.id}-main`}
+                    key={`${instance.id}-MaiBot`}
                     instanceId={instance.id}
-                    component="main"
+                    component="MaiBot"
                     className="h-full"
-                    isRunning={getComponentStatus('main')?.running === true}
+                    isRunning={getComponentStatus('MaiBot')?.running === true}
                   />
                 </TabsContent>
-                <TabsContent value="napcat" className="h-full m-0">
+                <TabsContent value="NapCat" className="h-full m-0">
                   <TerminalComponent
-                    key={`${instance.id}-napcat`}
+                    key={`${instance.id}-NapCat`}
                     instanceId={instance.id}
-                    component="napcat"
+                    component="NapCat"
                     className="h-full"
-                    isRunning={getComponentStatus('napcat')?.running === true}
+                    isRunning={getComponentStatus('NapCat')?.running === true}
                   />
                 </TabsContent>
-                <TabsContent value="napcat-ada" className="h-full m-0">
+                <TabsContent value="MaiBot-Napcat-Adapter" className="h-full m-0">
                   <TerminalComponent
-                    key={`${instance.id}-napcat-ada`}
+                    key={`${instance.id}-MaiBot-Napcat-Adapter`}
                     instanceId={instance.id}
-                    component="napcat-ada"
+                    component="MaiBot-Napcat-Adapter"
                     className="h-full"
-                    isRunning={getComponentStatus('napcat-ada')?.running === true}
+                    isRunning={getComponentStatus('MaiBot-Napcat-Adapter')?.running === true}
                   />
                 </TabsContent>
               </Tabs>
@@ -465,8 +425,9 @@ export const InstanceDetailPage: React.FC = () => {
                     >
                       {actionLoading === 'start' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 mr-2 fill-current" />}
                       {selectedStartTarget === 'all' ? '启动所有' : 
-                       selectedStartTarget === 'main' ? '启动 Maibot' : 
-                       selectedStartTarget === 'napcat' ? '启动 NapCat' : '启动 Ada'}
+                       selectedStartTarget === 'MaiBot' ? '启动 MaiBot' : 
+                       selectedStartTarget === 'NapCat' ? '启动 NapCat' : 
+                       selectedStartTarget === 'MaiBot-Napcat-Adapter' ? '启动 Adapter' : '启动'}
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -475,11 +436,19 @@ export const InstanceDetailPage: React.FC = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuRadioGroup value={selectedStartTarget} onValueChange={(v) => setSelectedStartTarget(v as any)}>
-                          {!hasAnyComponentRunning && <DropdownMenuRadioItem value="all">所有组件</DropdownMenuRadioItem>}
-                          {!getComponentStatus('main')?.running && <DropdownMenuRadioItem value="main">Maibot</DropdownMenuRadioItem>}
-                          {!getComponentStatus('napcat')?.running && <DropdownMenuRadioItem value="napcat">NapCat</DropdownMenuRadioItem>}
-                          {!getComponentStatus('napcat-ada')?.running && <DropdownMenuRadioItem value="napcat-ada">Ada</DropdownMenuRadioItem>}
+                        <DropdownMenuRadioGroup value={selectedStartTarget} onValueChange={(v) => setSelectedStartTarget(v as ComponentType | 'all')}>
+                          {!hasAnyComponentRunning && (
+                            <DropdownMenuRadioItem value="all">所有组件</DropdownMenuRadioItem>
+                          )}
+                          {!getComponentStatus('MaiBot')?.running && (
+                            <DropdownMenuRadioItem value="MaiBot">MaiBot</DropdownMenuRadioItem>
+                          )}
+                          {!getComponentStatus('NapCat')?.running && (
+                            <DropdownMenuRadioItem value="NapCat">NapCat</DropdownMenuRadioItem>
+                          )}
+                          {!getComponentStatus('MaiBot-Napcat-Adapter')?.running && (
+                            <DropdownMenuRadioItem value="MaiBot-Napcat-Adapter">Adapter</DropdownMenuRadioItem>
+                          )}
                         </DropdownMenuRadioGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -506,9 +475,9 @@ export const InstanceDetailPage: React.FC = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleStopInstance()}>所有组件</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStopInstance('main')}>Maibot</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStopInstance('napcat')}>NapCat</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStopInstance('napcat-ada')}>Ada</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStopInstance('MaiBot')}>MaiBot</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStopInstance('NapCat')}>NapCat</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStopInstance('MaiBot-Napcat-Adapter')}>Adapter</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -530,9 +499,9 @@ export const InstanceDetailPage: React.FC = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleRestartInstance()}>所有组件</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleRestartInstance('main')}>Maibot</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleRestartInstance('napcat')}>NapCat</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleRestartInstance('napcat-ada')}>Ada</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleRestartInstance('MaiBot')}>MaiBot</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleRestartInstance('NapCat')}>NapCat</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleRestartInstance('MaiBot-Napcat-Adapter')}>Adapter</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -541,7 +510,7 @@ export const InstanceDetailPage: React.FC = () => {
              </div>
              
              <div className="text-xs text-gray-400 font-medium px-2">
-                {selectedComponent === 'main' ? 'Maibot Console' : selectedComponent === 'napcat' ? 'NapCat Console' : 'Ada Console'}
+                {selectedComponent === 'MaiBot' ? 'MaiBot Console' : selectedComponent === 'NapCat' ? 'NapCat Console' : 'Adapter Console'}
              </div>
           </div>
         </div>
@@ -551,6 +520,20 @@ export const InstanceDetailPage: React.FC = () => {
       <ConfigModal
         isOpen={isConfigModalOpen}
         onClose={() => setIsConfigModalOpen(false)}
+        instanceId={instance.id}
+      />
+
+      {/* Schedule Modal */}
+      <ScheduleModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        instanceId={instance.id}
+      />
+
+      {/* Version Manager Modal */}
+      <VersionManagerModal
+        isOpen={isVersionManagerOpen}
+        onClose={() => setIsVersionManagerOpen(false)}
         instanceId={instance.id}
       />
     </div>

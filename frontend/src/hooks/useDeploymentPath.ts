@@ -1,10 +1,12 @@
 /**
  * 部署路径配置自定义 Hook
  * 职责：管理 Bot 实例部署路径的加载、保存和选择
+ *
+ * 通过 Tauri invoke 直接调用 Rust 命令。
  */
 
 import { useState, useEffect } from 'react'
-import { getApiUrl } from '@/config/api'
+import { tauriInvoke } from '@/services/tauriInvoke'
 import { environmentLogger } from '@/utils/logger'
 
 export function useDeploymentPath() {
@@ -17,13 +19,10 @@ export function useDeploymentPath() {
   const loadDeploymentPath = async () => {
     environmentLogger.info('加载部署路径配置')
     try {
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/environment/config`)
-      const data = await response.json()
-      
-      if (data.success) {
-        setDeploymentPath(data.data.instances_dir)
-        environmentLogger.success('部署路径加载成功', { path: data.data.instances_dir })
+      const pathConfig = await tauriInvoke<{ path: string } | null>('get_path', { name: 'instances_dir' })
+      if (pathConfig) {
+        setDeploymentPath(pathConfig.path)
+        environmentLogger.success('部署路径加载成功', { path: pathConfig.path })
       }
     } catch (error) {
       environmentLogger.error('加载部署路径失败', error)
@@ -65,34 +64,19 @@ export function useDeploymentPath() {
     environmentLogger.info('保存部署路径', { path })
     
     try {
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/config/paths`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: 'instances_dir',
-          path: path,
-          path_type: 'directory',
-          is_verified: false,
-          description: 'Bot 实例部署目录'
-        })
+      await tauriInvoke('set_path', {
+        name: 'instances_dir',
+        path,
+        pathType: 'directory',
+        isVerified: false,
+        description: 'Bot 实例部署目录',
       })
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        setPathSuccess('✓ 路径已保存')
-        environmentLogger.success('部署路径保存成功')
-        setTimeout(() => setPathSuccess(''), 3000)
-      } else {
-        setPathError('保存路径失败')
-        environmentLogger.error('保存路径失败', data)
-      }
+      setPathSuccess('✓ 路径已保存')
+      environmentLogger.success('部署路径保存成功')
+      setTimeout(() => setPathSuccess(''), 3000)
     } catch (error) {
       environmentLogger.error('保存路径异常', error)
-      setPathError('保存路径失败，请检查后端连接')
+      setPathError('保存路径失败')
     } finally {
       setIsSavingPath(false)
     }

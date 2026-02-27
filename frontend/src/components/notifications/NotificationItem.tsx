@@ -11,7 +11,7 @@ interface NotificationItemProps {
 }
 
 /**
- * 单个通知项组件 - Apple 风格
+ * 单个通知项组件
  */
 export function NotificationItem({ notification, onRemove, onClick, className, style }: NotificationItemProps) {
   const { type, title, message, task } = notification
@@ -47,10 +47,10 @@ export function NotificationItem({ notification, onRemove, onClick, className, s
   return (
     <div
       className={cn(
-        'group relative overflow-hidden',
-        'bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-xl', // Glassmorphism
-        'rounded-[14px]', // Apple-like rounded corners
-        'shadow-sm hover:shadow-md transition-all duration-200',
+      'group relative overflow-hidden',
+      'bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-xl',
+      'rounded-[14px]',
+      'shadow-sm hover:shadow-md transition-all duration-200',
         'border border-white/40 dark:border-white/10',
         'p-2.5 cursor-pointer',
         className
