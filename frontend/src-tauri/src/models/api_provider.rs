@@ -30,6 +30,7 @@ pub struct ApiProvider {
 
 /// AI 模型缓存（对应 api_models 表）
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[allow(dead_code)]
 pub struct ApiModel {
     pub id: i64,
     /// 关联的供应商 ID

@@ -172,6 +172,7 @@ pub async fn save_all_providers(
 // ==================== 模型管理 ====================
 
 /// 获取供应商的模型列表（从本地缓存）
+#[allow(dead_code)]
 pub async fn get_provider_models(pool: &SqlitePool, provider_id: i64) -> AppResult<Vec<ApiModel>> {
     let rows = sqlx::query_as::<_, ApiModel>(
         "SELECT * FROM api_models WHERE provider_id = ? ORDER BY model_id",

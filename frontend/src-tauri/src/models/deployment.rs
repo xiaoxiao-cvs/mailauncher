@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// 部署任务（对应 deployments 表）
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[allow(dead_code)]
 pub struct Deployment {
     /// 部署任务唯一标识符
     pub id: String,
@@ -30,6 +31,7 @@ pub struct Deployment {
 
 /// 部署日志（对应 deployment_logs 表）
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[allow(dead_code)]
 pub struct DeploymentLog {
     pub id: i64,
     /// 关联的部署任务 ID

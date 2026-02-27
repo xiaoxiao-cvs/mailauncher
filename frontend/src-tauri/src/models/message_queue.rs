@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 /// 消息状态
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[allow(dead_code)]
 pub enum MessageStatus {
     Pending,
     Planning,

@@ -13,10 +13,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize, PtySystem};
+use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use sysinfo::{Pid, System};
 use tokio::sync::Mutex;
-use tracing::{error, info, warn};
+use tracing::info;
 
 use crate::errors::{AppError, AppResult};
 
@@ -45,6 +45,7 @@ pub struct ProcessInfo {
     /// PTY 主端（保留用于 resize 等操作）
     master: Option<Box<dyn MasterPty + Send>>,
     /// 标记读取器是否已启动
+    #[allow(dead_code)]
     reader_started: bool,
 }
 
@@ -402,6 +403,7 @@ impl ProcessManager {
     }
 
     /// 获取进程的 CPU 和内存使用情况
+    #[allow(dead_code)]
     pub async fn get_process_resources(
         &self,
         instance_id: &str,
@@ -496,6 +498,7 @@ impl ProcessManager {
     }
 
     /// 清理所有进程
+    #[allow(dead_code)]
     pub async fn cleanup(&self) {
         info!("[进程管理器] 清理所有进程...");
         let mut inner = self.inner.lock().await;

@@ -218,6 +218,7 @@ fn get_venv_pip(venv_dir: &Path) -> std::path::PathBuf {
 }
 
 /// 获取虚拟环境中的 python 可执行文件路径
+#[allow(dead_code)]
 pub fn get_venv_python(venv_dir: &Path) -> std::path::PathBuf {
     if cfg!(target_os = "windows") {
         venv_dir.join("Scripts").join("python.exe")

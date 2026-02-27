@@ -4,13 +4,13 @@
 /// 负责 Git 仓库克隆、NapCat 安装包下载、版本查询等。
 /// 通过 Tauri 事件推送进度（替代 Python 的 WebSocket）。
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use chrono::Utc;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 use crate::errors::{AppError, AppResult};
 use crate::models::download::*;
@@ -435,6 +435,7 @@ async fn download_file(
 /// 命令执行结果
 pub struct CommandOutput {
     pub success: bool,
+    #[allow(dead_code)]
     pub stdout: String,
     pub stderr: String,
 }

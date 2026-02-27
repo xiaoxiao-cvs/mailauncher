@@ -141,6 +141,7 @@ pub struct DownloadTask {
 
 /// MaiBot 版本信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct MaibotVersion {
     /// 版本来源类型
     pub source: MaibotVersionSource,

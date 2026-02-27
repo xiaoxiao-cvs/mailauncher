@@ -4,7 +4,6 @@
 /// 消息队列数据来自正在运行的 MaiBot 实例，通过读取实例日志实现。
 /// 完整的 WebSocket 实时监听将在 Phase 2 实现。
 use sqlx::SqlitePool;
-use tracing::warn;
 
 use crate::errors::AppResult;
 use crate::models::message_queue::MessageQueueResponse;

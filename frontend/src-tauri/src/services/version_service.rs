@@ -6,7 +6,7 @@ use std::path::Path;
 
 use sqlx::SqlitePool;
 use tauri::AppHandle;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 use crate::errors::{AppError, AppResult};
 use crate::models::update::*;
@@ -22,6 +22,7 @@ pub struct GitHubRepo {
     /// 本地目录名
     pub folder: &'static str,
     /// 是否使用 Release（为 false 时对比 commit）
+    #[allow(dead_code)]
     pub has_releases: bool,
 }
 
@@ -219,7 +220,7 @@ pub fn get_local_commit(component_path: &Path) -> Option<String> {
 /// 从文件读取本地版本号
 ///
 /// 尝试从 `__version__.py` 或 `package.json` 读取版本信息。
-pub fn get_local_version_from_file(component_path: &Path, component: &str) -> Option<String> {
+pub fn get_local_version_from_file(component_path: &Path, _component: &str) -> Option<String> {
     // Python 组件: __version__.py
     let version_py = component_path.join("__version__.py");
     if version_py.exists() {

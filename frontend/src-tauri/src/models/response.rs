@@ -7,6 +7,7 @@ use serde::Serialize;
 ///
 /// 与 Python 后端的 `{"status": "...", "data": ..., "message": "..."}` 格式一致。
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 pub struct ApiResponse<T: Serialize> {
     pub status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -15,6 +16,7 @@ pub struct ApiResponse<T: Serialize> {
     pub message: Option<String>,
 }
 
+#[allow(dead_code)]
 impl<T: Serialize> ApiResponse<T> {
     /// 成功响应（携带数据）
     pub fn success(data: T) -> Self {

@@ -41,6 +41,7 @@ pub struct PythonEnvironment {
 
 /// MAIBot 配置（对应 maibot_config 表）
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[allow(dead_code)]
 pub struct MaibotConfig {
     pub id: i64,
     /// MAIBot 安装路径

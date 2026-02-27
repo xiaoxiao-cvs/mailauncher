@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use chrono::{Local, NaiveDateTime};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Row, SqlitePool};
-use tracing::{info, warn};
+use tracing::warn;
 
 use crate::errors::{AppError, AppResult};
 use crate::models::stats::*;
