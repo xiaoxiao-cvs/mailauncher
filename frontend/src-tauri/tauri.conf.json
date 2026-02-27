@@ -54,17 +54,13 @@
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": ""
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowElevation": true,
-      "languages": ["SimpChinese", "English"],
-      "displayLanguageSelector": true,
-      "installerIcon": "icons/icon.ico",
-      "uninstallerIcon": "icons/icon.ico",
-      "license": "../LICENSE"
+      "timestampUrl": "",
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico"
+      }
     }
   },
   "plugins": {
