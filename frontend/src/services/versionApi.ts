@@ -1,8 +1,9 @@
 /**
  * 版本管理 API
- * 提供组件版本检查、更新、备份管理接口
+ *
+ * 通过 Tauri invoke 直接调用 Rust 命令，替代原有的 HTTP API。
  */
-import { apiJson } from '@/config/api';
+import { tauriInvoke } from '@/services/tauriInvoke';
 
 // ==================== 类型定义 ====================
 
@@ -113,7 +114,7 @@ export interface Release {
  * 获取实例所有组件的版本信息
  */
 export async function getInstanceComponentsVersion(instanceId: string): Promise<ComponentVersionInfo[]> {
-  return apiJson<ComponentVersionInfo[]>(`/versions/instances/${instanceId}/components`);
+  return tauriInvoke<ComponentVersionInfo[]>('get_instance_components_version', { instanceId });
 }
 
 /**
@@ -123,10 +124,7 @@ export async function checkComponentUpdate(
   instanceId: string,
   component: string
 ): Promise<UpdateCheckResult> {
-  return apiJson<UpdateCheckResult>(
-    `/versions/instances/${instanceId}/components/${component}/check`,
-    { method: 'POST' }
-  );
+  return tauriInvoke<UpdateCheckResult>('check_component_update', { instanceId, component });
 }
 
 /**
@@ -136,7 +134,7 @@ export async function updateComponent(
   instanceId: string,
   component: string,
   createBackup: boolean = true,
-  updateMethod: 'git' | 'release' = 'git'
+  _updateMethod: 'git' | 'release' = 'git'
 ): Promise<{
   backup_id?: string;
   old_version?: string;
@@ -144,15 +142,13 @@ export async function updateComponent(
   old_commit?: string;
   new_commit?: string;
 }> {
-  const params = new URLSearchParams({
-    create_backup: String(createBackup),
-    update_method: updateMethod,
+  // Rust 命令返回 SuccessResponse，此处适配为兼容返回格式
+  await tauriInvoke('update_component', {
+    instanceId,
+    component,
+    createBackup,
   });
-  
-  return apiJson(
-    `/versions/instances/${instanceId}/components/${component}/update?${params}`,
-    { method: 'POST' }
-  );
+  return {};
 }
 
 /**
@@ -162,8 +158,10 @@ export async function getBackups(
   instanceId: string,
   component?: string
 ): Promise<VersionBackup[]> {
-  const params = component ? `?component=${component}` : '';
-  return apiJson<VersionBackup[]>(`/versions/instances/${instanceId}/backups${params}`);
+  return tauriInvoke<VersionBackup[]>('get_backups', {
+    instanceId,
+    component: component ?? null,
+  });
 }
 
 /**
@@ -177,10 +175,9 @@ export async function restoreBackup(
   component: string;
   restored_version?: string;
 }> {
-  return apiJson(
-    `/versions/instances/${instanceId}/backups/${backupId}/restore`,
-    { method: 'POST' }
-  );
+  // Rust 命令返回 SuccessResponse，此处适配为兼容返回格式
+  await tauriInvoke('restore_backup', { instanceId, backupId });
+  return { backup_id: backupId, component: '' };
 }
 
 /**
@@ -191,10 +188,11 @@ export async function getUpdateHistory(
   component?: string,
   limit: number = 20
 ): Promise<UpdateHistory[]> {
-  const params = new URLSearchParams({ limit: String(limit) });
-  if (component) params.append('component', component);
-  
-  return apiJson<UpdateHistory[]>(`/versions/instances/${instanceId}/update-history?${params}`);
+  return tauriInvoke<UpdateHistory[]>('get_update_history', {
+    instanceId,
+    component: component ?? null,
+    limit,
+  });
 }
 
 /**
@@ -204,8 +202,7 @@ export async function getComponentReleases(
   component: string,
   limit: number = 10
 ): Promise<Release[]> {
-  const params = new URLSearchParams({ limit: String(limit) });
-  return apiJson<Release[]>(`/versions/components/${component}/releases?${params}`);
+  return tauriInvoke<Release[]>('get_component_releases', { component, limit });
 }
 
 /**

@@ -1,9 +1,11 @@
 /**
  * 环境配置相关的 React Query hooks
+ *
+ * 通过 Tauri invoke 直接调用 Rust 命令。
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getApiUrl } from '@/config/api';
+import { tauriInvoke } from '@/services/tauriInvoke';
 
 // ==================== Types ====================
 
@@ -53,15 +55,7 @@ export function useGitEnvironmentQuery() {
   return useQuery({
     queryKey: environmentKeys.git(),
     queryFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/environment/git`);
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error('无法获取 Git 信息');
-      }
-      
-      return data.data as GitInfo;
+      return tauriInvoke<GitInfo>('check_git_environment');
     },
     staleTime: 60000, // Git 环境变化不频繁，缓存 1 分钟
   });
@@ -74,15 +68,8 @@ export function useEnvironmentConfigQuery() {
   return useQuery({
     queryKey: environmentKeys.config(),
     queryFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/environment/config`);
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error('加载部署路径失败');
-      }
-      
-      return data.data as EnvironmentConfig;
+      const pathConfig = await tauriInvoke<PathConfig | null>('get_path', { name: 'instances_dir' });
+      return { instances_dir: pathConfig?.path ?? '' } as EnvironmentConfig;
     },
   });
 }
@@ -94,15 +81,8 @@ export function useDeploymentPathQuery() {
   return useQuery({
     queryKey: environmentKeys.deploymentPath(),
     queryFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/environment/config`);
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error('加载部署路径失败');
-      }
-      
-      return data.data.instances_dir as string;
+      const pathConfig = await tauriInvoke<PathConfig | null>('get_path', { name: 'instances_dir' });
+      return pathConfig?.path ?? '';
     },
   });
 }
@@ -114,16 +94,12 @@ export function usePythonVersionsQuery() {
   return useQuery({
     queryKey: environmentKeys.pythonVersions(),
     queryFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/environment/python/versions`);
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error('获取 Python 版本失败');
-      }
-      
-      // 后端直接返回数组，不是 { versions: [...] } 结构
-      return data.data as PythonVersion[];
+      const envs = await tauriInvoke<Array<{ path: string; version: string; is_selected: boolean }>>('get_python_environments');
+      return envs.map(e => ({
+        version: e.version,
+        path: e.path,
+        is_default: e.is_selected,
+      })) as PythonVersion[];
     },
     staleTime: 300000, // Python 安装变化不频繁，缓存 5 分钟
   });
@@ -136,15 +112,11 @@ export function usePythonDefaultQuery() {
   return useQuery({
     queryKey: environmentKeys.pythonDefault(),
     queryFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/environment/python/default`);
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error('获取默认 Python 版本失败');
+      const env = await tauriInvoke<{ path: string; version: string } | null>('get_selected_python');
+      if (!env) {
+        throw new Error('未设置默认 Python 版本');
       }
-      
-      return data.data as { version: string; path: string };
+      return { version: env.version, path: env.path };
     },
   });
 }
@@ -156,15 +128,8 @@ export function useVenvTypeQuery() {
   return useQuery({
     queryKey: environmentKeys.venvType(),
     queryFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/environment/venv/type`);
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error('获取虚拟环境类型失败');
-      }
-      
-      return data.data.venv_type as string;
+      const value = await tauriInvoke<string | null>('get_config', { key: 'venv_type' });
+      return value ?? 'venv';
     },
   });
 }
@@ -179,30 +144,13 @@ export function useSavePathMutation() {
 
   return useMutation({
     mutationFn: async (path: string) => {
-      const apiUrl = getApiUrl();
-      const pathConfig: PathConfig = {
+      await tauriInvoke('set_path', {
         name: 'instances_dir',
         path,
-        path_type: 'directory',
-        is_verified: false,
+        pathType: 'directory',
+        isVerified: false,
         description: 'Bot实例部署目录',
-      };
-      
-      const response = await fetch(`${apiUrl}/config/paths`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(pathConfig),
       });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error('保存路径失败');
-      }
-
-      return data;
     },
     onSuccess: () => {
       // 保存成功后，失效环境配置缓存
@@ -220,23 +168,7 @@ export function useSetPythonDefaultMutation() {
 
   return useMutation({
     mutationFn: async (path: string) => {
-      const apiUrl = getApiUrl();
-      
-      const response = await fetch(`${apiUrl}/environment/python/default`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ python_path: path }),
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error('设置默认 Python 版本失败');
-      }
-
-      return data;
+      await tauriInvoke('select_python', { path });
     },
     onSuccess: () => {
       // 更新成功后，失效相关查询
@@ -254,22 +186,7 @@ export function useSetVenvTypeMutation() {
 
   return useMutation({
     mutationFn: async (venvType: string) => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/environment/venv/type`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ venv_type: venvType }),
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error('设置虚拟环境类型失败');
-      }
-
-      return data;
+      await tauriInvoke('set_config', { key: 'venv_type', value: venvType });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: environmentKeys.venvType() });

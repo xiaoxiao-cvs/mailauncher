@@ -1,8 +1,9 @@
 /**
  * 更新服务
- * 负责检查更新、下载安装新版本
+ *
+ * 通过 Tauri invoke 调用 Rust 命令和 Tauri 内置更新器。
  */
-import { getApiUrl } from '@/config/api'
+import { tauriInvoke } from '@/services/tauriInvoke'
 import type { UpdateCheckResponse, ChannelVersionsResponse } from '@/types/update'
 import logger from '@/utils/logger'
 
@@ -16,19 +17,11 @@ function isTauriEnvironment(): boolean {
 }
 
 /**
- * 从后端 API 检查更新
+ * 从 Rust 后端检查更新
  */
 export async function checkUpdateFromBackend(channel: string = 'main'): Promise<UpdateCheckResponse | null> {
   try {
-    const apiUrl = getApiUrl()
-    const response = await fetch(`${apiUrl}/update/check?channel=${channel}`)
-    
-    if (!response.ok) {
-      updateLogger.error('检查更新失败', { status: response.status })
-      return null
-    }
-    
-    const data = await response.json()
+    const data = await tauriInvoke<UpdateCheckResponse>('check_launcher_update', { channel })
     updateLogger.info('检查更新成功', data)
     return data
   } catch (error) {
@@ -45,15 +38,7 @@ export async function getChannelVersions(
   limit: number = 10
 ): Promise<ChannelVersionsResponse | null> {
   try {
-    const apiUrl = getApiUrl()
-    const response = await fetch(`${apiUrl}/update/channels/${channel}/versions?limit=${limit}`)
-    
-    if (!response.ok) {
-      updateLogger.error('获取版本列表失败', { status: response.status })
-      return null
-    }
-    
-    const data = await response.json()
+    const data = await tauriInvoke<ChannelVersionsResponse>('get_channel_versions', { channel, limit })
     updateLogger.info('获取版本列表成功', data)
     return data
   } catch (error) {
@@ -130,15 +115,8 @@ export async function checkUpdateWithTauri() {
  */
 export async function getCurrentVersion(): Promise<string> {
   try {
-    const apiUrl = getApiUrl()
-    const response = await fetch(`${apiUrl}/update/current-version`)
-    
-    if (!response.ok) {
-      return '0.1.0' // 默认版本
-    }
-    
-    const data = await response.json()
-    return data.data.version
+    const { getVersion } = await import('@tauri-apps/api/app')
+    return await getVersion()
   } catch (error) {
     updateLogger.error('获取当前版本失败', error)
     return '0.1.0'

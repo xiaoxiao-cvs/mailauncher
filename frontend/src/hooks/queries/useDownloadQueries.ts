@@ -1,9 +1,11 @@
 /**
  * 下载管理相关的 React Query hooks
+ *
+ * 通过 Tauri invoke 直接调用 Rust 命令。
  */
 
 import { useMutation } from '@tanstack/react-query';
-import { getApiUrl } from '@/config/api';
+import { tauriInvoke } from '@/services/tauriInvoke';
 
 // ==================== Types ====================
 
@@ -16,12 +18,9 @@ export interface DownloadTaskRequest {
   }>;
 }
 
-export interface DownloadTaskResponse {
-  success: boolean;
-  data: {
-    task_id: string;
-  };
-  message?: string;
+export interface DownloadTask {
+  id: string;
+  [key: string]: any;
 }
 
 // ==================== Mutations ====================
@@ -32,26 +31,13 @@ export interface DownloadTaskResponse {
 export function useCreateDownloadTaskMutation() {
   return useMutation({
     mutationFn: async (request: DownloadTaskRequest) => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/downloads`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
+      const task = await tauriInvoke<DownloadTask>('create_download_task', {
+        data: request,
       });
-
-      const data: DownloadTaskResponse = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || '创建下载任务失败');
-      }
-
-      return data.data.task_id;
+      return task.id;
     },
     onSuccess: () => {
-      // 下载任务创建后，可能需要刷新实例列表
-      // 这里暂时不做处理，由 WebSocket 消息更新
+      // 下载任务创建后，由 Tauri 事件更新状态
     },
   });
 }

@@ -1,9 +1,11 @@
 /**
  * 网络连接性检查相关的 React Query hooks
+ *
+ * 通过 Tauri invoke 直接调用 Rust 命令。
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { getApiUrl } from '@/config/api';
+import { tauriInvoke } from '@/services/tauriInvoke';
 
 // ==================== Types ====================
 
@@ -28,15 +30,7 @@ export function useConnectivityQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: connectivityKeys.status(),
     queryFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/environment/connectivity-check`);
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error('连接性检查失败');
-      }
-
-      return data.data as ConnectivityStatus;
+      return tauriInvoke<ConnectivityStatus>('check_connectivity');
     },
     staleTime: 30 * 1000, // 30秒缓存
     ...options,

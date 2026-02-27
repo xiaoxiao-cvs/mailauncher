@@ -1,9 +1,11 @@
 /**
  * API 提供商配置相关的 React Query hooks
+ *
+ * 通过 Tauri invoke 直接调用 Rust 命令。
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getApiUrl } from '@/config/api';
+import { tauriInvoke } from '@/services/tauriInvoke';
 
 // ==================== Types ====================
 
@@ -33,11 +35,8 @@ export interface ApiProviderUpdate {
 }
 
 export interface FetchModelsResponse {
-  success: boolean;
-  data: {
-    models: string[];
-    count: number;
-  };
+  models: string[];
+  models_count: number;
 }
 
 // ==================== Query Keys ====================
@@ -58,15 +57,7 @@ export function useApiProvidersQuery() {
   return useQuery({
     queryKey: apiProviderKeys.list(),
     queryFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/config/api-providers`);
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error('加载 API 供应商失败');
-      }
-
-      return (data.data.providers || []) as ApiProvider[];
+      return tauriInvoke<ApiProvider[]>('get_api_providers');
     },
   });
 }
@@ -81,22 +72,12 @@ export function useCreateApiProviderMutation() {
 
   return useMutation({
     mutationFn: async (provider: ApiProviderCreate) => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/config/api-providers`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(provider),
+      return tauriInvoke<ApiProvider>('create_api_provider', {
+        name: provider.name,
+        baseUrl: provider.base_url,
+        apiKey: provider.api_key,
+        isEnabled: provider.is_enabled,
       });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || '创建供应商失败');
-      }
-
-      return data.data as ApiProvider;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: apiProviderKeys.list() });
@@ -112,22 +93,13 @@ export function useUpdateApiProviderMutation() {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: ApiProviderUpdate }) => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/config/api-providers/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+      return tauriInvoke<ApiProvider>('update_api_provider', {
+        id,
+        name: data.name ?? null,
+        baseUrl: data.base_url ?? null,
+        apiKey: data.api_key ?? null,
+        isEnabled: data.is_enabled ?? null,
       });
-
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.message || '更新供应商失败');
-      }
-
-      return result.data as ApiProvider;
     },
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: apiProviderKeys.detail(id) });
@@ -144,18 +116,7 @@ export function useDeleteApiProviderMutation() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/config/api-providers/${id}`, {
-        method: 'DELETE',
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || '删除供应商失败');
-      }
-
-      return data;
+      await tauriInvoke('delete_api_provider', { id });
     },
     onSuccess: (_, id) => {
       queryClient.removeQueries({ queryKey: apiProviderKeys.detail(id) });
@@ -170,21 +131,9 @@ export function useDeleteApiProviderMutation() {
 export function useFetchProviderModelsMutation() {
   return useMutation({
     mutationFn: async (provider: ApiProvider) => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/config/api-providers/${provider.id}/fetch-models`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      return tauriInvoke<FetchModelsResponse>('fetch_provider_models', {
+        providerId: provider.id,
       });
-
-      const data: FetchModelsResponse = await response.json();
-
-      if (!data.success) {
-        throw new Error('获取模型列表失败');
-      }
-
-      return data.data;
     },
   });
 }
@@ -197,22 +146,7 @@ export function useSaveAllProvidersMutation() {
 
   return useMutation({
     mutationFn: async (providers: ApiProviderCreate[]) => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/config/api-providers`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ providers }),
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || '保存供应商失败');
-      }
-
-      return data;
+      return tauriInvoke<ApiProvider[]>('save_all_providers', { providers });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: apiProviderKeys.list() });
