@@ -10,6 +10,9 @@ pub mod download;
 pub mod update;
 pub mod api_provider;
 pub mod response;
+pub mod stats;
+pub mod message_queue;
+pub mod log;
 
 // 重导出常用类型
 pub use instance::{

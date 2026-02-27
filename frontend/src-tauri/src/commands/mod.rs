@@ -8,3 +8,5 @@ pub mod download;
 pub mod version;
 pub mod schedule;
 pub mod system;
+pub mod stats;
+pub mod logs;
