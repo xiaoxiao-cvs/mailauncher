@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # MAI Launcher 构建脚本
-# 该脚本将后端和前端打包成一个独立的应用程序
+# Phase 1 迁移后：纯 Rust 后端，不再需要 PyInstaller
 
 set -e  # 遇到错误立即退出
 
@@ -13,23 +13,10 @@ echo "======================================"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
-# 1. 打包后端
+# 1. 构建前端
 echo ""
-echo "Step 1: Building backend with PyInstaller..."
-cd backend
-echo "  -> Running PyInstaller..."
-../.venv/bin/pyinstaller mai-backend.spec --clean --noconfirm --distpath ../frontend/src-tauri/backend-dist
-
-if [ ! -f "../frontend/src-tauri/backend-dist/mai-backend/mai-backend" ]; then
-    echo "Error: Backend executable not found!"
-    exit 1
-fi
-echo "  ✓ Backend built successfully"
-
-# 2. 打包前端
-echo ""
-echo "Step 2: Building frontend..."
-cd ../frontend
+echo "Step 1: Building frontend..."
+cd frontend
 echo "  -> Installing dependencies..."
 pnpm install
 
@@ -42,13 +29,13 @@ if [ ! -d "dist" ]; then
 fi
 echo "  ✓ Frontend built successfully"
 
-# 3. 使用 Tauri 打包整个应用
+# 2. 使用 Tauri 打包整个应用
 echo ""
-echo "Step 3: Building Tauri app..."
+echo "Step 2: Building Tauri app..."
 echo "  -> Running Tauri build..."
 pnpm tauri build
 
-# 4. 完成
+# 3. 完成
 echo ""
 echo "======================================"
 echo "Build completed successfully!"
