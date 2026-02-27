@@ -83,11 +83,16 @@ pub fn get_database_path() -> PathBuf {
     get_database_dir().join("mailauncher.db")
 }
 
-/// 获取部署目录
+/// 获取部署目录（同时也是实例的存储目录，与 Python 一致）
 pub fn get_deployments_dir() -> PathBuf {
     let dir = get_data_root().join("deployments");
     std::fs::create_dir_all(&dir).expect("无法创建部署目录");
     dir
+}
+
+/// 获取实例目录（Python 中 instances_dir = data_root / "deployments"）
+pub fn get_instances_dir() -> PathBuf {
+    get_deployments_dir()
 }
 
 /// 获取日志目录
