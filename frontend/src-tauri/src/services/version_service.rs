@@ -17,30 +17,42 @@ use crate::models::version::*;
 /// 组件对应的 GitHub 仓库
 pub struct GitHubRepo {
     pub owner: &'static str,
-    pub repo: &'static str,
+    /// GitHub 仓库名
+    pub name: &'static str,
+    /// 本地目录名
+    pub folder: &'static str,
     /// 是否使用 Release（为 false 时对比 commit）
     pub has_releases: bool,
 }
 
-/// 获取组件的 GitHub 仓库信息
-pub fn get_github_repo(component: &str) -> Option<GitHubRepo> {
-    match component {
-        "main" | "MaiBot" => Some(GitHubRepo {
+/// 通过 DownloadItemType 获取 GitHub 仓库信息
+pub fn get_github_repo(item_type: &crate::models::download::DownloadItemType) -> GitHubRepo {
+    use crate::models::download::DownloadItemType;
+    match item_type {
+        DownloadItemType::Maibot => GitHubRepo {
             owner: "MaiM-with-u",
-            repo: "MaiBot",
+            name: "MaiBot",
+            folder: "MaiBot",
             has_releases: false,
-        }),
-        "napcat-ada" | "MaiBot-Napcat-Adapter" => Some(GitHubRepo {
+        },
+        DownloadItemType::NapcatAdapter => GitHubRepo {
             owner: "MaiM-with-u",
-            repo: "MaiBot-Napcat-Adapter",
+            name: "MaiBot-Napcat-Adapter",
+            folder: "MaiBot-Napcat-Adapter",
             has_releases: false,
-        }),
-        "napcat" | "NapCat" => Some(GitHubRepo {
+        },
+        DownloadItemType::Napcat => GitHubRepo {
             owner: "NapNeko",
-            repo: "NapCatQQ",
+            name: "NapCatQQ",
+            folder: "NapCat",
             has_releases: true,
-        }),
-        _ => None,
+        },
+        DownloadItemType::Lpmm => GitHubRepo {
+            owner: "MaiM-with-u",
+            name: "MaiMBot-LPMM",
+            folder: "MaiMBot-LPMM",
+            has_releases: false,
+        },
     }
 }
 
@@ -92,8 +104,9 @@ pub async fn get_latest_commit(owner: &str, repo: &str) -> AppResult<Option<Stri
 pub async fn get_releases(
     owner: &str,
     repo: &str,
-    limit: usize,
+    limit: Option<usize>,
 ) -> AppResult<Vec<GitHubRelease>> {
+    let limit = limit.unwrap_or(20);
     let url = format!(
         "https://api.github.com/repos/{}/{}/releases?per_page={}",
         owner, repo, limit
@@ -244,17 +257,19 @@ pub fn get_local_version_from_file(component_path: &Path, component: &str) -> Op
 
 /// 检查单个组件是否有更新
 pub async fn check_component_update(
-    component: &str,
-    component_path: &Path,
+    _pool: &SqlitePool,
+    _instance_id: &str,
+    item_type: &crate::models::download::DownloadItemType,
+    base_dir: &Path,
 ) -> AppResult<ComponentUpdateCheck> {
-    let repo = get_github_repo(component).ok_or_else(|| {
-        AppError::NotFound(format!("未知组件: {}", component))
-    })?;
+    let repo = get_github_repo(item_type);
+    let component_path = base_dir.join(repo.folder);
+    let component = repo.name;
 
-    let local_commit = get_local_commit(component_path);
-    let local_version = get_local_version_from_file(component_path, component);
+    let local_commit = get_local_commit(&component_path);
+    let local_version = get_local_version_from_file(&component_path, component);
 
-    let latest_commit = get_latest_commit(repo.owner, repo.repo).await?;
+    let latest_commit = get_latest_commit(repo.owner, repo.name).await?;
 
     let has_update = match (&local_commit, &latest_commit) {
         (Some(local), Some(latest)) => local != latest,
@@ -263,7 +278,7 @@ pub async fn check_component_update(
 
     let commits_behind = if has_update {
         if let (Some(local), Some(latest)) = (&local_commit, &latest_commit) {
-            compare_commits(repo.owner, repo.repo, local, latest).await?
+            compare_commits(repo.owner, repo.name, local, latest).await?
         } else {
             None
         }
@@ -287,6 +302,7 @@ pub async fn check_component_update(
 pub async fn get_instance_components_version(
     pool: &SqlitePool,
     instance_id: &str,
+    _base_dir: &Path,
 ) -> AppResult<Vec<ComponentVersionInfo>> {
     let rows: Vec<ComponentVersion> = sqlx::query_as(
         "SELECT * FROM component_versions WHERE instance_id = ? ORDER BY component",
@@ -363,6 +379,72 @@ pub async fn update_component_git(
 
 // ==================== 备份/恢复 ====================
 
+/// 创建组件备份
+///
+/// 将组件目录整体复制到备份目录，并记录到数据库。
+pub async fn create_backup(
+    pool: &SqlitePool,
+    instance_id: &str,
+    item_type: &crate::models::download::DownloadItemType,
+    component_dir: &Path,
+) -> AppResult<String> {
+    use crate::services::download_service::copy_dir_recursive;
+    use uuid::Uuid;
+
+    let repo = get_github_repo(item_type);
+    let backup_id = format!("backup_{}", Uuid::new_v4().to_string().replace('-', "")[..12].to_string());
+
+    // 备份目录
+    let backups_dir = crate::utils::platform::get_data_root().join("backups");
+    let backup_path = backups_dir.join(&backup_id);
+
+    std::fs::create_dir_all(&backup_path)
+        .map_err(|e| AppError::FileSystem(format!("创建备份目录失败: {}", e)))?;
+
+    copy_dir_recursive(component_dir, &backup_path)
+        .map_err(|e| AppError::FileSystem(format!("复制备份数据失败: {}", e)))?;
+
+    // 计算备份大小
+    let backup_size = fs_dir_size(&backup_path);
+
+    let commit_hash = get_local_commit(component_dir);
+    let version = get_local_version_from_file(component_dir, repo.name);
+
+    sqlx::query(
+        "INSERT INTO version_backups (id, instance_id, component, version, commit_hash, backup_path, backup_size, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+    )
+    .bind(&backup_id)
+    .bind(instance_id)
+    .bind(repo.folder)
+    .bind(&version)
+    .bind(&commit_hash)
+    .bind(backup_path.to_string_lossy().as_ref())
+    .bind(backup_size as i64)
+    .execute(pool)
+    .await
+    .map_err(|e: sqlx::Error| AppError::Database(format!("记录备份失败: {}", e)))?;
+
+    info!("组件备份完成: {} → {}", repo.folder, backup_id);
+    Ok(backup_id)
+}
+
+/// 计算目录大小
+fn fs_dir_size(path: &Path) -> u64 {
+    let mut total = 0u64;
+    if let Ok(entries) = std::fs::read_dir(path) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_dir() {
+                total += fs_dir_size(&p);
+            } else if let Ok(meta) = p.metadata() {
+                total += meta.len();
+            }
+        }
+    }
+    total
+}
+
 /// 获取备份列表
 pub async fn get_backups(
     pool: &SqlitePool,
@@ -396,8 +478,9 @@ pub async fn get_update_history(
     pool: &SqlitePool,
     instance_id: &str,
     component: Option<&str>,
-    limit: i64,
+    limit: Option<i64>,
 ) -> AppResult<Vec<UpdateHistory>> {
+    let limit = limit.unwrap_or(50);
     let history = if let Some(comp) = component {
         sqlx::query_as::<_, UpdateHistory>(
             "SELECT * FROM update_history WHERE instance_id = ? AND component = ? ORDER BY updated_at DESC LIMIT ?",
@@ -429,29 +512,15 @@ pub async fn get_update_history(
 /// 对应 Python `UpdateService.check_update`。
 /// 从 GitHub Releases 获取最新版本，与当前版本对比。
 pub async fn check_launcher_update(
-    current_version: &str,
     channel: &str,
 ) -> AppResult<UpdateCheckResponse> {
-    let releases = get_releases(LAUNCHER_OWNER, LAUNCHER_REPO, 20).await?;
+    let current_version = env!("CARGO_PKG_VERSION");
+    let releases = get_releases(LAUNCHER_OWNER, LAUNCHER_REPO, None).await?;
 
-    // 按通道分类
+    // 按通道过滤
     let channel_releases: Vec<&GitHubRelease> = releases
         .iter()
-        .filter(|r| {
-            let tag = &r.tag_name;
-            match channel {
-                "develop" => {
-                    tag.contains("-dev") || tag.contains("-alpha") || tag.contains("-rc")
-                }
-                "beta" => tag.contains("-beta"),
-                "main" | _ => {
-                    !tag.contains("-dev")
-                        && !tag.contains("-alpha")
-                        && !tag.contains("-rc")
-                        && !tag.contains("-beta")
-                }
-            }
-        })
+        .filter(|r| filter_by_channel(&r.tag_name, channel))
         .collect();
 
     let latest = channel_releases.first();
@@ -485,30 +554,31 @@ pub async fn check_launcher_update(
     })
 }
 
+/// 按通道过滤 Tag
+fn filter_by_channel(tag: &str, channel: &str) -> bool {
+    match channel {
+        "develop" => tag.contains("-dev") || tag.contains("-alpha") || tag.contains("-rc"),
+        "beta" => tag.contains("-beta"),
+        _ => {
+            !tag.contains("-dev")
+                && !tag.contains("-alpha")
+                && !tag.contains("-rc")
+                && !tag.contains("-beta")
+        }
+    }
+}
+
 /// 获取通道版本列表
 pub async fn get_channel_versions(
     channel: &str,
-    limit: usize,
+    limit: Option<usize>,
 ) -> AppResult<ChannelVersionsResponse> {
-    let releases = get_releases(LAUNCHER_OWNER, LAUNCHER_REPO, 50).await?;
+    let limit = limit.unwrap_or(20);
+    let releases = get_releases(LAUNCHER_OWNER, LAUNCHER_REPO, Some(50)).await?;
 
     let versions: Vec<VersionInfo> = releases
         .iter()
-        .filter(|r| {
-            let tag = &r.tag_name;
-            match channel {
-                "develop" => {
-                    tag.contains("-dev") || tag.contains("-alpha") || tag.contains("-rc")
-                }
-                "beta" => tag.contains("-beta"),
-                "main" | _ => {
-                    !tag.contains("-dev")
-                        && !tag.contains("-alpha")
-                        && !tag.contains("-rc")
-                        && !tag.contains("-beta")
-                }
-            }
-        })
+        .filter(|r| filter_by_channel(&r.tag_name, channel))
         .take(limit)
         .map(|r| VersionInfo {
             version: r.tag_name.clone(),

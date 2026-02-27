@@ -514,7 +514,7 @@ pub async fn run_command_with_output(
 // ==================== 目录递归复制 ====================
 
 /// 递归复制目录
-fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+pub fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
     if !dst.exists() {
         std::fs::create_dir_all(dst)?;
     }

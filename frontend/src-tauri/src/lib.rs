@@ -100,6 +100,7 @@ async fn init_rust_services() -> AppState {
     AppState {
         db: pool,
         process_manager: services::process_service::ProcessManager::new(),
+        download_manager: services::download_service::DownloadManager::new(),
     }
 }
 
@@ -172,6 +173,21 @@ pub fn run() {
             commands::process::terminal_write,
             commands::process::terminal_get_history,
             commands::process::terminal_resize,
+            // 下载管理
+            commands::download::create_download_task,
+            commands::download::get_download_task,
+            commands::download::get_all_download_tasks,
+            commands::download::get_maibot_versions,
+            // 版本管理
+            commands::version::get_instance_components_version,
+            commands::version::check_component_update,
+            commands::version::update_component,
+            commands::version::get_backups,
+            commands::version::restore_backup,
+            commands::version::get_update_history,
+            commands::version::get_component_releases,
+            commands::version::check_launcher_update,
+            commands::version::get_channel_versions,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
