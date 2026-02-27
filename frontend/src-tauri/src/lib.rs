@@ -1,6 +1,7 @@
 use tauri::Manager;
 use std::process::{Command, Child};
 use std::sync::Mutex;
+use tracing::info;
 
 // 模块声明
 mod commands;
@@ -8,44 +9,46 @@ mod services;
 mod models;
 mod db;
 mod errors;
+mod state;
 mod utils;
 
-// 后端进程状态
+use state::AppState;
+
+// 后端进程状态（双轨期间保留，用于管理 Python 后端进程）
 struct BackendProcess(Mutex<Option<Child>>);
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
-// 启动后端进程
+// 启动后端进程（双轨期间保留）
 fn start_backend(app_handle: &tauri::AppHandle) -> Result<Child, String> {
     #[cfg(debug_assertions)]
     {
         // 开发模式：使用 Python 直接运行
         let backend_dir = app_handle.path().app_data_dir()
-            .map_err(|e| format!("Failed to get app data dir: {}", e))?
+            .map_err(|e| format!("无法获取应用数据目录: {}", e))?
             .parent()
-            .ok_or("Failed to get parent directory")?
+            .ok_or("无法获取父目录")?
             .parent()
-            .ok_or("Failed to get workspace directory")?
+            .ok_or("无法获取工作区目录")?
             .join("backend");
 
-        println!("Starting backend in development mode from: {:?}", backend_dir);
+        println!("开发模式启动后端: {:?}", backend_dir);
         
         Command::new("python3")
             .arg("main.py")
             .current_dir(backend_dir)
             .spawn()
-            .map_err(|e| format!("Failed to start backend: {}", e))
+            .map_err(|e| format!("启动后端失败: {}", e))
     }
     
     #[cfg(not(debug_assertions))]
     {
         // 生产模式：使用打包的可执行文件
         let resource_dir = app_handle.path().resource_dir()
-            .map_err(|e| format!("Failed to get resource dir: {}", e))?;
+            .map_err(|e| format!("无法获取资源目录: {}", e))?;
         
         let backend_exe = if cfg!(target_os = "windows") {
             resource_dir.join("backend-dist").join("mai-backend").join("mai-backend.exe")
@@ -53,29 +56,64 @@ fn start_backend(app_handle: &tauri::AppHandle) -> Result<Child, String> {
             resource_dir.join("backend-dist").join("mai-backend").join("mai-backend")
         };
 
-        println!("Starting backend from: {:?}", backend_exe);
+        println!("生产模式启动后端: {:?}", backend_exe);
         
         if !backend_exe.exists() {
-            return Err(format!("Backend executable not found: {:?}", backend_exe));
+            return Err(format!("后端可执行文件不存在: {:?}", backend_exe));
         }
 
-        // 设置工作目录为应用数据目录，以便后端可以创建 data 文件夹
         let app_data_dir = app_handle.path().app_data_dir()
-            .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+            .map_err(|e| format!("无法获取应用数据目录: {}", e))?;
         
-        // 确保数据目录存在
         std::fs::create_dir_all(&app_data_dir)
-            .map_err(|e| format!("Failed to create app data dir: {}", e))?;
+            .map_err(|e| format!("无法创建应用数据目录: {}", e))?;
 
         Command::new(&backend_exe)
             .current_dir(app_data_dir)
             .spawn()
-            .map_err(|e| format!("Failed to start backend: {}", e))
+            .map_err(|e| format!("启动后端失败: {}", e))
     }
+}
+
+/// 初始化 Rust 侧服务（数据库连接池、建表迁移）
+async fn init_rust_services() -> AppState {
+    // 初始化数据目录
+    utils::platform::init_data_directories();
+
+    // 创建数据库连接池
+    let pool = db::create_pool()
+        .await
+        .expect("数据库连接池创建失败");
+
+    // 运行建表迁移
+    db::migration::run_migrations(&pool)
+        .await
+        .expect("数据库迁移失败");
+
+    // 初始化默认数据
+    db::migration::init_default_providers(&pool)
+        .await
+        .expect("默认数据初始化失败");
+
+    info!("[初始化] Rust 服务初始化完成");
+
+    AppState { db: pool }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 初始化 tracing 日志
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+        )
+        .init();
+
+    // 在 tokio 运行时中初始化 Rust 服务
+    let rt = tokio::runtime::Runtime::new().expect("无法创建 Tokio 运行时");
+    let app_state = rt.block_on(init_rust_services());
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -88,27 +126,27 @@ pub fn run() {
                 )?;
             }
 
-            // 启动后端进程
+            // 启动 Python 后端进程（双轨期间保留）
             let app_handle = app.handle().clone();
             std::thread::spawn(move || {
-                // 等待一小段时间确保应用初始化完成
                 std::thread::sleep(std::time::Duration::from_millis(500));
                 
                 match start_backend(&app_handle) {
                     Ok(child) => {
-                        println!("Backend process started with PID: {:?}", child.id());
+                        info!("Python 后端进程已启动，PID: {:?}", child.id());
                         if let Some(backend_state) = app_handle.try_state::<BackendProcess>() {
                             *backend_state.0.lock().unwrap() = Some(child);
                         }
                     }
                     Err(e) => {
-                        eprintln!("Failed to start backend: {}", e);
+                        tracing::error!("启动 Python 后端失败: {}", e);
                     }
                 }
             });
 
             Ok(())
         })
+        .manage(app_state)
         .manage(BackendProcess(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![greet])
         .on_window_event(|window, event| {
@@ -116,12 +154,12 @@ pub fn run() {
                 // 关闭窗口时终止后端进程
                 if let Some(backend_state) = window.app_handle().try_state::<BackendProcess>() {
                     if let Some(mut child) = backend_state.0.lock().unwrap().take() {
-                        println!("Terminating backend process...");
+                        info!("正在终止 Python 后端进程...");
                         let _ = child.kill();
                     }
                 }
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("Tauri 应用运行失败");
 }
