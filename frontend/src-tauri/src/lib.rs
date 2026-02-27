@@ -210,6 +210,16 @@ pub fn run() {
             commands::config::add_toml_array_item,
             commands::config::update_toml_array_item,
             commands::config::delete_toml_array_item,
+            // 系统工具
+            commands::system::check_git_environment,
+            commands::system::check_connectivity,
+            // API 供应商管理
+            commands::system::get_api_providers,
+            commands::system::create_api_provider,
+            commands::system::update_api_provider,
+            commands::system::delete_api_provider,
+            commands::system::save_all_providers,
+            commands::system::fetch_provider_models,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {

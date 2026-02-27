@@ -8,3 +8,5 @@ pub mod download_service;
 pub mod install_service;
 pub mod version_service;
 pub mod schedule_service;
+pub mod api_provider_service;
+pub mod system_service;
