@@ -9,3 +9,13 @@ pub mod version;
 pub mod download;
 pub mod api_provider;
 pub mod response;
+
+// 重导出常用类型
+pub use instance::Instance;
+pub use deployment::{Deployment, DeploymentLog};
+pub use config::{LauncherConfig, PythonEnvironment, MaibotConfig, PathConfig};
+pub use schedule::ScheduleTask;
+pub use version::{ComponentVersion, VersionBackup, UpdateHistory};
+pub use download::{DownloadProgress, DownloadStatus};
+pub use api_provider::{ApiProvider, ApiModel};
+pub use response::ApiResponse;
