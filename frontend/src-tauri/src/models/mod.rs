@@ -7,6 +7,7 @@ pub mod config;
 pub mod schedule;
 pub mod version;
 pub mod download;
+pub mod update;
 pub mod api_provider;
 pub mod response;
 
@@ -19,6 +20,14 @@ pub use deployment::{Deployment, DeploymentLog};
 pub use config::{LauncherConfig, PythonEnvironment, MaibotConfig, PathConfig};
 pub use schedule::ScheduleTask;
 pub use version::{ComponentVersion, VersionBackup, UpdateHistory};
-pub use download::{DownloadProgress, DownloadStatus};
+pub use download::{
+    DownloadItemType, MaibotVersionSource, DownloadStatus, DownloadProgress,
+    DownloadTaskCreate, DownloadTask, MaibotVersion, VersionsResponse,
+};
+pub use update::{
+    ReleaseAsset, GitHubRelease, UpdateChannel, VersionInfo,
+    UpdateCheckResponse, ChannelVersionsResponse,
+    ComponentUpdateCheck, ComponentVersionInfo,
+};
 pub use api_provider::{ApiProvider, ApiModel};
 pub use response::ApiResponse;
