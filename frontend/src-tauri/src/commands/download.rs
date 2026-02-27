@@ -2,6 +2,12 @@
 ///
 /// 对应前端下载相关 API 调用。
 /// 任务创建后异步执行，通过 Tauri 事件推送进度。
+///
+/// 事件名格式：
+/// - `download-log-{taskId}` — 日志消息（字符串载荷）
+/// - `download-status-{taskId}` — 状态变更（字符串载荷）
+/// - `download-progress-{taskId}` — 结构化进度（JSON 载荷）
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 use tracing::{error, info};
 
@@ -10,6 +16,30 @@ use crate::models::download::*;
 use crate::services::{download_service, install_service, instance_service};
 use crate::state::AppState;
 use crate::utils::platform;
+
+/// 前端进度事件载荷
+#[derive(Debug, Clone, Serialize)]
+struct DownloadProgressEvent {
+    /// 百分比 0-100
+    percentage: f64,
+    /// 描述消息
+    message: String,
+    /// 当前状态
+    status: String,
+}
+
+/// 向前端推送结构化进度事件
+fn emit_progress(app: &AppHandle, task_id: &str, percentage: f64, message: &str, status: &str) {
+    let event_name = format!("download-progress-{}", task_id);
+    let _ = app.emit(
+        &event_name,
+        DownloadProgressEvent {
+            percentage,
+            message: message.to_string(),
+            status: status.to_string(),
+        },
+    );
+}
 
 /// 创建并执行下载任务
 ///
@@ -35,6 +65,7 @@ pub async fn create_download_task(
         if let Err(e) = execute_download_task(&app, &dm, &pool, &task_id).await {
             error!("下载任务 {} 执行失败: {}", task_id, e);
             dm.mark_failed(&task_id, e.to_string()).await;
+            emit_progress(&app, &task_id, 0.0, &e.to_string(), "failed");
             let _ = app.emit(
                 &format!("download-status-{}", task_id),
                 "failed",
@@ -97,6 +128,7 @@ async fn execute_download_task(
 
     dm.mark_started(task_id).await;
     let _ = app_handle.emit(&status_event, "downloading");
+    emit_progress(app_handle, task_id, 0.0, "开始下载...", "downloading");
 
     // 1. 创建实例目录
     let instances_dir = platform::get_instances_dir();
@@ -124,6 +156,7 @@ async fn execute_download_task(
             DownloadItemType::Maibot => {
                 dm.update_task_progress(task_id, progress, "正在下载 MaiBot...".to_string())
                     .await;
+                emit_progress(app_handle, task_id, progress, "正在下载 MaiBot...", "downloading");
                 let _ = app_handle.emit(&event_name, "正在克隆 MaiBot 仓库...");
 
                 // 确定分支
@@ -147,6 +180,7 @@ async fn execute_download_task(
                 dm.update_task_status(task_id, DownloadStatus::Installing)
                     .await;
                 let _ = app_handle.emit(&status_event, "installing");
+                emit_progress(app_handle, task_id, progress + 5.0, "正在安装 MaiBot 依赖...", "installing");
 
                 let venv_dir = instance_dir.join(".venv");
                 if !venv_dir.exists() {
@@ -173,6 +207,7 @@ async fn execute_download_task(
                 dm.update_task_status(task_id, DownloadStatus::Configuring)
                     .await;
                 let _ = app_handle.emit(&status_event, "configuring");
+                emit_progress(app_handle, task_id, progress + 10.0, "正在配置 MaiBot...", "configuring");
                 install_service::setup_maibot_config(&component_dir, app_handle, &event_name)
                     .await?;
             }
@@ -184,6 +219,7 @@ async fn execute_download_task(
                     "正在下载 NapCat Adapter...".to_string(),
                 )
                 .await;
+                emit_progress(app_handle, task_id, progress, "正在下载 NapCat Adapter...", "downloading");
                 let _ = app_handle.emit(&event_name, "正在克隆 NapCat Adapter 仓库...");
 
                 download_service::clone_repository(
@@ -217,6 +253,7 @@ async fn execute_download_task(
             DownloadItemType::Napcat => {
                 dm.update_task_progress(task_id, progress, "正在安装 NapCat...".to_string())
                     .await;
+                emit_progress(app_handle, task_id, progress, "正在安装 NapCat...", "downloading");
                 let _ = app_handle.emit(&event_name, "正在下载安装 NapCat...");
 
                 download_service::download_napcat(&instance_dir, app_handle, &event_name).await?;
@@ -227,6 +264,7 @@ async fn execute_download_task(
                 if cfg!(target_os = "macos") {
                     dm.update_task_progress(task_id, progress, "正在下载 LPMM...".to_string())
                         .await;
+                    emit_progress(app_handle, task_id, progress, "正在下载 LPMM...", "downloading");
                     let _ = app_handle.emit(&event_name, "正在克隆 LPMM 仓库...");
 
                     download_service::clone_repository(
@@ -257,6 +295,7 @@ async fn execute_download_task(
     // 4. 创建实例 DB 记录
     dm.update_task_progress(task_id, 95.0, "正在创建实例记录...".to_string())
         .await;
+    emit_progress(app_handle, task_id, 95.0, "正在创建实例记录...", "configuring");
 
     let instance = instance_service::create_instance(
         pool,
@@ -282,6 +321,7 @@ async fn execute_download_task(
     // 5. 标记完成
     dm.mark_completed(task_id, Some(instance.id.clone())).await;
     let _ = app_handle.emit(&status_event, "completed");
+    emit_progress(app_handle, task_id, 100.0, "安装完成", "completed");
     let _ = app_handle.emit(&event_name, format!("安装完成！实例 ID: {}", instance.id));
 
     info!("下载任务完成: {} → 实例 {}", task_id, instance.id);
