@@ -1,6 +1,10 @@
 /**
  * 终端组件
  * 使用 xterm.js 实现的真实终端模拟器
+ *
+ * 通过 Tauri 事件接收进程输出，通过 invoke 发送终端输入和调整大小。
+ * 事件名: `terminal-output-{instanceId}_{component}`
+ * 命令: `terminal_write`, `terminal_get_history`, `terminal_resize`
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -9,7 +13,9 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import '@xterm/xterm/css/xterm.css';
-import { getApiBaseUrl } from '@/config/api';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { tauriInvoke } from '@/services/tauriInvoke';
+import { terminalOutputEvent } from '@/types/tauriEvents';
 
 interface TerminalComponentProps {
   instanceId: string;
@@ -27,7 +33,6 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstance = useRef<Terminal | null>(null);
   const fitAddon = useRef<FitAddon | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
   
   // 初始化终端 (只执行一次)
   useEffect(() => {
@@ -128,10 +133,13 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     };
   }, []); // 只在挂载时执行一次
   
-  // 管理 WebSocket 连接
+  // 管理 Tauri 事件监听 + invoke 交互
   useEffect(() => {
     const term = terminalInstance.current;
     if (!term) return;
+    
+    let unlisten: UnlistenFn | null = null;
+    let cancelled = false;
     
     // 清空终端内容，准备显示新会话
     term.clear();
@@ -142,131 +150,89 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     term.writeln(`\x1b[1;33m组件:\x1b[0m ${component}`);
     term.writeln('\x1b[1;36m========================================\x1b[0m');
     term.writeln('');
-    
-    // 组件正在运行,建立 WebSocket 连接
     term.writeln('\x1b[1;32m正在连接终端...\x1b[0m');
     
-    // 使用统一的 API 配置获取后端地址
-    const apiBaseUrl = getApiBaseUrl();
-    const wsUrl = apiBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
-    // 添加查询参数请求历史日志 (500条)
-    const ws = new WebSocket(`${wsUrl}/api/v1/instances/${instanceId}/component/${component}/terminal?history=500`);
-    
-    wsRef.current = ws;
-    
-    ws.onopen = () => {
-      term.writeln('\x1b[1;32m✓ 终端已连接\x1b[0m');
-      term.writeln('');
-      
-      // 发送终端尺寸
-      if (fitAddon.current) {
-        const { rows, cols } = term;
-        ws.send(JSON.stringify({
-          type: 'resize',
-          rows: rows,
-          cols: cols
-        }));
-      }
-    };
-    
-    ws.onmessage = (event) => {
+    const setup = async () => {
       try {
-        const message = JSON.parse(event.data);
+        // 1. 获取历史输出
+        const history = await tauriInvoke<string[]>('terminal_get_history', {
+          instanceId,
+          component,
+          lines: 500,
+        });
         
-        switch (message.type) {
-          case 'connected':
-            term.writeln(`\x1b[1;32m${message.message}\x1b[0m`);
-            if (message.pid) {
-              term.writeln(`\x1b[90mPID: ${message.pid}\x1b[0m`);
-            }
-            term.writeln('');
-            break;
-            
-          case 'history':
-            // 显示历史日志
-            if (message.lines && message.lines.length > 0) {
-              term.writeln(`\x1b[90m--- 历史日志 (${message.lines.length} 条) ---\x1b[0m`);
-              message.lines.forEach((line: string) => {
-                term.write(line);
-              });
-              term.writeln('\x1b[90m--- 实时日志 ---\x1b[0m');
-              term.writeln('');
-            }
-            break;
-            
-          case 'output':
-            term.write(message.data);
-            break;
-            
-          case 'error':
-            term.writeln('');
-            term.writeln(`\x1b[1;31m错误: ${message.message}\x1b[0m`);
-            break;
-            
-          default:
-            console.warn('未知消息类型:', message);
+        if (cancelled) return;
+        
+        term.writeln('\x1b[1;32m✓ 终端已连接\x1b[0m');
+        term.writeln('');
+        
+        if (history && history.length > 0) {
+          term.writeln(`\x1b[90m--- 历史日志 (${history.length} 条) ---\x1b[0m`);
+          history.forEach((line: string) => {
+            term.write(line);
+          });
+          term.writeln('\x1b[90m--- 实时日志 ---\x1b[0m');
+          term.writeln('');
         }
+        
+        // 2. 监听实时输出事件
+        const eventName = terminalOutputEvent(instanceId, component);
+        unlisten = await listen<string>(eventName, (event) => {
+          if (!cancelled) {
+            term.write(event.payload);
+          }
+        });
+        
+        // 3. 发送初始终端尺寸
+        const { rows, cols } = term;
+        await tauriInvoke('terminal_resize', {
+          instanceId,
+          component,
+          rows,
+          cols,
+        });
       } catch (error) {
-        console.error('解析消息失败:', error);
+        if (!cancelled) {
+          term.writeln('');
+          term.writeln(`\x1b[1;31m✗ 终端连接失败: ${error}\x1b[0m`);
+          console.error('终端连接失败:', error);
+        }
       }
     };
     
-    ws.onerror = (error) => {
-      // 只在 WebSocket 已经打开过的情况下显示错误
-      // 忽略在 CONNECTING 状态下的错误(通常是组件卸载导致的)
-      if (ws.readyState !== WebSocket.CONNECTING && wsRef.current === ws) {
-        term.writeln('');
-        term.writeln('\x1b[1;31m✗ 终端连接错误\x1b[0m');
-        console.error('WebSocket 错误:', error);
-      }
-    };
+    setup();
     
-    ws.onclose = (event) => {
-      // 只在正常连接后关闭时显示消息（避免开发模式重复挂载产生的噪音）
-      if (event.wasClean && wsRef.current === ws) {
-        term.writeln('');
-        term.writeln('\x1b[1;33m○ 终端连接已关闭\x1b[0m');
-      }
-    };
-    
-    // 发送用户输入到 WebSocket
-    const onDataHandler = (data: string) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'input',
-          data: data
-        }));
-      }
-    };
-    
-    term.onData(onDataHandler);
+    // 发送用户输入到 Rust 后端
+    const onDataDisposable = term.onData((data: string) => {
+      tauriInvoke('terminal_write', {
+        instanceId,
+        component,
+        data,
+      }).catch((err) => {
+        console.error('终端输入发送失败:', err);
+      });
+    });
     
     // 监听终端大小变化
-    const onResizeHandler = ({ rows, cols }: { rows: number; cols: number }) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'resize',
-          rows: rows,
-          cols: cols
-        }));
-      }
-    };
-    
-    term.onResize(onResizeHandler);
+    const onResizeDisposable = term.onResize(({ rows, cols }: { rows: number; cols: number }) => {
+      tauriInvoke('terminal_resize', {
+        instanceId,
+        component,
+        rows,
+        cols,
+      }).catch((err) => {
+        console.error('终端调整大小失败:', err);
+      });
+    });
     
     // 清理
     return () => {
-      if (wsRef.current) {
-        // 标记为已清理,避免 onclose 回调显示消息
-        const currentWs = wsRef.current;
-        wsRef.current = null;
-        
-        // 只在连接已建立时关闭
-        if (currentWs.readyState === WebSocket.OPEN || 
-            currentWs.readyState === WebSocket.CONNECTING) {
-          currentWs.close();
-        }
+      cancelled = true;
+      if (unlisten) {
+        unlisten();
       }
+      onDataDisposable.dispose();
+      onResizeDisposable.dispose();
     };
   }, [instanceId, component]);
   
