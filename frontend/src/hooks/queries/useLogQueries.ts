@@ -3,7 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getApiUrl } from '@/config/api';
+import { tauriInvoke } from '@/services/tauriInvoke';
 
 // ==================== Types ====================
 
@@ -31,15 +31,7 @@ export function useLogFilesQuery() {
   return useQuery({
     queryKey: logKeys.files(),
     queryFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/logger/frontend/files`);
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error('获取日志文件列表失败');
-      }
-
-      return data.data.files as LogFile[];
+      return tauriInvoke<LogFile[]>('list_log_files');
     },
     staleTime: 10000, // 日志文件列表缓存 10 秒
   });
@@ -54,17 +46,11 @@ export function useLogContentQuery(filePath: string | null) {
     queryFn: async () => {
       if (!filePath) return null;
 
-      const apiUrl = getApiUrl();
-      const response = await fetch(
-        `${apiUrl}/logger/frontend/content?path=${encodeURIComponent(filePath)}`
-      );
-      const data = await response.json();
+      const result = await tauriInvoke<{ content: string }>('get_log_content', {
+        fileName: filePath,
+      });
 
-      if (!data.success) {
-        throw new Error('读取日志内容失败');
-      }
-
-      return data.data.content as string;
+      return result.content;
     },
     enabled: !!filePath,
     staleTime: 5000, // 日志内容缓存 5 秒
@@ -79,21 +65,8 @@ export function useLogContentQuery(filePath: string | null) {
 export function useExportLogsMutation() {
   return useMutation({
     mutationFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/logger/frontend/export`);
-      const blob = await response.blob();
-
-      // 创建下载链接
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `mailauncher-logs-${new Date().toISOString().split('T')[0]}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      return { success: true };
+      const zipPath = await tauriInvoke<string>('export_logs');
+      return { success: true, path: zipPath };
     },
   });
 }
@@ -106,17 +79,8 @@ export function useClearLogsMutation() {
 
   return useMutation({
     mutationFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/logger/frontend/clear`, {
-        method: 'POST',
-      });
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error('清理日志失败');
-      }
-
-      return data;
+      await tauriInvoke<void>('clear_logs');
+      return { success: true };
     },
     onSuccess: () => {
       // 清理成功后，失效日志相关查询

@@ -1,8 +1,9 @@
 /**
  * 消息队列 API 服务
+ * 已迁移至 Tauri IPC 调用
  */
 
-import { apiJson } from '@/config/api';
+import { tauriInvoke } from '@/services/tauriInvoke';
 
 // ==================== Types ====================
 
@@ -38,14 +39,14 @@ class MessageQueueApiClient {
    * 获取单个实例的消息队列
    */
   async getInstanceQueue(instanceId: string): Promise<MessageQueueResponse> {
-    return apiJson<MessageQueueResponse>(`instances/${instanceId}/message-queue`);
+    return tauriInvoke<MessageQueueResponse>('get_instance_message_queue', { instanceId });
   }
 
   /**
    * 获取所有实例的消息队列
    */
-  async getAllQueues(): Promise<Record<string, MessageQueueResponse>> {
-    return apiJson<Record<string, MessageQueueResponse>>('message-queue');
+  async getAllQueues(): Promise<MessageQueueResponse[]> {
+    return tauriInvoke<MessageQueueResponse[]>('get_all_message_queues');
   }
 }
 

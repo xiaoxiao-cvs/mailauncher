@@ -1,8 +1,9 @@
 /**
  * 计划任务 API 客户端
+ * 已迁移至 Tauri IPC 调用
  */
 
-import { apiJson } from '@/config/api';
+import { tauriInvoke } from '@/services/tauriInvoke';
 
 // ==================== 类型定义 ====================
 
@@ -58,32 +59,33 @@ export interface SuccessResponse {
 // ==================== API 客户端 ====================
 
 class ScheduleApiClient {
-  private basePath = '/schedules';
-
   /**
    * 获取计划任务列表
    */
   async getSchedules(instanceId?: string): Promise<Schedule[]> {
-    const url = instanceId
-      ? `${this.basePath}?instance_id=${instanceId}`
-      : this.basePath;
-    return apiJson<Schedule[]>(url);
+    return tauriInvoke<Schedule[]>('list_schedules', {
+      instanceId: instanceId ?? null,
+    });
   }
 
   /**
    * 获取单个计划任务
    */
   async getSchedule(scheduleId: string): Promise<Schedule> {
-    return apiJson<Schedule>(`${this.basePath}/${scheduleId}`);
+    return tauriInvoke<Schedule>('get_schedule', { scheduleId });
   }
 
   /**
    * 创建计划任务
    */
   async createSchedule(data: ScheduleCreate): Promise<Schedule> {
-    return apiJson<Schedule>(this.basePath, {
-      method: 'POST',
-      body: JSON.stringify(data),
+    return tauriInvoke<Schedule>('create_schedule', {
+      instanceId: data.instance_id,
+      name: data.name,
+      action: data.action,
+      scheduleType: data.schedule_type,
+      scheduleConfig: data.schedule_config,
+      enabled: data.enabled ?? true,
     });
   }
 
@@ -91,9 +93,13 @@ class ScheduleApiClient {
    * 更新计划任务
    */
   async updateSchedule(scheduleId: string, data: ScheduleUpdate): Promise<Schedule> {
-    return apiJson<Schedule>(`${this.basePath}/${scheduleId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
+    return tauriInvoke<Schedule>('update_schedule', {
+      scheduleId,
+      name: data.name ?? null,
+      action: data.action ?? null,
+      scheduleType: data.schedule_type ?? null,
+      scheduleConfig: data.schedule_config ?? null,
+      enabled: data.enabled ?? null,
     });
   }
 
@@ -101,19 +107,14 @@ class ScheduleApiClient {
    * 删除计划任务
    */
   async deleteSchedule(scheduleId: string): Promise<SuccessResponse> {
-    return apiJson<SuccessResponse>(`${this.basePath}/${scheduleId}`, {
-      method: 'DELETE',
-    });
+    return tauriInvoke<SuccessResponse>('delete_schedule', { scheduleId });
   }
 
   /**
    * 切换计划任务启用状态
    */
   async toggleSchedule(scheduleId: string, enabled: boolean): Promise<Schedule> {
-    return apiJson<Schedule>(`${this.basePath}/${scheduleId}/toggle`, {
-      method: 'POST',
-      body: JSON.stringify({ enabled }),
-    });
+    return tauriInvoke<Schedule>('toggle_schedule', { scheduleId, enabled });
   }
 }
 

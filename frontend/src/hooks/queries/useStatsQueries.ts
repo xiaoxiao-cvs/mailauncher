@@ -3,7 +3,7 @@
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getApiUrl } from '@/config/api';
+import { tauriInvoke } from '@/services/tauriInvoke';
 
 // ==================== Types ====================
 
@@ -94,15 +94,9 @@ export function useStatsOverviewQuery(
   return useQuery({
     queryKey: statsKeys.overview(timeRange),
     queryFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/stats/overview?time_range=${timeRange}`);
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.message || '获取统计概览失败');
-      }
-      
-      return data.data as StatsOverview;
+      return tauriInvoke<StatsOverview>('get_stats_overview', {
+        timeRange: timeRange,
+      });
     },
     refetchInterval: options?.refetchInterval,
     staleTime: 10000, // 10秒内不重新请求
@@ -122,20 +116,10 @@ export function useAggregatedStatsQuery(
   return useQuery({
     queryKey: statsKeys.aggregated(timeRange, idsParam),
     queryFn: async () => {
-      const apiUrl = getApiUrl();
-      let url = `${apiUrl}/stats/aggregated?time_range=${timeRange}`;
-      if (idsParam) {
-        url += `&instance_ids=${idsParam}`;
-      }
-      
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.message || '获取聚合统计失败');
-      }
-      
-      return data.data as AggregatedStats;
+      return tauriInvoke<AggregatedStats>('get_aggregated_stats', {
+        timeRange: timeRange,
+        instanceIds: idsParam ?? null,
+      });
     },
     refetchInterval: options?.refetchInterval,
     staleTime: 10000,
@@ -153,17 +137,10 @@ export function useInstanceStatsQuery(
   return useQuery({
     queryKey: statsKeys.instance(instanceId!, timeRange),
     queryFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(
-        `${apiUrl}/stats/instances/${instanceId}?time_range=${timeRange}`
-      );
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.message || '获取实例统计失败');
-      }
-      
-      return data.data as InstanceStats;
+      return tauriInvoke<InstanceStats>('get_instance_stats', {
+        instanceId: instanceId!,
+        timeRange: timeRange,
+      });
     },
     enabled: !!instanceId,
     refetchInterval: options?.refetchInterval,
@@ -183,21 +160,15 @@ export function useInstanceModelStatsQuery(
   return useQuery({
     queryKey: statsKeys.instanceModels(instanceId!, timeRange),
     queryFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(
-        `${apiUrl}/stats/instances/${instanceId}/models?time_range=${timeRange}&limit=${limit}`
-      );
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.message || '获取模型统计失败');
-      }
-      
-      return data.data as {
+      return tauriInvoke<{
         instance_id: string;
         time_range: string;
         models: ModelStats[];
-      };
+      }>('get_instance_model_stats', {
+        instanceId: instanceId!,
+        timeRange: timeRange,
+        limit: limit,
+      });
     },
     enabled: !!instanceId,
     refetchInterval: options?.refetchInterval,

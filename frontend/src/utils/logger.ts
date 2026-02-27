@@ -12,7 +12,7 @@
  */
 
 import { createConsola, LogLevels, LogLevel } from 'consola'
-import { getApiUrl } from '@/config/api'
+import { tauriInvoke } from '@/services/tauriInvoke'
 
 interface LogEntry {
   timestamp: string
@@ -84,15 +84,8 @@ class LoggerConfig {
     this.logBuffer = [] // 立即清空缓冲区
 
     try {
-      const apiUrl = getApiUrl() // 动态获取 API URL
-      await fetch(`${apiUrl}/logger/frontend`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          logs: logsToSave
-        })
+      await tauriInvoke<void>('save_frontend_logs', {
+        entries: logsToSave
       })
     } catch (error) {
       // 保存失败时，日志只保留在控制台
@@ -109,15 +102,11 @@ class LoggerConfig {
   private setupAutoSave(): void {
     // 页面关闭前保存
     window.addEventListener('beforeunload', () => {
-      // 使用 sendBeacon API 确保日志能发送出去
+      // 使用 tauriInvoke 发送剩余日志（fire-and-forget）
       if (this.logBuffer.length > 0) {
-        const apiUrl = getApiUrl() // 动态获取 API URL
-        const blob = new Blob(
-          [JSON.stringify({ logs: this.logBuffer })],
-          { type: 'application/json' }
-        )
-        navigator.sendBeacon(`${apiUrl}/logger/frontend`, blob)
+        const logsToSave = [...this.logBuffer]
         this.logBuffer = []
+        tauriInvoke('save_frontend_logs', { entries: logsToSave }).catch(() => {})
       }
     })
 
