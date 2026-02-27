@@ -2,6 +2,14 @@ use tauri::Manager;
 use std::process::{Command, Child};
 use std::sync::Mutex;
 
+// 模块声明
+mod commands;
+mod services;
+mod models;
+mod db;
+mod errors;
+mod utils;
+
 // 后端进程状态
 struct BackendProcess(Mutex<Option<Child>>);
 
