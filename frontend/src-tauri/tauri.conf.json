@@ -7,10 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": {
-      "script": "pnpm build:full",
-      "cwd": "."
-    }
+    "beforeBuildCommand": "pnpm build"
   },
   "app": {
     "windows": [
@@ -26,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src *; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+      "csp": "default-src 'self'; connect-src 'self' https: wss:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
     }
   },
   "bundle": {
@@ -40,8 +37,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "Resources/**/*",
-      "backend-dist/mai-backend/**/*"
+      "Resources/**/*"
     ],
     "macOS": {
       "frameworks": [],

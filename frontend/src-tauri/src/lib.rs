@@ -1,6 +1,3 @@
-use tauri::Manager;
-use std::process::{Command, Child};
-use std::sync::Mutex;
 use tracing::info;
 
 // 模块声明
@@ -13,67 +10,6 @@ mod state;
 mod utils;
 
 use state::AppState;
-
-// 后端进程状态（双轨期间保留，用于管理 Python 后端进程）
-struct BackendProcess(Mutex<Option<Child>>);
-
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
-// 启动后端进程（双轨期间保留）
-fn start_backend(app_handle: &tauri::AppHandle) -> Result<Child, String> {
-    #[cfg(debug_assertions)]
-    {
-        // 开发模式：使用 Python 直接运行
-        let backend_dir = app_handle.path().app_data_dir()
-            .map_err(|e| format!("无法获取应用数据目录: {}", e))?
-            .parent()
-            .ok_or("无法获取父目录")?
-            .parent()
-            .ok_or("无法获取工作区目录")?
-            .join("backend");
-
-        println!("开发模式启动后端: {:?}", backend_dir);
-        
-        Command::new("python3")
-            .arg("main.py")
-            .current_dir(backend_dir)
-            .spawn()
-            .map_err(|e| format!("启动后端失败: {}", e))
-    }
-    
-    #[cfg(not(debug_assertions))]
-    {
-        // 生产模式：使用打包的可执行文件
-        let resource_dir = app_handle.path().resource_dir()
-            .map_err(|e| format!("无法获取资源目录: {}", e))?;
-        
-        let backend_exe = if cfg!(target_os = "windows") {
-            resource_dir.join("backend-dist").join("mai-backend").join("mai-backend.exe")
-        } else {
-            resource_dir.join("backend-dist").join("mai-backend").join("mai-backend")
-        };
-
-        println!("生产模式启动后端: {:?}", backend_exe);
-        
-        if !backend_exe.exists() {
-            return Err(format!("后端可执行文件不存在: {:?}", backend_exe));
-        }
-
-        let app_data_dir = app_handle.path().app_data_dir()
-            .map_err(|e| format!("无法获取应用数据目录: {}", e))?;
-        
-        std::fs::create_dir_all(&app_data_dir)
-            .map_err(|e| format!("无法创建应用数据目录: {}", e))?;
-
-        Command::new(&backend_exe)
-            .current_dir(app_data_dir)
-            .spawn()
-            .map_err(|e| format!("启动后端失败: {}", e))
-    }
-}
 
 /// 初始化 Rust 侧服务（数据库连接池、建表迁移）
 async fn init_rust_services() -> AppState {
@@ -130,30 +66,10 @@ pub fn run() {
                 )?;
             }
 
-            // 启动 Python 后端进程（双轨期间保留）
-            let app_handle = app.handle().clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(500));
-                
-                match start_backend(&app_handle) {
-                    Ok(child) => {
-                        info!("Python 后端进程已启动，PID: {:?}", child.id());
-                        if let Some(backend_state) = app_handle.try_state::<BackendProcess>() {
-                            *backend_state.0.lock().unwrap() = Some(child);
-                        }
-                    }
-                    Err(e) => {
-                        tracing::error!("启动 Python 后端失败: {}", e);
-                    }
-                }
-            });
-
             Ok(())
         })
         .manage(app_state)
-        .manage(BackendProcess(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
-            greet,
             // 实例管理
             commands::instance::get_all_instances,
             commands::instance::get_instance,
@@ -220,18 +136,28 @@ pub fn run() {
             commands::system::delete_api_provider,
             commands::system::save_all_providers,
             commands::system::fetch_provider_models,
+            // 计划任务管理
+            commands::schedule::list_schedules,
+            commands::schedule::get_schedule,
+            commands::schedule::create_schedule,
+            commands::schedule::update_schedule,
+            commands::schedule::delete_schedule,
+            commands::schedule::toggle_schedule,
+            // 统计数据
+            commands::stats::get_stats_overview,
+            commands::stats::get_aggregated_stats,
+            commands::stats::get_instance_stats,
+            commands::stats::get_instance_model_stats,
+            // 日志管理
+            commands::logs::save_frontend_logs,
+            commands::logs::list_log_files,
+            commands::logs::get_log_content,
+            commands::logs::export_logs,
+            commands::logs::clear_logs,
+            // 消息队列
+            commands::logs::get_instance_message_queue,
+            commands::logs::get_all_message_queues,
         ])
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                // 关闭窗口时终止后端进程
-                if let Some(backend_state) = window.app_handle().try_state::<BackendProcess>() {
-                    if let Some(mut child) = backend_state.0.lock().unwrap().take() {
-                        info!("正在终止 Python 后端进程...");
-                        let _ = child.kill();
-                    }
-                }
-            }
-        })
         .run(tauri::generate_context!())
         .expect("Tauri 应用运行失败");
 }
