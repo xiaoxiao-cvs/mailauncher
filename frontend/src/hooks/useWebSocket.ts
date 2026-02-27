@@ -1,13 +1,24 @@
 /**
- * WebSocket 连接 Hook
- * 用于实时接收安装进度和日志
+ * WebSocket → Tauri Events 替代 Hook
+ *
+ * 原实现通过 WebSocket 连接 Python 后端接收下载进度。
+ * 现改为监听 Rust 后端通过 app.emit() 发送的 Tauri 事件：
+ * - `download-log-{taskId}` — 日志消息
+ * - `download-status-{taskId}` — 状态变更
+ * - `download-progress-{taskId}` — 结构化进度
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getApiUrl } from '@/config/api'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import logger from '@/utils/logger'
+import type { DownloadProgressPayload } from '@/types/tauriEvents'
+import {
+  downloadLogEvent,
+  downloadStatusEvent,
+  downloadProgressEvent,
+} from '@/types/tauriEvents'
 
-const wsLogger = logger.withTag('WebSocket')
+const wsLogger = logger.withTag('TauriEvents')
 
 export interface WSMessage {
   type: 'log' | 'progress' | 'status' | 'error' | 'complete'
@@ -54,171 +65,147 @@ export interface UseWebSocketOptions {
   onComplete?: (message: WSCompleteMessage) => void
   onConnect?: () => void
   onDisconnect?: () => void
+  /** @deprecated Tauri 事件无需重连，保留以兼容接口 */
   autoReconnect?: boolean
+  /** @deprecated 保留以兼容接口 */
   reconnectDelayMs?: number
+  /** @deprecated 保留以兼容接口 */
   reconnectAttempts?: number
 }
 
 export function useWebSocket(taskId: string | null, options: UseWebSocketOptions = {}) {
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const wsRef = useRef<WebSocket | null>(null)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const isManualCloseRef = useRef(false)
   const optionsRef = useRef(options)
-  const reconnectCountRef = useRef(0)
+  const unlistenRefs = useRef<UnlistenFn[]>([])
 
   // 更新 options ref
   useEffect(() => {
     optionsRef.current = options
   }, [options])
 
-  const connect = useCallback(() => {
-    if (!taskId) {
-      // taskId 为空是正常情况（无活跃任务时），不打印警告
-      return
+  // 设置 Tauri 事件监听
+  useEffect(() => {
+    if (!taskId) return
+
+    let cancelled = false
+
+    const setupListeners = async () => {
+      const unlisteners: UnlistenFn[] = []
+
+      try {
+        // 监听日志事件
+        const unLog = await listen<string>(downloadLogEvent(taskId), (event) => {
+          if (cancelled) return
+          const now = new Date().toISOString()
+          const message = event.payload
+
+          // 日志消息统一转为 WSLogMessage
+          optionsRef.current.onLog?.({
+            type: 'log',
+            timestamp: now,
+            level: 'info',
+            message,
+          })
+        })
+        unlisteners.push(unLog)
+
+        // 监听状态事件
+        const unStatus = await listen<string>(downloadStatusEvent(taskId), (event) => {
+          if (cancelled) return
+          const now = new Date().toISOString()
+          const status = event.payload
+
+          if (status === 'completed') {
+            optionsRef.current.onComplete?.({
+              type: 'complete',
+              timestamp: now,
+              message: '安装完成',
+            })
+          } else if (status === 'failed') {
+            optionsRef.current.onError?.({
+              type: 'error',
+              timestamp: now,
+              message: '安装失败',
+            })
+          } else {
+            optionsRef.current.onStatus?.({
+              type: 'status',
+              timestamp: now,
+              status,
+              message: status,
+            })
+          }
+        })
+        unlisteners.push(unStatus)
+
+        // 监听结构化进度事件
+        const unProgress = await listen<DownloadProgressPayload>(
+          downloadProgressEvent(taskId),
+          (event) => {
+            if (cancelled) return
+            const now = new Date().toISOString()
+            const { percentage, message, status } = event.payload
+
+            optionsRef.current.onProgress?.({
+              type: 'progress',
+              timestamp: now,
+              current: Math.round(percentage),
+              total: 100,
+              percentage,
+              message,
+              status,
+            })
+          },
+        )
+        unlisteners.push(unProgress)
+
+        if (!cancelled) {
+          unlistenRefs.current = unlisteners
+          setIsConnected(true)
+          setError(null)
+          wsLogger.info('Tauri 事件监听已建立', { taskId })
+          optionsRef.current.onConnect?.()
+        } else {
+          // 如果在 setup 过程中已取消，立即清理
+          unlisteners.forEach((fn) => fn())
+        }
+      } catch (err) {
+        if (!cancelled) {
+          wsLogger.error('建立事件监听失败', err)
+          setError(err instanceof Error ? err.message : '监听失败')
+        }
+      }
     }
 
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      return
-    }
+    setupListeners()
 
-    try {
-      const api = new URL(getApiUrl())
-      const isSecure = api.protocol === 'https:'
-      api.protocol = isSecure ? 'wss:' : 'ws:'
-      api.pathname = '/api/v1/ws/downloads/' + taskId
-      const url = api.toString()
-
-      wsLogger.info('正在连接 WebSocket', { url })
-
-      const ws = new WebSocket(url)
-      wsRef.current = ws
-
-      ws.onopen = () => {
-        wsLogger.success('WebSocket 已连接')
-        setIsConnected(true)
-        setError(null)
-        optionsRef.current.onConnect?.()
-      }
-
-      ws.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data) as WSMessage
-          wsLogger.debug('收到消息', message)
-
-          switch (message.type) {
-            case 'log':
-              optionsRef.current.onLog?.(message as WSLogMessage)
-              break
-            case 'progress':
-              optionsRef.current.onProgress?.(message as WSProgressMessage)
-              break
-            case 'status':
-              optionsRef.current.onStatus?.(message as WSStatusMessage)
-              break
-            case 'error':
-              optionsRef.current.onError?.(message as WSErrorMessage)
-              break
-            case 'complete':
-              optionsRef.current.onComplete?.(message as WSCompleteMessage)
-              break
-            default:
-              wsLogger.warn('未知消息类型', message)
-          }
-        } catch (err) {
-          wsLogger.error('解析消息失败', err)
-        }
-      }
-
-      ws.onerror = () => {
-        // 只在非预期错误时记录
-        if (ws.readyState !== WebSocket.CLOSING && ws.readyState !== WebSocket.CLOSED) {
-          wsLogger.warn('WebSocket 连接错误')
-        }
-        setError('连接错误')
-      }
-
-      ws.onclose = (event) => {
-        wsLogger.info('WebSocket 已断开', { code: event.code, reason: event.reason })
-        setIsConnected(false)
-        wsRef.current = null
-        optionsRef.current.onDisconnect?.()
-
-        if (!isManualCloseRef.current && optionsRef.current.autoReconnect) {
-          const limit = optionsRef.current.reconnectAttempts ?? 1
-          const delay = optionsRef.current.reconnectDelayMs ?? 1000
-          if (reconnectCountRef.current < limit) {
-            reconnectCountRef.current += 1
-            if (reconnectTimeoutRef.current) {
-              clearTimeout(reconnectTimeoutRef.current)
-              reconnectTimeoutRef.current = null
-            }
-            reconnectTimeoutRef.current = setTimeout(() => {
-              connect()
-            }, delay)
-          }
-        }
-      }
-    } catch (err) {
-      wsLogger.error('创建 WebSocket 连接失败', err)
-      setError(err instanceof Error ? err.message : '连接失败')
+    return () => {
+      cancelled = true
+      unlistenRefs.current.forEach((fn) => fn())
+      unlistenRefs.current = []
+      setIsConnected(false)
+      optionsRef.current.onDisconnect?.()
     }
   }, [taskId])
 
   const disconnect = useCallback(() => {
-    isManualCloseRef.current = true
-    
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current)
-      reconnectTimeoutRef.current = null
-    }
-
-    if (wsRef.current) {
-      wsLogger.info('手动断开 WebSocket')
-      wsRef.current.close(1000, 'Manual disconnect')
-      wsRef.current = null
-    }
-
+    unlistenRefs.current.forEach((fn) => fn())
+    unlistenRefs.current = []
     setIsConnected(false)
   }, [])
 
-  const sendMessage = useCallback((message: any) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message))
-    } else {
-      wsLogger.warn('WebSocket 未连接，无法发送消息')
-    }
+  // sendMessage 不再需要（Tauri 事件是单向的，输入通过 invoke 发送）
+  const sendMessage = useCallback((_message: unknown) => {
+    wsLogger.warn('sendMessage 已弃用，请使用 tauriInvoke 发送命令')
   }, [])
-
-  useEffect(() => {
-    if (taskId) {
-      isManualCloseRef.current = false
-      reconnectCountRef.current = 0
-      connect()
-    }
-
-    return () => {
-      // 组件卸载时断开连接
-      isManualCloseRef.current = true
-      
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current)
-        reconnectTimeoutRef.current = null
-      }
-
-      if (wsRef.current) {
-        wsRef.current.close(1000, 'Component unmount')
-        wsRef.current = null
-      }
-    }
-  }, [taskId, connect]) // 只依赖 taskId 和 connect
 
   return {
     isConnected,
     error,
-    connect,
+    connect: () => {}, // 保留接口兼容
     disconnect,
     sendMessage,
   }
 }
+
