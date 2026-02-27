@@ -11,7 +11,10 @@ pub mod api_provider;
 pub mod response;
 
 // 重导出常用类型
-pub use instance::Instance;
+pub use instance::{
+    Instance, CreateInstanceRequest, UpdateInstanceRequest,
+    InstanceList, InstanceStatusResponse, ComponentStatus, SuccessResponse,
+};
 pub use deployment::{Deployment, DeploymentLog};
 pub use config::{LauncherConfig, PythonEnvironment, MaibotConfig, PathConfig};
 pub use schedule::ScheduleTask;
