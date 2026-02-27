@@ -188,6 +188,28 @@ pub fn run() {
             commands::version::get_component_releases,
             commands::version::check_launcher_update,
             commands::version::get_channel_versions,
+            // 配置管理 — KV
+            commands::config::get_all_configs,
+            commands::config::get_config,
+            commands::config::set_config,
+            commands::config::get_python_environments,
+            commands::config::get_selected_python,
+            commands::config::select_python,
+            commands::config::save_python_environment,
+            commands::config::get_all_paths,
+            commands::config::get_path,
+            commands::config::set_path,
+            // 配置管理 — TOML
+            commands::config::get_toml_config,
+            commands::config::get_toml_config_raw,
+            commands::config::save_toml_config_raw,
+            commands::config::update_toml_config_value,
+            commands::config::delete_toml_config_key,
+            commands::config::add_toml_config_key,
+            commands::config::get_toml_config_sections,
+            commands::config::add_toml_array_item,
+            commands::config::update_toml_array_item,
+            commands::config::delete_toml_array_item,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
