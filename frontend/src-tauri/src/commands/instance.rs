@@ -36,7 +36,7 @@ pub async fn get_instance_status(
     state: State<'_, AppState>,
     instance_id: String,
 ) -> AppResult<InstanceStatusResponse> {
-    instance_service::get_instance_status(&state.db, &instance_id)
+    instance_service::get_instance_status(&state.db, &instance_id, &state.process_manager)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))
 }

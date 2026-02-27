@@ -193,22 +193,53 @@ pub async fn delete_instance(pool: &SqlitePool, id: &str) -> AppResult<bool> {
 
 /// 获取实例运行状态
 ///
-/// 目前返回数据库中记录的状态。
-/// M1.3 实现进程管理后，会同步实际进程状态。
+/// 同步数据库状态与实际进程状态：
+/// - 从 ProcessManager 查询实际进程 PID、运行时间
+/// - DB 状态为 running 但进程已死时，自动更新为 stopped
 pub async fn get_instance_status(
     pool: &SqlitePool,
     id: &str,
+    process_manager: &crate::services::process_service::ProcessManager,
 ) -> AppResult<Option<InstanceStatusResponse>> {
     let instance = match get_instance(pool, id).await? {
         Some(inst) => inst,
         None => return Ok(None),
     };
 
-    // TODO(M1.3): 从进程管理器获取实际 PID 和运行时间
+    // 从进程管理器获取实际运行状态
+    let is_running = process_manager.is_instance_running(id).await;
+
+    // 获取主进程（main 组件）的 PID 和运行时间
+    let pid = process_manager.get_process_pid(id, "main").await;
+    let uptime = process_manager.get_process_uptime(id, "main").await;
+
+    // DB 状态与实际进程状态不一致时自动纠正
+    let status = if instance.status == "running" && !is_running {
+        // DB 说运行中但实际已停止 —— 纠正为 stopped
+        let _ = sqlx::query(
+            "UPDATE instances SET status = 'stopped', updated_at = datetime('now') WHERE id = ?"
+        )
+        .bind(id)
+        .execute(pool)
+        .await;
+        "stopped".to_string()
+    } else if instance.status == "stopped" && is_running {
+        // 进程在运行但 DB 说已停止 —— 纠正为 running
+        let _ = sqlx::query(
+            "UPDATE instances SET status = 'running', updated_at = datetime('now') WHERE id = ?"
+        )
+        .bind(id)
+        .execute(pool)
+        .await;
+        "running".to_string()
+    } else {
+        instance.status
+    };
+
     Ok(Some(InstanceStatusResponse {
         id: instance.id,
-        status: instance.status,
-        pid: None,
-        uptime: None,
+        status,
+        pid,
+        uptime,
     }))
 }
