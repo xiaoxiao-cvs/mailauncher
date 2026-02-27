@@ -1,8 +1,10 @@
 /**
  * 实例管理 API 客户端
+ *
+ * 通过 Tauri invoke 直接调用 Rust 命令，替代原有的 HTTP API。
  */
 
-import { apiJson } from '@/config/api';
+import { tauriInvoke } from '@/services/tauriInvoke';
 
 // ==================== 类型定义 ====================
 
@@ -71,36 +73,40 @@ export interface SuccessResponse {
 // ==================== API 客户端 ====================
 
 class InstanceApiClient {
-  private basePath = 'instances';
-
   /**
    * 获取所有实例
    */
   async getAllInstances(): Promise<InstanceList> {
-    return apiJson<InstanceList>(`${this.basePath}`);
+    return tauriInvoke<InstanceList>('get_all_instances');
   }
 
   /**
    * 获取单个实例详情
    */
   async getInstance(instanceId: string): Promise<Instance> {
-    return apiJson<Instance>(`${this.basePath}/${instanceId}`);
+    const result = await tauriInvoke<Instance | null>('get_instance', { instanceId });
+    if (!result) throw new Error(`实例 ${instanceId} 不存在`);
+    return result;
   }
 
   /**
    * 获取实例状态
    */
   async getInstanceStatus(instanceId: string): Promise<InstanceStatusResponse> {
-    return apiJson<InstanceStatusResponse>(`${this.basePath}/${instanceId}/status`);
+    return tauriInvoke<InstanceStatusResponse>('get_instance_status', { instanceId });
   }
 
   /**
    * 创建新实例
    */
   async createInstance(data: InstanceCreate): Promise<Instance> {
-    return apiJson<Instance>(`${this.basePath}`, {
-      method: 'POST',
-      body: JSON.stringify(data),
+    return tauriInvoke<Instance>('create_instance', {
+      name: data.name,
+      botType: data.bot_type,
+      botVersion: data.bot_version,
+      description: data.description,
+      pythonPath: data.python_path,
+      configPath: data.config_path,
     });
   }
 
@@ -108,9 +114,13 @@ class InstanceApiClient {
    * 更新实例
    */
   async updateInstance(instanceId: string, data: InstanceUpdate): Promise<Instance> {
-    return apiJson<Instance>(`${this.basePath}/${instanceId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
+    return tauriInvoke<Instance>('update_instance', {
+      instanceId,
+      name: data.name,
+      description: data.description,
+      pythonPath: data.python_path,
+      configPath: data.config_path,
+      qqAccount: data.qq_account,
     });
   }
 
@@ -118,62 +128,62 @@ class InstanceApiClient {
    * 删除实例
    */
   async deleteInstance(instanceId: string): Promise<SuccessResponse> {
-    return apiJson<SuccessResponse>(`${this.basePath}/${instanceId}`, {
-      method: 'DELETE',
-    });
+    return tauriInvoke<SuccessResponse>('delete_instance', { instanceId });
   }
 
   /**
    * 启动实例
    */
   async startInstance(instanceId: string): Promise<SuccessResponse> {
-    return apiJson<SuccessResponse>(`${this.basePath}/${instanceId}/start`, { method: 'POST' });
+    return tauriInvoke<SuccessResponse>('start_instance', { instanceId });
   }
 
   /**
    * 停止实例
    */
   async stopInstance(instanceId: string): Promise<SuccessResponse> {
-    return apiJson<SuccessResponse>(`${this.basePath}/${instanceId}/stop`, { method: 'POST' });
+    return tauriInvoke<SuccessResponse>('stop_instance', { instanceId });
   }
 
   /**
    * 重启实例
    */
   async restartInstance(instanceId: string): Promise<SuccessResponse> {
-    return apiJson<SuccessResponse>(`${this.basePath}/${instanceId}/restart`, { method: 'POST' });
+    return tauriInvoke<SuccessResponse>('restart_instance', { instanceId });
   }
 
   /**
    * 启动指定组件
    */
   async startComponent(instanceId: string, component: ComponentType): Promise<SuccessResponse> {
-    return apiJson<SuccessResponse>(`${this.basePath}/${instanceId}/component/${component}/start`, { method: 'POST' });
+    return tauriInvoke<SuccessResponse>('start_component', { instanceId, component });
   }
 
   /**
    * 停止指定组件
    */
   async stopComponent(instanceId: string, component: ComponentType): Promise<SuccessResponse> {
-    return apiJson<SuccessResponse>(`${this.basePath}/${instanceId}/component/${component}/stop`, { method: 'POST' });
+    return tauriInvoke<SuccessResponse>('stop_component', { instanceId, component });
   }
 
   /**
    * 获取组件状态
    */
   async getComponentStatus(instanceId: string, component: ComponentType): Promise<ComponentStatus> {
-    return apiJson<ComponentStatus>(`${this.basePath}/${instanceId}/component/${component}/status`);
+    return tauriInvoke<ComponentStatus>('get_component_status', { instanceId, component });
   }
 
   async getInstanceComponents(instanceId: string): Promise<ComponentType[]> {
-    return apiJson<ComponentType[]>(`${this.basePath}/${instanceId}/components`)
+    return tauriInvoke<ComponentType[]>('get_instance_components', { instanceId });
   }
 
   /**
    * 获取NapCat已登录账号列表
+   * TODO: 尚未迁移至 Rust，暂时返回空列表
    */
   async getNapCatAccounts(instanceId: string): Promise<{success: boolean; accounts: Array<{account: string; nickname: string}>; message: string}> {
-    return apiJson<{success: boolean; accounts: Array<{account: string; nickname: string}>; message: string}>(`${this.basePath}/${instanceId}/napcat/accounts`);
+    console.warn('[instanceApi] getNapCatAccounts 尚未迁移至 Rust');
+    return { success: true, accounts: [], message: '功能尚未迁移' };
   }
 }
 
