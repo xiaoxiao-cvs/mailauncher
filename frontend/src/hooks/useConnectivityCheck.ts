@@ -1,11 +1,14 @@
 /**
  * 联通性检查自定义 Hook
- * 职责：管理后端、GitHub、Gitee 的连接状态检查
+ * 职责：管理 Rust 后端、GitHub、Gitee 的连接状态检查
+ *
+ * Tauri 模式下，Rust 后端嵌入在应用内，始终可用。
+ * GitHub/PyPI 通过 Rust check_connectivity 命令检查，Gitee 通过浏览器 fetch 检查。
  */
 
 import { useState, useEffect } from 'react'
 import { connectivityLogger } from '@/utils/logger'
-import { getApiBaseUrl, setApiBaseUrl } from '@/config/api'
+import { tauriInvoke } from '@/services/tauriInvoke'
 
 export interface ConnectivityStatus {
   name: string
@@ -23,14 +26,14 @@ interface UseConnectivityCheckOptions {
 export function useConnectivityCheck(options: UseConnectivityCheckOptions = {}) {
   const { onStatusChange, onRecheckRequest } = options
 
-  // 后端 URL 管理
-  const [backendUrl, setBackendUrl] = useState(() => getApiBaseUrl())
+  // Tauri 模式下后端地址为内置 IPC，保留变量兼容 UI
+  const [backendUrl] = useState('tauri://localhost')
   const [tempUrl, setTempUrl] = useState(backendUrl)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [hasUnsavedChanges] = useState(false)
 
   // 连接状态
   const [backendStatus, setBackendStatus] = useState<ConnectivityStatus>({
-    name: '后端服务',
+    name: 'Rust 后端',
     url: backendUrl,
     status: 'pending'
   })
@@ -47,118 +50,70 @@ export function useConnectivityCheck(options: UseConnectivityCheckOptions = {}) 
     status: 'pending'
   })
 
-  // 保存后端地址
-  const saveBackendUrl = (url: string) => {
-    try {
-      setApiBaseUrl(url)
-      setBackendUrl(url)
-      setTempUrl(url)
-      setHasUnsavedChanges(false)
-      setBackendStatus(prev => ({ ...prev, url, status: 'pending' }))
-      connectivityLogger.success('后端地址已保存', { url })
-    } catch (error) {
-      connectivityLogger.error('保存后端地址失败', error)
-    }
-  }
-
-  // 处理输入框变化
+  // URL 管理（Tauri 模式下为空操作，保留接口兼容 UI）
   const handleUrlChange = (newUrl: string) => {
     setTempUrl(newUrl)
-    setHasUnsavedChanges(newUrl !== backendUrl)
   }
+  const handleBlur = () => {}
+  const handleSave = () => {}
+  const saveBackendUrl = (_url: string) => {}
 
-  // 处理失焦保存
-  const handleBlur = () => {
-    if (hasUnsavedChanges && tempUrl.trim()) {
-      saveBackendUrl(tempUrl.trim())
-    }
-  }
-
-  // 处理保存按钮
-  const handleSave = () => {
-    if (tempUrl.trim()) {
-      saveBackendUrl(tempUrl.trim())
-    }
-  }
-
-  // 检查后端连接
+  // 检查 Rust 后端连接（Tauri 内置后端始终可用，通过简单 invoke 验证）
   const checkBackend = async () => {
-    const currentUrl = getApiBaseUrl()
-    setBackendUrl(currentUrl)
-    
-    setBackendStatus(prev => ({ ...prev, status: 'checking', url: currentUrl }))
-    connectivityLogger.info('开始检查后端连接', { url: currentUrl })
+    setBackendStatus(prev => ({ ...prev, status: 'checking' }))
+    connectivityLogger.info('检查 Rust 后端连接')
     
     const startTime = performance.now()
     try {
-      const response = await fetch(`${currentUrl}/`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(5000)
+      // 通过调用 check_connectivity 命令来验证 Rust 后端可用性
+      await tauriInvoke<{ github: boolean; pypi: boolean }>('check_connectivity')
+      const latency = Math.round(performance.now() - startTime)
+      
+      setBackendStatus({
+        name: 'Rust 后端',
+        url: backendUrl,
+        status: 'success',
+        latency
       })
-      const endTime = performance.now()
-      const latency = Math.round(endTime - startTime)
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.status === 'ok') {
-          setBackendStatus({
-            name: '后端服务',
-            url: currentUrl,
-            status: 'success',
-            latency
-          })
-          connectivityLogger.success('后端连接成功', { latency })
-        } else {
-          setBackendStatus({
-            name: '后端服务',
-            url: currentUrl,
-            status: 'error',
-            error: '响应格式错误'
-          })
-          connectivityLogger.error('后端响应格式错误', { data })
-        }
-      } else {
-        setBackendStatus({
-          name: '后端服务',
-          url: currentUrl,
-          status: 'error',
-          error: `HTTP ${response.status}`
-        })
-        connectivityLogger.error('后端连接失败', { status: response.status })
-      }
+      connectivityLogger.success('Rust 后端连接成功', { latency })
     } catch (error) {
       setBackendStatus({
-        name: '后端服务',
-        url: currentUrl,
+        name: 'Rust 后端',
+        url: backendUrl,
         status: 'error',
         error: error instanceof Error ? error.message : '连接失败'
       })
-      connectivityLogger.error('后端连接异常', error)
+      connectivityLogger.error('Rust 后端连接异常', error)
     }
   }
 
-  // 检查 GitHub 延迟
+  // 检查 GitHub 连接（通过 Rust check_connectivity）
   const checkGitHub = async () => {
     setGithubStatus(prev => ({ ...prev, status: 'checking' }))
     connectivityLogger.info('开始检查 GitHub 连接')
     
     const startTime = performance.now()
     try {
-      await fetch('https://github.com', {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(10000),
-        mode: 'no-cors'
-      })
-      const endTime = performance.now()
-      const latency = Math.round(endTime - startTime)
+      const result = await tauriInvoke<{ github: boolean; pypi: boolean }>('check_connectivity')
+      const latency = Math.round(performance.now() - startTime)
 
-      setGithubStatus({
-        name: 'GitHub 发行版',
-        url: 'https://github.com',
-        status: 'success',
-        latency
-      })
-      connectivityLogger.success('GitHub 连接成功', { latency })
+      if (result.github) {
+        setGithubStatus({
+          name: 'GitHub 发行版',
+          url: 'https://github.com',
+          status: 'success',
+          latency
+        })
+        connectivityLogger.success('GitHub 连接成功', { latency })
+      } else {
+        setGithubStatus({
+          name: 'GitHub 发行版',
+          url: 'https://github.com',
+          status: 'error',
+          error: '无法访问 GitHub'
+        })
+        connectivityLogger.error('GitHub 连接失败')
+      }
     } catch (error) {
       setGithubStatus({
         name: 'GitHub 发行版',
@@ -166,11 +121,11 @@ export function useConnectivityCheck(options: UseConnectivityCheckOptions = {}) 
         status: 'error',
         error: '连接超时或失败'
       })
-      connectivityLogger.error('GitHub 连接失败', error)
+      connectivityLogger.error('GitHub 连接检查异常', error)
     }
   }
 
-  // 检查 Gitee 延迟
+  // 检查 Gitee 延迟（浏览器 fetch，Rust 不支持 Gitee 检查）
   const checkGitee = async () => {
     setGiteeStatus(prev => ({ ...prev, status: 'checking' }))
     connectivityLogger.info('开始检查 Gitee 连接')
@@ -214,16 +169,6 @@ export function useConnectivityCheck(options: UseConnectivityCheckOptions = {}) 
     connectivityLogger.success('联通性检查完成')
   }
 
-  // 当 backendUrl 更新后触发检查
-  useEffect(() => {
-    if (backendStatus.status === 'pending' && backendUrl) {
-      const timer = setTimeout(() => {
-        checkBackend()
-      }, 100)
-      return () => clearTimeout(timer)
-    }
-  }, [backendUrl, backendStatus.status])
-
   // 组件加载时自动检查
   useEffect(() => {
     checkAll()
@@ -244,7 +189,7 @@ export function useConnectivityCheck(options: UseConnectivityCheckOptions = {}) 
   }, [backendStatus.status, onStatusChange])
 
   return {
-    // URL 管理
+    // URL 管理（保留接口兼容）
     backendUrl,
     tempUrl,
     hasUnsavedChanges,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2Icon, XCircleIcon, LoaderIcon, FolderOpenIcon, AlertCircleIcon } from 'lucide-react'
-import { getApiUrl } from '@/config/api'
+import { tauriInvoke } from '@/services/tauriInvoke'
 import { environmentLogger } from '@/utils/logger'
 
 interface GitInfo {
@@ -33,19 +33,11 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
     environmentLogger.info('开始检查 Git 环境')
     
     try {
-      const apiUrl = getApiUrl() // 动态获取 API URL
-      const response = await fetch(`${apiUrl}/environment/git`)
-      const data = await response.json()
-      
-      if (data.success) {
-        setGitInfo(data.data)
-        environmentLogger.success('Git 环境检查完成', data.data)
-      } else {
-        setGitError('无法获取 Git 信息')
-        environmentLogger.error('无法获取 Git 信息', data)
-      }
+      const result = await tauriInvoke<GitInfo>('check_git_environment')
+      setGitInfo(result)
+      environmentLogger.success('Git 环境检查完成', result)
     } catch (error) {
-      setGitError('连接后端服务失败，请确保后端正在运行')
+      setGitError('检查 Git 环境失败')
       environmentLogger.error('检查 Git 环境失败', error)
     } finally {
       setIsCheckingGit(false)
@@ -55,13 +47,10 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
   const loadDeploymentPath = async () => {
     environmentLogger.info('加载部署路径配置')
     try {
-      const apiUrl = getApiUrl() // 动态获取 API URL
-      const response = await fetch(`${apiUrl}/environment/config`)
-      const data = await response.json()
-      
-      if (data.success) {
-        setDeploymentPath(data.data.instances_dir)
-        environmentLogger.success('部署路径加载成功', { path: data.data.instances_dir })
+      const path = await tauriInvoke<string | null>('get_path', { name: 'instances_dir' })
+      if (path) {
+        setDeploymentPath(path)
+        environmentLogger.success('部署路径加载成功', { path })
       }
     } catch (error) {
       environmentLogger.error('加载部署路径失败', error)
@@ -110,35 +99,19 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
     environmentLogger.info('保存部署路径', { path })
     
     try {
-      const apiUrl = getApiUrl() // 动态获取 API URL
-      const response = await fetch(`${apiUrl}/config/paths`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: 'instances_dir',
-          path: path,
-          path_type: 'directory',
-          is_verified: false,
-          description: 'Bot 实例部署目录'
-        })
+      await tauriInvoke('set_path', {
+        name: 'instances_dir',
+        path: path,
+        pathType: 'directory',
+        isVerified: false,
+        description: 'Bot 实例部署目录'
       })
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        setPathSuccess('✓ 路径已保存')
-        environmentLogger.success('部署路径保存成功')
-        // 3秒后清除成功提示
-        setTimeout(() => setPathSuccess(''), 3000)
-      } else {
-        setPathError('保存路径失败')
-        environmentLogger.error('保存路径失败', data)
-      }
+      setPathSuccess('✓ 路径已保存')
+      environmentLogger.success('部署路径保存成功')
+      setTimeout(() => setPathSuccess(''), 3000)
     } catch (error) {
       environmentLogger.error('保存路径异常', error)
-      setPathError('保存路径失败，请检查后端连接')
+      setPathError('保存路径失败')
     } finally {
       setIsSavingPath(false)
     }
