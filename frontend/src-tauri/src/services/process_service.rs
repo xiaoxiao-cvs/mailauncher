@@ -227,7 +227,7 @@ impl ProcessManager {
         })?;
 
         // 构造重启分隔标记（与 Python 行为一致）
-        let mut output_buffer = if let Some(mut old) = old_buffer {
+        let output_buffer = if let Some(mut old) = old_buffer {
             old.push(format!(
                 "\n{}\n[进程重启] 新会话开始\n{}\n",
                 "=".repeat(50),
