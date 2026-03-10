@@ -364,32 +364,44 @@ impl ProcessManager {
     }
 
     /// 停止实例的所有进程
+    ///
+    /// 在单次锁内完成所有 kill 操作，避免循环获取锁的开销。
     pub async fn stop_all_instance_processes(
         &self,
         instance_id: &str,
     ) -> HashMap<String, bool> {
         let mut results = HashMap::new();
 
-        // 收集该实例的所有组件名
-        let components: Vec<String> = {
-            let inner = self.inner.lock().await;
-            inner
+        // 单次锁内完成所有 kill
+        {
+            let mut inner = self.inner.lock().await;
+            let session_ids: Vec<String> = inner
                 .processes
                 .values()
                 .filter(|p| p.instance_id == instance_id)
-                .map(|p| p.component.clone())
-                .collect()
-        };
+                .map(|p| p.session_id.clone())
+                .collect();
 
-        info!("停止实例 {} 的所有进程: {:?}", instance_id, components);
+            info!("停止实例 {} 的所有进程: {:?}", instance_id, session_ids);
 
-        for component in components {
-            let result = self
-                .stop_process(instance_id, &component, false)
-                .await
-                .unwrap_or(false);
-            results.insert(component, result);
+            for sid in &session_ids {
+                if let Some(proc) = inner.processes.get_mut(sid) {
+                    if proc.is_alive() {
+                        proc.kill();
+                        results.insert(proc.component.clone(), true);
+                    } else {
+                        proc.child = None;
+                        proc.writer = None;
+                        proc.master = None;
+                        proc.pid = None;
+                        results.insert(proc.component.clone(), true);
+                    }
+                }
+            }
         }
+
+        // 锁外等待进程终止
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         results
     }
