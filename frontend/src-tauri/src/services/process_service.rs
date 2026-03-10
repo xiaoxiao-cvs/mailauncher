@@ -169,21 +169,33 @@ impl ProcessManager {
         cwd: &Path,
     ) -> AppResult<Option<Box<dyn Read + Send>>> {
         let session_id = Self::session_id(instance_id, component);
-        let mut inner = self.inner.lock().await;
 
-        // 检查是否已在运行
-        if let Some(proc) = inner.processes.get_mut(&session_id) {
-            if proc.is_alive() {
-                info!("进程已在运行: {}", session_id);
-                return Ok(None);
+        // Phase 1: 锁内 — 检查运行状态、读取 PTY 尺寸、复制旧日志
+        let (pty_rows, pty_cols, old_buffer) = {
+            let mut inner = self.inner.lock().await;
+
+            // 检查是否已在运行
+            if let Some(proc) = inner.processes.get_mut(&session_id) {
+                if proc.is_alive() {
+                    info!("进程已在运行: {}", session_id);
+                    return Ok(None);
+                }
             }
-        }
 
+            let old_buf = inner.processes.get(&session_id).map(|p| {
+                let keep = p.output_buffer.len().min(500);
+                p.output_buffer[p.output_buffer.len() - keep..].to_vec()
+            });
+
+            (inner.pty_rows, inner.pty_cols, old_buf)
+        }; // 锁释放
+
+        // Phase 2: 锁外 — 创建 PTY、启动进程（可能阻塞的系统调用）
         let pty_system = native_pty_system();
         let pair = pty_system
             .openpty(PtySize {
-                rows: inner.pty_rows,
-                cols: inner.pty_cols,
+                rows: pty_rows,
+                cols: pty_cols,
                 pixel_width: 0,
                 pixel_height: 0,
             })
@@ -211,25 +223,20 @@ impl ProcessManager {
         })?;
 
         // 构造重启分隔标记（与 Python 行为一致）
-        let mut output_buffer = Vec::new();
-        if let Some(old_proc) = inner.processes.get(&session_id) {
-            // 保留旧日志的后半部分（最多 500 行）
-            let keep = old_proc.output_buffer.len().min(500);
-            output_buffer = old_proc.output_buffer
-                [old_proc.output_buffer.len() - keep..]
-                .to_vec();
-            output_buffer.push(format!(
+        let mut output_buffer = if let Some(mut old) = old_buffer {
+            old.push(format!(
                 "\n{}\n[进程重启] 新会话开始\n{}\n",
                 "=".repeat(50),
                 "=".repeat(50)
             ));
+            old
         } else {
-            output_buffer.push(format!(
+            vec![format!(
                 "\n{}\n[进程启动] 会话开始\n{}\n",
                 "=".repeat(50),
                 "=".repeat(50)
-            ));
-        }
+            )]
+        };
 
         let process_info = ProcessInfo {
             instance_id: instance_id.to_string(),
@@ -244,6 +251,16 @@ impl ProcessManager {
             master: Some(pair.master),
             reader_started: false,
         };
+
+        // Phase 3: 锁内 — 再次检查竞态后插入 ProcessInfo
+        let mut inner = self.inner.lock().await;
+        if let Some(proc) = inner.processes.get_mut(&session_id) {
+            if proc.is_alive() {
+                // 并发 start 已抢先启动，丢弃本次资源（drop 会清理 PTY）
+                info!("并发启动检测，放弃本次启动: {}", session_id);
+                return Ok(None);
+            }
+        }
 
         info!(
             "进程启动成功: {}, PID: {:?}",
