@@ -348,6 +348,17 @@ impl ProcessManager {
         // 短暂等待确认终止
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
+        // 截断已停止进程的输出缓冲区，防止内存无限增长
+        {
+            let mut inner = self.inner.lock().await;
+            if let Some(proc) = inner.processes.get_mut(&session_id) {
+                if proc.output_buffer.len() > 500 {
+                    let drain_to = proc.output_buffer.len() - 500;
+                    proc.output_buffer.drain(..drain_to);
+                }
+            }
+        }
+
         info!("进程停止成功: {}", session_id);
         Ok(true)
     }
