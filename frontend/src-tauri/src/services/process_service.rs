@@ -301,7 +301,8 @@ impl ProcessManager {
         info!("停止进程: {}, 强制: {}", session_id, force);
         proc.kill();
 
-        // 短暂等待确认进程终止
+        // 释放锁后再等待，避免阻塞其他操作
+        drop(inner);
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         info!("进程停止成功: {}", session_id);
