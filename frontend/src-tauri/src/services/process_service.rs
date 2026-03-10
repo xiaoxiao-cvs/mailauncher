@@ -275,6 +275,9 @@ impl ProcessManager {
     }
 
     /// 停止组件进程
+    ///
+    /// `force=false`：先发送 Ctrl+C（\x03）尝试优雅退出，等待最多 2 秒，超时后强制 kill。
+    /// `force=true`：直接 kill 进程。
     pub async fn stop_process(
         &self,
         instance_id: &str,
@@ -282,30 +285,67 @@ impl ProcessManager {
         force: bool,
     ) -> AppResult<bool> {
         let session_id = Self::session_id(instance_id, component);
-        let mut inner = self.inner.lock().await;
 
-        let proc = match inner.processes.get_mut(&session_id) {
-            Some(p) => p,
-            None => {
-                info!("进程不存在: {}", session_id);
+        {
+            let mut inner = self.inner.lock().await;
+            let proc = match inner.processes.get_mut(&session_id) {
+                Some(p) => p,
+                None => {
+                    info!("进程不存在: {}", session_id);
+                    return Ok(true);
+                }
+            };
+
+            if !proc.is_alive() {
+                info!("进程已经停止: {}", session_id);
+                proc.child = None;
+                proc.writer = None;
+                proc.master = None;
+                proc.pid = None;
                 return Ok(true);
             }
-        };
 
-        if !proc.is_alive() {
-            info!("进程已经停止: {}", session_id);
-            proc.child = None;
-            proc.writer = None;
-            proc.master = None;
-            proc.pid = None;
-            return Ok(true);
+            if force {
+                info!("强制停止进程: {}", session_id);
+                proc.kill();
+            } else {
+                // 尝试优雅停止：发送 Ctrl+C
+                info!("优雅停止进程: {}, 发送 Ctrl+C", session_id);
+                if let Some(ref mut writer) = proc.writer {
+                    let _ = writer.write_all(b"\x03");
+                    let _ = writer.flush();
+                }
+            }
+        } // 释放锁
+
+        if !force {
+            // 锁外等待进程优雅退出，最多 2 秒
+            let mut exited = false;
+            for _ in 0..20 {
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                let mut inner = self.inner.lock().await;
+                if let Some(proc) = inner.processes.get_mut(&session_id) {
+                    if !proc.is_alive() {
+                        exited = true;
+                        break;
+                    }
+                } else {
+                    exited = true;
+                    break;
+                }
+            }
+
+            if !exited {
+                // 超时，强制 kill
+                info!("优雅停止超时，强制终止进程: {}", session_id);
+                let mut inner = self.inner.lock().await;
+                if let Some(proc) = inner.processes.get_mut(&session_id) {
+                    proc.kill();
+                }
+            }
         }
 
-        info!("停止进程: {}, 强制: {}", session_id, force);
-        proc.kill();
-
-        // 释放锁后再等待，避免阻塞其他操作
-        drop(inner);
+        // 短暂等待确认终止
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         info!("进程停止成功: {}", session_id);
