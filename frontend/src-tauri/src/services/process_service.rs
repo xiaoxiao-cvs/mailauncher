@@ -16,7 +16,7 @@ use chrono::{DateTime, Utc};
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use sysinfo::{Pid, System};
 use tokio::sync::Mutex;
-use tracing::info;
+use tracing::{error, info, warn};
 
 use crate::errors::{AppError, AppResult};
 
@@ -44,9 +44,6 @@ pub struct ProcessInfo {
     writer: Option<Box<dyn Write + Send>>,
     /// PTY 主端（保留用于 resize 等操作）
     master: Option<Box<dyn MasterPty + Send>>,
-    /// 标记读取器是否已启动
-    #[allow(dead_code)]
-    reader_started: bool,
 }
 
 impl ProcessInfo {
@@ -202,7 +199,10 @@ impl ProcessManager {
                 pixel_width: 0,
                 pixel_height: 0,
             })
-            .map_err(|e| AppError::Process(format!("创建 PTY 失败: {}", e)))?;
+            .map_err(|e| {
+                error!("创建 PTY 失败: {}", e);
+                AppError::Process(format!("创建 PTY 失败: {}", e))
+            })?;
 
         let mut cmd = CommandBuilder::new(command);
         for arg in args {
@@ -211,6 +211,7 @@ impl ProcessManager {
         cmd.cwd(cwd);
 
         let child = pair.slave.spawn_command(cmd).map_err(|e| {
+            error!("启动进程失败 {}: {}", session_id, e);
             AppError::Process(format!(
                 "启动进程失败 {}: {}",
                 session_id, e
@@ -252,7 +253,6 @@ impl ProcessManager {
             child: Some(child),
             writer: Some(writer),
             master: Some(pair.master),
-            reader_started: false,
         };
 
         // Phase 3: 锁内 — 再次检查竞态后插入 ProcessInfo
@@ -291,13 +291,13 @@ impl ProcessManager {
             let proc = match inner.processes.get_mut(&session_id) {
                 Some(p) => p,
                 None => {
-                    info!("进程不存在: {}", session_id);
+                    warn!("进程不存在: {}", session_id);
                     return Ok(true);
                 }
             };
 
             if !proc.is_alive() {
-                info!("进程已经停止: {}", session_id);
+                warn!("进程已经停止: {}", session_id);
                 proc.child = None;
                 proc.writer = None;
                 proc.master = None;
@@ -594,6 +594,12 @@ impl ProcessManager {
             }
         }
         info!("[进程管理器] 进程清理完成");
+    }
+}
+
+impl Default for ProcessManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
