@@ -28,7 +28,7 @@ pub struct ProcessInfo {
     pub instance_id: String,
     /// 组件类型（main / napcat / napcat-ada）
     pub component: String,
-    /// 会话 ID（{instance_id}_{component}）
+    /// 会话 ID（{instance_id}::{component}）
     pub session_id: String,
     /// 进程 PID
     pub pid: Option<u32>,
@@ -156,7 +156,7 @@ impl ProcessManager {
 
     /// 生成会话 ID
     fn session_id(instance_id: &str, component: &str) -> String {
-        format!("{}_{}", instance_id, component)
+        format!("{}::{}", instance_id, component)
     }
 
     /// 启动组件进程

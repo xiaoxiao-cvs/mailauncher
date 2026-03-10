@@ -9,7 +9,7 @@
 
 /**
  * 终端输出事件
- * 事件名: `terminal-output-{instanceId}_{component}`
+ * 事件名: `terminal-output-{instanceId}::{component}`
  *
  * Rust 端通过 `spawn_output_reader` 推送 PTY 输出
  */
@@ -65,7 +65,7 @@ export interface InstanceStatusChangedPayload {
 
 /** 构造终端输出事件名 */
 export function terminalOutputEvent(instanceId: string, component: string): string {
-  return `terminal-output-${instanceId}_${component}`
+  return `terminal-output-${instanceId}::${component}`
 }
 
 /** 构造下载日志事件名 */

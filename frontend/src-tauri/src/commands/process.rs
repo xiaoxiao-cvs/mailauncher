@@ -41,7 +41,7 @@ fn spawn_output_reader(
     component: String,
     mut reader: Box<dyn Read + Send>,
 ) {
-    let session_id = format!("{}_{}", instance_id, component);
+    let session_id = format!("{}::{}", instance_id, component);
     let event_name = format!("terminal-output-{}", session_id);
 
     std::thread::spawn(move || {
