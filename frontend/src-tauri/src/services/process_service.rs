@@ -114,6 +114,8 @@ struct ProcessManagerInner {
     pty_rows: u16,
     /// PTY 列数
     pty_cols: u16,
+    /// 持久 sysinfo 实例（CPU 采样需跨调用累积）
+    system: System,
 }
 
 /// 进程管理器（对应 Python ProcessManager 单例）
@@ -147,6 +149,7 @@ impl ProcessManager {
                 processes: HashMap::new(),
                 pty_rows,
                 pty_cols,
+                system: System::new(),
             })),
         }
     }
@@ -421,6 +424,9 @@ impl ProcessManager {
     }
 
     /// 获取进程的 CPU 和内存使用情况
+    ///
+    /// CPU 使用率需要跨调用累积才能得到有效值（sysinfo 要求至少两次 refresh 的间隔）。
+    /// System 实例持久化在 ProcessManagerInner 中以满足此要求。
     #[allow(dead_code)]
     pub async fn get_process_resources(
         &self,
@@ -428,23 +434,21 @@ impl ProcessManager {
         component: &str,
     ) -> (f64, f64) {
         let session_id = Self::session_id(instance_id, component);
-        let pid = {
-            let inner = self.inner.lock().await;
-            inner
-                .processes
-                .get(&session_id)
-                .and_then(|p| p.pid)
-        };
+        let mut inner = self.inner.lock().await;
+
+        let pid = inner
+            .processes
+            .get(&session_id)
+            .and_then(|p| p.pid);
 
         match pid {
             Some(pid) => {
-                let mut sys = System::new();
                 let pid = Pid::from_u32(pid);
-                sys.refresh_processes(
+                inner.system.refresh_processes(
                     sysinfo::ProcessesToUpdate::Some(&[pid]),
                     true,
                 );
-                if let Some(process) = sys.process(pid) {
+                if let Some(process) = inner.system.process(pid) {
                     let cpu = process.cpu_usage() as f64;
                     let mem = process.memory() as f64 / 1024.0 / 1024.0;
                     (cpu, mem)
