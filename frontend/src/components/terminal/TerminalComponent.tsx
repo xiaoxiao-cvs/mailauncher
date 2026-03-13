@@ -3,7 +3,7 @@
  * 使用 xterm.js 实现的真实终端模拟器
  *
  * 通过 Tauri 事件接收进程输出，通过 invoke 发送终端输入和调整大小。
- * 事件名: `terminal-output-{instanceId}_{component}`
+ * 事件名: `terminal-output-{instanceId}::{component}`
  * 命令: `terminal_write`, `terminal_get_history`, `terminal_resize`
  */
 

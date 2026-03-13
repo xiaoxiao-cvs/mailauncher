@@ -16,7 +16,7 @@ use chrono::{DateTime, Utc};
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use sysinfo::{Pid, System};
 use tokio::sync::Mutex;
-use tracing::info;
+use tracing::{error, info, warn};
 
 use crate::errors::{AppError, AppResult};
 
@@ -28,7 +28,7 @@ pub struct ProcessInfo {
     pub instance_id: String,
     /// 组件类型（main / napcat / napcat-ada）
     pub component: String,
-    /// 会话 ID（{instance_id}_{component}）
+    /// 会话 ID（{instance_id}::{component}）
     pub session_id: String,
     /// 进程 PID
     pub pid: Option<u32>,
@@ -44,9 +44,6 @@ pub struct ProcessInfo {
     writer: Option<Box<dyn Write + Send>>,
     /// PTY 主端（保留用于 resize 等操作）
     master: Option<Box<dyn MasterPty + Send>>,
-    /// 标记读取器是否已启动
-    #[allow(dead_code)]
-    reader_started: bool,
 }
 
 impl ProcessInfo {
@@ -114,6 +111,8 @@ struct ProcessManagerInner {
     pty_rows: u16,
     /// PTY 列数
     pty_cols: u16,
+    /// 持久 sysinfo 实例（CPU 采样需跨调用累积）
+    system: System,
 }
 
 /// 进程管理器（对应 Python ProcessManager 单例）
@@ -147,13 +146,14 @@ impl ProcessManager {
                 processes: HashMap::new(),
                 pty_rows,
                 pty_cols,
+                system: System::new(),
             })),
         }
     }
 
     /// 生成会话 ID
     fn session_id(instance_id: &str, component: &str) -> String {
-        format!("{}_{}", instance_id, component)
+        format!("{}::{}", instance_id, component)
     }
 
     /// 启动组件进程
@@ -169,25 +169,40 @@ impl ProcessManager {
         cwd: &Path,
     ) -> AppResult<Option<Box<dyn Read + Send>>> {
         let session_id = Self::session_id(instance_id, component);
-        let mut inner = self.inner.lock().await;
 
-        // 检查是否已在运行
-        if let Some(proc) = inner.processes.get_mut(&session_id) {
-            if proc.is_alive() {
-                info!("进程已在运行: {}", session_id);
-                return Ok(None);
+        // Phase 1: 锁内 — 检查运行状态、读取 PTY 尺寸、复制旧日志
+        let (pty_rows, pty_cols, old_buffer) = {
+            let mut inner = self.inner.lock().await;
+
+            // 检查是否已在运行
+            if let Some(proc) = inner.processes.get_mut(&session_id) {
+                if proc.is_alive() {
+                    info!("进程已在运行: {}", session_id);
+                    return Ok(None);
+                }
             }
-        }
 
+            let old_buf = inner.processes.get(&session_id).map(|p| {
+                let keep = p.output_buffer.len().min(500);
+                p.output_buffer[p.output_buffer.len() - keep..].to_vec()
+            });
+
+            (inner.pty_rows, inner.pty_cols, old_buf)
+        }; // 锁释放
+
+        // Phase 2: 锁外 — 创建 PTY、启动进程（可能阻塞的系统调用）
         let pty_system = native_pty_system();
         let pair = pty_system
             .openpty(PtySize {
-                rows: inner.pty_rows,
-                cols: inner.pty_cols,
+                rows: pty_rows,
+                cols: pty_cols,
                 pixel_width: 0,
                 pixel_height: 0,
             })
-            .map_err(|e| AppError::Process(format!("创建 PTY 失败: {}", e)))?;
+            .map_err(|e| {
+                error!("创建 PTY 失败: {}", e);
+                AppError::Process(format!("创建 PTY 失败: {}", e))
+            })?;
 
         let mut cmd = CommandBuilder::new(command);
         for arg in args {
@@ -196,6 +211,7 @@ impl ProcessManager {
         cmd.cwd(cwd);
 
         let child = pair.slave.spawn_command(cmd).map_err(|e| {
+            error!("启动进程失败 {}: {}", session_id, e);
             AppError::Process(format!(
                 "启动进程失败 {}: {}",
                 session_id, e
@@ -211,25 +227,20 @@ impl ProcessManager {
         })?;
 
         // 构造重启分隔标记（与 Python 行为一致）
-        let mut output_buffer = Vec::new();
-        if let Some(old_proc) = inner.processes.get(&session_id) {
-            // 保留旧日志的后半部分（最多 500 行）
-            let keep = old_proc.output_buffer.len().min(500);
-            output_buffer = old_proc.output_buffer
-                [old_proc.output_buffer.len() - keep..]
-                .to_vec();
-            output_buffer.push(format!(
+        let output_buffer = if let Some(mut old) = old_buffer {
+            old.push(format!(
                 "\n{}\n[进程重启] 新会话开始\n{}\n",
                 "=".repeat(50),
                 "=".repeat(50)
             ));
+            old
         } else {
-            output_buffer.push(format!(
+            vec![format!(
                 "\n{}\n[进程启动] 会话开始\n{}\n",
                 "=".repeat(50),
                 "=".repeat(50)
-            ));
-        }
+            )]
+        };
 
         let process_info = ProcessInfo {
             instance_id: instance_id.to_string(),
@@ -242,8 +253,18 @@ impl ProcessManager {
             child: Some(child),
             writer: Some(writer),
             master: Some(pair.master),
-            reader_started: false,
         };
+
+        // Phase 3: 锁内 — 再次检查竞态后插入 ProcessInfo
+        let mut inner = self.inner.lock().await;
+        if let Some(proc) = inner.processes.get_mut(&session_id) {
+            if proc.is_alive() {
+                // 并发 start 已抢先启动，丢弃本次资源
+                // process_info drop 时会关闭 PTY 句柄，子进程因 stdin EOF 自行退出
+                info!("并发启动检测，放弃本次启动: {}", session_id);
+                return Ok(None);
+            }
+        }
 
         info!(
             "进程启动成功: {}, PID: {:?}",
@@ -255,6 +276,9 @@ impl ProcessManager {
     }
 
     /// 停止组件进程
+    ///
+    /// `force=false`：先发送 Ctrl+C（\x03）尝试优雅退出，等待最多 2 秒，超时后强制 kill。
+    /// `force=true`：直接 kill 进程。
     pub async fn stop_process(
         &self,
         instance_id: &str,
@@ -262,61 +286,144 @@ impl ProcessManager {
         force: bool,
     ) -> AppResult<bool> {
         let session_id = Self::session_id(instance_id, component);
-        let mut inner = self.inner.lock().await;
 
-        let proc = match inner.processes.get_mut(&session_id) {
-            Some(p) => p,
-            None => {
-                info!("进程不存在: {}", session_id);
+        let ctrl_c_sent;
+
+        {
+            let mut inner = self.inner.lock().await;
+            let proc = match inner.processes.get_mut(&session_id) {
+                Some(p) => p,
+                None => {
+                    warn!("进程不存在: {}", session_id);
+                    return Ok(true);
+                }
+            };
+
+            if !proc.is_alive() {
+                warn!("进程已经停止: {}", session_id);
+                proc.child = None;
+                proc.writer = None;
+                proc.master = None;
+                proc.pid = None;
                 return Ok(true);
             }
-        };
 
-        if !proc.is_alive() {
-            info!("进程已经停止: {}", session_id);
-            proc.child = None;
-            proc.writer = None;
-            proc.master = None;
-            proc.pid = None;
-            return Ok(true);
+            ctrl_c_sent = if force {
+                info!("强制停止进程: {}", session_id);
+                proc.kill();
+                false
+            } else {
+                // 尝试优雅停止：发送 Ctrl+C
+                info!("优雅停止进程: {}, 发送 Ctrl+C", session_id);
+                if let Some(ref mut writer) = proc.writer {
+                    let _ = writer.write_all(b"\x03");
+                    let _ = writer.flush();
+                    true
+                } else {
+                    // writer 已不可用，直接强制 kill
+                    warn!("writer 不可用，回退到强制终止: {}", session_id);
+                    proc.kill();
+                    false
+                }
+            };
+        } // 释放锁
+
+        if !force && ctrl_c_sent {
+            // 锁外等待进程优雅退出，最多 2 秒
+            let mut exited = false;
+            for _ in 0..20 {
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                let mut inner = self.inner.lock().await;
+                if let Some(proc) = inner.processes.get_mut(&session_id) {
+                    if !proc.is_alive() {
+                        exited = true;
+                        break;
+                    }
+                } else {
+                    exited = true;
+                    break;
+                }
+            }
+
+            if !exited {
+                // 超时，强制 kill
+                info!("优雅停止超时，强制终止进程: {}", session_id);
+                let mut inner = self.inner.lock().await;
+                if let Some(proc) = inner.processes.get_mut(&session_id) {
+                    proc.kill();
+                }
+            }
         }
 
-        info!("停止进程: {}, 强制: {}", session_id, force);
-        proc.kill();
-
-        // 短暂等待确认进程终止
+        // 短暂等待确认终止
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+        // 截断已停止进程的输出缓冲区，防止内存无限增长
+        {
+            let mut inner = self.inner.lock().await;
+            if let Some(proc) = inner.processes.get_mut(&session_id) {
+                if proc.output_buffer.len() > 500 {
+                    let drain_to = proc.output_buffer.len() - 500;
+                    proc.output_buffer.drain(..drain_to);
+                }
+            }
+        }
 
         info!("进程停止成功: {}", session_id);
         Ok(true)
     }
 
     /// 停止实例的所有进程
+    ///
+    /// 在单次锁内完成所有 kill 操作，避免循环获取锁的开销。
     pub async fn stop_all_instance_processes(
         &self,
         instance_id: &str,
     ) -> HashMap<String, bool> {
         let mut results = HashMap::new();
+        let session_ids: Vec<String>;
 
-        // 收集该实例的所有组件名
-        let components: Vec<String> = {
-            let inner = self.inner.lock().await;
-            inner
+        // 单次锁内完成所有 kill
+        {
+            let mut inner = self.inner.lock().await;
+            session_ids = inner
                 .processes
                 .values()
                 .filter(|p| p.instance_id == instance_id)
-                .map(|p| p.component.clone())
-                .collect()
-        };
+                .map(|p| p.session_id.clone())
+                .collect();
 
-        info!("停止实例 {} 的所有进程: {:?}", instance_id, components);
+            info!("停止实例 {} 的所有进程: {:?}", instance_id, session_ids);
 
-        for component in components {
-            let result = self
-                .stop_process(instance_id, &component, false)
-                .await
-                .unwrap_or(false);
-            results.insert(component, result);
+            for sid in &session_ids {
+                if let Some(proc) = inner.processes.get_mut(sid) {
+                    if proc.is_alive() {
+                        proc.kill();
+                        results.insert(proc.component.clone(), true);
+                    } else {
+                        proc.child = None;
+                        proc.writer = None;
+                        proc.master = None;
+                        proc.pid = None;
+                        results.insert(proc.component.clone(), true);
+                    }
+                }
+            }
+        }
+
+        // 锁外轮询确认进程退出，最多等待 1 秒
+        for _ in 0..10 {
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            let mut inner = self.inner.lock().await;
+            let all_dead = session_ids.iter().all(|sid| {
+                inner
+                    .processes
+                    .get_mut(sid)
+                    .map_or(true, |p| !p.is_alive())
+            });
+            if all_dead {
+                break;
+            }
         }
 
         results
@@ -403,6 +510,9 @@ impl ProcessManager {
     }
 
     /// 获取进程的 CPU 和内存使用情况
+    ///
+    /// CPU 使用率需要跨调用累积才能得到有效值（sysinfo 要求至少两次 refresh 的间隔）。
+    /// System 实例持久化在 ProcessManagerInner 中以满足此要求。
     #[allow(dead_code)]
     pub async fn get_process_resources(
         &self,
@@ -410,23 +520,21 @@ impl ProcessManager {
         component: &str,
     ) -> (f64, f64) {
         let session_id = Self::session_id(instance_id, component);
-        let pid = {
-            let inner = self.inner.lock().await;
-            inner
-                .processes
-                .get(&session_id)
-                .and_then(|p| p.pid)
-        };
+        let mut inner = self.inner.lock().await;
+
+        let pid = inner
+            .processes
+            .get(&session_id)
+            .and_then(|p| p.pid);
 
         match pid {
             Some(pid) => {
-                let mut sys = System::new();
                 let pid = Pid::from_u32(pid);
-                sys.refresh_processes(
+                inner.system.refresh_processes(
                     sysinfo::ProcessesToUpdate::Some(&[pid]),
                     true,
                 );
-                if let Some(process) = sys.process(pid) {
+                if let Some(process) = inner.system.process(pid) {
                     let cpu = process.cpu_usage() as f64;
                     let mem = process.memory() as f64 / 1024.0 / 1024.0;
                     (cpu, mem)
@@ -509,6 +617,12 @@ impl ProcessManager {
             }
         }
         info!("[进程管理器] 进程清理完成");
+    }
+}
+
+impl Default for ProcessManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
