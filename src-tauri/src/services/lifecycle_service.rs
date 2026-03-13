@@ -84,6 +84,13 @@ struct RecoveredInstanceState {
     available_components: Vec<ComponentType>,
 }
 
+struct RuntimeDiscoverySnapshot {
+    component_states: Vec<InstanceComponentState>,
+    discovered_processes: Vec<crate::runtime::DiscoveredRuntimeProcess>,
+    discovery_succeeded: bool,
+    discovery_failed: bool,
+}
+
 fn evaluate_recovered_instance_state(
     registry: &ComponentRegistry,
     runtime_resolver: &RuntimeResolver,
@@ -96,52 +103,73 @@ fn evaluate_recovered_instance_state(
 
     let mut last_error = instance.last_error.clone();
     let mut last_status_reason = instance.last_status_reason.clone();
-    let mut discovered_processes = Vec::new();
-
-    let component_states = match instance.runtime_profile.kind {
+    let snapshot = match instance.runtime_profile.kind {
         RuntimeKind::Wsl2 => {
             let adapter = runtime_resolver.resolve(&instance.runtime_profile);
             match adapter.discover_processes(&instance.runtime_profile, &instance.id, &available) {
-                Ok(discovered) => {
-                    discovered_processes = discovered;
-                    hydrate_discovered_component_states(
+                Ok(discovered) => RuntimeDiscoverySnapshot {
+                    component_states: hydrate_discovered_component_states(
                         &available,
-                        &discovered_processes,
+                        &discovered,
                         instance.runtime_profile.kind,
-                    )
-                }
+                    ),
+                    discovered_processes: discovered,
+                    discovery_succeeded: true,
+                    discovery_failed: false,
+                },
                 Err(error) => {
                     last_error = Some(error.to_string());
-                    last_status_reason = Some("WSL2 冷启动探测失败，保留 unknown 状态".to_string());
-                    Vec::new()
+                    if last_status_reason.is_none() {
+                        last_status_reason = Some("WSL2 冷启动探测失败，保留 unknown 状态".to_string());
+                    }
+                    RuntimeDiscoverySnapshot {
+                        component_states: hydrate_unknown_component_states(&available, instance.runtime_profile.kind),
+                        discovered_processes: Vec::new(),
+                        discovery_succeeded: false,
+                        discovery_failed: true,
+                    }
                 }
             }
         }
         RuntimeKind::Docker => {
             let adapter = runtime_resolver.resolve(&instance.runtime_profile);
             match adapter.discover_processes(&instance.runtime_profile, &instance.id, &available) {
-                Ok(discovered) => {
-                    discovered_processes = discovered;
-                    hydrate_discovered_component_states(
+                Ok(discovered) => RuntimeDiscoverySnapshot {
+                    component_states: hydrate_discovered_component_states(
                         &available,
-                        &discovered_processes,
+                        &discovered,
                         instance.runtime_profile.kind,
-                    )
-                }
+                    ),
+                    discovered_processes: discovered,
+                    discovery_succeeded: true,
+                    discovery_failed: false,
+                },
                 Err(error) => {
                     last_error = Some(error.to_string());
-                    last_status_reason = Some("Docker 冷启动探测失败，保留 unknown 状态".to_string());
-                    Vec::new()
+                    if last_status_reason.is_none() {
+                        last_status_reason = Some("Docker 冷启动探测失败，保留 unknown 状态".to_string());
+                    }
+                    RuntimeDiscoverySnapshot {
+                        component_states: hydrate_unknown_component_states(&available, instance.runtime_profile.kind),
+                        discovered_processes: Vec::new(),
+                        discovery_succeeded: false,
+                        discovery_failed: true,
+                    }
                 }
             }
         }
-        _ => hydrate_stopped_component_states(&available, instance.runtime_profile.kind),
+        _ => RuntimeDiscoverySnapshot {
+            component_states: hydrate_stopped_component_states(&available, instance.runtime_profile.kind),
+            discovered_processes: Vec::new(),
+            discovery_succeeded: false,
+            discovery_failed: false,
+        },
     };
 
-    let status = if instance.runtime_profile.kind == RuntimeKind::Wsl2
-        && component_states.is_empty()
-        && last_error.is_some()
-    {
+    let component_states = snapshot.component_states;
+    let discovered_processes = snapshot.discovered_processes;
+
+    let status = if snapshot.discovery_failed {
         InstanceLifecycleStatus::Unknown
     } else {
         aggregate_instance_status(&component_states, last_error.as_deref())
@@ -150,6 +178,11 @@ fn evaluate_recovered_instance_state(
     let last_status_reason = match status {
         InstanceLifecycleStatus::Running => Some("冷启动重建为运行中".to_string()),
         InstanceLifecycleStatus::Partial => Some("冷启动重建为部分运行".to_string()),
+        InstanceLifecycleStatus::Stopped
+            if matches!(instance.runtime_profile.kind, RuntimeKind::Wsl2 | RuntimeKind::Docker)
+                && snapshot.discovery_succeeded => {
+            Some("冷启动探测未发现运行中的组件".to_string())
+        }
         InstanceLifecycleStatus::Stopped if instance.runtime_profile.kind == RuntimeKind::Local => {
             Some("应用重启后本地托管进程已视为停止".to_string())
         }
@@ -232,6 +265,26 @@ fn hydrate_stopped_component_states(
             component: component.component,
             runtime_kind,
             status: ComponentLifecycleStatus::Stopped,
+            running: false,
+            pid: None,
+            host_pid: None,
+            guest_pid: None,
+            uptime: None,
+            last_error: None,
+        })
+        .collect()
+}
+
+fn hydrate_unknown_component_states(
+    available: &[&crate::components::ComponentSpec],
+    runtime_kind: RuntimeKind,
+) -> Vec<InstanceComponentState> {
+    available
+        .iter()
+        .map(|component| InstanceComponentState {
+            component: component.component,
+            runtime_kind,
+            status: ComponentLifecycleStatus::Unknown,
             running: false,
             pid: None,
             host_pid: None,
@@ -331,9 +384,15 @@ pub fn available_components(
 mod tests {
     use sqlx::SqlitePool;
 
-    use super::{hydrate_discovered_component_states, reconcile_instance_states_on_startup};
+    use super::{
+        hydrate_discovered_component_states, hydrate_unknown_component_states,
+        reconcile_instance_states_on_startup,
+    };
     use crate::components::ComponentRegistry;
-    use crate::models::{ComponentLifecycleStatus, ComponentType, RuntimeKind};
+    use crate::models::{
+        ComponentLifecycleStatus, ComponentType, InstanceComponentState, InstanceLifecycleStatus,
+        RuntimeKind,
+    };
     use crate::runtime::{DiscoveredRuntimeProcess, TerminalSessionInfo};
 
     #[tokio::test]
@@ -411,5 +470,42 @@ mod tests {
         assert!(states[0].running);
         assert_eq!(states[0].guest_pid, Some(321));
         assert_eq!(states[1].status, ComponentLifecycleStatus::Stopped);
+    }
+
+    #[test]
+    fn hydrate_unknown_states_marks_all_components_unknown() {
+        let registry = ComponentRegistry::new();
+        let available = vec![
+            registry.get(ComponentType::Main).expect("缺少 main spec"),
+            registry.get(ComponentType::NapCat).expect("缺少 napcat spec"),
+        ];
+
+        let states = hydrate_unknown_component_states(&available, RuntimeKind::Docker);
+        assert_eq!(states.len(), 2);
+        assert!(states.iter().all(|state| state.status == ComponentLifecycleStatus::Unknown));
+        assert!(states.iter().all(|state| state.runtime_kind == RuntimeKind::Docker));
+    }
+
+    #[test]
+    fn aggregate_unknown_components_with_error_keeps_unknown_for_remote_recovery() {
+        let states = vec![InstanceComponentState {
+            component: ComponentType::Main,
+            runtime_kind: RuntimeKind::Docker,
+            status: ComponentLifecycleStatus::Unknown,
+            running: false,
+            pid: None,
+            host_pid: None,
+            guest_pid: None,
+            uptime: None,
+            last_error: None,
+        }];
+
+        let status = if true {
+            InstanceLifecycleStatus::Unknown
+        } else {
+            crate::lifecycle::aggregate_instance_status(&states, Some("docker not ready"))
+        };
+
+        assert_eq!(status, InstanceLifecycleStatus::Unknown);
     }
 }
