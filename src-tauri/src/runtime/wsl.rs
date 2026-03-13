@@ -179,6 +179,29 @@ mod tests {
         assert_eq!(discovered[0].terminal_session.as_ref().map(|session| session.name.as_str()), Some("mailauncher-inst-1-main"));
         assert_eq!(discovered[0].terminal_session.as_ref().map(|session| session.verified), Some(true));
     }
+
+    #[test]
+    fn parse_wsl_processes_without_verified_session_keeps_process_only() {
+        let registry = ComponentRegistry::new();
+        let components = vec![registry.get(ComponentType::Main).expect("缺少 main spec")];
+
+        let stdout = "123\t/home/mai/demo/MaiBot\tpython3 bot.py\n";
+        let mut profile = crate::models::RuntimeProfile::local("demo", None);
+        profile.kind = crate::models::RuntimeKind::Wsl2;
+        let discovered = parse_wsl_discovered_processes_with_verifier(
+            &profile,
+            stdout,
+            "/home/mai/demo",
+            "inst-1",
+            &components,
+            |_| false,
+        )
+        .expect("解析 WSL 进程失败");
+
+        assert_eq!(discovered.len(), 1);
+        assert_eq!(discovered[0].guest_pid, Some(123));
+        assert!(discovered[0].terminal_session.is_none());
+    }
 }
 
 fn parse_wsl_discovered_processes_with_verifier<F>(

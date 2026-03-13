@@ -1128,7 +1128,28 @@ mod tests {
 
         assert!(process.is_external());
         assert_eq!(process.get_uptime(), None);
-        assert!(process.output_buffer[0].contains("外部进程接管"));
+        assert!(process.output_buffer[0].contains("可重连 tmux 会话"));
+    }
+
+    #[test]
+    fn external_process_without_verified_session_uses_read_only_placeholder() {
+        let profile = RuntimeProfile::local("demo", None);
+        let process = ProcessInfo::from_external(
+            "inst_test",
+            "main",
+            &crate::runtime::DiscoveredRuntimeProcess {
+                component: ComponentType::Main,
+                runtime_kind: RuntimeKind::Docker,
+                status: crate::models::ComponentLifecycleStatus::Running,
+                host_pid: None,
+                guest_pid: Some(9527),
+                terminal_session: None,
+            },
+            &profile,
+        );
+
+        assert!(process.is_external());
+        assert!(process.output_buffer[0].contains("仅提供状态与停止能力"));
     }
 
     #[tokio::test]
