@@ -44,6 +44,10 @@ pub async fn list_wsl_distributions() -> AppResult<Vec<WslDistributionInfo>> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+    Ok(parse_wsl_distribution_output(&stdout))
+}
+
+fn parse_wsl_distribution_output(stdout: &str) -> Vec<WslDistributionInfo> {
     let mut distributions = Vec::new();
 
     for line in stdout.lines().skip(1) {
@@ -74,5 +78,21 @@ pub async fn list_wsl_distributions() -> AppResult<Vec<WslDistributionInfo>> {
         });
     }
 
-    Ok(distributions)
+    distributions
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_wsl_distribution_output;
+
+    #[test]
+    fn parse_wsl_output_with_default_distribution() {
+        let output = "  NAME            STATE           VERSION\n* Ubuntu-24.04    Running         2\n  Debian          Stopped         2\n";
+        let distributions = parse_wsl_distribution_output(output);
+
+        assert_eq!(distributions.len(), 2);
+        assert_eq!(distributions[0].name, "Ubuntu-24.04");
+        assert!(distributions[0].is_default);
+        assert_eq!(distributions[1].state, "Stopped");
+    }
 }

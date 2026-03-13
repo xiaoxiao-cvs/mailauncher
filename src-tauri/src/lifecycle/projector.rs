@@ -94,3 +94,61 @@ pub fn aggregate_instance_status(
         InstanceLifecycleStatus::Stopped
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::aggregate_instance_status;
+    use crate::models::{
+        ComponentLifecycleStatus, ComponentType, InstanceComponentState, InstanceLifecycleStatus,
+    };
+
+    fn component_state(
+        component: ComponentType,
+        status: ComponentLifecycleStatus,
+    ) -> InstanceComponentState {
+        InstanceComponentState {
+            component,
+            running: matches!(status, ComponentLifecycleStatus::Running),
+            status,
+            pid: None,
+            uptime: None,
+            last_error: None,
+        }
+    }
+
+    #[test]
+    fn all_running_projects_running_status() {
+        let states = vec![
+            component_state(ComponentType::Main, ComponentLifecycleStatus::Running),
+            component_state(ComponentType::NapCat, ComponentLifecycleStatus::Running),
+        ];
+
+        assert_eq!(
+            aggregate_instance_status(&states, None),
+            InstanceLifecycleStatus::Running
+        );
+    }
+
+    #[test]
+    fn partial_running_projects_partial_status() {
+        let states = vec![
+            component_state(ComponentType::Main, ComponentLifecycleStatus::Running),
+            component_state(ComponentType::NapCat, ComponentLifecycleStatus::Stopped),
+        ];
+
+        assert_eq!(
+            aggregate_instance_status(&states, None),
+            InstanceLifecycleStatus::Partial
+        );
+    }
+
+    #[test]
+    fn stopped_with_error_projects_failed_status() {
+        let states = vec![component_state(ComponentType::Main, ComponentLifecycleStatus::Stopped)];
+
+        assert_eq!(
+            aggregate_instance_status(&states, Some("boom")),
+            InstanceLifecycleStatus::Failed
+        );
+    }
+}
