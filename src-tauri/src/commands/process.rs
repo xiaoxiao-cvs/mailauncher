@@ -6,7 +6,7 @@
 use std::io::Read;
 use std::path::PathBuf;
 
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 use tokio::runtime::Handle;
 use tracing::{error, info, warn};
 
@@ -16,6 +16,7 @@ use crate::models::{ComponentLifecycleStatus, ComponentStatus, RuntimeProfile, S
 use crate::services::instance_service;
 use crate::services::lifecycle_service;
 use crate::services::process_service::ProcessManager;
+use crate::services::terminal_stream_service::{EventTerminalStreamPublisher, TerminalStreamPublisher};
 use crate::state::AppState;
 use crate::utils::platform;
 
@@ -41,8 +42,8 @@ fn spawn_output_reader(
     mut reader: Box<dyn Read + Send>,
 ) {
     let session_id = format!("{}::{}", instance_id, component);
-    let event_name = format!("terminal-output-{}", session_id);
     let runtime_handle = Handle::current();
+    let publisher = EventTerminalStreamPublisher;
 
     std::thread::spawn(move || {
         let mut buf = [0u8; 4096];
@@ -65,7 +66,7 @@ fn spawn_output_reader(
 
                     // 通过 Tauri 事件推送到前端
                     if let Some(sanitized) = sanitized {
-                        let _ = app_handle.emit(&event_name, &sanitized);
+                        let _ = publisher.publish_output(&app_handle, &instance_id, &component, &sanitized);
                     }
                 }
                 Err(e) => {
