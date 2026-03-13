@@ -295,6 +295,12 @@ async fn validate_docker_runtime_profile(
             code: "docker_container_stopped".to_string(),
             message: format!("Docker 容器 {} 当前未运行", container_name),
         });
+    } else if !crate::runtime::docker::tmux_available(profile).await? {
+        issues.push(RuntimeProbeIssue {
+            severity: RuntimeProbeSeverity::Warning,
+            code: "docker_tmux_missing".to_string(),
+            message: "Docker 容器中未检测到 tmux，将无法提供跨重启终端重连能力".to_string(),
+        });
     }
 
     if !probe_docker_directory(profile, guest_workspace_root).await? {

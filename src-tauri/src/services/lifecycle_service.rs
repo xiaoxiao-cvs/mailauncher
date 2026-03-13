@@ -104,7 +104,11 @@ fn evaluate_recovered_instance_state(
             match adapter.discover_processes(&instance.runtime_profile, &instance.id, &available) {
                 Ok(discovered) => {
                     discovered_processes = discovered;
-                    hydrate_discovered_component_states(&available, &discovered_processes)
+                    hydrate_discovered_component_states(
+                        &available,
+                        &discovered_processes,
+                        instance.runtime_profile.kind,
+                    )
                 }
                 Err(error) => {
                     last_error = Some(error.to_string());
@@ -118,7 +122,11 @@ fn evaluate_recovered_instance_state(
             match adapter.discover_processes(&instance.runtime_profile, &instance.id, &available) {
                 Ok(discovered) => {
                     discovered_processes = discovered;
-                    hydrate_discovered_component_states(&available, &discovered_processes)
+                    hydrate_discovered_component_states(
+                        &available,
+                        &discovered_processes,
+                        instance.runtime_profile.kind,
+                    )
                 }
                 Err(error) => {
                     last_error = Some(error.to_string());
@@ -237,6 +245,7 @@ fn hydrate_stopped_component_states(
 fn hydrate_discovered_component_states(
     available: &[&crate::components::ComponentSpec],
     discovered: &[crate::runtime::DiscoveredRuntimeProcess],
+    runtime_kind: RuntimeKind,
 ) -> Vec<InstanceComponentState> {
     available
         .iter()
@@ -256,7 +265,7 @@ fn hydrate_discovered_component_states(
             } else {
                 InstanceComponentState {
                     component: component.component,
-                    runtime_kind: RuntimeKind::Wsl2,
+                    runtime_kind,
                     status: ComponentLifecycleStatus::Stopped,
                     running: false,
                     pid: None,
@@ -394,7 +403,7 @@ mod tests {
             terminal_session_name: Some("mailauncher-inst-test-main".to_string()),
         }];
 
-        let states = hydrate_discovered_component_states(&available, &discovered);
+        let states = hydrate_discovered_component_states(&available, &discovered, RuntimeKind::Wsl2);
         assert_eq!(states.len(), 2);
         assert!(states[0].running);
         assert_eq!(states[0].guest_pid, Some(321));

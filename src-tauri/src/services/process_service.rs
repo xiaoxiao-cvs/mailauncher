@@ -333,7 +333,13 @@ impl ProcessManager {
                     Ok(vec!["[外部进程接管] 当前会话没有可重连的 tmux 会话，只能显示探测状态。\n".to_string()])
                 }
             }
-            RuntimeKind::Docker => Ok(vec!["[Docker 运行时] 当前版本暂未提供容器终端重连，仅支持进程控制。\n".to_string()]),
+            RuntimeKind::Docker => {
+                if let Some(session_name) = handle.terminal_session_name.as_deref() {
+                    crate::runtime::docker::capture_tmux_history(&handle.runtime_profile, session_name, lines).await
+                } else {
+                    Ok(vec!["[Docker 运行时] 当前会话没有可重连的 tmux 会话，只能显示探测状态。\n".to_string()])
+                }
+            }
             _ => Ok(Vec::new()),
         }
     }
@@ -346,7 +352,12 @@ impl ProcessManager {
                 })?;
                 crate::runtime::wsl::send_tmux_input(&handle.runtime_profile, session_name, data).await
             }
-            RuntimeKind::Docker => Err(AppError::Process("Docker 外部进程暂不支持终端写入".to_string())),
+            RuntimeKind::Docker => {
+                let session_name = handle.terminal_session_name.as_deref().ok_or_else(|| {
+                    AppError::Process("当前外部 Docker 进程没有可重连的 tmux 会话".to_string())
+                })?;
+                crate::runtime::docker::send_tmux_input(&handle.runtime_profile, session_name, data).await
+            }
             _ => Err(AppError::Process("当前外部进程暂不支持终端写入".to_string())),
         }
     }
@@ -360,6 +371,13 @@ impl ProcessManager {
             RuntimeKind::Wsl2 => {
                 if let Some(session_name) = handle.terminal_session_name.as_deref() {
                     crate::runtime::wsl::resize_tmux_session(&handle.runtime_profile, session_name, rows, cols).await
+                } else {
+                    Ok(())
+                }
+            }
+            RuntimeKind::Docker => {
+                if let Some(session_name) = handle.terminal_session_name.as_deref() {
+                    crate::runtime::docker::resize_tmux_session(&handle.runtime_profile, session_name, rows, cols).await
                 } else {
                     Ok(())
                 }

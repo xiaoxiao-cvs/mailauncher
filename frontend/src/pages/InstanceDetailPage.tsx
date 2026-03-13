@@ -48,6 +48,123 @@ import {
   useStopComponentMutation,
 } from '@/hooks/queries/useInstanceQueries';
 
+type RuntimeCapabilityState = 'ready' | 'warning' | 'blocked';
+
+interface RuntimeCapabilityCard {
+  key: string;
+  title: string;
+  detail: string;
+  action: string;
+  state: RuntimeCapabilityState;
+}
+
+const capabilityStateClassName: Record<RuntimeCapabilityState, string> = {
+  ready: 'border-emerald-200/70 bg-emerald-50/70 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300',
+  warning: 'border-amber-200/70 bg-amber-50/70 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200',
+  blocked: 'border-rose-200/70 bg-rose-50/70 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300',
+};
+
+function buildRuntimeCapabilityCards(
+  runtimeDraft: RuntimeProfile,
+  runtimeProbe: RuntimeProbeResult,
+): RuntimeCapabilityCard[] {
+  const issueMap = new Map(runtimeProbe.issues.map((issue) => [issue.code, issue]));
+  const hasIssue = (...codes: string[]) => codes.some((code) => issueMap.has(code));
+
+  const configState: RuntimeCapabilityState = hasIssue(
+    'wsl_distribution_missing',
+    'wsl_distribution_not_found',
+    'wsl_workspace_missing',
+    'docker_container_missing',
+    'docker_workspace_missing',
+  )
+    ? 'blocked'
+    : 'ready';
+
+  const workspaceState: RuntimeCapabilityState = hasIssue('wsl_workspace_not_found', 'docker_workspace_not_found')
+    ? 'blocked'
+    : hasIssue('docker_container_stopped', 'docker_container_not_found')
+      ? 'warning'
+      : 'ready';
+
+  const reconnectState: RuntimeCapabilityState = hasIssue('wsl_tmux_missing', 'docker_tmux_missing')
+    ? 'warning'
+    : hasIssue('docker_container_stopped', 'docker_container_not_found', 'wsl_distribution_not_found')
+      ? 'blocked'
+      : 'ready';
+
+  const attachState: RuntimeCapabilityState = hasIssue('docker_container_not_found', 'wsl_distribution_not_found')
+    ? 'blocked'
+    : hasIssue('docker_container_stopped')
+      ? 'warning'
+      : 'ready';
+
+  return [
+    {
+      key: 'config',
+      title: '配置完整性',
+      state: configState,
+      detail: configState === 'blocked'
+        ? '当前 runtime_profile 仍缺少关键入口字段，保存前需要补全。'
+        : runtimeDraft.kind === 'local'
+          ? '本地运行时使用宿主机工作区与本地 Python 解析链路。'
+          : runtimeDraft.kind === 'wsl2'
+            ? `WSL2 入口已指向 ${runtimeDraft.distribution || '目标发行版'}。`
+            : `Docker 入口已指向容器 ${runtimeDraft.container_name || '目标容器'}。`,
+      action: configState === 'blocked'
+        ? runtimeDraft.kind === 'docker'
+          ? '补全容器名与 guest 工作区。'
+          : runtimeDraft.kind === 'wsl2'
+            ? '选择发行版并填写 guest 工作区。'
+            : '补全本地 Python 或工作区设置。'
+        : '当前可以继续保存并执行运行态刷新。',
+    },
+    {
+      key: 'workspace',
+      title: '工作区可达性',
+      state: workspaceState,
+      detail: workspaceState === 'blocked'
+        ? 'guest 工作区当前不可达，冷启动恢复和命令分发都会失败。'
+        : workspaceState === 'warning'
+          ? '运行时入口存在，但宿主环境尚未完全就绪。'
+          : 'guest 工作区可以被解析，实例命令能够落到正确目录。',
+      action: hasIssue('docker_container_stopped')
+        ? '先启动容器，再重新校验工作区。'
+        : hasIssue('wsl_workspace_not_found', 'docker_workspace_not_found')
+          ? '检查 guest 路径是否与实例目录一致。'
+          : '当前可以执行手动刷新或冷启动恢复。',
+    },
+    {
+      key: 'reconnect',
+      title: '终端重连',
+      state: reconnectState,
+      detail: reconnectState === 'ready'
+        ? '新启动会话会优先挂到 tmux，支持历史回放、输入写入和窗口 resize。'
+        : reconnectState === 'warning'
+          ? '实例仍可启动，但缺少 tmux 时无法提供跨应用重连终端。'
+          : '当前运行时还不具备稳定的会话重连前提。',
+      action: hasIssue('wsl_tmux_missing', 'docker_tmux_missing')
+        ? '在 guest 环境安装 tmux 后重新校验。'
+        : hasIssue('docker_container_stopped', 'docker_container_not_found')
+          ? '先恢复容器运行，再创建会话。'
+          : '当前可以直接使用可重连终端链路。',
+    },
+    {
+      key: 'attach',
+      title: '外部进程接管',
+      state: attachState,
+      detail: attachState === 'blocked'
+        ? '当前无法稳定探测 guest 进程，外部接管链路不可用。'
+        : attachState === 'warning'
+          ? '外部接管能力已配置，但底层环境未启动，暂时只能保留配置。'
+          : '冷启动后可以重发现 guest 进程，并将其同步进实例运行态。',
+      action: attachState === 'ready'
+        ? '适合配合手动刷新运行态，重建实例状态投影。'
+        : '先修复入口环境，再进行冷启动恢复。',
+    },
+  ];
+}
+
 export const InstanceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -107,6 +224,9 @@ export const InstanceDetailPage: React.FC = () => {
     : instance?.runtime_profile.kind === 'docker'
       ? 'Docker'
       : 'Local';
+  const runtimeCapabilityCards = runtimeDraft && runtimeProbe
+    ? buildRuntimeCapabilityCards(runtimeDraft, runtimeProbe)
+    : [];
 
   useEffect(() => {
     if (instance?.runtime_profile) {
@@ -634,6 +754,18 @@ export const InstanceDetailPage: React.FC = () => {
                     <div className="flex items-center gap-2 text-sm font-semibold">
                       {runtimeProbe.ok ? <ShieldCheck className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
                       {runtimeProbe.ok ? '运行时校验通过' : '运行时校验发现问题'}
+                    </div>
+                    <div className="mt-3 grid grid-cols-1 gap-2">
+                      {runtimeCapabilityCards.map((card) => (
+                        <div key={card.key} className={`rounded-2xl border px-3 py-3 ${capabilityStateClassName[card.state]}`}>
+                          <div className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide">
+                            <span>{card.title}</span>
+                            <span>{card.state === 'ready' ? 'Ready' : card.state === 'warning' ? 'Warning' : 'Blocked'}</span>
+                          </div>
+                          <div className="mt-1 text-sm font-medium">{card.detail}</div>
+                          <div className="mt-1 text-xs opacity-80">{card.action}</div>
+                        </div>
+                      ))}
                     </div>
                     {runtimeProbe.issues.length > 0 && (
                       <div className="mt-2 space-y-2 text-xs leading-5">

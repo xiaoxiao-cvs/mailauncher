@@ -16,7 +16,7 @@ impl RuntimeAdapter for DockerRuntimeAdapter {
 
     fn resolve_component_command(
         &self,
-        _instance_id: &str,
+        instance_id: &str,
         instance_root: &Path,
         component: &ComponentSpec,
         profile: &RuntimeProfile,
@@ -43,7 +43,7 @@ impl RuntimeAdapter for DockerRuntimeAdapter {
         args.push("-lc".to_string());
 
         let marker = "__MAI_GUEST_PID__";
-        let command = match component.component {
+        let inner_script = match component.component {
             ComponentType::Main => {
                 let python = profile
                     .python
@@ -67,7 +67,10 @@ impl RuntimeAdapter for DockerRuntimeAdapter {
                 format!("cd '{guest_cwd}' && echo {marker}=$$ && exec {python} {}", component.startup_target)
             }
         };
-        args.push(command);
+        let session_name = terminal_session_name(instance_id, component.component.internal_key());
+        args.push(format!(
+            "if command -v tmux >/dev/null 2>&1; then SESSION='{session_name}'; tmux has-session -t \"$SESSION\" 2>/dev/null || tmux new-session -d -s \"$SESSION\" \"{inner_script}\"; exec tmux attach-session -t \"$SESSION\"; else {inner_script}; fi"
+        ));
 
         Ok(ResolvedCommand {
             command: "docker".to_string(),
@@ -79,7 +82,7 @@ impl RuntimeAdapter for DockerRuntimeAdapter {
     fn discover_processes(
         &self,
         profile: &RuntimeProfile,
-        _instance_id: &str,
+        instance_id: &str,
         components: &[&ComponentSpec],
     ) -> AppResult<Vec<DiscoveredRuntimeProcess>> {
         let container_name = profile.container_name.as_deref().ok_or_else(|| {
@@ -107,6 +110,7 @@ impl RuntimeAdapter for DockerRuntimeAdapter {
         Ok(parse_docker_discovered_processes(
             &String::from_utf8_lossy(&output.stdout),
             guest_workspace_root,
+            instance_id,
             components,
         ))
     }
@@ -134,6 +138,92 @@ pub async fn signal_guest_process(profile: &RuntimeProfile, pid: u32, signal: &s
     }
 }
 
+pub async fn tmux_available(profile: &RuntimeProfile) -> AppResult<bool> {
+    let output = build_docker_command(profile, "command -v tmux >/dev/null 2>&1")
+        .output()
+        .await
+        .map_err(|error| AppError::Process(format!("执行 Docker tmux 探测失败: {}", error)))?;
+
+    Ok(output.status.success())
+}
+
+pub async fn capture_tmux_history(
+    profile: &RuntimeProfile,
+    session_name: &str,
+    lines: usize,
+) -> AppResult<Vec<String>> {
+    let script = format!(
+        "tmux capture-pane -pt '{}' -S -{}",
+        shell_escape(session_name),
+        lines.max(1)
+    );
+    let output = build_docker_command(profile, &script)
+        .output()
+        .await
+        .map_err(|error| AppError::Process(format!("读取 Docker tmux 历史失败: {}", error)))?;
+
+    if !output.status.success() {
+        return Err(AppError::Process(String::from_utf8_lossy(&output.stderr).trim().to_string()));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|line| format!("{}\n", line))
+        .collect())
+}
+
+pub async fn send_tmux_input(profile: &RuntimeProfile, session_name: &str, data: &str) -> AppResult<()> {
+    for token in tmux_key_tokens(data) {
+        let script = format!(
+            "tmux send-keys -t '{}' {}",
+            shell_escape(session_name),
+            token
+        );
+        let output = build_docker_command(profile, &script)
+            .output()
+            .await
+            .map_err(|error| AppError::Process(format!("发送 Docker tmux 输入失败: {}", error)))?;
+
+        if !output.status.success() {
+            return Err(AppError::Process(String::from_utf8_lossy(&output.stderr).trim().to_string()));
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn resize_tmux_session(
+    profile: &RuntimeProfile,
+    session_name: &str,
+    rows: u16,
+    cols: u16,
+) -> AppResult<()> {
+    let script = format!(
+        "tmux resize-window -t '{}' -x {} -y {}",
+        shell_escape(session_name),
+        cols,
+        rows
+    );
+    let output = build_docker_command(profile, &script)
+        .output()
+        .await
+        .map_err(|error| AppError::Process(format!("调整 Docker tmux 窗口大小失败: {}", error)))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(AppError::Process(String::from_utf8_lossy(&output.stderr).trim().to_string()))
+    }
+}
+
+pub fn terminal_session_name(instance_id: &str, component: &str) -> String {
+    format!(
+        "mailauncher-{}-{}",
+        sanitize_session_token(instance_id),
+        sanitize_session_token(component)
+    )
+}
+
 pub fn build_docker_command(profile: &RuntimeProfile, script: &str) -> tokio::process::Command {
     let container_name = profile.container_name.as_deref().unwrap_or_default();
     let mut command = tokio::process::Command::new("docker");
@@ -150,6 +240,7 @@ pub fn build_docker_command(profile: &RuntimeProfile, script: &str) -> tokio::pr
 fn parse_docker_discovered_processes(
     stdout: &str,
     guest_workspace_root: &str,
+    instance_id: &str,
     components: &[&ComponentSpec],
 ) -> Vec<DiscoveredRuntimeProcess> {
     let root = guest_workspace_root.trim_end_matches('/');
@@ -184,7 +275,7 @@ fn parse_docker_discovered_processes(
                     status: ComponentLifecycleStatus::Running,
                     host_pid: None,
                     guest_pid: Some(pid),
-                    terminal_session_name: None,
+                    terminal_session_name: Some(terminal_session_name(instance_id, component.component.internal_key())),
                 });
                 break;
             }
@@ -196,4 +287,48 @@ fn parse_docker_discovered_processes(
 
 fn shell_escape(value: &str) -> String {
     value.replace('\'', r#"'\''"#)
+}
+
+fn sanitize_session_token(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
+        .collect()
+}
+
+fn tmux_key_tokens(data: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let bytes = data.as_bytes();
+    let mut index = 0;
+
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\r' => tokens.push("Enter".to_string()),
+            0x7f => tokens.push("BSpace".to_string()),
+            0x03 => tokens.push("C-c".to_string()),
+            0x1b if bytes.get(index + 1) == Some(&b'[') && bytes.len() > index + 2 => {
+                let token = match bytes[index + 2] {
+                    b'A' => Some("Up"),
+                    b'B' => Some("Down"),
+                    b'C' => Some("Right"),
+                    b'D' => Some("Left"),
+                    _ => None,
+                };
+                if let Some(token) = token {
+                    tokens.push(token.to_string());
+                    index += 2;
+                }
+            }
+            byte if byte.is_ascii_control() => {}
+            _ => {
+                let ch = data[index..].chars().next().unwrap_or_default();
+                tokens.push(format!("-l '{}'", shell_escape(&ch.to_string())));
+                index += ch.len_utf8() - 1;
+            }
+        }
+
+        index += 1;
+    }
+
+    tokens
 }
