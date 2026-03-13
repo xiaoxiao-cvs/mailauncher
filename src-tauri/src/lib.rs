@@ -2,10 +2,13 @@ use tracing::info;
 
 // 模块声明
 mod commands;
+mod components;
 mod services;
+mod runtime;
 mod models;
 mod db;
 mod errors;
+mod lifecycle;
 mod state;
 mod utils;
 
@@ -35,6 +38,8 @@ async fn init_rust_services() -> AppState {
 
     AppState {
         db: pool,
+        component_registry: components::ComponentRegistry::new(),
+        runtime_resolver: runtime::RuntimeResolver::new(),
         process_manager: services::process_service::ProcessManager::new(),
         download_manager: services::download_service::DownloadManager::new(),
     }

@@ -7,6 +7,21 @@ use tracing::info;
 
 use crate::errors::AppError;
 
+async fn ensure_column(pool: &SqlitePool, table: &str, column: &str, definition: &str) -> Result<(), AppError> {
+    let query = format!("PRAGMA table_info({})", table);
+    let columns: Vec<(i64, String, String, i64, Option<String>, i64)> = sqlx::query_as(&query)
+        .fetch_all(pool)
+        .await?;
+
+    let exists = columns.iter().any(|(_, name, _, _, _, _)| name == column);
+    if !exists {
+        let alter = format!("ALTER TABLE {} ADD COLUMN {} {}", table, column, definition);
+        sqlx::query(&alter).execute(pool).await?;
+    }
+
+    Ok(())
+}
+
 /// 运行所有建表迁移
 ///
 /// 按依赖顺序创建表：先创建无外键依赖的表，再创建有外键关联的表。
@@ -162,11 +177,20 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             updated_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
             last_run DATETIME,
             run_time INTEGER NOT NULL DEFAULT 0,
-            qq_account VARCHAR(20)
+            qq_account VARCHAR(20),
+            runtime_profile TEXT,
+            last_error TEXT,
+            last_status_reason TEXT,
+            component_state TEXT
         )"
     )
     .execute(pool)
     .await?;
+
+    ensure_column(pool, "instances", "runtime_profile", "TEXT").await?;
+    ensure_column(pool, "instances", "last_error", "TEXT").await?;
+    ensure_column(pool, "instances", "last_status_reason", "TEXT").await?;
+    ensure_column(pool, "instances", "component_state", "TEXT").await?;
 
     sqlx::query("CREATE INDEX IF NOT EXISTS ix_instances_name ON instances (name)")
         .execute(pool)

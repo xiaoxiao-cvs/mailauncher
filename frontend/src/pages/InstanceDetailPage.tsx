@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ComponentType } from '@/services/instanceApi';
+import { ComponentType, InstanceStatus } from '@/services/instanceApi';
 import { TerminalComponent } from '@/components/terminal/TerminalComponent';
 import { ConfigModal } from '@/components/ConfigModal';
 import { ScheduleModal } from '@/components/ScheduleModal';
@@ -68,6 +68,33 @@ export const InstanceDetailPage: React.FC = () => {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isVersionManagerOpen, setIsVersionManagerOpen] = useState(false);
+
+  const statusLabel = (status: InstanceStatus) => {
+    switch (status) {
+      case 'pending':
+        return '待命中';
+      case 'starting':
+        return '启动中';
+      case 'running':
+        return '运行中';
+      case 'partial':
+        return '部分运行';
+      case 'stopping':
+        return '停止中';
+      case 'failed':
+        return '失败';
+      case 'unknown':
+        return '未知';
+      default:
+        return '已停止';
+    }
+  };
+
+  const runtimeKindLabel = instance?.runtime_profile.kind === 'wsl2'
+    ? 'WSL2'
+    : instance?.runtime_profile.kind === 'docker'
+      ? 'Docker'
+      : 'Local';
 
   // 获取组件状态的辅助函数
   const getComponentStatus = (component: ComponentType) => {
@@ -136,7 +163,9 @@ export const InstanceDetailPage: React.FC = () => {
   useEffect(() => {
     if (!instance) return;
     
-    const allComponents: ComponentType[] = ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'];
+    const allComponents: ComponentType[] = instance.component_states?.length
+      ? instance.component_states.map((state) => state.component)
+      : ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'];
     
     // 只在当前选中的组件已经在运行时才自动切换
     if (selectedStartTarget !== 'all' && 
@@ -236,16 +265,18 @@ export const InstanceDetailPage: React.FC = () => {
     }
   };
   
-  const isRunning = instance.status === 'running';
   const isStopped = instance.status === 'stopped';
+  const availableComponents: ComponentType[] = instance.component_states?.length
+    ? instance.component_states.map((state) => state.component)
+    : ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'];
   
   // 检查是否有任何组件在运行
-  const hasAnyComponentRunning = ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'].some(
+  const hasAnyComponentRunning = availableComponents.some(
     (comp) => getComponentStatus(comp as ComponentType)?.running
   );
   
   // 检查是否所有组件都在运行
-  const allComponentsRunning = ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'].every(
+  const allComponentsRunning = availableComponents.every(
     (comp) => getComponentStatus(comp as ComponentType)?.running
   );
   
@@ -267,30 +298,38 @@ export const InstanceDetailPage: React.FC = () => {
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <span className={`w-2 h-2 rounded-full ${
-                isRunning ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 
+                (instance.status === 'running' || instance.status === 'partial') ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 
                 isStopped ? 'bg-gray-400' : 'bg-yellow-500'
               }`} />
               <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                 {instance.description || '无描述'}
               </p>
+              <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold uppercase tracking-wide">
+                {runtimeKindLabel}
+              </span>
             </div>
           </div>
         </div>
 
         {/* Status Badge */}
         <div className={`px-4 py-1.5 rounded-full text-sm font-semibold backdrop-blur-md border shadow-sm ${
-          isRunning
+          (instance.status === 'running' || instance.status === 'partial')
             ? 'bg-green-500/10 text-green-600 border-green-200/50 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30'
             : isStopped
             ? 'bg-gray-200/50 text-gray-600 border-gray-200/50 dark:bg-gray-700/50 dark:text-gray-400 dark:border-gray-600/30'
             : 'bg-yellow-500/10 text-yellow-600 border-yellow-200/50 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30'
         }`}>
-          {instance.status === 'running' ? '运行中' : 
-           instance.status === 'stopped' ? '已停止' : 
-           instance.status === 'starting' ? '启动中' : 
-           instance.status === 'stopping' ? '停止中' : '错误'}
+          {statusLabel(instance.status)}
         </div>
       </header>
+
+      {instance.last_error && (
+        <div className="rounded-2xl border border-red-200/60 bg-red-50/70 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+          <div className="font-semibold">最近错误</div>
+          <div className="mt-1 break-all">{instance.last_error}</div>
+          {instance.last_status_reason && <div className="mt-1 text-xs opacity-80">{instance.last_status_reason}</div>}
+        </div>
+      )}
 
       {/* Main Content Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
@@ -350,7 +389,7 @@ export const InstanceDetailPage: React.FC = () => {
                 className="flex-1"
               >
                 <TabsList className="bg-transparent h-auto p-0 gap-2">
-                  {['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'].map((comp) => (
+                  {availableComponents.map((comp) => (
                     <TabsTrigger 
                       key={comp}
                       value={comp}

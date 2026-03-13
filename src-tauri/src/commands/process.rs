@@ -10,23 +10,22 @@ use tauri::{AppHandle, Emitter, State};
 use tokio::runtime::Handle;
 use tracing::{error, info, warn};
 
+use crate::components::spec::ComponentSpec;
 use crate::errors::{AppError, AppResult};
-use crate::models::{ComponentStatus, SuccessResponse};
+use crate::models::{ComponentLifecycleStatus, ComponentStatus, RuntimeProfile, SuccessResponse};
 use crate::services::instance_service;
-use crate::services::process_service::{self, ProcessManager};
+use crate::services::lifecycle_service;
+use crate::services::process_service::ProcessManager;
 use crate::state::AppState;
 use crate::utils::platform;
 
 // ==================== 组件名称映射 ====================
 
-/// 前端组件名 → 内部组件名（与 Python API 路由中的映射一致）
-fn map_component_name(frontend_name: &str) -> &str {
-    match frontend_name {
-        "MaiBot" => "main",
-        "NapCat" => "napcat",
-        "MaiBot-Napcat-Adapter" => "napcat-ada",
-        other => other,
-    }
+fn resolve_component_spec<'a>(state: &'a AppState, component_name: &str) -> AppResult<&'static ComponentSpec> {
+    state
+        .component_registry
+        .get_by_value(component_name)
+        .ok_or_else(|| AppError::InvalidInput(format!("未知组件: {}", component_name)))
 }
 
 // ==================== 输出读取任务 ====================
@@ -91,26 +90,30 @@ enum StartOutcome {
 /// 启动单个组件进程（内部实现）
 async fn start_component_inner(
     app_handle: &AppHandle,
+    state: &AppState,
     process_manager: &ProcessManager,
     instance_id: &str,
     instance_path: &PathBuf,
-    component: &str,
-    python_path: Option<&str>,
+    component_spec: &ComponentSpec,
+    runtime_profile: &RuntimeProfile,
     qq_account: Option<&str>,
 ) -> AppResult<StartOutcome> {
-    // 构建启动命令
-    let (cmd, args, cwd) = process_service::build_component_command(
+    let adapter = state.runtime_resolver.resolve(runtime_profile);
+    let resolved = adapter.resolve_component_command(
         instance_path,
-        component,
-        python_path,
+        component_spec,
+        runtime_profile,
         qq_account,
     )?;
+    let cmd = resolved.command;
+    let args = resolved.args;
+    let cwd = resolved.cwd;
 
     let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
 
     // 启动进程
     let reader = process_manager
-        .start_process(instance_id, component, &cmd, &arg_refs, &cwd)
+        .start_process(instance_id, component_spec.component.internal_key(), &cmd, &arg_refs, &cwd)
         .await?;
 
     // 如果返回了 reader（新启动的进程），启动输出读取任务
@@ -119,7 +122,7 @@ async fn start_component_inner(
             app_handle.clone(),
             process_manager.clone(),
             instance_id.to_string(),
-            component.to_string(),
+            component_spec.component.display_name().to_string(),
             reader,
         );
 
@@ -155,71 +158,81 @@ pub async fn start_instance(
         )));
     }
 
-    // 更新 DB 状态为 starting
-    sqlx::query("UPDATE instances SET status = 'starting', updated_at = datetime('now') WHERE id = ?")
-        .bind(&instance_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e: sqlx::Error| AppError::Database(e.to_string()))?;
+    lifecycle_service::sync_instance_state(
+        &state.db,
+        &state.process_manager,
+        &state.component_registry,
+        &instance_id,
+        &instance_path,
+        &instance.runtime_profile,
+        None,
+        Some("准备启动实例".to_string()),
+    )
+    .await?;
 
     info!("启动实例: {} ({})", instance.name, instance_id);
 
     // 获取可用组件并依次启动
-    let components = vec!["main", "napcat", "napcat-ada"];
+    let components = state.component_registry.available_for_path(&instance_path);
     let mut any_active = false;
+    let mut last_error = None;
 
-    for component in &components {
-        // 检查组件目录是否存在
-        let comp_dir = match *component {
-            "main" => instance_path.join("MaiBot"),
-            "napcat" => instance_path.join("NapCat"),
-            "napcat-ada" => instance_path.join("MaiBot-Napcat-Adapter"),
-            _ => continue,
-        };
-
-        if !comp_dir.exists() {
-            continue;
-        }
-
+    for component in components {
         match start_component_inner(
             &app_handle,
+            &state,
             &state.process_manager,
             &instance_id,
             &instance_path,
             component,
-            instance.python_path.as_deref(),
+            &instance.runtime_profile,
             instance.qq_account.as_deref(),
         )
         .await
         {
             Ok(StartOutcome::Started) => {
                 any_active = true;
-                info!("组件 {}/{} 启动成功", instance_id, component);
+                info!("组件 {}/{} 启动成功", instance_id, component.component.display_name());
             }
             Ok(StartOutcome::AlreadyRunning) => {
                 any_active = true;
-                warn!("组件 {}/{} 已在运行", instance_id, component);
+                warn!("组件 {}/{} 已在运行", instance_id, component.component.display_name());
             }
             Err(e) => {
-                error!("组件 {}/{} 启动失败: {}", instance_id, component, e);
+                last_error = Some(e.to_string());
+                error!("组件 {}/{} 启动失败: {}", instance_id, component.component.display_name(), e);
             }
         }
     }
 
     if any_active {
-        // 更新 DB 状态为 running
-        sqlx::query("UPDATE instances SET status = 'running', last_run = datetime('now'), updated_at = datetime('now') WHERE id = ?")
+        let _ = sqlx::query("UPDATE instances SET last_run = datetime('now') WHERE id = ?")
             .bind(&instance_id)
             .execute(&state.db)
-            .await
-            .map_err(|e: sqlx::Error| AppError::Database(e.to_string()))?;
+            .await;
+        lifecycle_service::sync_instance_state(
+            &state.db,
+            &state.process_manager,
+            &state.component_registry,
+            &instance_id,
+            &instance_path,
+            &instance.runtime_profile,
+            last_error,
+            Some("实例启动完成".to_string()),
+        )
+        .await?;
     } else {
-        sqlx::query("UPDATE instances SET status = 'stopped', updated_at = datetime('now') WHERE id = ?")
-            .bind(&instance_id)
-            .execute(&state.db)
-            .await
-            .map_err(|e: sqlx::Error| AppError::Database(e.to_string()))?;
-
+        lifecycle_service::sync_instance_state(
+            &state.db,
+            &state.process_manager,
+            &state.component_registry,
+            &instance_id,
+            &instance_path,
+            &instance.runtime_profile,
+            last_error,
+            Some("没有可成功启动的组件".to_string()),
+        )
+        .await?;
         return Err(AppError::Process(format!(
             "实例 {} 没有可启动的组件",
             instance_id
@@ -245,7 +258,7 @@ pub async fn stop_instance(
     info!("停止实例: {} ({})", instance.name, instance_id);
 
     // 记录运行时间
-    if instance.status == "running" {
+    if matches!(instance.status, crate::models::InstanceLifecycleStatus::Running | crate::models::InstanceLifecycleStatus::Partial) {
         if let Some(last_run) = instance.last_run {
             let run_secs = (chrono::Utc::now().naive_utc() - last_run).num_seconds();
             let new_run_time = instance.run_time + run_secs;
@@ -262,14 +275,17 @@ pub async fn stop_instance(
         .stop_all_instance_processes(&instance_id)
         .await;
 
-    // 更新 DB 状态为 stopped
-    sqlx::query(
-        "UPDATE instances SET status = 'stopped', updated_at = datetime('now') WHERE id = ?",
+    lifecycle_service::sync_instance_state(
+        &state.db,
+        &state.process_manager,
+        &state.component_registry,
+        &instance_id,
+        &platform::get_instances_dir().join(instance.instance_path.unwrap_or(instance.name.clone())),
+        &instance.runtime_profile,
+        None,
+        Some("实例已停止".to_string()),
     )
-    .bind(&instance_id)
-    .execute(&state.db)
-    .await
-    .map_err(|e: sqlx::Error| AppError::Database(e.to_string()))?;
+    .await?;
 
     info!("实例停止结果: {:?}", results);
 
@@ -311,7 +327,7 @@ pub async fn start_component(
     instance_id: String,
     component: String,
 ) -> AppResult<SuccessResponse> {
-    let internal_component = map_component_name(&component);
+    let component_spec = resolve_component_spec(&state, &component)?;
 
     let instance = instance_service::get_instance(&state.db, &instance_id)
         .await?
@@ -322,22 +338,27 @@ pub async fn start_component(
 
     let outcome = start_component_inner(
         &app_handle,
+        &state,
         &state.process_manager,
         &instance_id,
         &instance_path,
-        internal_component,
-        instance.python_path.as_deref(),
+        component_spec,
+        &instance.runtime_profile,
         instance.qq_account.as_deref(),
     )
     .await?;
 
-    sqlx::query(
-        "UPDATE instances SET status = 'running', updated_at = datetime('now') WHERE id = ?",
+    lifecycle_service::sync_instance_state(
+        &state.db,
+        &state.process_manager,
+        &state.component_registry,
+        &instance_id,
+        &instance_path,
+        &instance.runtime_profile,
+        None,
+        Some(format!("组件 {} 已启动", component)),
     )
-    .bind(&instance_id)
-    .execute(&state.db)
-    .await
-    .map_err(|e: sqlx::Error| AppError::Database(e.to_string()))?;
+    .await?;
 
     let message = match outcome {
         StartOutcome::Started => format!("组件 {} 已启动", component),
@@ -354,11 +375,11 @@ pub async fn stop_component(
     instance_id: String,
     component: String,
 ) -> AppResult<SuccessResponse> {
-    let internal_component = map_component_name(&component);
+    let component_spec = resolve_component_spec(&state, &component)?;
 
     let success = state
         .process_manager
-        .stop_process(&instance_id, internal_component, false)
+        .stop_process(&instance_id, component_spec.component.internal_key(), false)
         .await?;
 
     if !success {
@@ -369,25 +390,22 @@ pub async fn stop_component(
     }
 
     // 检查实例是否还有组件在运行
-    let still_running = state
-        .process_manager
-        .is_instance_running(&instance_id)
-        .await;
+    let instance = instance_service::get_instance(&state.db, &instance_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
+    let instance_path = platform::get_instances_dir().join(instance.instance_path.unwrap_or(instance.name.clone()));
 
-    if !still_running {
-        sqlx::query(
-            "UPDATE instances SET status = 'stopped', updated_at = datetime('now') WHERE id = ?",
-        )
-        .bind(&instance_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e: sqlx::Error| AppError::Database(e.to_string()))?;
-
-        info!(
-            "实例 {} 所有组件已停止，更新状态为 STOPPED",
-            instance_id
-        );
-    }
+    lifecycle_service::sync_instance_state(
+        &state.db,
+        &state.process_manager,
+        &state.component_registry,
+        &instance_id,
+        &instance_path,
+        &instance.runtime_profile,
+        None,
+        Some(format!("组件 {} 已停止", component)),
+    )
+    .await?;
 
     Ok(SuccessResponse::ok(format!(
         "组件 {} 已停止",
@@ -402,28 +420,34 @@ pub async fn get_component_status(
     instance_id: String,
     component: String,
 ) -> AppResult<ComponentStatus> {
-    let internal_component = map_component_name(&component);
+    let component_spec = resolve_component_spec(&state, &component)?;
 
     let running = state
         .process_manager
-        .is_component_running(&instance_id, internal_component)
+        .is_component_running(&instance_id, component_spec.component.internal_key())
         .await;
 
     let pid = state
         .process_manager
-        .get_process_pid(&instance_id, internal_component)
+        .get_process_pid(&instance_id, component_spec.component.internal_key())
         .await;
 
     let uptime = state
         .process_manager
-        .get_process_uptime(&instance_id, internal_component)
+        .get_process_uptime(&instance_id, component_spec.component.internal_key())
         .await;
 
     Ok(ComponentStatus {
-        component,
+        component: component_spec.component,
+        status: if running {
+            ComponentLifecycleStatus::Running
+        } else {
+            ComponentLifecycleStatus::Stopped
+        },
         running,
         pid,
         uptime,
+        last_error: None,
     })
 }
 
@@ -440,18 +464,10 @@ pub async fn get_instance_components(
     let instance_path_str = instance.instance_path.unwrap_or(instance.name.clone());
     let instance_path = platform::get_instances_dir().join(&instance_path_str);
 
-    let mut components = Vec::new();
-
-    // 检查各组件目录是否存在
-    if instance_path.join("MaiBot").exists() {
-        components.push("MaiBot".to_string());
-    }
-    if instance_path.join("NapCat").exists() {
-        components.push("NapCat".to_string());
-    }
-    if instance_path.join("MaiBot-Napcat-Adapter").exists() {
-        components.push("MaiBot-Napcat-Adapter".to_string());
-    }
+    let components = lifecycle_service::available_components(&state.component_registry, &instance_path)
+        .into_iter()
+        .map(|component| component.display_name().to_string())
+        .collect();
 
     Ok(components)
 }
@@ -466,10 +482,10 @@ pub async fn terminal_write(
     component: String,
     data: String,
 ) -> AppResult<()> {
-    let internal_component = map_component_name(&component);
+    let component_spec = resolve_component_spec(&state, &component)?;
     state
         .process_manager
-        .write_to_process(&instance_id, internal_component, &data)
+        .write_to_process(&instance_id, component_spec.component.internal_key(), &data)
         .await
 }
 
@@ -481,10 +497,10 @@ pub async fn terminal_get_history(
     component: String,
     lines: Option<usize>,
 ) -> AppResult<Vec<String>> {
-    let internal_component = map_component_name(&component);
+    let component_spec = resolve_component_spec(&state, &component)?;
     let history = state
         .process_manager
-        .get_output_history(&instance_id, internal_component, lines.unwrap_or(300))
+        .get_output_history(&instance_id, component_spec.component.internal_key(), lines.unwrap_or(300))
         .await;
     Ok(history)
 }
@@ -498,9 +514,9 @@ pub async fn terminal_resize(
     rows: u16,
     cols: u16,
 ) -> AppResult<()> {
-    let internal_component = map_component_name(&component);
+    let component_spec = resolve_component_spec(&state, &component)?;
     state
         .process_manager
-        .resize_pty(&instance_id, internal_component, rows, cols)
+        .resize_pty(&instance_id, component_spec.component.internal_key(), rows, cols)
         .await
 }

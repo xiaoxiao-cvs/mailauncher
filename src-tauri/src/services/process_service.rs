@@ -9,7 +9,7 @@
 /// - Rust/Tauri: Tauri 事件系统推送终端输出
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
@@ -19,6 +19,8 @@ use tokio::sync::Mutex;
 use tracing::{error, info, warn};
 
 use crate::errors::{AppError, AppResult};
+use crate::models::{ComponentType, RuntimeProfile};
+use crate::runtime::{LocalRuntimeAdapter, RuntimeAdapter};
 
 // ==================== 进程信息 ====================
 
@@ -445,6 +447,7 @@ impl ProcessManager {
     }
 
     /// 检查实例是否有任何组件在运行
+    #[allow(dead_code)]
     pub async fn is_instance_running(&self, instance_id: &str) -> bool {
         let mut inner = self.inner.lock().await;
         for proc in inner.processes.values_mut() {
@@ -631,120 +634,19 @@ impl Default for ProcessManager {
 /// 根据组件类型构建启动命令和工作目录
 ///
 /// 对应 Python `ProcessManager._get_command_and_cwd`
+#[allow(dead_code)]
 pub fn build_component_command(
     instance_path: &Path,
     component: &str,
-    python_path: Option<&str>,
+    runtime_profile: &RuntimeProfile,
     qq_account: Option<&str>,
-) -> AppResult<(String, Vec<String>, PathBuf)> {
-    match component {
-        "main" => {
-            // MaiBot 主程序
-            let cwd = instance_path.join("MaiBot");
-            let bot_script = cwd.join("bot.py");
-            if !bot_script.exists() {
-                return Err(AppError::NotFound(format!(
-                    "MaiBot 启动脚本不存在: {}",
-                    bot_script.display()
-                )));
-            }
-            let python = resolve_python(instance_path, python_path);
-            Ok((python, vec!["bot.py".to_string()], cwd))
-        }
-        "napcat" => {
-            // NapCat
-            let (cmd, args, cwd) = build_napcat_command(instance_path, qq_account)?;
-            Ok((cmd, args, cwd))
-        }
-        "napcat-ada" => {
-            // NapCat 适配器
-            let cwd = instance_path.join("MaiBot-Napcat-Adapter");
-            let script = cwd.join("main.py");
-            if !script.exists() {
-                return Err(AppError::NotFound(format!(
-                    "NapCat 适配器启动脚本不存在: {}",
-                    script.display()
-                )));
-            }
-            let python = resolve_python(instance_path, python_path);
-            Ok((python, vec!["main.py".to_string()], cwd))
-        }
-        _ => Err(AppError::InvalidInput(format!(
-            "不支持的组件类型: {}",
-            component
-        ))),
-    }
-}
-
-/// 解析 Python 路径（对应 Python `resolve_python`）
-fn resolve_python(instance_path: &Path, python_path: Option<&str>) -> String {
-    if let Some(pp) = python_path {
-        return pp.to_string();
-    }
-
-    // 尝试虚拟环境
-    let venv_python = if cfg!(target_os = "windows") {
-        instance_path.join(".venv").join("Scripts").join("python.exe")
-    } else {
-        instance_path.join(".venv").join("bin").join("python")
-    };
-
-    if venv_python.exists() {
-        info!("使用虚拟环境 Python: {}", venv_python.display());
-        return venv_python.to_string_lossy().to_string();
-    }
-
-    // 回退到系统 Python
-    if cfg!(target_os = "windows") {
-        "python".to_string()
-    } else {
-        "python3".to_string()
-    }
-}
-
-/// 构建 NapCat 启动命令（对应 Python `build_napcat_command`）
-fn build_napcat_command(
-    instance_path: &Path,
-    qq_account: Option<&str>,
-) -> AppResult<(String, Vec<String>, PathBuf)> {
-    let napcat_dir = instance_path.join("NapCat");
-    let cwd = napcat_dir.clone();
-
-    if cfg!(target_os = "windows") {
-        // Windows: 查找 launcher 脚本
-        let launcher = if napcat_dir.join("launcher-user.bat").exists() {
-            "launcher-user.bat"
-        } else if napcat_dir.join("launcher.bat").exists() {
-            "launcher.bat"
-        } else {
-            return Err(AppError::NotFound(format!(
-                "NapCat 启动脚本不存在: {}",
-                napcat_dir.join("launcher-user.bat").display()
-            )));
-        };
-
-        let mut args = vec!["/c".to_string(), launcher.to_string()];
-        if let Some(account) = qq_account {
-            info!("使用 QQ 账号快速启动: {}", account);
-            args.push("-q".to_string());
-            args.push(account.to_string());
-        }
-        Ok(("cmd".to_string(), args, cwd))
-    } else {
-        // Unix: 使用 start.sh
-        let start_sh = napcat_dir.join("start.sh");
-        if !start_sh.exists() {
-            return Err(AppError::NotFound(format!(
-                "NapCat 启动脚本不存在: {}",
-                start_sh.display()
-            )));
-        }
-
-        let mut args = vec!["start.sh".to_string()];
-        if let Some(account) = qq_account {
-            info!("使用 QQ 账号快速启动: {}", account);
-            args.push(account.to_string());
-        }
-        Ok(("bash".to_string(), args, cwd))
-    }
+) -> AppResult<(String, Vec<String>, std::path::PathBuf)> {
+    let component = ComponentType::from_value(component)
+        .ok_or_else(|| AppError::InvalidInput(format!("不支持的组件类型: {}", component)))?;
+    let spec = crate::components::ComponentRegistry::new()
+        .get(component)
+        .ok_or_else(|| AppError::InvalidInput(format!("组件未注册: {}", component.display_name())))?;
+    let adapter = LocalRuntimeAdapter;
+    let resolved = adapter.resolve_component_command(instance_path, spec, runtime_profile, qq_account)?;
+    Ok((resolved.command, resolved.args, resolved.cwd))
 }

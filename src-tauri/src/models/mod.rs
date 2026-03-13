@@ -16,8 +16,10 @@ pub mod log;
 
 // 重导出常用类型
 pub use instance::{
-    Instance, CreateInstanceRequest, UpdateInstanceRequest,
-    InstanceList, InstanceStatusResponse, ComponentStatus, SuccessResponse,
+    component_exists, default_runtime_profile_json, ComponentLifecycleStatus, ComponentStatus,
+    ComponentType, CreateInstanceRequest, DbInstanceRecord, HostOs, Instance,
+    InstanceComponentState, InstanceLifecycleStatus, InstanceList, InstanceStatusResponse,
+    PythonMode, RuntimeKind, RuntimeProfile, SuccessResponse, UpdateInstanceRequest,
 };
 #[allow(unused_imports)]
 pub use deployment::{Deployment, DeploymentLog};

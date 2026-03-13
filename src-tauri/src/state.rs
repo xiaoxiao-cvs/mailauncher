@@ -4,6 +4,8 @@
 /// 命令函数通过 `State<'_, AppState>` 参数注入访问。
 use sqlx::SqlitePool;
 
+use crate::components::ComponentRegistry;
+use crate::runtime::RuntimeResolver;
 use crate::services::download_service::DownloadManager;
 use crate::services::process_service::ProcessManager;
 
@@ -11,6 +13,10 @@ use crate::services::process_service::ProcessManager;
 pub struct AppState {
     /// SQLite 连接池
     pub db: SqlitePool,
+    /// 组件注册表（统一组件元数据与依赖关系）
+    pub component_registry: ComponentRegistry,
+    /// 运行时适配器解析器
+    pub runtime_resolver: RuntimeResolver,
     /// 进程管理器（管理所有实例组件的进程生命周期）
     pub process_manager: ProcessManager,
     /// 下载管理器（管理下载任务的生命周期和进度）

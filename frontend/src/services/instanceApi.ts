@@ -8,23 +8,73 @@ import { tauriInvoke } from '@/services/tauriInvoke';
 
 // ==================== 类型定义 ====================
 
-export type InstanceStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'error';
+export type InstanceStatus = 'pending' | 'starting' | 'running' | 'partial' | 'stopping' | 'stopped' | 'failed' | 'unknown';
 export type BotType = 'maibot' | 'napcat' | 'other';
 export type ComponentType = 'MaiBot' | 'NapCat' | 'MaiBot-Napcat-Adapter';
+export type ComponentLifecycleStatus = 'starting' | 'running' | 'stopping' | 'stopped' | 'failed' | 'unknown';
+export type RuntimeKind = 'local' | 'wsl2' | 'docker';
+export type HostOs = 'windows' | 'macos' | 'linux';
+export type GuestOs = 'linux';
+export type PythonMode = 'venv' | 'system' | 'explicit';
+export type PathMappingStrategy = 'native' | 'explicit';
+
+export interface PythonRuntimeConfig {
+  mode: PythonMode;
+  path?: string | null;
+}
+
+export interface TerminalCapability {
+  interactive: boolean;
+  supports_resize: boolean;
+}
+
+export interface SignalPolicy {
+  graceful_stop: string;
+  force_stop: string;
+}
+
+export interface RuntimeProfile {
+  kind: RuntimeKind;
+  host_os: HostOs;
+  guest_os?: GuestOs | null;
+  workspace_root: string;
+  guest_workspace_root?: string | null;
+  python: PythonRuntimeConfig;
+  terminal: TerminalCapability;
+  signal_policy: SignalPolicy;
+  distribution?: string | null;
+  user?: string | null;
+  path_mapping: PathMappingStrategy;
+}
+
+export interface InstanceComponentState {
+  component: ComponentType;
+  status: ComponentLifecycleStatus;
+  running: boolean;
+  pid?: number;
+  uptime?: number;
+  last_error?: string | null;
+}
 
 export interface Instance {
   id: string;
   name: string;
+  instance_path?: string;
   bot_type: BotType;
   bot_version?: string;
   description?: string;
   status: InstanceStatus;
   python_path?: string;
   config_path?: string;
+  qq_account?: string;
   created_at: string;
   updated_at: string;
   last_run?: string;
   run_time: number;
+  runtime_profile: RuntimeProfile;
+  last_error?: string | null;
+  last_status_reason?: string | null;
+  component_states: InstanceComponentState[];
   cpu_usage?: number;
   memory_usage?: number;
 }
@@ -51,14 +101,13 @@ export interface InstanceStatusResponse {
   status: InstanceStatus;
   pid?: number;
   uptime?: number;
+  runtime_profile: RuntimeProfile;
+  last_error?: string | null;
+  last_status_reason?: string | null;
+  component_states: InstanceComponentState[];
 }
 
-export interface ComponentStatus {
-  component: ComponentType;
-  running: boolean;
-  pid?: number;
-  uptime?: number;
-}
+export interface ComponentStatus extends InstanceComponentState {}
 
 export interface InstanceList {
   total: number;
@@ -101,12 +150,14 @@ class InstanceApiClient {
    */
   async createInstance(data: InstanceCreate): Promise<Instance> {
     return tauriInvoke<Instance>('create_instance', {
-      name: data.name,
-      botType: data.bot_type,
-      botVersion: data.bot_version,
-      description: data.description,
-      pythonPath: data.python_path,
-      configPath: data.config_path,
+      data: {
+        name: data.name,
+        bot_type: data.bot_type,
+        bot_version: data.bot_version,
+        description: data.description,
+        python_path: data.python_path,
+        config_path: data.config_path,
+      },
     });
   }
 
@@ -116,11 +167,13 @@ class InstanceApiClient {
   async updateInstance(instanceId: string, data: InstanceUpdate): Promise<Instance> {
     return tauriInvoke<Instance>('update_instance', {
       instanceId,
-      name: data.name,
-      description: data.description,
-      pythonPath: data.python_path,
-      configPath: data.config_path,
-      qqAccount: data.qq_account,
+      data: {
+        name: data.name,
+        description: data.description,
+        python_path: data.python_path,
+        config_path: data.config_path,
+        qq_account: data.qq_account,
+      },
     });
   }
 
@@ -181,7 +234,7 @@ class InstanceApiClient {
    * 获取NapCat已登录账号列表
    * TODO: 尚未迁移至 Rust，暂时返回空列表
    */
-  async getNapCatAccounts(instanceId: string): Promise<{success: boolean; accounts: Array<{account: string; nickname: string}>; message: string}> {
+  async getNapCatAccounts(_instanceId: string): Promise<{success: boolean; accounts: Array<{account: string; nickname: string}>; message: string}> {
     console.warn('[instanceApi] getNapCatAccounts 尚未迁移至 Rust');
     return { success: true, accounts: [], message: '功能尚未迁移' };
   }

@@ -3,7 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { scheduleApi, Schedule, ScheduleCreate, ScheduleUpdate } from '@/services/scheduleApi';
+import { scheduleApi, ScheduleCreate, ScheduleUpdate } from '@/services/scheduleApi';
 import { toast } from 'sonner';
 
 // ==================== Query Keys ====================

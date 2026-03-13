@@ -61,7 +61,7 @@ export function EnvironmentConfig({ stepColor, onGitStatusChange }: EnvironmentC
   const handlePathChange = (newPath: string) => {
     setLocalPath(newPath)
     setPathError(null)
-    setPathSuccess(false)
+    setPathSuccess(null)
     
     if (newPath) {
       savePathMutation.mutate(newPath, {
