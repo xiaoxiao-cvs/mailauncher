@@ -33,7 +33,6 @@ enum ProcessAttachmentKind {
 #[derive(Debug, Clone)]
 struct ExternalProcessHandle {
     session_id: String,
-    component: String,
     runtime_kind: RuntimeKind,
     runtime_profile: RuntimeProfile,
     guest_pid: Option<u32>,
@@ -133,7 +132,6 @@ impl ProcessInfo {
     fn external_handle(&self) -> Option<ExternalProcessHandle> {
         self.runtime_profile.clone().map(|runtime_profile| ExternalProcessHandle {
             session_id: self.session_id.clone(),
-            component: self.component.clone(),
             runtime_kind: self.runtime_kind,
             runtime_profile,
             guest_pid: self.guest_pid,
@@ -710,6 +708,7 @@ impl ProcessManager {
     /// 停止实例的所有进程
     ///
     /// 在单次锁内完成所有 kill 操作，避免循环获取锁的开销。
+    #[allow(dead_code)]
     pub async fn stop_all_instance_processes(
         &self,
         instance_id: &str,
@@ -751,7 +750,7 @@ impl ProcessManager {
         for handle in &external_handles {
             if let Err(error) = Self::stop_external_process(handle, true).await {
                 warn!("停止外部进程失败 {}: {}", handle.session_id, error);
-                results.insert(handle.component.clone(), false);
+                results.insert(handle.session_id.clone(), false);
             } else {
                 self.clear_session_after_external_stop(&handle.session_id).await;
             }

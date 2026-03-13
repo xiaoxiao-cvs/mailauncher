@@ -86,6 +86,23 @@ enum StartOutcome {
     AlreadyRunning,
 }
 
+async fn stop_components_in_order(
+    process_manager: &ProcessManager,
+    instance_id: &str,
+    components: &[&ComponentSpec],
+) -> AppResult<Vec<(String, bool)>> {
+    let mut results = Vec::new();
+
+    for component in components {
+        let success = process_manager
+            .stop_process(instance_id, component.component.internal_key(), false)
+            .await?;
+        results.push((component.component.display_name().to_string(), success));
+    }
+
+    Ok(results)
+}
+
 // ==================== 启动组件的共用逻辑 ====================
 
 /// 启动单个组件进程（内部实现）
@@ -184,7 +201,9 @@ pub async fn start_instance(
     info!("启动实例: {} ({})", instance.name, instance_id);
 
     // 获取可用组件并依次启动
-    let components = state.component_registry.available_for_path(&instance_path);
+    let components = state
+        .component_registry
+        .startup_order_for_path(&instance_path)?;
     let mut any_active = false;
     let mut last_error = None;
 
@@ -267,6 +286,10 @@ pub async fn stop_instance(
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
 
     info!("停止实例: {} ({})", instance.name, instance_id);
+    let instance_path = platform::get_instances_dir().join(instance.instance_path.clone().unwrap_or(instance.name.clone()));
+    let shutdown_order = state
+        .component_registry
+        .shutdown_order_for_path(&instance_path)?;
 
     // 记录运行时间
     if matches!(instance.status, crate::models::InstanceLifecycleStatus::Running | crate::models::InstanceLifecycleStatus::Partial) {
@@ -281,17 +304,14 @@ pub async fn stop_instance(
         }
     }
 
-    let results = state
-        .process_manager
-        .stop_all_instance_processes(&instance_id)
-        .await;
+    let results = stop_components_in_order(&state.process_manager, &instance_id, &shutdown_order).await?;
 
     lifecycle_service::sync_instance_state(
         &state.db,
         &state.process_manager,
         &state.component_registry,
         &instance_id,
-        &platform::get_instances_dir().join(instance.instance_path.unwrap_or(instance.name.clone())),
+        &instance_path,
         &instance.runtime_profile,
         None,
         Some("实例已停止".to_string()),
@@ -315,11 +335,16 @@ pub async fn restart_instance(
 ) -> AppResult<SuccessResponse> {
     info!("重启实例: {}", instance_id);
 
+    let instance = instance_service::get_instance(&state.db, &instance_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
+    let instance_path = platform::get_instances_dir().join(instance.instance_path.unwrap_or(instance.name.clone()));
+    let shutdown_order = state
+        .component_registry
+        .shutdown_order_for_path(&instance_path)?;
+
     // 先停止
-    let _ = state
-        .process_manager
-        .stop_all_instance_processes(&instance_id)
-        .await;
+    let _ = stop_components_in_order(&state.process_manager, &instance_id, &shutdown_order).await?;
 
     // 短暂等待
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
@@ -347,17 +372,28 @@ pub async fn start_component(
     let instance_path_str = instance.instance_path.unwrap_or(instance.name.clone());
     let instance_path = platform::get_instances_dir().join(&instance_path_str);
 
-    let outcome = start_component_inner(
-        &app_handle,
-        &state,
-        &state.process_manager,
-        &instance_id,
-        &instance_path,
-        component_spec,
-        &instance.runtime_profile,
-        instance.qq_account.as_deref(),
-    )
-    .await?;
+    let startup_chain = state
+        .component_registry
+        .startup_chain_for_component(&instance_path, component_spec.component)?;
+    let mut final_outcome = StartOutcome::AlreadyRunning;
+
+    for spec in startup_chain {
+        let outcome = start_component_inner(
+            &app_handle,
+            &state,
+            &state.process_manager,
+            &instance_id,
+            &instance_path,
+            spec,
+            &instance.runtime_profile,
+            instance.qq_account.as_deref(),
+        )
+        .await?;
+
+        if spec.component == component_spec.component {
+            final_outcome = outcome;
+        }
+    }
 
     lifecycle_service::sync_instance_state(
         &state.db,
@@ -371,7 +407,7 @@ pub async fn start_component(
     )
     .await?;
 
-    let message = match outcome {
+    let message = match final_outcome {
         StartOutcome::Started => format!("组件 {} 已启动", component),
         StartOutcome::AlreadyRunning => format!("组件 {} 已在运行", component),
     };
@@ -388,12 +424,16 @@ pub async fn stop_component(
 ) -> AppResult<SuccessResponse> {
     let component_spec = resolve_component_spec(&state, &component)?;
 
-    let success = state
-        .process_manager
-        .stop_process(&instance_id, component_spec.component.internal_key(), false)
-        .await?;
+    let instance = instance_service::get_instance(&state.db, &instance_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
+    let instance_path = platform::get_instances_dir().join(instance.instance_path.clone().unwrap_or(instance.name.clone()));
+    let shutdown_chain = state
+        .component_registry
+        .shutdown_chain_for_component(&instance_path, component_spec.component)?;
+    let results = stop_components_in_order(&state.process_manager, &instance_id, &shutdown_chain).await?;
 
-    if !success {
+    if !results.iter().all(|(_, success)| *success) {
         return Err(AppError::Process(format!(
             "组件 {} 停止失败",
             component
@@ -401,11 +441,6 @@ pub async fn stop_component(
     }
 
     // 检查实例是否还有组件在运行
-    let instance = instance_service::get_instance(&state.db, &instance_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
-    let instance_path = platform::get_instances_dir().join(instance.instance_path.unwrap_or(instance.name.clone()));
-
     lifecycle_service::sync_instance_state(
         &state.db,
         &state.process_manager,
