@@ -1,5 +1,18 @@
 {
+  "name": "mailauncher",
+  "private": true,
+  "scripts": {
+    "frontend:install": "pnpm --dir frontend install",
+    "frontend:dev": "pnpm --dir frontend dev",
+    "frontend:build": "pnpm --dir frontend build",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "dev": "pnpm tauri:dev",
+    "build": "pnpm tauri:build"
+  },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.9.3",
     "shadcn": "^3.5.0"
   }
 }

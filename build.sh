@@ -16,14 +16,14 @@ cd "$SCRIPT_DIR"
 # 1. 构建前端
 echo ""
 echo "Step 1: Building frontend..."
-cd frontend
 echo "  -> Installing dependencies..."
 pnpm install
+pnpm --dir frontend install
 
 echo "  -> Building frontend..."
-pnpm build
+pnpm --dir frontend build
 
-if [ ! -d "dist" ]; then
+if [ ! -d "frontend/dist" ]; then
     echo "Error: Frontend dist folder not found!"
     exit 1
 fi
@@ -33,7 +33,7 @@ echo "  ✓ Frontend built successfully"
 echo ""
 echo "Step 2: Building Tauri app..."
 echo "  -> Running Tauri build..."
-pnpm tauri build
+pnpm tauri:build
 
 # 3. 完成
 echo ""
@@ -42,7 +42,7 @@ echo "Build completed successfully!"
 echo "======================================"
 echo ""
 echo "You can find the built application in:"
-echo "  frontend/src-tauri/target/release/bundle/"
+echo "  src-tauri/target/release/bundle/"
 echo ""
 
 # 列出生成的文件

@@ -47,13 +47,11 @@ pub fn get_data_root() -> PathBuf {
             exe_path.parent().unwrap().join("mailauncher-data")
         } else {
             // Windows 开发: 项目根目录的上级同级目录
-            // CARGO_MANIFEST_DIR = frontend/src-tauri
-            // 项目根 = frontend/src-tauri/../../ = mailauncher/
+            // CARGO_MANIFEST_DIR = src-tauri
+            // 项目根 = src-tauri/.. = mailauncher/
             // 数据根 = mailauncher/../mailauncher-data
             let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-            let project_root = manifest_dir
-                .parent().unwrap()  // frontend/
-                .parent().unwrap(); // mailauncher/
+            let project_root = manifest_dir.parent().unwrap();
             project_root.parent().unwrap().join("mailauncher-data")
         }
     } else {
@@ -63,9 +61,7 @@ pub fn get_data_root() -> PathBuf {
             exe_path.parent().unwrap().join("mailauncher-data")
         } else {
             let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-            let project_root = manifest_dir
-                .parent().unwrap()
-                .parent().unwrap();
+            let project_root = manifest_dir.parent().unwrap();
             project_root.parent().unwrap().join("mailauncher-data")
         }
     }

@@ -42,16 +42,17 @@ MAI Launcher (Tauri App)
 ### 安装依赖
 
 ```bash
-# 1. 安装前端依赖
-cd frontend
+# 1. 安装根目录 Tauri CLI 依赖
 pnpm install
+
+# 2. 安装前端依赖
+pnpm --dir frontend install
 ```
 
 ## 开发模式
 
 ```bash
-cd frontend
-pnpm tauri dev
+pnpm tauri:dev
 ```
 
 这将自动启动 Vite 开发服务器和 Tauri 窗口。
@@ -71,10 +72,10 @@ pnpm tauri dev
 ### 手动打包
 
 ```bash
-cd frontend
 pnpm install
-pnpm build
-pnpm tauri build
+pnpm --dir frontend install
+pnpm --dir frontend build
+pnpm tauri:build
 ```
 
 ### 生成的文件
@@ -82,11 +83,11 @@ pnpm tauri build
 打包完成后，应用程序位于：
 
 **本地构建：**
-- **macOS**: `frontend/src-tauri/target/release/bundle/dmg/MAI Launcher_*.dmg`
-- **Windows NSIS**: `frontend/src-tauri/target/release/bundle/nsis/MAI Launcher_*-setup.exe`
-- **Windows MSI**: `frontend/src-tauri/target/release/bundle/msi/MAI Launcher_*.msi`
-- **Linux DEB**: `frontend/src-tauri/target/release/bundle/deb/mai-launcher_*.deb`
-- **Linux AppImage**: `frontend/src-tauri/target/release/bundle/appimage/mai-launcher_*.AppImage`
+- **macOS**: `src-tauri/target/release/bundle/dmg/MAI Launcher_*.dmg`
+- **Windows NSIS**: `src-tauri/target/release/bundle/nsis/MAI Launcher_*-setup.exe`
+- **Windows MSI**: `src-tauri/target/release/bundle/msi/MAI Launcher_*.msi`
+- **Linux DEB**: `src-tauri/target/release/bundle/deb/mai-launcher_*.deb`
+- **Linux AppImage**: `src-tauri/target/release/bundle/appimage/mai-launcher_*.AppImage`
 
 **GitHub Actions 构建：**
 - **macOS Universal**: `MAI-Launcher-{version}-dev-macos-universal.dmg`
@@ -97,7 +98,7 @@ pnpm tauri build
 
 ### Tauri 配置
 
-**文件**: `frontend/src-tauri/tauri.conf.json`
+**文件**: `src-tauri/tauri.conf.json`
 
 关键配置：
 - `beforeBuildCommand`: 在 Tauri 构建前编译前端
@@ -106,7 +107,7 @@ pnpm tauri build
 
 ### Rust 后端
 
-**文件**: `frontend/src-tauri/src/lib.rs`
+**文件**: `src-tauri/src/lib.rs`
 
 启动逻辑：
 - 初始化 SQLite 数据库（WAL 模式）
@@ -119,19 +120,19 @@ pnpm tauri build
 mailauncher/
 ├── frontend/                     # React 前端
 │   ├── src/                      # 前端源代码
-│   ├── src-tauri/                # Tauri 配置和 Rust 后端代码
-│   │   ├── src/
-│   │   │   ├── lib.rs            # Rust 入口
-│   │   │   ├── commands/         # Tauri IPC 命令
-│   │   │   ├── services/         # 业务逻辑服务
-│   │   │   ├── models/           # 数据模型
-│   │   │   ├── db/               # 数据库连接与迁移
-│   │   │   ├── errors/           # 错误处理
-│   │   │   └── utils/            # 工具函数
-│   │   ├── tauri.conf.json       # Tauri 配置
-│   │   └── Cargo.toml            # Rust 依赖
 │   ├── package.json
 │   └── vite.config.ts
+├── src-tauri/                    # Tauri 配置和 Rust 后端代码
+│   ├── src/
+│   │   ├── lib.rs                # Rust 入口
+│   │   ├── commands/             # Tauri IPC 命令
+│   │   ├── services/             # 业务逻辑服务
+│   │   ├── models/               # 数据模型
+│   │   ├── db/                   # 数据库连接与迁移
+│   │   ├── errors/               # 错误处理
+│   │   └── utils/                # 工具函数
+│   ├── tauri.conf.json           # Tauri 配置
+│   └── Cargo.toml                # Rust 依赖
 ├── docs/                         # 项目文档
 ├── build.sh                      # 一键打包脚本
 └── README.md
@@ -143,7 +144,7 @@ mailauncher/
 
 **检查步骤**:
 ```bash
-cd frontend/src-tauri
+cd src-tauri
 cargo check
 ```
 确认 Rust 工具链版本 >= 1.77。
@@ -171,7 +172,7 @@ xattr -cr "/Applications/MAI Launcher.app"
 ### 1. 版本更新
 
 更新以下文件中的版本号:
-- `frontend/src-tauri/tauri.conf.json`: `"version": "x.y.z"`
+- `src-tauri/tauri.conf.json`: `"version": "x.y.z"`
 - `frontend/package.json`: `"version": "x.y.z"`
 
 ### 2. 自动构建发布（推荐）
@@ -190,9 +191,9 @@ xattr -cr "/Applications/MAI Launcher.app"
 ./build.sh
 
 # Windows (PowerShell)
-cd frontend
 pnpm install
-pnpm tauri build
+pnpm --dir frontend install
+pnpm tauri:build
 ```
 
 ### 4. 测试
@@ -224,11 +225,10 @@ pnpm tauri build
 
 ```bash
 # 前端依赖
-cd frontend
-pnpm update
+pnpm --dir frontend update
 
 # Rust 依赖
-cd frontend/src-tauri
+cd src-tauri
 cargo update
 ```
 

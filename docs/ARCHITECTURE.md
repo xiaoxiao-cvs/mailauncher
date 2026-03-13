@@ -39,19 +39,19 @@ mailauncher/
 │   │   ├── stores/         # Zustand 状态管理
 │   │   ├── types/          # TypeScript 类型定义
 │   │   └── services/       # Tauri IPC 调用封装
-│   ├── src-tauri/           # Rust 后端
-│   │   ├── src/
-│   │   │   ├── lib.rs      # 入口：初始化与命令注册
-│   │   │   ├── commands/   # Tauri IPC 命令（按业务域分文件）
-│   │   │   ├── services/   # 业务逻辑层
-│   │   │   ├── models/     # 数据模型（数据库行映射 + IPC 传输类型）
-│   │   │   ├── db/         # 数据库连接池与迁移
-│   │   │   ├── errors/     # 统一错误处理
-│   │   │   ├── state.rs    # 应用全局状态
-│   │   │   └── utils/      # 平台工具
-│   │   ├── Cargo.toml
-│   │   └── tauri.conf.json
 │   └── package.json
+├── src-tauri/               # Rust 后端与 Tauri 配置
+│   ├── src/
+│   │   ├── lib.rs          # 入口：初始化与命令注册
+│   │   ├── commands/       # Tauri IPC 命令（按业务域分文件）
+│   │   ├── services/       # 业务逻辑层
+│   │   ├── models/         # 数据模型（数据库行映射 + IPC 传输类型）
+│   │   ├── db/             # 数据库连接池与迁移
+│   │   ├── errors/         # 统一错误处理
+│   │   ├── state.rs        # 应用全局状态
+│   │   └── utils/          # 平台工具
+│   ├── Cargo.toml
+│   └── tauri.conf.json
 ├── docs/                    # 项目文档
 └── build.sh                 # 构建脚本
 ```

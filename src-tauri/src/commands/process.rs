@@ -7,6 +7,7 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use tauri::{AppHandle, Emitter, State};
+use tokio::runtime::Handle;
 use tracing::{error, info, warn};
 
 use crate::errors::{AppError, AppResult};
@@ -42,6 +43,7 @@ fn spawn_output_reader(
 ) {
     let session_id = format!("{}::{}", instance_id, component);
     let event_name = format!("terminal-output-{}", session_id);
+    let runtime_handle = Handle::current();
 
     std::thread::spawn(move || {
         let mut buf = [0u8; 4096];
@@ -60,9 +62,7 @@ fn spawn_output_reader(
                     let iid = instance_id.clone();
                     let comp = component.clone();
                     let t = text.clone();
-                    // 使用 block_on 是因为我们在同步线程中
-                    // ProcessManager 内部用 tokio::sync::Mutex，需要异步上下文
-                    tokio::runtime::Handle::current().block_on(async {
+                    runtime_handle.block_on(async {
                         pm.add_output(&iid, &comp, t).await;
                     });
 
@@ -81,6 +81,11 @@ fn spawn_output_reader(
     });
 }
 
+enum StartOutcome {
+    Started,
+    AlreadyRunning,
+}
+
 // ==================== 启动组件的共用逻辑 ====================
 
 /// 启动单个组件进程（内部实现）
@@ -92,7 +97,7 @@ async fn start_component_inner(
     component: &str,
     python_path: Option<&str>,
     qq_account: Option<&str>,
-) -> AppResult<bool> {
+) -> AppResult<StartOutcome> {
     // 构建启动命令
     let (cmd, args, cwd) = process_service::build_component_command(
         instance_path,
@@ -117,9 +122,11 @@ async fn start_component_inner(
             component.to_string(),
             reader,
         );
+
+        return Ok(StartOutcome::Started);
     }
 
-    Ok(true)
+    Ok(StartOutcome::AlreadyRunning)
 }
 
 // ==================== 实例级命令 ====================
@@ -159,7 +166,7 @@ pub async fn start_instance(
 
     // 获取可用组件并依次启动
     let components = vec!["main", "napcat", "napcat-ada"];
-    let mut any_started = false;
+    let mut any_active = false;
 
     for component in &components {
         // 检查组件目录是否存在
@@ -185,11 +192,12 @@ pub async fn start_instance(
         )
         .await
         {
-            Ok(true) => {
-                any_started = true;
+            Ok(StartOutcome::Started) => {
+                any_active = true;
                 info!("组件 {}/{} 启动成功", instance_id, component);
             }
-            Ok(false) => {
+            Ok(StartOutcome::AlreadyRunning) => {
+                any_active = true;
                 warn!("组件 {}/{} 已在运行", instance_id, component);
             }
             Err(e) => {
@@ -198,13 +206,24 @@ pub async fn start_instance(
         }
     }
 
-    if any_started {
+    if any_active {
         // 更新 DB 状态为 running
         sqlx::query("UPDATE instances SET status = 'running', last_run = datetime('now'), updated_at = datetime('now') WHERE id = ?")
             .bind(&instance_id)
             .execute(&state.db)
             .await
             .map_err(|e: sqlx::Error| AppError::Database(e.to_string()))?;
+    } else {
+        sqlx::query("UPDATE instances SET status = 'stopped', updated_at = datetime('now') WHERE id = ?")
+            .bind(&instance_id)
+            .execute(&state.db)
+            .await
+            .map_err(|e: sqlx::Error| AppError::Database(e.to_string()))?;
+
+        return Err(AppError::Process(format!(
+            "实例 {} 没有可启动的组件",
+            instance_id
+        )));
     }
 
     Ok(SuccessResponse::ok(format!(
@@ -301,7 +320,7 @@ pub async fn start_component(
     let instance_path_str = instance.instance_path.unwrap_or(instance.name.clone());
     let instance_path = platform::get_instances_dir().join(&instance_path_str);
 
-    let success = start_component_inner(
+    let outcome = start_component_inner(
         &app_handle,
         &state.process_manager,
         &instance_id,
@@ -312,21 +331,20 @@ pub async fn start_component(
     )
     .await?;
 
-    if success {
-        // 如果有组件在运行，确保实例状态为 running
-        sqlx::query(
-            "UPDATE instances SET status = 'running', updated_at = datetime('now') WHERE id = ?",
-        )
-        .bind(&instance_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e: sqlx::Error| AppError::Database(e.to_string()))?;
-    }
+    sqlx::query(
+        "UPDATE instances SET status = 'running', updated_at = datetime('now') WHERE id = ?",
+    )
+    .bind(&instance_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e: sqlx::Error| AppError::Database(e.to_string()))?;
 
-    Ok(SuccessResponse::ok(format!(
-        "组件 {} 已启动",
-        component
-    )))
+    let message = match outcome {
+        StartOutcome::Started => format!("组件 {} 已启动", component),
+        StartOutcome::AlreadyRunning => format!("组件 {} 已在运行", component),
+    };
+
+    Ok(SuccessResponse::ok(message))
 }
 
 /// 停止实例的指定组件
