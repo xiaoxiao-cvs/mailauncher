@@ -1,4 +1,5 @@
 use tracing::info;
+use tauri::Manager;
 
 // 模块声明
 mod commands;
@@ -56,11 +57,14 @@ async fn init_rust_services() -> AppState {
 
     info!("[初始化] Rust 服务初始化完成");
 
+    let terminal_stream_publisher = services::terminal_stream_service::ChannelTerminalStreamPublisher::new();
+
     AppState {
         db: pool,
         component_registry: components::ComponentRegistry::new(),
         runtime_resolver: runtime::RuntimeResolver::new(),
         process_manager: services::process_service::ProcessManager::new(),
+        terminal_stream_publisher,
         download_manager: services::download_service::DownloadManager::new(),
     }
 }
@@ -79,7 +83,9 @@ pub fn run() {
                 .level(log::LevelFilter::Info)
                 .build(),
         )
-        .setup(|_app| {
+        .setup(|app| {
+            let state = app.state::<AppState>();
+            state.terminal_stream_publisher.start_forwarder(app.handle().clone());
             Ok(())
         })
         .manage(app_state)

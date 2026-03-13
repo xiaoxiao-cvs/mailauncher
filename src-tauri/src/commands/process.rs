@@ -16,7 +16,7 @@ use crate::models::{ComponentLifecycleStatus, ComponentStatus, RuntimeProfile, S
 use crate::services::instance_service;
 use crate::services::lifecycle_service;
 use crate::services::process_service::ProcessManager;
-use crate::services::terminal_stream_service::{EventTerminalStreamPublisher, TerminalStreamPublisher};
+use crate::services::terminal_stream_service::{ChannelTerminalStreamPublisher, TerminalStreamPublisher};
 use crate::state::AppState;
 use crate::utils::platform;
 
@@ -37,13 +37,13 @@ fn resolve_component_spec<'a>(state: &'a AppState, component_name: &str) -> AppR
 fn spawn_output_reader(
     app_handle: AppHandle,
     process_manager: ProcessManager,
+    publisher: ChannelTerminalStreamPublisher,
     instance_id: String,
     component: String,
     mut reader: Box<dyn Read + Send>,
 ) {
     let session_id = format!("{}::{}", instance_id, component);
     let runtime_handle = Handle::current();
-    let publisher = EventTerminalStreamPublisher;
 
     std::thread::spawn(move || {
         let mut buf = [0u8; 4096];
@@ -130,6 +130,7 @@ async fn start_component_inner(
         spawn_output_reader(
             app_handle.clone(),
             process_manager.clone(),
+            state.terminal_stream_publisher.clone(),
             instance_id.to_string(),
             component_spec.component.display_name().to_string(),
             reader,
