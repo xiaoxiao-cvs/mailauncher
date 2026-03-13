@@ -254,6 +254,26 @@ pub struct WslDistributionInfo {
     pub is_default: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeProbeSeverity {
+    Warning,
+    Error,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeProbeIssue {
+    pub severity: RuntimeProbeSeverity,
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeProbeResult {
+    pub ok: bool,
+    pub issues: Vec<RuntimeProbeIssue>,
+}
+
 /// 机器人实例（前端消费的领域模型）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Instance {

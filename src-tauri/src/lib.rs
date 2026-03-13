@@ -118,6 +118,7 @@ pub fn run() {
             commands::runtime::list_wsl_distributions,
             commands::runtime::set_instance_runtime_profile,
             commands::runtime::refresh_instance_runtime_state,
+            commands::runtime::validate_runtime_profile,
             // 版本管理
             commands::version::get_instance_components_version,
             commands::version::check_component_update,

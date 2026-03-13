@@ -1,7 +1,10 @@
 use tauri::State;
 
 use crate::errors::AppResult;
-use crate::models::{InstanceLifecycleStatus, RuntimeProfile, SuccessResponse, WslDistributionInfo};
+use crate::models::{
+    InstanceLifecycleStatus, RuntimeProfile, RuntimeProbeResult, SuccessResponse,
+    WslDistributionInfo,
+};
 use crate::services::runtime_service;
 use crate::state::AppState;
 
@@ -32,4 +35,9 @@ pub async fn refresh_instance_runtime_state(
         &instance_id,
     )
     .await
+}
+
+#[tauri::command]
+pub async fn validate_runtime_profile(runtime_profile: RuntimeProfile) -> AppResult<RuntimeProbeResult> {
+    runtime_service::validate_runtime_profile(&runtime_profile).await
 }

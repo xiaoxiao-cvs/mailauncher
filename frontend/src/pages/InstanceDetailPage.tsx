@@ -5,12 +5,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ComponentType, InstanceStatus, RuntimeProfile, instanceApi } from '@/services/instanceApi';
+import { ComponentType, InstanceStatus, RuntimeProbeResult, RuntimeProfile, instanceApi } from '@/services/instanceApi';
 import { TerminalComponent } from '@/components/terminal/TerminalComponent';
 import { ConfigModal } from '@/components/ConfigModal';
 import { ScheduleModal } from '@/components/ScheduleModal';
 import { VersionManagementSection } from '@/components/instances/VersionManagementSection';
 import { VersionManagerModal } from '@/components/instances/VersionManagerModal';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   Play,
@@ -23,6 +24,8 @@ import {
   FileText,
   Save,
   Radar,
+  ShieldCheck,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -75,6 +78,8 @@ export const InstanceDetailPage: React.FC = () => {
   const [loadingWsl, setLoadingWsl] = useState(false);
   const [savingRuntime, setSavingRuntime] = useState(false);
   const [refreshingRuntime, setRefreshingRuntime] = useState(false);
+  const [probingRuntime, setProbingRuntime] = useState(false);
+  const [runtimeProbe, setRuntimeProbe] = useState<RuntimeProbeResult | null>(null);
 
   const statusLabel = (status: InstanceStatus) => {
     switch (status) {
@@ -106,6 +111,7 @@ export const InstanceDetailPage: React.FC = () => {
   useEffect(() => {
     if (instance?.runtime_profile) {
       setRuntimeDraft(instance.runtime_profile);
+      setRuntimeProbe(null);
     }
   }, [instance?.id, instance?.runtime_profile]);
 
@@ -308,6 +314,7 @@ export const InstanceDetailPage: React.FC = () => {
   };
 
   const handleRuntimeFieldChange = <K extends keyof RuntimeProfile>(key: K, value: RuntimeProfile[K]) => {
+    setRuntimeProbe(null);
     setRuntimeDraft((current) => {
       if (!current) return current;
 
@@ -340,15 +347,48 @@ export const InstanceDetailPage: React.FC = () => {
     });
   };
 
+  const handleProbeRuntimeProfile = async () => {
+    if (!runtimeDraft) return null;
+
+    setProbingRuntime(true);
+    try {
+      const result = await instanceApi.validateRuntimeProfile(runtimeDraft);
+      setRuntimeProbe(result);
+
+      if (result.ok) {
+        toast.success('运行时配置校验通过');
+      } else {
+        const errorCount = result.issues.filter((issue) => issue.severity === 'error').length;
+        const warningCount = result.issues.filter((issue) => issue.severity === 'warning').length;
+        toast.error(`运行时校验发现 ${errorCount} 个错误，${warningCount} 个警告`);
+      }
+
+      return result;
+    } catch (error) {
+      console.error('校验运行时配置失败:', error);
+      toast.error('校验运行时配置失败');
+      return null;
+    } finally {
+      setProbingRuntime(false);
+    }
+  };
+
   const handleSaveRuntimeProfile = async () => {
     if (!instance || !runtimeDraft) return;
 
     setSavingRuntime(true);
     try {
+      const probe = await handleProbeRuntimeProfile();
+      if (!probe || !probe.ok) {
+        return;
+      }
+
       await instanceApi.setInstanceRuntimeProfile(instance.id, runtimeDraft);
       await refetchInstance();
+      toast.success('运行时配置已保存');
     } catch (error) {
       console.error('保存运行时配置失败:', error);
+      toast.error('保存运行时配置失败');
     } finally {
       setSavingRuntime(false);
     }
@@ -361,8 +401,10 @@ export const InstanceDetailPage: React.FC = () => {
     try {
       await instanceApi.refreshInstanceRuntimeState(instance.id);
       await refetchInstance();
+      toast.success('运行态已刷新');
     } catch (error) {
       console.error('刷新运行态失败:', error);
+      toast.error('刷新运行态失败');
     } finally {
       setRefreshingRuntime(false);
     }
@@ -446,6 +488,10 @@ export const InstanceDetailPage: React.FC = () => {
                   <p className="text-sm text-gray-500 dark:text-gray-400">实例级 runtime_profile 与 WSL2 入口</p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button onClick={handleProbeRuntimeProfile} disabled={probingRuntime || savingRuntime} variant="outline" className="gap-2 rounded-full">
+                    {probingRuntime ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                    校验配置
+                  </Button>
                   <Button onClick={handleRefreshRuntimeState} disabled={refreshingRuntime} variant="outline" className="gap-2 rounded-full">
                     {refreshingRuntime ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radar className="w-4 h-4" />}
                     刷新运行态
@@ -530,6 +576,28 @@ export const InstanceDetailPage: React.FC = () => {
                       />
                     </label>
                   </>
+                )}
+
+                {runtimeProbe && (
+                  <div className={`rounded-2xl border px-4 py-3 ${runtimeProbe.ok
+                    ? 'border-emerald-200/70 bg-emerald-50/70 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300'
+                    : 'border-amber-200/70 bg-amber-50/70 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200'
+                  }`}>
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      {runtimeProbe.ok ? <ShieldCheck className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                      {runtimeProbe.ok ? '运行时校验通过' : '运行时校验发现问题'}
+                    </div>
+                    {runtimeProbe.issues.length > 0 && (
+                      <div className="mt-2 space-y-2 text-xs leading-5">
+                        {runtimeProbe.issues.map((issue) => (
+                          <div key={issue.code} className="rounded-xl bg-white/50 px-3 py-2 dark:bg-black/10">
+                            <span className="mr-2 font-semibold uppercase">{issue.severity}</span>
+                            {issue.message}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

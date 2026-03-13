@@ -54,6 +54,19 @@ export interface WslDistributionInfo {
   is_default: boolean;
 }
 
+export type RuntimeProbeSeverity = 'warning' | 'error';
+
+export interface RuntimeProbeIssue {
+  severity: RuntimeProbeSeverity;
+  code: string;
+  message: string;
+}
+
+export interface RuntimeProbeResult {
+  ok: boolean;
+  issues: RuntimeProbeIssue[];
+}
+
 export interface InstanceComponentState {
   component: ComponentType;
   runtime_kind: RuntimeKind;
@@ -256,6 +269,12 @@ class InstanceApiClient {
   async refreshInstanceRuntimeState(instanceId: string): Promise<InstanceStatus> {
     return tauriInvoke<InstanceStatus>('refresh_instance_runtime_state', {
       instanceId,
+    });
+  }
+
+  async validateRuntimeProfile(runtimeProfile: RuntimeProfile): Promise<RuntimeProbeResult> {
+    return tauriInvoke<RuntimeProbeResult>('validate_runtime_profile', {
+      runtimeProfile,
     });
   }
 
