@@ -20,7 +20,7 @@ use tracing::{error, info, warn};
 
 use crate::errors::{AppError, AppResult};
 use crate::models::{ComponentType, RuntimeKind, RuntimeProfile};
-use crate::runtime::{LocalRuntimeAdapter, RuntimeAdapter};
+use crate::runtime::{LocalRuntimeAdapter, RuntimeAdapter, TerminalSessionInfo};
 
 // ==================== 进程信息 ====================
 
@@ -37,7 +37,7 @@ struct ExternalProcessHandle {
     runtime_kind: RuntimeKind,
     runtime_profile: RuntimeProfile,
     guest_pid: Option<u32>,
-    terminal_session_name: Option<String>,
+    terminal_session: Option<TerminalSessionInfo>,
 }
 
 /// 单个组件的进程信息（对应 Python ProcessInfo）
@@ -75,7 +75,7 @@ pub struct ProcessInfo {
     /// 运行时配置（外部接管进程需要它来做探测与停止）
     runtime_profile: Option<RuntimeProfile>,
     /// 终端会话名（如 WSL2 tmux session）
-    terminal_session_name: Option<String>,
+    terminal_session: Option<TerminalSessionInfo>,
 }
 
 impl ProcessInfo {
@@ -137,7 +137,7 @@ impl ProcessInfo {
             runtime_kind: self.runtime_kind,
             runtime_profile,
             guest_pid: self.guest_pid,
-            terminal_session_name: self.terminal_session_name.clone(),
+            terminal_session: self.terminal_session.clone(),
         })
     }
 
@@ -150,7 +150,7 @@ impl ProcessInfo {
         self.host_pid = None;
         self.guest_pid = None;
         self.runtime_profile = None;
-        self.terminal_session_name = None;
+        self.terminal_session = None;
         self.metadata_buffer.clear();
     }
 
@@ -169,7 +169,7 @@ impl ProcessInfo {
             guest_pid: process.guest_pid,
             pid: process.host_pid.or(process.guest_pid),
             start_time: Utc::now(),
-            output_buffer: vec!["[外部进程接管] 已探测到运行中的 WSL2 组件进程，当前提供状态与停止能力，终端为只读占位。\n".to_string()],
+            output_buffer: vec![external_process_placeholder(process)],
             buffer_size: 1000,
             attachment_kind: ProcessAttachmentKind::External,
             child: None,
@@ -177,7 +177,7 @@ impl ProcessInfo {
             master: None,
             metadata_buffer: String::new(),
             runtime_profile: Some(runtime_profile.clone()),
-            terminal_session_name: process.terminal_session_name.clone(),
+            terminal_session: process.terminal_session.clone(),
         }
     }
 
@@ -222,6 +222,28 @@ impl ProcessInfo {
             let _ = child.kill();
         }
         self.mark_stopped();
+    }
+}
+
+fn verified_session_name(handle: &ExternalProcessHandle) -> Option<&str> {
+    handle
+        .terminal_session
+        .as_ref()
+        .filter(|session| session.verified)
+        .map(|session| session.name.as_str())
+}
+
+fn external_process_placeholder(process: &crate::runtime::DiscoveredRuntimeProcess) -> String {
+    if process.terminal_session.as_ref().map(|session| session.verified).unwrap_or(false) {
+        format!(
+            "[外部进程接管] 已探测到运行中的 {:?} 组件进程，并确认存在可重连 tmux 会话。\n",
+            process.runtime_kind
+        )
+    } else {
+        format!(
+            "[外部进程接管] 已探测到运行中的 {:?} 组件进程，当前仅提供状态与停止能力。\n",
+            process.runtime_kind
+        )
     }
 }
 
@@ -327,14 +349,14 @@ impl ProcessManager {
     async fn get_external_output_history(handle: &ExternalProcessHandle, lines: usize) -> AppResult<Vec<String>> {
         match handle.runtime_kind {
             RuntimeKind::Wsl2 => {
-                if let Some(session_name) = handle.terminal_session_name.as_deref() {
+                if let Some(session_name) = verified_session_name(handle) {
                     crate::runtime::wsl::capture_tmux_history(&handle.runtime_profile, session_name, lines).await
                 } else {
                     Ok(vec!["[外部进程接管] 当前会话没有可重连的 tmux 会话，只能显示探测状态。\n".to_string()])
                 }
             }
             RuntimeKind::Docker => {
-                if let Some(session_name) = handle.terminal_session_name.as_deref() {
+                if let Some(session_name) = verified_session_name(handle) {
                     crate::runtime::docker::capture_tmux_history(&handle.runtime_profile, session_name, lines).await
                 } else {
                     Ok(vec!["[Docker 运行时] 当前会话没有可重连的 tmux 会话，只能显示探测状态。\n".to_string()])
@@ -347,13 +369,13 @@ impl ProcessManager {
     async fn write_to_external_terminal(handle: &ExternalProcessHandle, data: &str) -> AppResult<()> {
         match handle.runtime_kind {
             RuntimeKind::Wsl2 => {
-                let session_name = handle.terminal_session_name.as_deref().ok_or_else(|| {
+                let session_name = verified_session_name(handle).ok_or_else(|| {
                     AppError::Process("当前外部 WSL2 进程没有可重连的 tmux 会话".to_string())
                 })?;
                 crate::runtime::wsl::send_tmux_input(&handle.runtime_profile, session_name, data).await
             }
             RuntimeKind::Docker => {
-                let session_name = handle.terminal_session_name.as_deref().ok_or_else(|| {
+                let session_name = verified_session_name(handle).ok_or_else(|| {
                     AppError::Process("当前外部 Docker 进程没有可重连的 tmux 会话".to_string())
                 })?;
                 crate::runtime::docker::send_tmux_input(&handle.runtime_profile, session_name, data).await
@@ -369,14 +391,14 @@ impl ProcessManager {
     ) -> AppResult<()> {
         match handle.runtime_kind {
             RuntimeKind::Wsl2 => {
-                if let Some(session_name) = handle.terminal_session_name.as_deref() {
+                if let Some(session_name) = verified_session_name(handle) {
                     crate::runtime::wsl::resize_tmux_session(&handle.runtime_profile, session_name, rows, cols).await
                 } else {
                     Ok(())
                 }
             }
             RuntimeKind::Docker => {
-                if let Some(session_name) = handle.terminal_session_name.as_deref() {
+                if let Some(session_name) = verified_session_name(handle) {
                     crate::runtime::docker::resize_tmux_session(&handle.runtime_profile, session_name, rows, cols).await
                 } else {
                     Ok(())
@@ -536,7 +558,7 @@ impl ProcessManager {
             master: Some(pair.master),
             metadata_buffer: String::new(),
             runtime_profile: None,
-            terminal_session_name: None,
+            terminal_session: None,
         };
 
         // Phase 3: 锁内 — 再次检查竞态后插入 ProcessInfo
@@ -1038,6 +1060,7 @@ mod tests {
 
     use super::{ProcessInfo, ProcessManager};
     use crate::models::{ComponentType, RuntimeKind, RuntimeProfile};
+    use crate::runtime::TerminalSessionInfo;
 
     use super::ProcessAttachmentKind;
 
@@ -1059,7 +1082,7 @@ mod tests {
             master: None,
             metadata_buffer: String::new(),
             runtime_profile: None,
-            terminal_session_name: None,
+            terminal_session: None,
         }
     }
 
@@ -1095,7 +1118,10 @@ mod tests {
                 status: crate::models::ComponentLifecycleStatus::Running,
                 host_pid: None,
                 guest_pid: Some(4321),
-                terminal_session_name: Some("mailauncher-inst-test-main".to_string()),
+                terminal_session: Some(TerminalSessionInfo {
+                    name: "mailauncher-inst-test-main".to_string(),
+                    verified: true,
+                }),
             },
             &profile,
         );
@@ -1121,7 +1147,10 @@ mod tests {
                     status: crate::models::ComponentLifecycleStatus::Running,
                     host_pid: None,
                     guest_pid: Some(9527),
-                    terminal_session_name: Some("mailauncher-inst-test-main".to_string()),
+                    terminal_session: Some(TerminalSessionInfo {
+                        name: "mailauncher-inst-test-main".to_string(),
+                        verified: true,
+                    }),
                 }],
             )
             .await;

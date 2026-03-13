@@ -4,7 +4,7 @@ use std::process::Command as StdCommand;
 use crate::components::ComponentSpec;
 use crate::errors::{AppError, AppResult};
 use crate::models::{ComponentLifecycleStatus, ComponentType, RuntimeKind, RuntimeProfile};
-use crate::runtime::{DiscoveredRuntimeProcess, ResolvedCommand, RuntimeAdapter};
+use crate::runtime::{DiscoveredRuntimeProcess, ResolvedCommand, RuntimeAdapter, TerminalSessionInfo};
 
 #[derive(Debug, Clone, Default)]
 pub struct Wsl2RuntimeAdapter;
@@ -123,21 +123,75 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        Ok(parse_wsl_discovered_processes(
-            &stdout,
-            guest_workspace_root,
-            instance_id,
-            components,
-        ))
+        parse_wsl_discovered_processes(profile, &stdout, guest_workspace_root, instance_id, components)
     }
 }
 
 fn parse_wsl_discovered_processes(
+    profile: &RuntimeProfile,
     stdout: &str,
     guest_workspace_root: &str,
     instance_id: &str,
     components: &[&ComponentSpec],
-) -> Vec<DiscoveredRuntimeProcess> {
+) -> AppResult<Vec<DiscoveredRuntimeProcess>> {
+    parse_wsl_discovered_processes_with_verifier(
+        profile,
+        stdout,
+        guest_workspace_root,
+        instance_id,
+        components,
+        |session_name| tmux_session_exists(profile, session_name).unwrap_or(false),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::components::ComponentRegistry;
+    use crate::models::ComponentType;
+
+    use super::parse_wsl_discovered_processes_with_verifier;
+
+    #[test]
+    fn parse_wsl_processes_matches_component_by_cwd_and_cmdline() {
+        let registry = ComponentRegistry::new();
+        let components = vec![
+            registry.get(ComponentType::Main).expect("缺少 main spec"),
+            registry.get(ComponentType::NapCatAdapter).expect("缺少 adapter spec"),
+        ];
+
+        let stdout = "123\t/home/mai/demo/MaiBot\tpython3 bot.py\n456\t/home/mai/demo/MaiBot-Napcat-Adapter\tpython3 main.py\n";
+        let mut profile = crate::models::RuntimeProfile::local("demo", None);
+        profile.kind = crate::models::RuntimeKind::Wsl2;
+        let discovered = parse_wsl_discovered_processes_with_verifier(
+            &profile,
+            stdout,
+            "/home/mai/demo",
+            "inst-1",
+            &components,
+            |_| true,
+        )
+        .expect("解析 WSL 进程失败");
+
+        assert_eq!(discovered.len(), 2);
+        assert_eq!(discovered[0].component, ComponentType::Main);
+        assert_eq!(discovered[0].guest_pid, Some(123));
+        assert_eq!(discovered[1].component, ComponentType::NapCatAdapter);
+        assert_eq!(discovered[0].terminal_session.as_ref().map(|session| session.name.as_str()), Some("mailauncher-inst-1-main"));
+        assert_eq!(discovered[0].terminal_session.as_ref().map(|session| session.verified), Some(true));
+    }
+}
+
+fn parse_wsl_discovered_processes_with_verifier<F>(
+    profile: &RuntimeProfile,
+    stdout: &str,
+    guest_workspace_root: &str,
+    instance_id: &str,
+    components: &[&ComponentSpec],
+    session_exists: F,
+) -> AppResult<Vec<DiscoveredRuntimeProcess>>
+where
+    F: Fn(&str) -> bool,
+{
     let root = guest_workspace_root.trim_end_matches('/');
     let mut discovered = Vec::new();
 
@@ -168,46 +222,52 @@ fn parse_wsl_discovered_processes(
             };
 
             if matches_target {
+                let session_name = terminal_session_name(instance_id, component.component.internal_key());
+                let terminal_session = if session_exists(&session_name) {
+                    Some(TerminalSessionInfo {
+                        name: session_name,
+                        verified: true,
+                    })
+                } else {
+                    None
+                };
+
                 discovered.push(DiscoveredRuntimeProcess {
                     component: component.component,
-                    runtime_kind: RuntimeKind::Wsl2,
+                    runtime_kind: profile.kind,
                     status: ComponentLifecycleStatus::Running,
                     host_pid: None,
                     guest_pid: Some(pid),
-                    terminal_session_name: Some(terminal_session_name(instance_id, component.component.internal_key())),
+                    terminal_session,
                 });
                 break;
             }
         }
     }
 
-    discovered
+    Ok(discovered)
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::components::ComponentRegistry;
-    use crate::models::ComponentType;
+fn tmux_session_exists(profile: &RuntimeProfile, session_name: &str) -> AppResult<bool> {
+    let distribution = profile.distribution.as_deref().unwrap_or_default();
+    let mut command = StdCommand::new("wsl.exe");
+    command.args(["--distribution", distribution]);
 
-    use super::parse_wsl_discovered_processes;
-
-    #[test]
-    fn parse_wsl_processes_matches_component_by_cwd_and_cmdline() {
-        let registry = ComponentRegistry::new();
-        let components = vec![
-            registry.get(ComponentType::Main).expect("缺少 main spec"),
-            registry.get(ComponentType::NapCatAdapter).expect("缺少 adapter spec"),
-        ];
-
-        let stdout = "123\t/home/mai/demo/MaiBot\tpython3 bot.py\n456\t/home/mai/demo/MaiBot-Napcat-Adapter\tpython3 main.py\n";
-        let discovered = parse_wsl_discovered_processes(stdout, "/home/mai/demo", "inst-1", &components);
-
-        assert_eq!(discovered.len(), 2);
-        assert_eq!(discovered[0].component, ComponentType::Main);
-        assert_eq!(discovered[0].guest_pid, Some(123));
-        assert_eq!(discovered[1].component, ComponentType::NapCatAdapter);
-        assert_eq!(discovered[0].terminal_session_name.as_deref(), Some("mailauncher-inst-1-main"));
+    if let Some(user) = profile.user.as_deref().filter(|value| !value.trim().is_empty()) {
+        command.args(["--user", user]);
     }
+
+    let output = command
+    .args([
+        "--exec",
+        "bash",
+        "-lc",
+        &format!("tmux has-session -t '{}' >/dev/null 2>&1", shell_escape(session_name)),
+    ])
+    .output()
+    .map_err(|error| AppError::Process(format!("执行 WSL tmux 会话探测失败: {}", error)))?;
+
+    Ok(output.status.success())
 }
 
 pub async fn probe_guest_process_alive(profile: &RuntimeProfile, pid: u32) -> AppResult<bool> {

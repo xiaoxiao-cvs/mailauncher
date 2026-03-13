@@ -12,13 +12,19 @@ pub struct ResolvedCommand {
 }
 
 #[derive(Debug, Clone)]
+pub struct TerminalSessionInfo {
+    pub name: String,
+    pub verified: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct DiscoveredRuntimeProcess {
     pub component: ComponentType,
     pub runtime_kind: RuntimeKind,
     pub status: ComponentLifecycleStatus,
     pub host_pid: Option<u32>,
     pub guest_pid: Option<u32>,
-    pub terminal_session_name: Option<String>,
+    pub terminal_session: Option<TerminalSessionInfo>,
 }
 
 pub trait RuntimeAdapter: Send + Sync {

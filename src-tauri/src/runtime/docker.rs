@@ -4,7 +4,7 @@ use std::process::Command as StdCommand;
 use crate::components::ComponentSpec;
 use crate::errors::{AppError, AppResult};
 use crate::models::{ComponentLifecycleStatus, ComponentType, RuntimeKind, RuntimeProfile};
-use crate::runtime::{DiscoveredRuntimeProcess, ResolvedCommand, RuntimeAdapter};
+use crate::runtime::{DiscoveredRuntimeProcess, ResolvedCommand, RuntimeAdapter, TerminalSessionInfo};
 
 #[derive(Debug, Clone, Default)]
 pub struct DockerRuntimeAdapter;
@@ -107,12 +107,13 @@ impl RuntimeAdapter for DockerRuntimeAdapter {
             return Err(AppError::Process(String::from_utf8_lossy(&output.stderr).trim().to_string()));
         }
 
-        Ok(parse_docker_discovered_processes(
+        parse_docker_discovered_processes(
+            profile,
             &String::from_utf8_lossy(&output.stdout),
             guest_workspace_root,
             instance_id,
             components,
-        ))
+        )
     }
 }
 
@@ -238,11 +239,12 @@ pub fn build_docker_command(profile: &RuntimeProfile, script: &str) -> tokio::pr
 }
 
 fn parse_docker_discovered_processes(
+    profile: &RuntimeProfile,
     stdout: &str,
     guest_workspace_root: &str,
     instance_id: &str,
     components: &[&ComponentSpec],
-) -> Vec<DiscoveredRuntimeProcess> {
+) -> AppResult<Vec<DiscoveredRuntimeProcess>> {
     let root = guest_workspace_root.trim_end_matches('/');
     let mut discovered = Vec::new();
 
@@ -269,20 +271,51 @@ fn parse_docker_discovered_processes(
             };
 
             if matches_target {
+                let session_name = terminal_session_name(instance_id, component.component.internal_key());
+                let terminal_session = if tmux_session_exists(profile, &session_name)? {
+                    Some(TerminalSessionInfo {
+                        name: session_name,
+                        verified: true,
+                    })
+                } else {
+                    None
+                };
                 discovered.push(DiscoveredRuntimeProcess {
                     component: component.component,
                     runtime_kind: RuntimeKind::Docker,
                     status: ComponentLifecycleStatus::Running,
                     host_pid: None,
                     guest_pid: Some(pid),
-                    terminal_session_name: Some(terminal_session_name(instance_id, component.component.internal_key())),
+                    terminal_session,
                 });
                 break;
             }
         }
     }
 
-    discovered
+    Ok(discovered)
+}
+
+fn tmux_session_exists(profile: &RuntimeProfile, session_name: &str) -> AppResult<bool> {
+    let container_name = profile.container_name.as_deref().unwrap_or_default();
+    let mut command = StdCommand::new("docker");
+    command.args(["exec", "-i"]);
+
+    if let Some(user) = profile.user.as_deref().filter(|value| !value.trim().is_empty()) {
+        command.args(["-u", user]);
+    }
+
+    let output = command
+    .args([
+        container_name,
+        "bash",
+        "-lc",
+        &format!("tmux has-session -t '{}' >/dev/null 2>&1", shell_escape(session_name)),
+    ])
+    .output()
+    .map_err(|error| AppError::Process(format!("执行 Docker tmux 会话探测失败: {}", error)))?;
+
+    Ok(output.status.success())
 }
 
 fn shell_escape(value: &str) -> String {

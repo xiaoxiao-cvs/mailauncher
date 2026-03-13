@@ -334,7 +334,7 @@ mod tests {
     use super::{hydrate_discovered_component_states, reconcile_instance_states_on_startup};
     use crate::components::ComponentRegistry;
     use crate::models::{ComponentLifecycleStatus, ComponentType, RuntimeKind};
-    use crate::runtime::DiscoveredRuntimeProcess;
+    use crate::runtime::{DiscoveredRuntimeProcess, TerminalSessionInfo};
 
     #[tokio::test]
     async fn reconcile_marks_active_instances_unknown() {
@@ -400,7 +400,10 @@ mod tests {
             status: ComponentLifecycleStatus::Running,
             host_pid: None,
             guest_pid: Some(321),
-            terminal_session_name: Some("mailauncher-inst-test-main".to_string()),
+            terminal_session: Some(TerminalSessionInfo {
+                name: "mailauncher-inst-test-main".to_string(),
+                verified: true,
+            }),
         }];
 
         let states = hydrate_discovered_component_states(&available, &discovered, RuntimeKind::Wsl2);
