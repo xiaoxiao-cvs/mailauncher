@@ -22,6 +22,7 @@ import {
   Loader2,
   FileText,
   Save,
+  Radar,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -73,6 +74,7 @@ export const InstanceDetailPage: React.FC = () => {
   const [wslDistributions, setWslDistributions] = useState<Array<{ name: string; state: string; version: number; is_default: boolean }>>([]);
   const [loadingWsl, setLoadingWsl] = useState(false);
   const [savingRuntime, setSavingRuntime] = useState(false);
+  const [refreshingRuntime, setRefreshingRuntime] = useState(false);
 
   const statusLabel = (status: InstanceStatus) => {
     switch (status) {
@@ -351,6 +353,20 @@ export const InstanceDetailPage: React.FC = () => {
       setSavingRuntime(false);
     }
   };
+
+  const handleRefreshRuntimeState = async () => {
+    if (!instance) return;
+
+    setRefreshingRuntime(true);
+    try {
+      await instanceApi.refreshInstanceRuntimeState(instance.id);
+      await refetchInstance();
+    } catch (error) {
+      console.error('刷新运行态失败:', error);
+    } finally {
+      setRefreshingRuntime(false);
+    }
+  };
   
   const isStopped = instance.status === 'stopped';
   const availableComponents: ComponentType[] = instance.component_states?.length
@@ -429,10 +445,16 @@ export const InstanceDetailPage: React.FC = () => {
                   <h3 className="text-lg font-bold text-gray-800 dark:text-white">运行时</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">实例级 runtime_profile 与 WSL2 入口</p>
                 </div>
-                <Button onClick={handleSaveRuntimeProfile} disabled={savingRuntime} className="gap-2 rounded-full">
-                  {savingRuntime ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  保存
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button onClick={handleRefreshRuntimeState} disabled={refreshingRuntime} variant="outline" className="gap-2 rounded-full">
+                    {refreshingRuntime ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radar className="w-4 h-4" />}
+                    刷新运行态
+                  </Button>
+                  <Button onClick={handleSaveRuntimeProfile} disabled={savingRuntime} className="gap-2 rounded-full">
+                    {savingRuntime ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    保存
+                  </Button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3 text-sm">

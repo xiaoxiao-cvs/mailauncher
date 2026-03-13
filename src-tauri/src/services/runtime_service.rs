@@ -1,7 +1,7 @@
 use sqlx::SqlitePool;
 
 use crate::errors::{AppError, AppResult};
-use crate::models::{RuntimeProfile, WslDistributionInfo};
+use crate::models::{InstanceLifecycleStatus, RuntimeProfile, WslDistributionInfo};
 
 pub async fn set_instance_runtime_profile(
     pool: &SqlitePool,
@@ -95,4 +95,19 @@ mod tests {
         assert!(distributions[0].is_default);
         assert_eq!(distributions[1].state, "Stopped");
     }
+}
+
+pub async fn refresh_instance_runtime_state(
+    pool: &SqlitePool,
+    registry: &crate::components::ComponentRegistry,
+    runtime_resolver: &crate::runtime::RuntimeResolver,
+    instance_id: &str,
+) -> AppResult<InstanceLifecycleStatus> {
+    crate::services::lifecycle_service::refresh_instance_runtime_state(
+        pool,
+        registry,
+        runtime_resolver,
+        instance_id,
+    )
+    .await
 }

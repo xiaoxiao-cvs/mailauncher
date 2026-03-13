@@ -253,6 +253,12 @@ class InstanceApiClient {
     });
   }
 
+  async refreshInstanceRuntimeState(instanceId: string): Promise<InstanceStatus> {
+    return tauriInvoke<InstanceStatus>('refresh_instance_runtime_state', {
+      instanceId,
+    });
+  }
+
   /**
    * 获取NapCat已登录账号列表
    * TODO: 尚未迁移至 Rust，暂时返回空列表

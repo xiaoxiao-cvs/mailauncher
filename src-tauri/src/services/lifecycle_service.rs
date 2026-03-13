@@ -1,7 +1,7 @@
 use sqlx::SqlitePool;
 
 use crate::components::ComponentRegistry;
-use crate::errors::AppResult;
+use crate::errors::{AppError, AppResult};
 use crate::lifecycle::{aggregate_instance_status, collect_component_states};
 use crate::models::{
     ComponentLifecycleStatus, ComponentType, DbInstanceRecord, InstanceComponentState,
@@ -38,66 +38,138 @@ pub async fn recover_instance_states_on_startup(
     let mut recovered = 0;
 
     for row in rows {
-        let instance = row.into_instance();
-        let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
-        let instance_root = platform::get_instances_dir().join(&instance_path_str);
-        let available = registry.available_for_path(&instance_root);
-
-        let mut last_error = instance.last_error.clone();
-        let mut last_status_reason = instance.last_status_reason.clone();
-
-        let component_states = match instance.runtime_profile.kind {
-            RuntimeKind::Wsl2 => {
-                let adapter = runtime_resolver.resolve(&instance.runtime_profile);
-                match adapter.discover_processes(&instance.runtime_profile, &available) {
-                    Ok(discovered) => hydrate_discovered_component_states(&available, &discovered),
-                    Err(error) => {
-                        last_error = Some(error.to_string());
-                        last_status_reason = Some("WSL2 冷启动探测失败，保留 unknown 状态".to_string());
-                        Vec::new()
-                    }
-                }
-            }
-            _ => hydrate_stopped_component_states(&available, instance.runtime_profile.kind),
-        };
-
-        let status = if instance.runtime_profile.kind == RuntimeKind::Wsl2 && component_states.is_empty() && last_error.is_some() {
-            InstanceLifecycleStatus::Unknown
-        } else {
-            aggregate_instance_status(&component_states, last_error.as_deref())
-        };
-
-        if status != instance.status || !component_states.is_empty() || last_status_reason.is_some() {
-            sqlx::query(
-                r#"UPDATE instances
-                   SET status = ?,
-                       runtime_profile = ?,
-                       last_error = ?,
-                       last_status_reason = ?,
-                       component_state = ?,
-                       updated_at = datetime('now')
-                   WHERE id = ?"#,
-            )
-            .bind(status.as_str())
-            .bind(serde_json::to_string(&instance.runtime_profile)?)
-            .bind(last_error)
-            .bind(match status {
-                InstanceLifecycleStatus::Running => Some("冷启动重建为运行中".to_string()),
-                InstanceLifecycleStatus::Partial => Some("冷启动重建为部分运行".to_string()),
-                InstanceLifecycleStatus::Stopped if instance.runtime_profile.kind == RuntimeKind::Local => {
-                    Some("应用重启后本地托管进程已视为停止".to_string())
-                }
-                _ => last_status_reason,
-            })
-            .bind(serde_json::to_string(&component_states)?)
-            .bind(&instance.id)
-            .execute(pool)
-            .await?;
+        if recover_single_instance_state(pool, registry, runtime_resolver, row.into_instance()).await? {
             recovered += 1;
         }
     }
 
     Ok(recovered)
+}
+
+pub async fn refresh_instance_runtime_state(
+    pool: &SqlitePool,
+    registry: &ComponentRegistry,
+    runtime_resolver: &RuntimeResolver,
+    instance_id: &str,
+) -> AppResult<InstanceLifecycleStatus> {
+    let row = sqlx::query_as::<_, DbInstanceRecord>("SELECT * FROM instances WHERE id = ?")
+        .bind(instance_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
+
+    let instance = row.into_instance();
+    let recovered = evaluate_recovered_instance_state(registry, runtime_resolver, &instance);
+    let status = recovered.status;
+    persist_recovered_instance_state(pool, &instance, recovered).await?;
+    Ok(status)
+}
+
+struct RecoveredInstanceState {
+    status: InstanceLifecycleStatus,
+    component_states: Vec<InstanceComponentState>,
+    last_error: Option<String>,
+    last_status_reason: Option<String>,
+}
+
+fn evaluate_recovered_instance_state(
+    registry: &ComponentRegistry,
+    runtime_resolver: &RuntimeResolver,
+    instance: &crate::models::Instance,
+) -> RecoveredInstanceState {
+    let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
+    let instance_root = platform::get_instances_dir().join(&instance_path_str);
+    let available = registry.available_for_path(&instance_root);
+
+    let mut last_error = instance.last_error.clone();
+    let mut last_status_reason = instance.last_status_reason.clone();
+
+    let component_states = match instance.runtime_profile.kind {
+        RuntimeKind::Wsl2 => {
+            let adapter = runtime_resolver.resolve(&instance.runtime_profile);
+            match adapter.discover_processes(&instance.runtime_profile, &available) {
+                Ok(discovered) => hydrate_discovered_component_states(&available, &discovered),
+                Err(error) => {
+                    last_error = Some(error.to_string());
+                    last_status_reason = Some("WSL2 冷启动探测失败，保留 unknown 状态".to_string());
+                    Vec::new()
+                }
+            }
+        }
+        _ => hydrate_stopped_component_states(&available, instance.runtime_profile.kind),
+    };
+
+    let status = if instance.runtime_profile.kind == RuntimeKind::Wsl2
+        && component_states.is_empty()
+        && last_error.is_some()
+    {
+        InstanceLifecycleStatus::Unknown
+    } else {
+        aggregate_instance_status(&component_states, last_error.as_deref())
+    };
+
+    let last_status_reason = match status {
+        InstanceLifecycleStatus::Running => Some("冷启动重建为运行中".to_string()),
+        InstanceLifecycleStatus::Partial => Some("冷启动重建为部分运行".to_string()),
+        InstanceLifecycleStatus::Stopped if instance.runtime_profile.kind == RuntimeKind::Local => {
+            Some("应用重启后本地托管进程已视为停止".to_string())
+        }
+        _ => last_status_reason,
+    };
+
+    RecoveredInstanceState {
+        status,
+        component_states,
+        last_error,
+        last_status_reason,
+    }
+}
+
+async fn persist_recovered_instance_state(
+    pool: &SqlitePool,
+    instance: &crate::models::Instance,
+    recovered: RecoveredInstanceState,
+) -> AppResult<()> {
+    sqlx::query(
+        r#"UPDATE instances
+           SET status = ?,
+               runtime_profile = ?,
+               last_error = ?,
+               last_status_reason = ?,
+               component_state = ?,
+               updated_at = datetime('now')
+           WHERE id = ?"#,
+    )
+    .bind(recovered.status.as_str())
+    .bind(serde_json::to_string(&instance.runtime_profile)?)
+    .bind(recovered.last_error)
+    .bind(recovered.last_status_reason)
+    .bind(serde_json::to_string(&recovered.component_states)?)
+    .bind(&instance.id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+async fn recover_single_instance_state(
+    pool: &SqlitePool,
+    registry: &ComponentRegistry,
+    runtime_resolver: &RuntimeResolver,
+    instance: crate::models::Instance,
+) -> AppResult<bool> {
+    let previous_status = instance.status;
+    let previous_reason = instance.last_status_reason.clone();
+    let recovered = evaluate_recovered_instance_state(registry, runtime_resolver, &instance);
+    let changed = previous_status != recovered.status
+        || previous_reason != recovered.last_status_reason
+        || !recovered.component_states.is_empty();
+
+    if changed {
+        persist_recovered_instance_state(pool, &instance, recovered).await?;
+    }
+
+    Ok(changed)
 }
 
 fn hydrate_stopped_component_states(
