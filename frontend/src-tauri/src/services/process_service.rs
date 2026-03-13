@@ -259,7 +259,8 @@ impl ProcessManager {
         let mut inner = self.inner.lock().await;
         if let Some(proc) = inner.processes.get_mut(&session_id) {
             if proc.is_alive() {
-                // 并发 start 已抢先启动，丢弃本次资源（drop 会清理 PTY）
+                // 并发 start 已抢先启动，丢弃本次资源
+                // process_info drop 时会关闭 PTY 句柄，子进程因 stdin EOF 自行退出
                 info!("并发启动检测，放弃本次启动: {}", session_id);
                 return Ok(None);
             }
