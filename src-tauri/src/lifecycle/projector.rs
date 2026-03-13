@@ -1,6 +1,6 @@
 use crate::components::ComponentRegistry;
 use crate::models::{
-    ComponentLifecycleStatus, InstanceComponentState, InstanceLifecycleStatus,
+    ComponentLifecycleStatus, InstanceComponentState, InstanceLifecycleStatus, RuntimeKind,
 };
 use crate::services::process_service::ProcessManager;
 
@@ -16,9 +16,16 @@ pub async fn collect_component_states(
         let pid = process_manager
             .get_process_pid(instance_id, spec.component.internal_key())
             .await;
+        let guest_pid = process_manager
+            .get_process_guest_pid(instance_id, spec.component.internal_key())
+            .await;
         let uptime = process_manager
             .get_process_uptime(instance_id, spec.component.internal_key())
             .await;
+        let runtime_kind = process_manager
+            .get_process_runtime_kind(instance_id, spec.component.internal_key())
+            .await
+            .unwrap_or(RuntimeKind::Local);
         let running = process_manager
             .is_component_running(instance_id, spec.component.internal_key())
             .await;
@@ -31,9 +38,12 @@ pub async fn collect_component_states(
 
         states.push(InstanceComponentState {
             component: spec.component,
+            runtime_kind,
             status,
             running,
             pid,
+            host_pid: pid,
+            guest_pid,
             uptime,
             last_error: None,
         });
@@ -108,9 +118,12 @@ mod tests {
     ) -> InstanceComponentState {
         InstanceComponentState {
             component,
+            runtime_kind: RuntimeKind::Local,
             running: matches!(status, ComponentLifecycleStatus::Running),
             status,
             pid: None,
+            host_pid: None,
+            guest_pid: None,
             uptime: None,
             last_error: None,
         }

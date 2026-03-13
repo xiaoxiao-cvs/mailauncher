@@ -236,6 +236,7 @@ pub async fn get_instance_status(
     .await?;
 
     let pid = process_manager.get_process_pid(id, "main").await;
+    let guest_pid = process_manager.get_process_guest_pid(id, "main").await;
     let uptime = process_manager.get_process_uptime(id, "main").await;
 
     let refreshed = get_instance(pool, id).await?.unwrap_or(instance);
@@ -244,6 +245,8 @@ pub async fn get_instance_status(
         id: refreshed.id,
         status,
         pid,
+        host_pid: pid,
+        guest_pid,
         uptime,
         runtime_profile: refreshed.runtime_profile,
         last_error: refreshed.last_error,

@@ -61,12 +61,12 @@ fn spawn_output_reader(
                     let iid = instance_id.clone();
                     let comp = component.clone();
                     let t = text.clone();
-                    runtime_handle.block_on(async {
-                        pm.add_output(&iid, &comp, t).await;
-                    });
+                    let sanitized = runtime_handle.block_on(async { pm.add_output(&iid, &comp, t).await });
 
                     // 通过 Tauri 事件推送到前端
-                    let _ = app_handle.emit(&event_name, &text);
+                    if let Some(sanitized) = sanitized {
+                        let _ = app_handle.emit(&event_name, &sanitized);
+                    }
                 }
                 Err(e) => {
                     // 读取错误（通常是进程已终止）
@@ -99,6 +99,7 @@ async fn start_component_inner(
     qq_account: Option<&str>,
 ) -> AppResult<StartOutcome> {
     let adapter = state.runtime_resolver.resolve(runtime_profile);
+    let runtime_kind = adapter.runtime_kind();
     let resolved = adapter.resolve_component_command(
         instance_path,
         component_spec,
@@ -113,7 +114,14 @@ async fn start_component_inner(
 
     // 启动进程
     let reader = process_manager
-        .start_process(instance_id, component_spec.component.internal_key(), &cmd, &arg_refs, &cwd)
+        .start_process(
+            instance_id,
+            component_spec.component.internal_key(),
+            runtime_kind,
+            &cmd,
+            &arg_refs,
+            &cwd,
+        )
         .await?;
 
     // 如果返回了 reader（新启动的进程），启动输出读取任务
@@ -421,6 +429,9 @@ pub async fn get_component_status(
     component: String,
 ) -> AppResult<ComponentStatus> {
     let component_spec = resolve_component_spec(&state, &component)?;
+    let instance = instance_service::get_instance(&state.db, &instance_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
 
     let running = state
         .process_manager
@@ -439,6 +450,7 @@ pub async fn get_component_status(
 
     Ok(ComponentStatus {
         component: component_spec.component,
+        runtime_kind: instance.runtime_profile.kind,
         status: if running {
             ComponentLifecycleStatus::Running
         } else {
@@ -446,6 +458,11 @@ pub async fn get_component_status(
         },
         running,
         pid,
+        host_pid: pid,
+        guest_pid: state
+            .process_manager
+            .get_process_guest_pid(&instance_id, component_spec.component.internal_key())
+            .await,
         uptime,
         last_error: None,
     })

@@ -4,7 +4,7 @@ use tracing::info;
 
 use crate::components::ComponentSpec;
 use crate::errors::{AppError, AppResult};
-use crate::models::{ComponentType, HostOs, PythonMode, RuntimeProfile};
+use crate::models::{ComponentType, HostOs, PythonMode, RuntimeKind, RuntimeProfile};
 use crate::runtime::{ResolvedCommand, RuntimeAdapter};
 
 #[derive(Debug, Clone, Default)]
@@ -92,6 +92,10 @@ impl LocalRuntimeAdapter {
 }
 
 impl RuntimeAdapter for LocalRuntimeAdapter {
+    fn runtime_kind(&self) -> RuntimeKind {
+        RuntimeKind::Local
+    }
+
     fn resolve_component_command(
         &self,
         instance_root: &Path,

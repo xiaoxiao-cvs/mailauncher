@@ -2,13 +2,17 @@ use std::path::{Path, PathBuf};
 
 use crate::components::ComponentSpec;
 use crate::errors::{AppError, AppResult};
-use crate::models::{ComponentType, RuntimeProfile};
+use crate::models::{ComponentType, RuntimeKind, RuntimeProfile};
 use crate::runtime::{ResolvedCommand, RuntimeAdapter};
 
 #[derive(Debug, Clone, Default)]
 pub struct Wsl2RuntimeAdapter;
 
 impl RuntimeAdapter for Wsl2RuntimeAdapter {
+    fn runtime_kind(&self) -> RuntimeKind {
+        RuntimeKind::Wsl2
+    }
+
     fn resolve_component_command(
         &self,
         instance_root: &Path,
@@ -36,23 +40,24 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
         args.push("--cd".to_string());
         args.push(guest_cwd);
         args.push("--exec".to_string());
+        args.push("bash".to_string());
+        args.push("-lc".to_string());
 
-        match component.component {
+        let marker = "__MAI_GUEST_PID__";
+        let script = match component.component {
             ComponentType::Main => {
                 let python = profile
                     .python
                     .path
                     .clone()
                     .unwrap_or_else(|| "python3".to_string());
-                args.push(python);
-                args.push(component.startup_target.to_string());
+                format!("echo {marker}=$$; exec {python} {}", component.startup_target)
             }
             ComponentType::NapCat => {
-                args.push("bash".to_string());
-                args.push("start.sh".to_string());
-                if let Some(account) = qq_account {
-                    args.push(account.to_string());
-                }
+                let account_suffix = qq_account
+                    .map(|account| format!(" {}", account))
+                    .unwrap_or_default();
+                format!("echo {marker}=$$; exec bash start.sh{account_suffix}")
             }
             ComponentType::NapCatAdapter => {
                 let python = profile
@@ -60,10 +65,10 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
                     .path
                     .clone()
                     .unwrap_or_else(|| "python3".to_string());
-                args.push(python);
-                args.push(component.startup_target.to_string());
+                format!("echo {marker}=$$; exec {python} {}", component.startup_target)
             }
-        }
+        };
+        args.push(script);
 
         Ok(ResolvedCommand {
             command: "wsl.exe".to_string(),

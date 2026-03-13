@@ -19,7 +19,7 @@ use tokio::sync::Mutex;
 use tracing::{error, info, warn};
 
 use crate::errors::{AppError, AppResult};
-use crate::models::{ComponentType, RuntimeProfile};
+use crate::models::{ComponentType, RuntimeKind, RuntimeProfile};
 use crate::runtime::{LocalRuntimeAdapter, RuntimeAdapter};
 
 // ==================== 进程信息 ====================
@@ -32,7 +32,13 @@ pub struct ProcessInfo {
     pub component: String,
     /// 会话 ID（{instance_id}::{component}）
     pub session_id: String,
-    /// 进程 PID
+    /// 运行时类型
+    pub runtime_kind: RuntimeKind,
+    /// 宿主进程 PID
+    pub host_pid: Option<u32>,
+    /// 访客进程 PID（WSL2/Docker 等场景使用）
+    pub guest_pid: Option<u32>,
+    /// 兼容旧接口的主 PID 字段（当前等同 host_pid）
     pub pid: Option<u32>,
     /// 启动时间
     pub start_time: DateTime<Utc>,
@@ -46,6 +52,8 @@ pub struct ProcessInfo {
     writer: Option<Box<dyn Write + Send>>,
     /// PTY 主端（保留用于 resize 等操作）
     master: Option<Box<dyn MasterPty + Send>>,
+    /// 输出解析缓冲区，用于提取元数据标记
+    metadata_buffer: String,
 }
 
 impl ProcessInfo {
@@ -92,6 +100,41 @@ impl ProcessInfo {
         }
     }
 
+    fn consume_output_chunk(&mut self, chunk: String) -> Option<String> {
+        let combined = if self.metadata_buffer.is_empty() {
+            chunk
+        } else {
+            format!("{}{}", self.metadata_buffer, chunk)
+        };
+
+        let mut sanitized = String::new();
+        let mut pending_fragment = String::new();
+
+        for segment in combined.split_inclusive('\n') {
+            if segment.ends_with('\n') {
+                let line = segment.trim_end_matches('\n').trim_end_matches('\r');
+                if let Some(pid) = line.strip_prefix("__MAI_GUEST_PID__=") {
+                    if let Ok(parsed) = pid.trim().parse::<u32>() {
+                        self.guest_pid = Some(parsed);
+                    }
+                    continue;
+                }
+
+                sanitized.push_str(segment);
+            } else {
+                pending_fragment.push_str(segment);
+            }
+        }
+
+        self.metadata_buffer = pending_fragment;
+
+        if sanitized.is_empty() {
+            None
+        } else {
+            Some(sanitized)
+        }
+    }
+
     /// 终止进程
     pub fn kill(&mut self) {
         if let Some(mut child) = self.child.take() {
@@ -100,6 +143,8 @@ impl ProcessInfo {
         self.writer = None;
         self.master = None;
         self.pid = None;
+        self.host_pid = None;
+        self.guest_pid = None;
     }
 }
 
@@ -166,6 +211,7 @@ impl ProcessManager {
         &self,
         instance_id: &str,
         component: &str,
+        runtime_kind: RuntimeKind,
         command: &str,
         args: &[&str],
         cwd: &Path,
@@ -248,6 +294,9 @@ impl ProcessManager {
             instance_id: instance_id.to_string(),
             component: component.to_string(),
             session_id: session_id.clone(),
+            runtime_kind,
+            host_pid: pid,
+            guest_pid: if matches!(runtime_kind, RuntimeKind::Local) { pid } else { None },
             pid,
             start_time: Utc::now(),
             output_buffer,
@@ -255,6 +304,7 @@ impl ProcessManager {
             child: Some(child),
             writer: Some(writer),
             master: Some(pair.master),
+            metadata_buffer: String::new(),
         };
 
         // Phase 3: 锁内 — 再次检查竞态后插入 ProcessInfo
@@ -464,16 +514,21 @@ impl ProcessManager {
         instance_id: &str,
         component: &str,
         output: String,
-    ) {
+    ) -> Option<String> {
         let session_id = Self::session_id(instance_id, component);
         let mut inner = self.inner.lock().await;
         if let Some(proc) = inner.processes.get_mut(&session_id) {
-            proc.output_buffer.push(output);
-            if proc.output_buffer.len() > proc.buffer_size {
-                let drain_to = proc.output_buffer.len() - proc.buffer_size;
-                proc.output_buffer.drain(..drain_to);
+            if let Some(sanitized) = proc.consume_output_chunk(output) {
+                proc.output_buffer.push(sanitized.clone());
+                if proc.output_buffer.len() > proc.buffer_size {
+                    let drain_to = proc.output_buffer.len() - proc.buffer_size;
+                    proc.output_buffer.drain(..drain_to);
+                }
+                return Some(sanitized);
             }
         }
+
+        None
     }
 
     /// 向进程写入输入
@@ -574,7 +629,33 @@ impl ProcessManager {
         inner
             .processes
             .get(&session_id)
-            .and_then(|p| p.pid)
+            .and_then(|p| p.host_pid)
+    }
+
+    pub async fn get_process_guest_pid(
+        &self,
+        instance_id: &str,
+        component: &str,
+    ) -> Option<u32> {
+        let session_id = Self::session_id(instance_id, component);
+        let inner = self.inner.lock().await;
+        inner
+            .processes
+            .get(&session_id)
+            .and_then(|p| p.guest_pid)
+    }
+
+    pub async fn get_process_runtime_kind(
+        &self,
+        instance_id: &str,
+        component: &str,
+    ) -> Option<RuntimeKind> {
+        let session_id = Self::session_id(instance_id, component);
+        let inner = self.inner.lock().await;
+        inner
+            .processes
+            .get(&session_id)
+            .map(|p| p.runtime_kind)
     }
 
     /// 调整 PTY 大小

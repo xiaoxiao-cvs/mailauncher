@@ -34,6 +34,14 @@ async fn init_rust_services() -> AppState {
         .await
         .expect("默认数据初始化失败");
 
+    let reconciled = services::lifecycle_service::reconcile_instance_states_on_startup(&pool)
+        .await
+        .expect("冷启动状态收敛失败");
+
+    if reconciled > 0 {
+        info!("[初始化] 已将 {} 个遗留活动实例状态收敛为 unknown", reconciled);
+    }
+
     info!("[初始化] Rust 服务初始化完成");
 
     AppState {

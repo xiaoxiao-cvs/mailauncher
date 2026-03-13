@@ -236,9 +236,12 @@ impl RuntimeProfile {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstanceComponentState {
     pub component: ComponentType,
+    pub runtime_kind: RuntimeKind,
     pub status: ComponentLifecycleStatus,
     pub running: bool,
     pub pid: Option<u32>,
+    pub host_pid: Option<u32>,
+    pub guest_pid: Option<u32>,
     pub uptime: Option<f64>,
     pub last_error: Option<String>,
 }
@@ -387,6 +390,8 @@ pub struct InstanceStatusResponse {
     pub id: String,
     pub status: InstanceLifecycleStatus,
     pub pid: Option<u32>,
+    pub host_pid: Option<u32>,
+    pub guest_pid: Option<u32>,
     pub uptime: Option<f64>,
     pub runtime_profile: RuntimeProfile,
     pub last_error: Option<String>,
@@ -398,9 +403,12 @@ pub struct InstanceStatusResponse {
 #[derive(Debug, Serialize)]
 pub struct ComponentStatus {
     pub component: ComponentType,
+    pub runtime_kind: RuntimeKind,
     pub status: ComponentLifecycleStatus,
     pub running: bool,
     pub pid: Option<u32>,
+    pub host_pid: Option<u32>,
+    pub guest_pid: Option<u32>,
     pub uptime: Option<f64>,
     pub last_error: Option<String>,
 }

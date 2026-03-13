@@ -56,9 +56,12 @@ export interface WslDistributionInfo {
 
 export interface InstanceComponentState {
   component: ComponentType;
+  runtime_kind: RuntimeKind;
   status: ComponentLifecycleStatus;
   running: boolean;
   pid?: number;
+  host_pid?: number;
+  guest_pid?: number;
   uptime?: number;
   last_error?: string | null;
 }
@@ -107,6 +110,8 @@ export interface InstanceStatusResponse {
   id: string;
   status: InstanceStatus;
   pid?: number;
+  host_pid?: number;
+  guest_pid?: number;
   uptime?: number;
   runtime_profile: RuntimeProfile;
   last_error?: string | null;

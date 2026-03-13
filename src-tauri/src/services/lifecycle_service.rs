@@ -6,6 +6,21 @@ use crate::lifecycle::{aggregate_instance_status, collect_component_states};
 use crate::models::{ComponentType, InstanceLifecycleStatus, RuntimeProfile};
 use crate::services::process_service::ProcessManager;
 
+pub async fn reconcile_instance_states_on_startup(pool: &SqlitePool) -> AppResult<u64> {
+    let result = sqlx::query(
+        r#"UPDATE instances
+           SET status = 'unknown',
+               last_status_reason = '应用重启后需要重新探测运行态',
+               component_state = '[]',
+               updated_at = datetime('now')
+           WHERE status IN ('pending', 'starting', 'running', 'partial', 'stopping')"#,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected())
+}
+
 pub async fn sync_instance_state(
     pool: &SqlitePool,
     process_manager: &ProcessManager,
