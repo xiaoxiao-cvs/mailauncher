@@ -5,6 +5,7 @@ use crate::models::{
     InstanceLifecycleStatus, RuntimeKind, RuntimeProfile, RuntimeProbeIssue, RuntimeProbeResult,
     RuntimeProbeSeverity, WslDistributionInfo,
 };
+use crate::runtime::PathMapper;
 
 pub async fn set_instance_runtime_profile(
     pool: &SqlitePool,
@@ -180,17 +181,27 @@ async fn validate_wsl_runtime_profile(
         return Ok(());
     };
 
-    let Some(guest_workspace_root) = profile
-        .guest_workspace_root
-        .as_deref()
-        .filter(|value| !value.trim().is_empty()) else {
+    let mapper = match PathMapper::for_runtime(profile, None) {
+        Ok(mapper) => mapper,
+        Err(_) => {
+            issues.push(RuntimeProbeIssue {
+                severity: RuntimeProbeSeverity::Error,
+                code: "wsl_workspace_missing".to_string(),
+                message: "WSL2 运行时缺少 guest_workspace_root 配置".to_string(),
+            });
+            return Ok(());
+        }
+    };
+    let guest_workspace_root = mapper.workspace_root().to_string_lossy().to_string();
+
+    if guest_workspace_root.trim().is_empty() {
         issues.push(RuntimeProbeIssue {
             severity: RuntimeProbeSeverity::Error,
             code: "wsl_workspace_missing".to_string(),
             message: "WSL2 运行时缺少 guest_workspace_root 配置".to_string(),
         });
         return Ok(());
-    };
+    }
 
     if profile.user.as_deref().unwrap_or_default().trim().is_empty() {
         issues.push(RuntimeProbeIssue {
@@ -238,7 +249,7 @@ async fn validate_wsl_runtime_profile(
         });
     }
 
-    if !probe_wsl_directory(profile, guest_workspace_root).await? {
+    if !probe_wsl_directory(profile, &guest_workspace_root).await? {
         issues.push(RuntimeProbeIssue {
             severity: RuntimeProbeSeverity::Error,
             code: "wsl_workspace_not_found".to_string(),
@@ -262,17 +273,27 @@ async fn validate_docker_runtime_profile(
         return Ok(());
     };
 
-    let Some(guest_workspace_root) = profile
-        .guest_workspace_root
-        .as_deref()
-        .filter(|value| !value.trim().is_empty()) else {
+    let mapper = match PathMapper::for_runtime(profile, None) {
+        Ok(mapper) => mapper,
+        Err(_) => {
+            issues.push(RuntimeProbeIssue {
+                severity: RuntimeProbeSeverity::Error,
+                code: "docker_workspace_missing".to_string(),
+                message: "Docker 运行时缺少 guest_workspace_root 配置".to_string(),
+            });
+            return Ok(());
+        }
+    };
+    let guest_workspace_root = mapper.workspace_root().to_string_lossy().to_string();
+
+    if guest_workspace_root.trim().is_empty() {
         issues.push(RuntimeProbeIssue {
             severity: RuntimeProbeSeverity::Error,
             code: "docker_workspace_missing".to_string(),
             message: "Docker 运行时缺少 guest_workspace_root 配置".to_string(),
         });
         return Ok(());
-    };
+    }
 
     let inspect = tokio::process::Command::new("docker")
         .args(["inspect", "-f", "{{.State.Running}}", container_name])
@@ -303,7 +324,7 @@ async fn validate_docker_runtime_profile(
         });
     }
 
-    if !probe_docker_directory(profile, guest_workspace_root).await? {
+    if !probe_docker_directory(profile, &guest_workspace_root).await? {
         issues.push(RuntimeProbeIssue {
             severity: RuntimeProbeSeverity::Error,
             code: "docker_workspace_not_found".to_string(),

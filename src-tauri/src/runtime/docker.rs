@@ -1,10 +1,10 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command as StdCommand;
 
 use crate::components::ComponentSpec;
 use crate::errors::{AppError, AppResult};
 use crate::models::{ComponentLifecycleStatus, ComponentType, RuntimeKind, RuntimeProfile};
-use crate::runtime::{DiscoveredRuntimeProcess, ResolvedCommand, RuntimeAdapter, TerminalSessionInfo};
+use crate::runtime::{DiscoveredRuntimeProcess, PathMapper, ResolvedCommand, RuntimeAdapter, TerminalSessionInfo};
 
 #[derive(Debug, Clone, Default)]
 pub struct DockerRuntimeAdapter;
@@ -25,12 +25,8 @@ impl RuntimeAdapter for DockerRuntimeAdapter {
         let container_name = profile.container_name.as_deref().ok_or_else(|| {
             AppError::InvalidInput("Docker 运行时缺少 container_name 配置".to_string())
         })?;
-        let guest_workspace_root = profile.guest_workspace_root.as_deref().ok_or_else(|| {
-            AppError::InvalidInput("Docker 运行时缺少 guest_workspace_root 配置".to_string())
-        })?;
-
-        let guest_component_dir = PathBuf::from(guest_workspace_root).join(component.relative_dir());
-        let guest_cwd = guest_component_dir.to_string_lossy().replace('\\', "/");
+        let mapper = PathMapper::for_runtime(profile, None)?;
+        let guest_cwd = mapper.component_dir_string(component);
         let mut args = vec!["exec".to_string(), "-i".to_string()];
 
         if let Some(user) = profile.user.as_deref().filter(|value| !value.trim().is_empty()) {
@@ -88,9 +84,8 @@ impl RuntimeAdapter for DockerRuntimeAdapter {
         let container_name = profile.container_name.as_deref().ok_or_else(|| {
             AppError::InvalidInput("Docker 运行时缺少 container_name 配置".to_string())
         })?;
-        let guest_workspace_root = profile.guest_workspace_root.as_deref().ok_or_else(|| {
-            AppError::InvalidInput("Docker 运行时缺少 guest_workspace_root 配置".to_string())
-        })?;
+        let mapper = PathMapper::for_runtime(profile, None)?;
+        let guest_workspace_root = mapper.workspace_root().to_string_lossy().to_string();
 
         let output = StdCommand::new("docker")
             .args([
@@ -110,7 +105,7 @@ impl RuntimeAdapter for DockerRuntimeAdapter {
         parse_docker_discovered_processes(
             profile,
             &String::from_utf8_lossy(&output.stdout),
-            guest_workspace_root,
+            &guest_workspace_root,
             instance_id,
             components,
         )

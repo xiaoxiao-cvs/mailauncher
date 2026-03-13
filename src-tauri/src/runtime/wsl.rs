@@ -1,10 +1,10 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command as StdCommand;
 
 use crate::components::ComponentSpec;
 use crate::errors::{AppError, AppResult};
 use crate::models::{ComponentLifecycleStatus, ComponentType, RuntimeKind, RuntimeProfile};
-use crate::runtime::{DiscoveredRuntimeProcess, ResolvedCommand, RuntimeAdapter, TerminalSessionInfo};
+use crate::runtime::{DiscoveredRuntimeProcess, PathMapper, ResolvedCommand, RuntimeAdapter, TerminalSessionInfo};
 
 #[derive(Debug, Clone, Default)]
 pub struct Wsl2RuntimeAdapter;
@@ -26,12 +26,9 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
             AppError::InvalidInput("WSL2 运行时缺少 distribution 配置".to_string())
         })?;
 
-        let guest_workspace_root = profile.guest_workspace_root.as_deref().ok_or_else(|| {
-            AppError::InvalidInput("WSL2 运行时缺少 guest_workspace_root 配置".to_string())
-        })?;
 
-        let guest_component_dir = PathBuf::from(guest_workspace_root).join(component.relative_dir());
-        let guest_cwd = guest_component_dir.to_string_lossy().replace('\\', "/");
+        let mapper = PathMapper::for_runtime(profile, None)?;
+        let guest_cwd = mapper.component_dir_string(component);
         let mut args = vec!["--distribution".to_string(), distribution.to_string()];
 
         if let Some(user) = profile.user.as_deref() {
@@ -95,9 +92,8 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
         let distribution = profile.distribution.as_deref().ok_or_else(|| {
             AppError::InvalidInput("WSL2 运行时缺少 distribution 配置".to_string())
         })?;
-        let guest_workspace_root = profile.guest_workspace_root.as_deref().ok_or_else(|| {
-            AppError::InvalidInput("WSL2 运行时缺少 guest_workspace_root 配置".to_string())
-        })?;
+        let mapper = PathMapper::for_runtime(profile, None)?;
+        let guest_workspace_root = mapper.workspace_root().to_string_lossy().to_string();
 
         let mut args = vec!["--distribution".to_string(), distribution.to_string()];
         if let Some(user) = profile.user.as_deref() {
@@ -123,7 +119,7 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        parse_wsl_discovered_processes(profile, &stdout, guest_workspace_root, instance_id, components)
+        parse_wsl_discovered_processes(profile, &stdout, &guest_workspace_root, instance_id, components)
     }
 }
 

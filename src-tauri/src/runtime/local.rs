@@ -5,7 +5,7 @@ use tracing::info;
 use crate::components::ComponentSpec;
 use crate::errors::{AppError, AppResult};
 use crate::models::{ComponentType, HostOs, PythonMode, RuntimeKind, RuntimeProfile};
-use crate::runtime::{ResolvedCommand, RuntimeAdapter};
+use crate::runtime::{PathMapper, ResolvedCommand, RuntimeAdapter};
 
 #[derive(Debug, Clone, Default)]
 pub struct LocalRuntimeAdapter;
@@ -36,10 +36,14 @@ impl LocalRuntimeAdapter {
 
     fn build_napcat_command(
         &self,
-        instance_root: &Path,
+        mapper: &PathMapper<'_>,
         qq_account: Option<&str>,
     ) -> AppResult<ResolvedCommand> {
-        let napcat_dir = instance_root.join(ComponentType::NapCat.relative_dir());
+        let registry = crate::components::ComponentRegistry::new();
+        let napcat = registry
+            .get(ComponentType::NapCat)
+            .ok_or_else(|| AppError::InvalidInput("NapCat 组件未注册".to_string()))?;
+        let napcat_dir = mapper.component_dir(napcat);
         let cwd = napcat_dir.clone();
 
         match HostOs::current() {
@@ -104,9 +108,11 @@ impl RuntimeAdapter for LocalRuntimeAdapter {
         profile: &RuntimeProfile,
         qq_account: Option<&str>,
     ) -> AppResult<ResolvedCommand> {
+        let mapper = PathMapper::for_runtime(profile, Some(instance_root))?;
+
         match component.component {
             ComponentType::Main => {
-                let cwd = instance_root.join(component.relative_dir());
+                let cwd = mapper.component_dir(component);
                 let script = cwd.join(component.startup_target);
                 if !script.exists() {
                     return Err(AppError::NotFound(format!(
@@ -121,9 +127,9 @@ impl RuntimeAdapter for LocalRuntimeAdapter {
                     cwd,
                 })
             }
-            ComponentType::NapCat => self.build_napcat_command(instance_root, qq_account),
+            ComponentType::NapCat => self.build_napcat_command(&mapper, qq_account),
             ComponentType::NapCatAdapter => {
-                let cwd = instance_root.join(component.relative_dir());
+                let cwd = mapper.component_dir(component);
                 let script = cwd.join(component.startup_target);
                 if !script.exists() {
                     return Err(AppError::NotFound(format!(
