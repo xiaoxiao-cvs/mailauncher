@@ -42,6 +42,18 @@ async fn init_rust_services() -> AppState {
         info!("[初始化] 已将 {} 个遗留活动实例状态收敛为 unknown", reconciled);
     }
 
+    let recovered = services::lifecycle_service::recover_instance_states_on_startup(
+        &pool,
+        &components::ComponentRegistry::new(),
+        &runtime::RuntimeResolver::new(),
+    )
+    .await
+    .expect("冷启动进程重建失败");
+
+    if recovered > 0 {
+        info!("[初始化] 已完成 {} 个实例的冷启动状态重建", recovered);
+    }
+
     info!("[初始化] Rust 服务初始化完成");
 
     AppState {
