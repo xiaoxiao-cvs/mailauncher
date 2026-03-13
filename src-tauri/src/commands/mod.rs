@@ -5,6 +5,7 @@ pub mod instance;
 pub mod config;
 pub mod process;
 pub mod download;
+pub mod runtime;
 pub mod version;
 pub mod schedule;
 pub mod system;

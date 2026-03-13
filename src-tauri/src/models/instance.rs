@@ -243,6 +243,14 @@ pub struct InstanceComponentState {
     pub last_error: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WslDistributionInfo {
+    pub name: String,
+    pub state: String,
+    pub version: u8,
+    pub is_default: bool,
+}
+
 /// 机器人实例（前端消费的领域模型）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Instance {

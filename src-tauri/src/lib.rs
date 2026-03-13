@@ -88,6 +88,9 @@ pub fn run() {
             commands::download::get_download_task,
             commands::download::get_all_download_tasks,
             commands::download::get_maibot_versions,
+            // 运行时与 WSL2
+            commands::runtime::list_wsl_distributions,
+            commands::runtime::set_instance_runtime_profile,
             // 版本管理
             commands::version::get_instance_components_version,
             commands::version::check_component_update,

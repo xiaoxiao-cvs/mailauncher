@@ -47,6 +47,13 @@ export interface RuntimeProfile {
   path_mapping: PathMappingStrategy;
 }
 
+export interface WslDistributionInfo {
+  name: string;
+  state: string;
+  version: number;
+  is_default: boolean;
+}
+
 export interface InstanceComponentState {
   component: ComponentType;
   status: ComponentLifecycleStatus;
@@ -228,6 +235,17 @@ class InstanceApiClient {
 
   async getInstanceComponents(instanceId: string): Promise<ComponentType[]> {
     return tauriInvoke<ComponentType[]>('get_instance_components', { instanceId });
+  }
+
+  async listWslDistributions(): Promise<WslDistributionInfo[]> {
+    return tauriInvoke<WslDistributionInfo[]>('list_wsl_distributions');
+  }
+
+  async setInstanceRuntimeProfile(instanceId: string, runtimeProfile: RuntimeProfile): Promise<SuccessResponse> {
+    return tauriInvoke<SuccessResponse>('set_instance_runtime_profile', {
+      instanceId,
+      runtimeProfile,
+    });
   }
 
   /**

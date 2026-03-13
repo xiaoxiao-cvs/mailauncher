@@ -20,6 +20,7 @@ pub use instance::{
     ComponentType, CreateInstanceRequest, DbInstanceRecord, HostOs, Instance,
     InstanceComponentState, InstanceLifecycleStatus, InstanceList, InstanceStatusResponse,
     PythonMode, RuntimeKind, RuntimeProfile, SuccessResponse, UpdateInstanceRequest,
+    WslDistributionInfo,
 };
 #[allow(unused_imports)]
 pub use deployment::{Deployment, DeploymentLog};

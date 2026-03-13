@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ComponentType, InstanceStatus } from '@/services/instanceApi';
+import { ComponentType, InstanceStatus, RuntimeProfile, instanceApi } from '@/services/instanceApi';
 import { TerminalComponent } from '@/components/terminal/TerminalComponent';
 import { ConfigModal } from '@/components/ConfigModal';
 import { ScheduleModal } from '@/components/ScheduleModal';
@@ -21,6 +21,7 @@ import {
   ChevronDown,
   Loader2,
   FileText,
+  Save,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -48,7 +49,7 @@ export const InstanceDetailPage: React.FC = () => {
   const navigate = useNavigate();
   
   // 使用 React Query hooks
-  const { data: instance, isLoading } = useInstanceQuery(id, { refetchInterval: 10000 });
+  const { data: instance, isLoading, refetch: refetchInstance } = useInstanceQuery(id, { refetchInterval: 10000 });
   
   // 组件状态查询
   const { data: maibotStatus } = useComponentStatusQuery(id, 'MaiBot', { refetchInterval: 10000 });
@@ -68,6 +69,10 @@ export const InstanceDetailPage: React.FC = () => {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isVersionManagerOpen, setIsVersionManagerOpen] = useState(false);
+  const [runtimeDraft, setRuntimeDraft] = useState<RuntimeProfile | null>(null);
+  const [wslDistributions, setWslDistributions] = useState<Array<{ name: string; state: string; version: number; is_default: boolean }>>([]);
+  const [loadingWsl, setLoadingWsl] = useState(false);
+  const [savingRuntime, setSavingRuntime] = useState(false);
 
   const statusLabel = (status: InstanceStatus) => {
     switch (status) {
@@ -95,6 +100,41 @@ export const InstanceDetailPage: React.FC = () => {
     : instance?.runtime_profile.kind === 'docker'
       ? 'Docker'
       : 'Local';
+
+  useEffect(() => {
+    if (instance?.runtime_profile) {
+      setRuntimeDraft(instance.runtime_profile);
+    }
+  }, [instance?.id, instance?.runtime_profile]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadWslDistributions = async () => {
+      setLoadingWsl(true);
+      try {
+        const distributions = await instanceApi.listWslDistributions();
+        if (!cancelled) {
+          setWslDistributions(distributions);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('获取 WSL 发行版失败:', error);
+          setWslDistributions([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingWsl(false);
+        }
+      }
+    };
+
+    loadWslDistributions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 获取组件状态的辅助函数
   const getComponentStatus = (component: ComponentType) => {
@@ -264,6 +304,53 @@ export const InstanceDetailPage: React.FC = () => {
       setActionLoading(null);
     }
   };
+
+  const handleRuntimeFieldChange = <K extends keyof RuntimeProfile>(key: K, value: RuntimeProfile[K]) => {
+    setRuntimeDraft((current) => {
+      if (!current) return current;
+
+      if (key === 'kind' && value === 'local') {
+        return {
+          ...current,
+          kind: value,
+          guest_os: null,
+          guest_workspace_root: null,
+          distribution: null,
+          user: null,
+          path_mapping: 'native',
+        };
+      }
+
+      if (key === 'kind' && value === 'wsl2') {
+        return {
+          ...current,
+          kind: value,
+          guest_os: 'linux',
+          path_mapping: 'explicit',
+          guest_workspace_root: current.guest_workspace_root || `/home/${current.user || 'mai'}/mailauncher-instances/${current.workspace_root}`,
+        };
+      }
+
+      return {
+        ...current,
+        [key]: value,
+      };
+    });
+  };
+
+  const handleSaveRuntimeProfile = async () => {
+    if (!instance || !runtimeDraft) return;
+
+    setSavingRuntime(true);
+    try {
+      await instanceApi.setInstanceRuntimeProfile(instance.id, runtimeDraft);
+      await refetchInstance();
+    } catch (error) {
+      console.error('保存运行时配置失败:', error);
+    } finally {
+      setSavingRuntime(false);
+    }
+  };
   
   const isStopped = instance.status === 'stopped';
   const availableComponents: ComponentType[] = instance.component_states?.length
@@ -335,6 +422,97 @@ export const InstanceDetailPage: React.FC = () => {
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
         {/* Left Panel: Stats & Actions */}
         <div className="col-span-4 flex flex-col gap-6 overflow-y-auto scrollbar-thin pr-2 pb-2">
+          {runtimeDraft && (
+            <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm animate-slide-up opacity-0">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800 dark:text-white">运行时</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">实例级 runtime_profile 与 WSL2 入口</p>
+                </div>
+                <Button onClick={handleSaveRuntimeProfile} disabled={savingRuntime} className="gap-2 rounded-full">
+                  {savingRuntime ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  保存
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 text-sm">
+                <label className="space-y-1">
+                  <span className="text-gray-500 dark:text-gray-400">运行时类型</span>
+                  <select
+                    value={runtimeDraft.kind}
+                    onChange={(event) => handleRuntimeFieldChange('kind', event.target.value as RuntimeProfile['kind'])}
+                    className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                  >
+                    <option value="local">Local</option>
+                    <option value="wsl2">WSL2</option>
+                  </select>
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-gray-500 dark:text-gray-400">工作区根目录</span>
+                  <input
+                    value={runtimeDraft.workspace_root}
+                    onChange={(event) => handleRuntimeFieldChange('workspace_root', event.target.value)}
+                    className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                  />
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-gray-500 dark:text-gray-400">Python 路径</span>
+                  <input
+                    value={runtimeDraft.python.path || ''}
+                    onChange={(event) => setRuntimeDraft((current) => current ? {
+                      ...current,
+                      python: { ...current.python, path: event.target.value || null },
+                    } : current)}
+                    placeholder={runtimeDraft.kind === 'wsl2' ? 'python3' : '留空则优先使用 .venv'}
+                    className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                  />
+                </label>
+
+                {runtimeDraft.kind === 'wsl2' && (
+                  <>
+                    <label className="space-y-1">
+                      <span className="text-gray-500 dark:text-gray-400">WSL 发行版</span>
+                      <select
+                        value={runtimeDraft.distribution || ''}
+                        onChange={(event) => handleRuntimeFieldChange('distribution', event.target.value || null)}
+                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                      >
+                        <option value="">{loadingWsl ? '加载中...' : '请选择发行版'}</option>
+                        {wslDistributions.map((distribution) => (
+                          <option key={distribution.name} value={distribution.name}>
+                            {distribution.name} ({distribution.state}, WSL{distribution.version})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-gray-500 dark:text-gray-400">Guest 用户</span>
+                      <input
+                        value={runtimeDraft.user || ''}
+                        onChange={(event) => handleRuntimeFieldChange('user', event.target.value || null)}
+                        placeholder="例如 mai"
+                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                      />
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-gray-500 dark:text-gray-400">Guest 工作区</span>
+                      <input
+                        value={runtimeDraft.guest_workspace_root || ''}
+                        onChange={(event) => handleRuntimeFieldChange('guest_workspace_root', event.target.value || null)}
+                        placeholder="/home/user/mailauncher-instances/demo"
+                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                      />
+                    </label>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Quick Actions */}
           <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm animate-slide-up opacity-0">
             <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
