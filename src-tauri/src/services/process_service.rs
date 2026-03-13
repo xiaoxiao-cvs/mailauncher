@@ -710,6 +710,53 @@ impl Default for ProcessManager {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use chrono::Utc;
+
+    use super::ProcessInfo;
+    use crate::models::RuntimeKind;
+
+    fn test_process_info(runtime_kind: RuntimeKind) -> ProcessInfo {
+        ProcessInfo {
+            instance_id: "inst_test".to_string(),
+            component: "main".to_string(),
+            session_id: "inst_test::main".to_string(),
+            runtime_kind,
+            host_pid: Some(1234),
+            guest_pid: None,
+            pid: Some(1234),
+            start_time: Utc::now(),
+            output_buffer: Vec::new(),
+            buffer_size: 1000,
+            child: None,
+            writer: None,
+            master: None,
+            metadata_buffer: String::new(),
+        }
+    }
+
+    #[test]
+    fn consume_output_chunk_extracts_guest_pid_marker() {
+        let mut process = test_process_info(RuntimeKind::Wsl2);
+        let sanitized = process.consume_output_chunk("__MAI_GUEST_PID__=4321\nhello\n".to_string());
+
+        assert_eq!(process.guest_pid, Some(4321));
+        assert_eq!(sanitized.as_deref(), Some("hello\n"));
+    }
+
+    #[test]
+    fn consume_output_chunk_keeps_partial_marker_buffered() {
+        let mut process = test_process_info(RuntimeKind::Wsl2);
+        let first = process.consume_output_chunk("__MAI_GUEST_".to_string());
+        let second = process.consume_output_chunk("PID__=5678\nready\n".to_string());
+
+        assert!(first.is_none());
+        assert_eq!(process.guest_pid, Some(5678));
+        assert_eq!(second.as_deref(), Some("ready\n"));
+    }
+}
+
 // ==================== 命令构建辅助 ====================
 
 /// 根据组件类型构建启动命令和工作目录

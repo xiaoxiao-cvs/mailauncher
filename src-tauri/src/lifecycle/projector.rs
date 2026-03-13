@@ -110,6 +110,7 @@ mod tests {
     use super::aggregate_instance_status;
     use crate::models::{
         ComponentLifecycleStatus, ComponentType, InstanceComponentState, InstanceLifecycleStatus,
+        RuntimeKind,
     };
 
     fn component_state(
