@@ -287,6 +287,8 @@ impl ProcessManager {
     ) -> AppResult<bool> {
         let session_id = Self::session_id(instance_id, component);
 
+        let ctrl_c_sent;
+
         {
             let mut inner = self.inner.lock().await;
             let proc = match inner.processes.get_mut(&session_id) {
@@ -306,20 +308,27 @@ impl ProcessManager {
                 return Ok(true);
             }
 
-            if force {
+            ctrl_c_sent = if force {
                 info!("强制停止进程: {}", session_id);
                 proc.kill();
+                false
             } else {
                 // 尝试优雅停止：发送 Ctrl+C
                 info!("优雅停止进程: {}, 发送 Ctrl+C", session_id);
                 if let Some(ref mut writer) = proc.writer {
                     let _ = writer.write_all(b"\x03");
                     let _ = writer.flush();
+                    true
+                } else {
+                    // writer 已不可用，直接强制 kill
+                    warn!("writer 不可用，回退到强制终止: {}", session_id);
+                    proc.kill();
+                    false
                 }
-            }
+            };
         } // 释放锁
 
-        if !force {
+        if !force && ctrl_c_sent {
             // 锁外等待进程优雅退出，最多 2 秒
             let mut exited = false;
             for _ in 0..20 {
