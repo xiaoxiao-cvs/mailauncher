@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ComponentType, InstanceStatus, RuntimeProbeResult, RuntimeProfile, instanceApi } from '@/services/instanceApi';
+import { ComponentType, InstanceComponentState, InstanceStatus, RuntimeProbeResult, RuntimeProfile, instanceApi } from '@/services/instanceApi';
 import { TerminalComponent } from '@/components/terminal/TerminalComponent';
 import { ConfigModal } from '@/components/ConfigModal';
 import { ScheduleModal } from '@/components/ScheduleModal';
@@ -56,6 +56,46 @@ interface RuntimeCapabilityCard {
   detail: string;
   action: string;
   state: RuntimeCapabilityState;
+}
+
+function buildComponentRuntimeCard(state: InstanceComponentState): RuntimeCapabilityCard {
+  if (!state.running) {
+    return {
+      key: `${state.component}-idle`,
+      title: state.component,
+      state: 'blocked',
+      detail: '组件当前未运行，终端链路和外部接管能力都未激活。',
+      action: '先启动组件，再检查会话和运行态能力。',
+    };
+  }
+
+  if (state.externally_managed && state.terminal_reconnectable) {
+    return {
+      key: `${state.component}-external-reconnectable`,
+      title: state.component,
+      state: 'ready',
+      detail: '组件当前通过外部会话接管，并已确认存在可重连终端。',
+      action: '可以直接读取历史、写入输入并在刷新后重新接管会话。',
+    };
+  }
+
+  if (state.externally_managed) {
+    return {
+      key: `${state.component}-external-readonly`,
+      title: state.component,
+      state: 'warning',
+      detail: '组件当前仅以外部进程形式被探测到，缺少可重连终端会话。',
+      action: '当前可以探测状态并停止进程，但无法安全重连终端。',
+    };
+  }
+
+  return {
+    key: `${state.component}-managed`,
+    title: state.component,
+    state: 'ready',
+    detail: '组件由当前应用直接托管，终端交互和窗口 resize 可用。',
+    action: '当前终端由启动器控制，适合直接调试和查看实时输出。',
+  };
 }
 
 const capabilityStateClassName: Record<RuntimeCapabilityState, string> = {
@@ -547,6 +587,10 @@ export const InstanceDetailPage: React.FC = () => {
   const availableComponents: ComponentType[] = instance.component_states?.length
     ? instance.component_states.map((state) => state.component)
     : ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'];
+  const componentRuntimeCards = availableComponents
+    .map((component) => getComponentStatus(component) ?? instance.component_states.find((state) => state.component === component))
+    .filter((state): state is InstanceComponentState => Boolean(state))
+    .map((state) => buildComponentRuntimeCard(state));
   
   // 检查是否有任何组件在运行
   const hasAnyComponentRunning = availableComponents.some(
@@ -767,6 +811,20 @@ export const InstanceDetailPage: React.FC = () => {
                         </div>
                       ))}
                     </div>
+                    {componentRuntimeCards.length > 0 && (
+                      <div className="mt-3 grid grid-cols-1 gap-2">
+                        {componentRuntimeCards.map((card) => (
+                          <div key={card.key} className={`rounded-2xl border px-3 py-3 ${capabilityStateClassName[card.state]}`}>
+                            <div className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide">
+                              <span>{card.title}</span>
+                              <span>Runtime</span>
+                            </div>
+                            <div className="mt-1 text-sm font-medium">{card.detail}</div>
+                            <div className="mt-1 text-xs opacity-80">{card.action}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {runtimeProbe.issues.length > 0 && (
                       <div className="mt-2 space-y-2 text-xs leading-5">
                         {runtimeProbe.issues.map((issue) => (

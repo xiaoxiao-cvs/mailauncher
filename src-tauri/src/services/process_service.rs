@@ -995,6 +995,44 @@ impl ProcessManager {
             .map(|p| p.runtime_kind)
     }
 
+    pub async fn is_process_external(
+        &self,
+        instance_id: &str,
+        component: &str,
+    ) -> bool {
+        let session_id = Self::session_id(instance_id, component);
+        let inner = self.inner.lock().await;
+        inner
+            .processes
+            .get(&session_id)
+            .map(|process| process.is_external())
+            .unwrap_or(false)
+    }
+
+    pub async fn is_terminal_reconnectable(
+        &self,
+        instance_id: &str,
+        component: &str,
+    ) -> bool {
+        let session_id = Self::session_id(instance_id, component);
+        let mut inner = self.inner.lock().await;
+        inner
+            .processes
+            .get_mut(&session_id)
+            .map(|process| {
+                if process.is_external() {
+                    process
+                        .terminal_session
+                        .as_ref()
+                        .map(|session| session.verified)
+                        .unwrap_or(false)
+                } else {
+                    process.is_alive()
+                }
+            })
+            .unwrap_or(false)
+    }
+
     /// 调整 PTY 大小
     pub async fn resize_pty(
         &self,

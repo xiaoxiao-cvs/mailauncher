@@ -266,6 +266,8 @@ fn hydrate_stopped_component_states(
             runtime_kind,
             status: ComponentLifecycleStatus::Stopped,
             running: false,
+            externally_managed: false,
+            terminal_reconnectable: false,
             pid: None,
             host_pid: None,
             guest_pid: None,
@@ -286,6 +288,8 @@ fn hydrate_unknown_component_states(
             runtime_kind,
             status: ComponentLifecycleStatus::Unknown,
             running: false,
+            externally_managed: false,
+            terminal_reconnectable: false,
             pid: None,
             host_pid: None,
             guest_pid: None,
@@ -309,6 +313,12 @@ fn hydrate_discovered_component_states(
                     runtime_kind: process.runtime_kind,
                     status: process.status,
                     running: matches!(process.status, ComponentLifecycleStatus::Running),
+                    externally_managed: true,
+                    terminal_reconnectable: process
+                        .terminal_session
+                        .as_ref()
+                        .map(|session| session.verified)
+                        .unwrap_or(false),
                     pid: process.host_pid.or(process.guest_pid),
                     host_pid: process.host_pid,
                     guest_pid: process.guest_pid,
@@ -321,6 +331,8 @@ fn hydrate_discovered_component_states(
                     runtime_kind,
                     status: ComponentLifecycleStatus::Stopped,
                     running: false,
+                    externally_managed: false,
+                    terminal_reconnectable: false,
                     pid: None,
                     host_pid: None,
                     guest_pid: None,
@@ -493,6 +505,8 @@ mod tests {
             runtime_kind: RuntimeKind::Docker,
             status: ComponentLifecycleStatus::Unknown,
             running: false,
+            externally_managed: false,
+            terminal_reconnectable: false,
             pid: None,
             host_pid: None,
             guest_pid: None,

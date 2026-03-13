@@ -489,6 +489,14 @@ pub async fn get_component_status(
         .process_manager
         .get_process_uptime(&instance_id, component_spec.component.internal_key())
         .await;
+    let externally_managed = state
+        .process_manager
+        .is_process_external(&instance_id, component_spec.component.internal_key())
+        .await;
+    let terminal_reconnectable = state
+        .process_manager
+        .is_terminal_reconnectable(&instance_id, component_spec.component.internal_key())
+        .await;
 
     Ok(ComponentStatus {
         component: component_spec.component,
@@ -499,6 +507,8 @@ pub async fn get_component_status(
             ComponentLifecycleStatus::Stopped
         },
         running,
+        externally_managed,
+        terminal_reconnectable,
         pid: if running { pid.or(guest_pid) } else { None },
         host_pid: if running { pid } else { None },
         guest_pid: if running { guest_pid } else { None },

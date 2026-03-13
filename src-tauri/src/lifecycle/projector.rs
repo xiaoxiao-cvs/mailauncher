@@ -29,6 +29,12 @@ pub async fn collect_component_states(
             .get_process_runtime_kind(instance_id, spec.component.internal_key())
             .await
             .unwrap_or(RuntimeKind::Local);
+        let externally_managed = process_manager
+            .is_process_external(instance_id, spec.component.internal_key())
+            .await;
+        let terminal_reconnectable = process_manager
+            .is_terminal_reconnectable(instance_id, spec.component.internal_key())
+            .await;
 
         let status = if running {
             ComponentLifecycleStatus::Running
@@ -41,6 +47,8 @@ pub async fn collect_component_states(
             runtime_kind,
             status,
             running,
+            externally_managed,
+            terminal_reconnectable,
             pid: if running { pid.or(guest_pid) } else { None },
             host_pid: if running { pid } else { None },
             guest_pid: if running { guest_pid } else { None },
@@ -122,6 +130,8 @@ mod tests {
             runtime_kind: RuntimeKind::Local,
             running: matches!(status, ComponentLifecycleStatus::Running),
             status,
+            externally_managed: false,
+            terminal_reconnectable: matches!(status, ComponentLifecycleStatus::Running),
             pid: None,
             host_pid: None,
             guest_pid: None,

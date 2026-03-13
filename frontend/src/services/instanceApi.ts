@@ -73,6 +73,8 @@ export interface InstanceComponentState {
   runtime_kind: RuntimeKind;
   status: ComponentLifecycleStatus;
   running: boolean;
+  externally_managed?: boolean;
+  terminal_reconnectable?: boolean;
   pid?: number;
   host_pid?: number;
   guest_pid?: number;

@@ -241,6 +241,10 @@ pub struct InstanceComponentState {
     pub runtime_kind: RuntimeKind,
     pub status: ComponentLifecycleStatus,
     pub running: bool,
+    #[serde(default)]
+    pub externally_managed: bool,
+    #[serde(default)]
+    pub terminal_reconnectable: bool,
     pub pid: Option<u32>,
     pub host_pid: Option<u32>,
     pub guest_pid: Option<u32>,
@@ -428,6 +432,8 @@ pub struct ComponentStatus {
     pub runtime_kind: RuntimeKind,
     pub status: ComponentLifecycleStatus,
     pub running: bool,
+    pub externally_managed: bool,
+    pub terminal_reconnectable: bool,
     pub pid: Option<u32>,
     pub host_pid: Option<u32>,
     pub guest_pid: Option<u32>,
