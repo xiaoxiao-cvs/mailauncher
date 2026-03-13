@@ -192,6 +192,7 @@ pub struct RuntimeProfile {
     pub guest_os: Option<GuestOs>,
     pub workspace_root: String,
     pub guest_workspace_root: Option<String>,
+    pub container_name: Option<String>,
     pub python: PythonRuntimeConfig,
     pub terminal: TerminalCapability,
     pub signal_policy: SignalPolicy,
@@ -214,6 +215,7 @@ impl RuntimeProfile {
             guest_os: None,
             workspace_root: workspace_root.into(),
             guest_workspace_root: None,
+            container_name: None,
             python: PythonRuntimeConfig {
                 mode: python_mode,
                 path: python_path,

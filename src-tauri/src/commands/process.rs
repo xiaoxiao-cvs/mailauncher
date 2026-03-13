@@ -102,6 +102,7 @@ async fn start_component_inner(
     let adapter = state.runtime_resolver.resolve(runtime_profile);
     let runtime_kind = adapter.runtime_kind();
     let resolved = adapter.resolve_component_command(
+        instance_id,
         instance_path,
         component_spec,
         runtime_profile,

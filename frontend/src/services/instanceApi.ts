@@ -39,6 +39,7 @@ export interface RuntimeProfile {
   guest_os?: GuestOs | null;
   workspace_root: string;
   guest_workspace_root?: string | null;
+  container_name?: string | null;
   python: PythonRuntimeConfig;
   terminal: TerminalCapability;
   signal_policy: SignalPolicy;

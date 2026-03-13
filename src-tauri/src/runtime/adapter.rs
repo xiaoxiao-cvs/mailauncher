@@ -18,6 +18,7 @@ pub struct DiscoveredRuntimeProcess {
     pub status: ComponentLifecycleStatus,
     pub host_pid: Option<u32>,
     pub guest_pid: Option<u32>,
+    pub terminal_session_name: Option<String>,
 }
 
 pub trait RuntimeAdapter: Send + Sync {
@@ -25,6 +26,7 @@ pub trait RuntimeAdapter: Send + Sync {
 
     fn resolve_component_command(
         &self,
+        instance_id: &str,
         instance_root: &Path,
         component: &ComponentSpec,
         profile: &RuntimeProfile,
@@ -34,6 +36,7 @@ pub trait RuntimeAdapter: Send + Sync {
     fn discover_processes(
         &self,
         _profile: &RuntimeProfile,
+        _instance_id: &str,
         _components: &[&ComponentSpec],
     ) -> AppResult<Vec<DiscoveredRuntimeProcess>> {
         Ok(Vec::new())

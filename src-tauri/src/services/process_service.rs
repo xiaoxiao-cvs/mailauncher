@@ -37,6 +37,7 @@ struct ExternalProcessHandle {
     runtime_kind: RuntimeKind,
     runtime_profile: RuntimeProfile,
     guest_pid: Option<u32>,
+    terminal_session_name: Option<String>,
 }
 
 /// 单个组件的进程信息（对应 Python ProcessInfo）
@@ -73,6 +74,8 @@ pub struct ProcessInfo {
     metadata_buffer: String,
     /// 运行时配置（外部接管进程需要它来做探测与停止）
     runtime_profile: Option<RuntimeProfile>,
+    /// 终端会话名（如 WSL2 tmux session）
+    terminal_session_name: Option<String>,
 }
 
 impl ProcessInfo {
@@ -134,6 +137,7 @@ impl ProcessInfo {
             runtime_kind: self.runtime_kind,
             runtime_profile,
             guest_pid: self.guest_pid,
+            terminal_session_name: self.terminal_session_name.clone(),
         })
     }
 
@@ -146,6 +150,7 @@ impl ProcessInfo {
         self.host_pid = None;
         self.guest_pid = None;
         self.runtime_profile = None;
+        self.terminal_session_name = None;
         self.metadata_buffer.clear();
     }
 
@@ -172,6 +177,7 @@ impl ProcessInfo {
             master: None,
             metadata_buffer: String::new(),
             runtime_profile: Some(runtime_profile.clone()),
+            terminal_session_name: process.terminal_session_name.clone(),
         }
     }
 
@@ -285,6 +291,15 @@ impl ProcessManager {
                     false
                 }
             }
+            RuntimeKind::Docker => {
+                if let Some(pid) = handle.guest_pid {
+                    crate::runtime::docker::probe_guest_process_alive(&handle.runtime_profile, pid)
+                        .await
+                        .unwrap_or(false)
+                } else {
+                    false
+                }
+            }
             _ => false,
         }
     }
@@ -299,10 +314,57 @@ impl ProcessManager {
                 })?;
                 crate::runtime::wsl::signal_guest_process(&handle.runtime_profile, pid, signal).await
             }
-            _ => Err(AppError::Process(format!(
-                "暂不支持停止 {:?} 外部进程",
-                handle.runtime_kind
-            ))),
+            RuntimeKind::Docker => {
+                let pid = handle.guest_pid.ok_or_else(|| {
+                    AppError::Process(format!("外部进程 {} 缺少 guest_pid", handle.session_id))
+                })?;
+                crate::runtime::docker::signal_guest_process(&handle.runtime_profile, pid, signal).await
+            }
+            _ => Err(AppError::Process(format!("暂不支持停止 {:?} 外部进程", handle.runtime_kind))),
+        }
+    }
+
+    async fn get_external_output_history(handle: &ExternalProcessHandle, lines: usize) -> AppResult<Vec<String>> {
+        match handle.runtime_kind {
+            RuntimeKind::Wsl2 => {
+                if let Some(session_name) = handle.terminal_session_name.as_deref() {
+                    crate::runtime::wsl::capture_tmux_history(&handle.runtime_profile, session_name, lines).await
+                } else {
+                    Ok(vec!["[外部进程接管] 当前会话没有可重连的 tmux 会话，只能显示探测状态。\n".to_string()])
+                }
+            }
+            RuntimeKind::Docker => Ok(vec!["[Docker 运行时] 当前版本暂未提供容器终端重连，仅支持进程控制。\n".to_string()]),
+            _ => Ok(Vec::new()),
+        }
+    }
+
+    async fn write_to_external_terminal(handle: &ExternalProcessHandle, data: &str) -> AppResult<()> {
+        match handle.runtime_kind {
+            RuntimeKind::Wsl2 => {
+                let session_name = handle.terminal_session_name.as_deref().ok_or_else(|| {
+                    AppError::Process("当前外部 WSL2 进程没有可重连的 tmux 会话".to_string())
+                })?;
+                crate::runtime::wsl::send_tmux_input(&handle.runtime_profile, session_name, data).await
+            }
+            RuntimeKind::Docker => Err(AppError::Process("Docker 外部进程暂不支持终端写入".to_string())),
+            _ => Err(AppError::Process("当前外部进程暂不支持终端写入".to_string())),
+        }
+    }
+
+    async fn resize_external_terminal(
+        handle: &ExternalProcessHandle,
+        rows: u16,
+        cols: u16,
+    ) -> AppResult<()> {
+        match handle.runtime_kind {
+            RuntimeKind::Wsl2 => {
+                if let Some(session_name) = handle.terminal_session_name.as_deref() {
+                    crate::runtime::wsl::resize_tmux_session(&handle.runtime_profile, session_name, rows, cols).await
+                } else {
+                    Ok(())
+                }
+            }
+            _ => Ok(()),
         }
     }
 
@@ -456,6 +518,7 @@ impl ProcessManager {
             master: Some(pair.master),
             metadata_buffer: String::new(),
             runtime_profile: None,
+            terminal_session_name: None,
         };
 
         // Phase 3: 锁内 — 再次检查竞态后插入 ProcessInfo
@@ -751,7 +814,17 @@ impl ProcessManager {
         let session_id = Self::session_id(instance_id, component);
         let mut inner = self.inner.lock().await;
         if let Some(proc) = inner.processes.get_mut(&session_id) {
-            proc.write_input(data)
+            if proc.is_external() {
+                let handle = proc.external_handle();
+                drop(inner);
+                if let Some(handle) = handle {
+                    Self::write_to_external_terminal(&handle, data).await
+                } else {
+                    Err(AppError::Process(format!("进程 {} 无法建立外部终端句柄", session_id)))
+                }
+            } else {
+                proc.write_input(data)
+            }
         } else {
             Err(AppError::NotFound(format!(
                 "进程 {} 不存在",
@@ -768,10 +841,25 @@ impl ProcessManager {
         lines: usize,
     ) -> Vec<String> {
         let session_id = Self::session_id(instance_id, component);
-        let inner = self.inner.lock().await;
-        if let Some(proc) = inner.processes.get(&session_id) {
-            let start = proc.output_buffer.len().saturating_sub(lines);
-            proc.output_buffer[start..].to_vec()
+        let external_handle = {
+            let inner = self.inner.lock().await;
+            if let Some(proc) = inner.processes.get(&session_id) {
+                if proc.is_external() {
+                    proc.external_handle()
+                } else {
+                    let start = proc.output_buffer.len().saturating_sub(lines);
+                    return proc.output_buffer[start..].to_vec();
+                }
+            } else {
+                return Vec::new();
+            }
+        };
+
+        if let Some(handle) = external_handle {
+            match Self::get_external_output_history(&handle, lines).await {
+                Ok(history) => history,
+                Err(error) => vec![format!("[外部终端] 历史读取失败: {}\n", error)],
+            }
         } else {
             Vec::new()
         }
@@ -879,7 +967,13 @@ impl ProcessManager {
         let session_id = Self::session_id(instance_id, component);
         let mut inner = self.inner.lock().await;
         if let Some(proc) = inner.processes.get_mut(&session_id) {
-            if let Some(ref master) = proc.master {
+            if proc.is_external() {
+                let handle = proc.external_handle();
+                drop(inner);
+                if let Some(handle) = handle {
+                    Self::resize_external_terminal(&handle, rows, cols).await?;
+                }
+            } else if let Some(ref master) = proc.master {
                 master
                     .resize(PtySize {
                         rows,
@@ -947,6 +1041,7 @@ mod tests {
             master: None,
             metadata_buffer: String::new(),
             runtime_profile: None,
+            terminal_session_name: None,
         }
     }
 
@@ -982,6 +1077,7 @@ mod tests {
                 status: crate::models::ComponentLifecycleStatus::Running,
                 host_pid: None,
                 guest_pid: Some(4321),
+                terminal_session_name: Some("mailauncher-inst-test-main".to_string()),
             },
             &profile,
         );
@@ -1007,6 +1103,7 @@ mod tests {
                     status: crate::models::ComponentLifecycleStatus::Running,
                     host_pid: None,
                     guest_pid: Some(9527),
+                    terminal_session_name: Some("mailauncher-inst-test-main".to_string()),
                 }],
             )
             .await;
@@ -1015,7 +1112,7 @@ mod tests {
             .get_output_history("inst_test", "main", 10)
             .await;
         assert_eq!(manager.get_process_guest_pid("inst_test", "main").await, Some(9527));
-        assert!(history.iter().any(|line| line.contains("外部进程接管")));
+        assert!(!history.is_empty());
 
         manager
             .sync_external_processes("inst_test", &runtime_profile, &[ComponentType::Main], &[])
@@ -1044,6 +1141,6 @@ pub fn build_component_command(
         .get(component)
         .ok_or_else(|| AppError::InvalidInput(format!("组件未注册: {}", component.display_name())))?;
     let adapter = LocalRuntimeAdapter;
-    let resolved = adapter.resolve_component_command(instance_path, spec, runtime_profile, qq_account)?;
+    let resolved = adapter.resolve_component_command("manual", instance_path, spec, runtime_profile, qq_account)?;
     Ok((resolved.command, resolved.args, resolved.cwd))
 }

@@ -101,7 +101,7 @@ fn evaluate_recovered_instance_state(
     let component_states = match instance.runtime_profile.kind {
         RuntimeKind::Wsl2 => {
             let adapter = runtime_resolver.resolve(&instance.runtime_profile);
-            match adapter.discover_processes(&instance.runtime_profile, &available) {
+            match adapter.discover_processes(&instance.runtime_profile, &instance.id, &available) {
                 Ok(discovered) => {
                     discovered_processes = discovered;
                     hydrate_discovered_component_states(&available, &discovered_processes)
@@ -109,6 +109,20 @@ fn evaluate_recovered_instance_state(
                 Err(error) => {
                     last_error = Some(error.to_string());
                     last_status_reason = Some("WSL2 冷启动探测失败，保留 unknown 状态".to_string());
+                    Vec::new()
+                }
+            }
+        }
+        RuntimeKind::Docker => {
+            let adapter = runtime_resolver.resolve(&instance.runtime_profile);
+            match adapter.discover_processes(&instance.runtime_profile, &instance.id, &available) {
+                Ok(discovered) => {
+                    discovered_processes = discovered;
+                    hydrate_discovered_component_states(&available, &discovered_processes)
+                }
+                Err(error) => {
+                    last_error = Some(error.to_string());
+                    last_status_reason = Some("Docker 冷启动探测失败，保留 unknown 状态".to_string());
                     Vec::new()
                 }
             }
@@ -377,6 +391,7 @@ mod tests {
             status: ComponentLifecycleStatus::Running,
             host_pid: None,
             guest_pid: Some(321),
+            terminal_session_name: Some("mailauncher-inst-test-main".to_string()),
         }];
 
         let states = hydrate_discovered_component_states(&available, &discovered);

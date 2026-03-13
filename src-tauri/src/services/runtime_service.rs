@@ -151,13 +151,7 @@ pub async fn validate_runtime_profile(profile: &RuntimeProfile) -> AppResult<Run
             }
         }
         RuntimeKind::Wsl2 => validate_wsl_runtime_profile(profile, &mut issues).await?,
-        RuntimeKind::Docker => {
-            issues.push(RuntimeProbeIssue {
-                severity: RuntimeProbeSeverity::Error,
-                code: "docker_not_implemented".to_string(),
-                message: "Docker 运行时尚未实现，当前不能保存该配置".to_string(),
-            });
-        }
+        RuntimeKind::Docker => validate_docker_runtime_profile(profile, &mut issues).await?,
     }
 
     let ok = issues.iter().all(|issue| issue.severity != RuntimeProbeSeverity::Error);
@@ -236,11 +230,78 @@ async fn validate_wsl_runtime_profile(
         }
     }
 
+    if !crate::runtime::wsl::tmux_available(profile).await? {
+        issues.push(RuntimeProbeIssue {
+            severity: RuntimeProbeSeverity::Warning,
+            code: "wsl_tmux_missing".to_string(),
+            message: "WSL2 环境中未检测到 tmux，将无法提供跨重启终端重连能力".to_string(),
+        });
+    }
+
     if !probe_wsl_directory(profile, guest_workspace_root).await? {
         issues.push(RuntimeProbeIssue {
             severity: RuntimeProbeSeverity::Error,
             code: "wsl_workspace_not_found".to_string(),
             message: format!("WSL guest 工作区不存在: {}", guest_workspace_root),
+        });
+    }
+
+    Ok(())
+}
+
+async fn validate_docker_runtime_profile(
+    profile: &RuntimeProfile,
+    issues: &mut Vec<RuntimeProbeIssue>,
+) -> AppResult<()> {
+    let Some(container_name) = profile.container_name.as_deref().filter(|value| !value.trim().is_empty()) else {
+        issues.push(RuntimeProbeIssue {
+            severity: RuntimeProbeSeverity::Error,
+            code: "docker_container_missing".to_string(),
+            message: "Docker 运行时缺少 container_name 配置".to_string(),
+        });
+        return Ok(());
+    };
+
+    let Some(guest_workspace_root) = profile
+        .guest_workspace_root
+        .as_deref()
+        .filter(|value| !value.trim().is_empty()) else {
+        issues.push(RuntimeProbeIssue {
+            severity: RuntimeProbeSeverity::Error,
+            code: "docker_workspace_missing".to_string(),
+            message: "Docker 运行时缺少 guest_workspace_root 配置".to_string(),
+        });
+        return Ok(());
+    };
+
+    let inspect = tokio::process::Command::new("docker")
+        .args(["inspect", "-f", "{{.State.Running}}", container_name])
+        .output()
+        .await
+        .map_err(|error| AppError::Process(format!("执行 Docker inspect 失败: {}", error)))?;
+
+    if !inspect.status.success() {
+        issues.push(RuntimeProbeIssue {
+            severity: RuntimeProbeSeverity::Error,
+            code: "docker_container_not_found".to_string(),
+            message: format!("未找到 Docker 容器 {}", container_name),
+        });
+        return Ok(());
+    }
+
+    if String::from_utf8_lossy(&inspect.stdout).trim() != "true" {
+        issues.push(RuntimeProbeIssue {
+            severity: RuntimeProbeSeverity::Warning,
+            code: "docker_container_stopped".to_string(),
+            message: format!("Docker 容器 {} 当前未运行", container_name),
+        });
+    }
+
+    if !probe_docker_directory(profile, guest_workspace_root).await? {
+        issues.push(RuntimeProbeIssue {
+            severity: RuntimeProbeSeverity::Error,
+            code: "docker_workspace_not_found".to_string(),
+            message: format!("Docker guest 工作区不存在: {}", guest_workspace_root),
         });
     }
 
@@ -268,6 +329,16 @@ async fn probe_wsl_directory(profile: &RuntimeProfile, guest_workspace_root: &st
         .output()
         .await
         .map_err(|error| AppError::Process(format!("执行 WSL 工作区探测失败: {}", error)))?;
+
+    Ok(output.status.success())
+}
+
+async fn probe_docker_directory(profile: &RuntimeProfile, guest_workspace_root: &str) -> AppResult<bool> {
+    let escaped = guest_workspace_root.replace('\'', r#"'\''"#);
+    let output = crate::runtime::docker::build_docker_command(profile, &format!("test -d '{}'", escaped))
+        .output()
+        .await
+        .map_err(|error| AppError::Process(format!("执行 Docker 工作区探测失败: {}", error)))?;
 
     Ok(output.status.success())
 }

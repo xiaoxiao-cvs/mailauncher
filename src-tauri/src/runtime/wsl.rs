@@ -16,6 +16,7 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
 
     fn resolve_component_command(
         &self,
+        instance_id: &str,
         instance_root: &Path,
         component: &ComponentSpec,
         profile: &RuntimeProfile,
@@ -39,26 +40,26 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
         }
 
         args.push("--cd".to_string());
-        args.push(guest_cwd);
+        args.push(guest_cwd.clone());
         args.push("--exec".to_string());
         args.push("bash".to_string());
         args.push("-lc".to_string());
 
         let marker = "__MAI_GUEST_PID__";
-        let script = match component.component {
+        let inner_script = match component.component {
             ComponentType::Main => {
                 let python = profile
                     .python
                     .path
                     .clone()
                     .unwrap_or_else(|| "python3".to_string());
-                format!("echo {marker}=$$; exec {python} {}", component.startup_target)
+                format!("cd '{guest_cwd}' && echo {marker}=$$; exec {python} {}", component.startup_target)
             }
             ComponentType::NapCat => {
                 let account_suffix = qq_account
-                    .map(|account| format!(" {}", account))
+                    .map(|account| format!(" {}", shell_escape(account)))
                     .unwrap_or_default();
-                format!("echo {marker}=$$; exec bash start.sh{account_suffix}")
+                format!("cd '{guest_cwd}' && echo {marker}=$$; exec bash start.sh{account_suffix}")
             }
             ComponentType::NapCatAdapter => {
                 let python = profile
@@ -66,10 +67,13 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
                     .path
                     .clone()
                     .unwrap_or_else(|| "python3".to_string());
-                format!("echo {marker}=$$; exec {python} {}", component.startup_target)
+                format!("cd '{guest_cwd}' && echo {marker}=$$; exec {python} {}", component.startup_target)
             }
         };
-        args.push(script);
+        let session_name = terminal_session_name(instance_id, component.component.internal_key());
+        args.push(format!(
+            "if command -v tmux >/dev/null 2>&1; then SESSION='{session_name}'; tmux has-session -t \"$SESSION\" 2>/dev/null || tmux new-session -d -s \"$SESSION\" \"{inner_script}\"; exec tmux attach-session -t \"$SESSION\"; else {inner_script}; fi"
+        ));
 
         Ok(ResolvedCommand {
             command: "wsl.exe".to_string(),
@@ -81,6 +85,7 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
     fn discover_processes(
         &self,
         profile: &RuntimeProfile,
+        instance_id: &str,
         components: &[&ComponentSpec],
     ) -> AppResult<Vec<DiscoveredRuntimeProcess>> {
         if !cfg!(target_os = "windows") {
@@ -118,13 +123,19 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        Ok(parse_wsl_discovered_processes(&stdout, guest_workspace_root, components))
+        Ok(parse_wsl_discovered_processes(
+            &stdout,
+            guest_workspace_root,
+            instance_id,
+            components,
+        ))
     }
 }
 
 fn parse_wsl_discovered_processes(
     stdout: &str,
     guest_workspace_root: &str,
+    instance_id: &str,
     components: &[&ComponentSpec],
 ) -> Vec<DiscoveredRuntimeProcess> {
     let root = guest_workspace_root.trim_end_matches('/');
@@ -163,6 +174,7 @@ fn parse_wsl_discovered_processes(
                     status: ComponentLifecycleStatus::Running,
                     host_pid: None,
                     guest_pid: Some(pid),
+                    terminal_session_name: Some(terminal_session_name(instance_id, component.component.internal_key())),
                 });
                 break;
             }
@@ -188,12 +200,13 @@ mod tests {
         ];
 
         let stdout = "123\t/home/mai/demo/MaiBot\tpython3 bot.py\n456\t/home/mai/demo/MaiBot-Napcat-Adapter\tpython3 main.py\n";
-        let discovered = parse_wsl_discovered_processes(stdout, "/home/mai/demo", &components);
+        let discovered = parse_wsl_discovered_processes(stdout, "/home/mai/demo", "inst-1", &components);
 
         assert_eq!(discovered.len(), 2);
         assert_eq!(discovered[0].component, ComponentType::Main);
         assert_eq!(discovered[0].guest_pid, Some(123));
         assert_eq!(discovered[1].component, ComponentType::NapCatAdapter);
+        assert_eq!(discovered[0].terminal_session_name.as_deref(), Some("mailauncher-inst-1-main"));
     }
 }
 
@@ -223,6 +236,92 @@ pub async fn signal_guest_process(profile: &RuntimeProfile, pid: u32, signal: &s
     }
 }
 
+pub async fn tmux_available(profile: &RuntimeProfile) -> AppResult<bool> {
+    let output = build_wsl_command(profile, "command -v tmux >/dev/null 2>&1")
+        .output()
+        .await
+        .map_err(|error| AppError::Process(format!("执行 tmux 探测失败: {}", error)))?;
+
+    Ok(output.status.success())
+}
+
+pub async fn capture_tmux_history(
+    profile: &RuntimeProfile,
+    session_name: &str,
+    lines: usize,
+) -> AppResult<Vec<String>> {
+    let script = format!(
+        "tmux capture-pane -pt '{}' -S -{}",
+        shell_escape(session_name),
+        lines.max(1)
+    );
+    let output = build_wsl_command(profile, &script)
+        .output()
+        .await
+        .map_err(|error| AppError::Process(format!("读取 tmux 历史失败: {}", error)))?;
+
+    if !output.status.success() {
+        return Err(AppError::Process(String::from_utf8_lossy(&output.stderr).trim().to_string()));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|line| format!("{}\n", line))
+        .collect())
+}
+
+pub async fn send_tmux_input(profile: &RuntimeProfile, session_name: &str, data: &str) -> AppResult<()> {
+    for token in tmux_key_tokens(data) {
+        let script = format!(
+            "tmux send-keys -t '{}' {}",
+            shell_escape(session_name),
+            token
+        );
+        let output = build_wsl_command(profile, &script)
+            .output()
+            .await
+            .map_err(|error| AppError::Process(format!("发送 tmux 输入失败: {}", error)))?;
+
+        if !output.status.success() {
+            return Err(AppError::Process(String::from_utf8_lossy(&output.stderr).trim().to_string()));
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn resize_tmux_session(
+    profile: &RuntimeProfile,
+    session_name: &str,
+    rows: u16,
+    cols: u16,
+) -> AppResult<()> {
+    let script = format!(
+        "tmux resize-window -t '{}' -x {} -y {}",
+        shell_escape(session_name),
+        cols,
+        rows
+    );
+    let output = build_wsl_command(profile, &script)
+        .output()
+        .await
+        .map_err(|error| AppError::Process(format!("调整 tmux 窗口大小失败: {}", error)))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(AppError::Process(String::from_utf8_lossy(&output.stderr).trim().to_string()))
+    }
+}
+
+pub fn terminal_session_name(instance_id: &str, component: &str) -> String {
+    format!(
+        "mailauncher-{}-{}",
+        sanitize_session_token(instance_id),
+        sanitize_session_token(component)
+    )
+}
+
 fn build_wsl_command(profile: &RuntimeProfile, script: &str) -> tokio::process::Command {
     let distribution = profile.distribution.as_deref().unwrap_or_default();
     let mut command = tokio::process::Command::new("wsl.exe");
@@ -234,4 +333,52 @@ fn build_wsl_command(profile: &RuntimeProfile, script: &str) -> tokio::process::
 
     command.args(["--exec", "bash", "-lc", script]);
     command
+}
+
+fn sanitize_session_token(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
+        .collect()
+}
+
+fn shell_escape(value: &str) -> String {
+    value.replace('\'', r#"'\''"#)
+}
+
+fn tmux_key_tokens(data: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let bytes = data.as_bytes();
+    let mut index = 0;
+
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\r' => tokens.push("Enter".to_string()),
+            0x7f => tokens.push("BSpace".to_string()),
+            0x03 => tokens.push("C-c".to_string()),
+            0x1b if bytes.get(index + 1) == Some(&b'[') && bytes.len() > index + 2 => {
+                let token = match bytes[index + 2] {
+                    b'A' => Some("Up"),
+                    b'B' => Some("Down"),
+                    b'C' => Some("Right"),
+                    b'D' => Some("Left"),
+                    _ => None,
+                };
+                if let Some(token) = token {
+                    tokens.push(token.to_string());
+                    index += 2;
+                }
+            }
+            byte if byte.is_ascii_control() => {}
+            _ => {
+                let ch = data[index..].chars().next().unwrap_or_default();
+                tokens.push(format!("-l '{}'", shell_escape(&ch.to_string())));
+                index += ch.len_utf8() - 1;
+            }
+        }
+
+        index += 1;
+    }
+
+    tokens
 }

@@ -324,6 +324,7 @@ export const InstanceDetailPage: React.FC = () => {
           kind: value,
           guest_os: null,
           guest_workspace_root: null,
+          container_name: null,
           distribution: null,
           user: null,
           path_mapping: 'native',
@@ -335,8 +336,20 @@ export const InstanceDetailPage: React.FC = () => {
           ...current,
           kind: value,
           guest_os: 'linux',
+          container_name: null,
           path_mapping: 'explicit',
           guest_workspace_root: current.guest_workspace_root || `/home/${current.user || 'mai'}/mailauncher-instances/${current.workspace_root}`,
+        };
+      }
+
+      if (key === 'kind' && value === 'docker') {
+        return {
+          ...current,
+          kind: value,
+          guest_os: 'linux',
+          distribution: null,
+          path_mapping: 'explicit',
+          guest_workspace_root: current.guest_workspace_root || `/workspace/${current.workspace_root}`,
         };
       }
 
@@ -513,6 +526,7 @@ export const InstanceDetailPage: React.FC = () => {
                   >
                     <option value="local">Local</option>
                     <option value="wsl2">WSL2</option>
+                    <option value="docker">Docker</option>
                   </select>
                 </label>
 
@@ -572,6 +586,40 @@ export const InstanceDetailPage: React.FC = () => {
                         value={runtimeDraft.guest_workspace_root || ''}
                         onChange={(event) => handleRuntimeFieldChange('guest_workspace_root', event.target.value || null)}
                         placeholder="/home/user/mailauncher-instances/demo"
+                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                      />
+                    </label>
+                  </>
+                )}
+
+                {runtimeDraft.kind === 'docker' && (
+                  <>
+                    <label className="space-y-1">
+                      <span className="text-gray-500 dark:text-gray-400">容器名称</span>
+                      <input
+                        value={runtimeDraft.container_name || ''}
+                        onChange={(event) => handleRuntimeFieldChange('container_name', event.target.value || null)}
+                        placeholder="例如 maibot-runtime"
+                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                      />
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-gray-500 dark:text-gray-400">容器用户</span>
+                      <input
+                        value={runtimeDraft.user || ''}
+                        onChange={(event) => handleRuntimeFieldChange('user', event.target.value || null)}
+                        placeholder="例如 root"
+                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                      />
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-gray-500 dark:text-gray-400">容器工作区</span>
+                      <input
+                        value={runtimeDraft.guest_workspace_root || ''}
+                        onChange={(event) => handleRuntimeFieldChange('guest_workspace_root', event.target.value || null)}
+                        placeholder="/workspace/demo"
                         className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
                       />
                     </label>
@@ -689,6 +737,7 @@ export const InstanceDetailPage: React.FC = () => {
                     component="MaiBot"
                     className="h-full"
                     isRunning={getComponentStatus('MaiBot')?.running === true}
+                    runtimeKind={getComponentStatus('MaiBot')?.runtime_kind ?? instance.runtime_profile.kind}
                   />
                 </TabsContent>
                 <TabsContent value="NapCat" className="h-full m-0">
@@ -698,6 +747,7 @@ export const InstanceDetailPage: React.FC = () => {
                     component="NapCat"
                     className="h-full"
                     isRunning={getComponentStatus('NapCat')?.running === true}
+                    runtimeKind={getComponentStatus('NapCat')?.runtime_kind ?? instance.runtime_profile.kind}
                   />
                 </TabsContent>
                 <TabsContent value="MaiBot-Napcat-Adapter" className="h-full m-0">
@@ -707,6 +757,7 @@ export const InstanceDetailPage: React.FC = () => {
                     component="MaiBot-Napcat-Adapter"
                     className="h-full"
                     isRunning={getComponentStatus('MaiBot-Napcat-Adapter')?.running === true}
+                    runtimeKind={getComponentStatus('MaiBot-Napcat-Adapter')?.runtime_kind ?? instance.runtime_profile.kind}
                   />
                 </TabsContent>
               </Tabs>

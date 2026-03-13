@@ -98,6 +98,7 @@ impl RuntimeAdapter for LocalRuntimeAdapter {
 
     fn resolve_component_command(
         &self,
+        _instance_id: &str,
         instance_root: &Path,
         component: &ComponentSpec,
         profile: &RuntimeProfile,
