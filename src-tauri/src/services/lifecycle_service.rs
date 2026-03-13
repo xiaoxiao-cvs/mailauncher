@@ -30,6 +30,7 @@ pub async fn recover_instance_states_on_startup(
     pool: &SqlitePool,
     registry: &ComponentRegistry,
     runtime_resolver: &RuntimeResolver,
+    process_manager: &ProcessManager,
 ) -> AppResult<u64> {
     let rows = sqlx::query_as::<_, DbInstanceRecord>("SELECT * FROM instances ORDER BY created_at DESC")
         .fetch_all(pool)
@@ -38,7 +39,7 @@ pub async fn recover_instance_states_on_startup(
     let mut recovered = 0;
 
     for row in rows {
-        if recover_single_instance_state(pool, registry, runtime_resolver, row.into_instance()).await? {
+        if recover_single_instance_state(pool, registry, runtime_resolver, process_manager, row.into_instance()).await? {
             recovered += 1;
         }
     }
@@ -50,6 +51,7 @@ pub async fn refresh_instance_runtime_state(
     pool: &SqlitePool,
     registry: &ComponentRegistry,
     runtime_resolver: &RuntimeResolver,
+    process_manager: &ProcessManager,
     instance_id: &str,
 ) -> AppResult<InstanceLifecycleStatus> {
     let row = sqlx::query_as::<_, DbInstanceRecord>("SELECT * FROM instances WHERE id = ?")
@@ -61,6 +63,14 @@ pub async fn refresh_instance_runtime_state(
     let instance = row.into_instance();
     let recovered = evaluate_recovered_instance_state(registry, runtime_resolver, &instance);
     let status = recovered.status;
+    process_manager
+        .sync_external_processes(
+            &instance.id,
+            &instance.runtime_profile,
+            &recovered.available_components,
+            &recovered.discovered_processes,
+        )
+        .await;
     persist_recovered_instance_state(pool, &instance, recovered).await?;
     Ok(status)
 }
@@ -70,6 +80,8 @@ struct RecoveredInstanceState {
     component_states: Vec<InstanceComponentState>,
     last_error: Option<String>,
     last_status_reason: Option<String>,
+    discovered_processes: Vec<crate::runtime::DiscoveredRuntimeProcess>,
+    available_components: Vec<ComponentType>,
 }
 
 fn evaluate_recovered_instance_state(
@@ -80,15 +92,20 @@ fn evaluate_recovered_instance_state(
     let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
     let instance_root = platform::get_instances_dir().join(&instance_path_str);
     let available = registry.available_for_path(&instance_root);
+    let available_components = available.iter().map(|component| component.component).collect::<Vec<_>>();
 
     let mut last_error = instance.last_error.clone();
     let mut last_status_reason = instance.last_status_reason.clone();
+    let mut discovered_processes = Vec::new();
 
     let component_states = match instance.runtime_profile.kind {
         RuntimeKind::Wsl2 => {
             let adapter = runtime_resolver.resolve(&instance.runtime_profile);
             match adapter.discover_processes(&instance.runtime_profile, &available) {
-                Ok(discovered) => hydrate_discovered_component_states(&available, &discovered),
+                Ok(discovered) => {
+                    discovered_processes = discovered;
+                    hydrate_discovered_component_states(&available, &discovered_processes)
+                }
                 Err(error) => {
                     last_error = Some(error.to_string());
                     last_status_reason = Some("WSL2 冷启动探测失败，保留 unknown 状态".to_string());
@@ -122,6 +139,8 @@ fn evaluate_recovered_instance_state(
         component_states,
         last_error,
         last_status_reason,
+        discovered_processes,
+        available_components,
     }
 }
 
@@ -156,11 +175,20 @@ async fn recover_single_instance_state(
     pool: &SqlitePool,
     registry: &ComponentRegistry,
     runtime_resolver: &RuntimeResolver,
+    process_manager: &ProcessManager,
     instance: crate::models::Instance,
 ) -> AppResult<bool> {
     let previous_status = instance.status;
     let previous_reason = instance.last_status_reason.clone();
     let recovered = evaluate_recovered_instance_state(registry, runtime_resolver, &instance);
+    process_manager
+        .sync_external_processes(
+            &instance.id,
+            &instance.runtime_profile,
+            &recovered.available_components,
+            &recovered.discovered_processes,
+        )
+        .await;
     let changed = previous_status != recovered.status
         || previous_reason != recovered.last_status_reason
         || !recovered.component_states.is_empty();

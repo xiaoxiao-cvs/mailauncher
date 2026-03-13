@@ -32,6 +32,7 @@ pub async fn refresh_instance_runtime_state(
         &state.db,
         &state.component_registry,
         &state.runtime_resolver,
+        &state.process_manager,
         &instance_id,
     )
     .await

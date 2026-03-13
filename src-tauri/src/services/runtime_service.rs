@@ -116,12 +116,14 @@ pub async fn refresh_instance_runtime_state(
     pool: &SqlitePool,
     registry: &crate::components::ComponentRegistry,
     runtime_resolver: &crate::runtime::RuntimeResolver,
+    process_manager: &crate::services::process_service::ProcessManager,
     instance_id: &str,
 ) -> AppResult<InstanceLifecycleStatus> {
     crate::services::lifecycle_service::refresh_instance_runtime_state(
         pool,
         registry,
         runtime_resolver,
+        process_manager,
         instance_id,
     )
     .await

@@ -13,6 +13,9 @@ pub async fn collect_component_states(
     let mut states = Vec::new();
 
     for spec in registry.available_for_path(instance_root) {
+        let running = process_manager
+            .is_component_running(instance_id, spec.component.internal_key())
+            .await;
         let pid = process_manager
             .get_process_pid(instance_id, spec.component.internal_key())
             .await;
@@ -26,9 +29,6 @@ pub async fn collect_component_states(
             .get_process_runtime_kind(instance_id, spec.component.internal_key())
             .await
             .unwrap_or(RuntimeKind::Local);
-        let running = process_manager
-            .is_component_running(instance_id, spec.component.internal_key())
-            .await;
 
         let status = if running {
             ComponentLifecycleStatus::Running
@@ -41,10 +41,10 @@ pub async fn collect_component_states(
             runtime_kind,
             status,
             running,
-            pid,
-            host_pid: pid,
-            guest_pid,
-            uptime,
+            pid: if running { pid.or(guest_pid) } else { None },
+            host_pid: if running { pid } else { None },
+            guest_pid: if running { guest_pid } else { None },
+            uptime: if running { uptime } else { None },
             last_error: None,
         });
     }

@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::Command as StdCommand;
 
 use crate::components::ComponentSpec;
 use crate::errors::{AppError, AppResult};
@@ -107,7 +107,7 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
             "for pid in $(pgrep -f 'bot.py|main.py|start.sh' 2>/dev/null || true); do cmd=$(tr '\0' ' ' < /proc/$pid/cmdline 2>/dev/null || true); cwd=$(readlink -f /proc/$pid/cwd 2>/dev/null || true); printf '%s\t%s\t%s\n' \"$pid\" \"$cwd\" \"$cmd\"; done".to_string(),
         );
 
-        let output = Command::new("wsl.exe")
+        let output = StdCommand::new("wsl.exe")
             .args(args)
             .output()
             .map_err(|error| AppError::Process(format!("执行 WSL 进程探测失败: {}", error)))?;
@@ -195,4 +195,43 @@ mod tests {
         assert_eq!(discovered[0].guest_pid, Some(123));
         assert_eq!(discovered[1].component, ComponentType::NapCatAdapter);
     }
+}
+
+pub async fn probe_guest_process_alive(profile: &RuntimeProfile, pid: u32) -> AppResult<bool> {
+    let script = format!("kill -0 {pid} >/dev/null 2>&1");
+    let output = build_wsl_command(profile, &script)
+        .output()
+        .await
+        .map_err(|error| AppError::Process(format!("执行 WSL 进程存活探测失败: {}", error)))?;
+
+    Ok(output.status.success())
+}
+
+pub async fn signal_guest_process(profile: &RuntimeProfile, pid: u32, signal: &str) -> AppResult<()> {
+    let script = format!("kill -{signal} {pid} >/dev/null 2>&1");
+    let output = build_wsl_command(profile, &script)
+        .output()
+        .await
+        .map_err(|error| AppError::Process(format!("执行 WSL 信号发送失败: {}", error)))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(AppError::Process(
+            String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        ))
+    }
+}
+
+fn build_wsl_command(profile: &RuntimeProfile, script: &str) -> tokio::process::Command {
+    let distribution = profile.distribution.as_deref().unwrap_or_default();
+    let mut command = tokio::process::Command::new("wsl.exe");
+    command.args(["--distribution", distribution]);
+
+    if let Some(user) = profile.user.as_deref().filter(|value| !value.trim().is_empty()) {
+        command.args(["--user", user]);
+    }
+
+    command.args(["--exec", "bash", "-lc", script]);
+    command
 }

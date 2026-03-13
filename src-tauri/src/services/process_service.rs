@@ -24,6 +24,21 @@ use crate::runtime::{LocalRuntimeAdapter, RuntimeAdapter};
 
 // ==================== 进程信息 ====================
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ProcessAttachmentKind {
+    Managed,
+    External,
+}
+
+#[derive(Debug, Clone)]
+struct ExternalProcessHandle {
+    session_id: String,
+    component: String,
+    runtime_kind: RuntimeKind,
+    runtime_profile: RuntimeProfile,
+    guest_pid: Option<u32>,
+}
+
 /// 单个组件的进程信息（对应 Python ProcessInfo）
 pub struct ProcessInfo {
     /// 实例 ID
@@ -46,6 +61,8 @@ pub struct ProcessInfo {
     pub output_buffer: Vec<String>,
     /// 缓冲区最大行数
     pub buffer_size: usize,
+    /// 进程接管方式：本地托管 PTY 或外部探测挂载
+    attachment_kind: ProcessAttachmentKind,
     /// PTY 子进程句柄（用于 kill/wait）
     child: Option<Box<dyn Child + Send + Sync>>,
     /// PTY 写入端（通过 MasterPty::take_writer() 获取）
@@ -54,6 +71,8 @@ pub struct ProcessInfo {
     master: Option<Box<dyn MasterPty + Send>>,
     /// 输出解析缓冲区，用于提取元数据标记
     metadata_buffer: String,
+    /// 运行时配置（外部接管进程需要它来做探测与停止）
+    runtime_profile: Option<RuntimeProfile>,
 }
 
 impl ProcessInfo {
@@ -71,9 +90,17 @@ impl ProcessInfo {
         }
     }
 
+    pub fn is_external(&self) -> bool {
+        matches!(self.attachment_kind, ProcessAttachmentKind::External)
+    }
+
     /// 获取运行时长（秒）
-    pub fn get_uptime(&self) -> f64 {
-        (Utc::now() - self.start_time).num_milliseconds() as f64 / 1000.0
+    pub fn get_uptime(&self) -> Option<f64> {
+        if self.is_external() {
+            None
+        } else {
+            Some((Utc::now() - self.start_time).num_milliseconds() as f64 / 1000.0)
+        }
     }
 
     /// 向进程写入输入数据
@@ -94,9 +121,57 @@ impl ProcessInfo {
             Ok(())
         } else {
             Err(AppError::Process(format!(
-                "进程 {} 没有可用的写入端",
+                "进程 {} 没有可用的写入端，外部接管进程暂不支持终端写入",
                 self.session_id
             )))
+        }
+    }
+
+    fn external_handle(&self) -> Option<ExternalProcessHandle> {
+        self.runtime_profile.clone().map(|runtime_profile| ExternalProcessHandle {
+            session_id: self.session_id.clone(),
+            component: self.component.clone(),
+            runtime_kind: self.runtime_kind,
+            runtime_profile,
+            guest_pid: self.guest_pid,
+        })
+    }
+
+    fn mark_stopped(&mut self) {
+        self.attachment_kind = ProcessAttachmentKind::Managed;
+        self.child = None;
+        self.writer = None;
+        self.master = None;
+        self.pid = None;
+        self.host_pid = None;
+        self.guest_pid = None;
+        self.runtime_profile = None;
+        self.metadata_buffer.clear();
+    }
+
+    fn from_external(
+        instance_id: &str,
+        component: &str,
+        process: &crate::runtime::DiscoveredRuntimeProcess,
+        runtime_profile: &RuntimeProfile,
+    ) -> Self {
+        Self {
+            instance_id: instance_id.to_string(),
+            component: component.to_string(),
+            session_id: format!("{}::{}", instance_id, component),
+            runtime_kind: process.runtime_kind,
+            host_pid: process.host_pid,
+            guest_pid: process.guest_pid,
+            pid: process.host_pid.or(process.guest_pid),
+            start_time: Utc::now(),
+            output_buffer: vec!["[外部进程接管] 已探测到运行中的 WSL2 组件进程，当前提供状态与停止能力，终端为只读占位。\n".to_string()],
+            buffer_size: 1000,
+            attachment_kind: ProcessAttachmentKind::External,
+            child: None,
+            writer: None,
+            master: None,
+            metadata_buffer: String::new(),
+            runtime_profile: Some(runtime_profile.clone()),
         }
     }
 
@@ -140,11 +215,7 @@ impl ProcessInfo {
         if let Some(mut child) = self.child.take() {
             let _ = child.kill();
         }
-        self.writer = None;
-        self.master = None;
-        self.pid = None;
-        self.host_pid = None;
-        self.guest_pid = None;
+        self.mark_stopped();
     }
 }
 
@@ -203,6 +274,87 @@ impl ProcessManager {
         format!("{}::{}", instance_id, component)
     }
 
+    async fn is_external_process_alive(handle: &ExternalProcessHandle) -> bool {
+        match handle.runtime_kind {
+            RuntimeKind::Wsl2 => {
+                if let Some(pid) = handle.guest_pid {
+                    crate::runtime::wsl::probe_guest_process_alive(&handle.runtime_profile, pid)
+                        .await
+                        .unwrap_or(false)
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+
+    async fn stop_external_process(handle: &ExternalProcessHandle, force: bool) -> AppResult<()> {
+        let signal = if force { "KILL" } else { "INT" };
+
+        match handle.runtime_kind {
+            RuntimeKind::Wsl2 => {
+                let pid = handle.guest_pid.ok_or_else(|| {
+                    AppError::Process(format!("外部进程 {} 缺少 guest_pid", handle.session_id))
+                })?;
+                crate::runtime::wsl::signal_guest_process(&handle.runtime_profile, pid, signal).await
+            }
+            _ => Err(AppError::Process(format!(
+                "暂不支持停止 {:?} 外部进程",
+                handle.runtime_kind
+            ))),
+        }
+    }
+
+    async fn clear_session_after_external_stop(&self, session_id: &str) {
+        let mut inner = self.inner.lock().await;
+        if let Some(proc) = inner.processes.get_mut(session_id) {
+            proc.mark_stopped();
+        }
+    }
+
+    async fn remove_stale_external_session(&self, session_id: &str) {
+        let mut inner = self.inner.lock().await;
+        if inner.processes.get(session_id).map(|proc| proc.is_external()).unwrap_or(false) {
+            inner.processes.remove(session_id);
+        }
+    }
+
+    pub async fn sync_external_processes(
+        &self,
+        instance_id: &str,
+        runtime_profile: &RuntimeProfile,
+        available_components: &[ComponentType],
+        discovered: &[crate::runtime::DiscoveredRuntimeProcess],
+    ) {
+        let mut inner = self.inner.lock().await;
+
+        for component in available_components {
+            let component_key = component.internal_key();
+            let session_id = Self::session_id(instance_id, component_key);
+
+            if let Some(existing) = inner.processes.get_mut(&session_id) {
+                if !existing.is_external() && existing.is_alive() {
+                    continue;
+                }
+            }
+
+            if let Some(process) = discovered.iter().find(|process| process.component == *component) {
+                inner.processes.insert(
+                    session_id,
+                    ProcessInfo::from_external(instance_id, component_key, process, runtime_profile),
+                );
+            } else if inner
+                .processes
+                .get(&session_id)
+                .map(|proc| proc.is_external())
+                .unwrap_or(false)
+            {
+                inner.processes.remove(&session_id);
+            }
+        }
+    }
+
     /// 启动组件进程
     ///
     /// 使用 portable-pty 创建跨平台 PTY，启动指定命令。
@@ -218,17 +370,14 @@ impl ProcessManager {
     ) -> AppResult<Option<Box<dyn Read + Send>>> {
         let session_id = Self::session_id(instance_id, component);
 
+        if self.is_component_running(instance_id, component).await {
+            info!("进程已在运行: {}", session_id);
+            return Ok(None);
+        }
+
         // Phase 1: 锁内 — 检查运行状态、读取 PTY 尺寸、复制旧日志
         let (pty_rows, pty_cols, old_buffer) = {
-            let mut inner = self.inner.lock().await;
-
-            // 检查是否已在运行
-            if let Some(proc) = inner.processes.get_mut(&session_id) {
-                if proc.is_alive() {
-                    info!("进程已在运行: {}", session_id);
-                    return Ok(None);
-                }
-            }
+            let inner = self.inner.lock().await;
 
             let old_buf = inner.processes.get(&session_id).map(|p| {
                 let keep = p.output_buffer.len().min(500);
@@ -301,10 +450,12 @@ impl ProcessManager {
             start_time: Utc::now(),
             output_buffer,
             buffer_size: 1000,
+            attachment_kind: ProcessAttachmentKind::Managed,
             child: Some(child),
             writer: Some(writer),
             master: Some(pair.master),
             metadata_buffer: String::new(),
+            runtime_profile: None,
         };
 
         // Phase 3: 锁内 — 再次检查竞态后插入 ProcessInfo
@@ -340,6 +491,7 @@ impl ProcessManager {
         let session_id = Self::session_id(instance_id, component);
 
         let ctrl_c_sent;
+        let mut external_handle = None;
 
         {
             let mut inner = self.inner.lock().await;
@@ -351,34 +503,61 @@ impl ProcessManager {
                 }
             };
 
-            if !proc.is_alive() {
-                warn!("进程已经停止: {}", session_id);
-                proc.child = None;
-                proc.writer = None;
-                proc.master = None;
-                proc.pid = None;
-                return Ok(true);
-            }
-
-            ctrl_c_sent = if force {
-                info!("强制停止进程: {}", session_id);
-                proc.kill();
-                false
+            if proc.is_external() {
+                external_handle = proc.external_handle();
+                ctrl_c_sent = false;
             } else {
-                // 尝试优雅停止：发送 Ctrl+C
-                info!("优雅停止进程: {}, 发送 Ctrl+C", session_id);
-                if let Some(ref mut writer) = proc.writer {
-                    let _ = writer.write_all(b"\x03");
-                    let _ = writer.flush();
-                    true
-                } else {
-                    // writer 已不可用，直接强制 kill
-                    warn!("writer 不可用，回退到强制终止: {}", session_id);
+                if !proc.is_alive() {
+                    warn!("进程已经停止: {}", session_id);
+                    proc.mark_stopped();
+                    return Ok(true);
+                }
+
+                ctrl_c_sent = if force {
+                    info!("强制停止进程: {}", session_id);
                     proc.kill();
                     false
-                }
-            };
+                } else {
+                    // 尝试优雅停止：发送 Ctrl+C
+                    info!("优雅停止进程: {}, 发送 Ctrl+C", session_id);
+                    if let Some(ref mut writer) = proc.writer {
+                        let _ = writer.write_all(b"\x03");
+                        let _ = writer.flush();
+                        true
+                    } else {
+                        // writer 已不可用，直接强制 kill
+                        warn!("writer 不可用，回退到强制终止: {}", session_id);
+                        proc.kill();
+                        false
+                    }
+                };
+            }
         } // 释放锁
+
+        if let Some(handle) = external_handle {
+            if force {
+                Self::stop_external_process(&handle, true).await?;
+            } else {
+                Self::stop_external_process(&handle, false).await?;
+                let mut exited = false;
+                for _ in 0..20 {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                    if !Self::is_external_process_alive(&handle).await {
+                        exited = true;
+                        break;
+                    }
+                }
+
+                if !exited {
+                    info!("外部进程优雅停止超时，强制终止: {}", handle.session_id);
+                    Self::stop_external_process(&handle, true).await?;
+                }
+            }
+
+            self.clear_session_after_external_stop(&handle.session_id).await;
+            info!("外部进程停止成功: {}", handle.session_id);
+            return Ok(true);
+        }
 
         if !force && ctrl_c_sent {
             // 锁外等待进程优雅退出，最多 2 秒
@@ -434,6 +613,7 @@ impl ProcessManager {
     ) -> HashMap<String, bool> {
         let mut results = HashMap::new();
         let session_ids: Vec<String>;
+        let mut external_handles = Vec::new();
 
         // 单次锁内完成所有 kill
         {
@@ -449,17 +629,28 @@ impl ProcessManager {
 
             for sid in &session_ids {
                 if let Some(proc) = inner.processes.get_mut(sid) {
-                    if proc.is_alive() {
+                    if proc.is_external() {
+                        if let Some(handle) = proc.external_handle() {
+                            external_handles.push(handle);
+                            results.insert(proc.component.clone(), true);
+                        }
+                    } else if proc.is_alive() {
                         proc.kill();
                         results.insert(proc.component.clone(), true);
                     } else {
-                        proc.child = None;
-                        proc.writer = None;
-                        proc.master = None;
-                        proc.pid = None;
+                        proc.mark_stopped();
                         results.insert(proc.component.clone(), true);
                     }
                 }
+            }
+        }
+
+        for handle in &external_handles {
+            if let Err(error) = Self::stop_external_process(handle, true).await {
+                warn!("停止外部进程失败 {}: {}", handle.session_id, error);
+                results.insert(handle.component.clone(), false);
+            } else {
+                self.clear_session_after_external_stop(&handle.session_id).await;
             }
         }
 
@@ -488,9 +679,28 @@ impl ProcessManager {
         component: &str,
     ) -> bool {
         let session_id = Self::session_id(instance_id, component);
-        let mut inner = self.inner.lock().await;
-        if let Some(proc) = inner.processes.get_mut(&session_id) {
-            proc.is_alive()
+        let external_handle = {
+            let mut inner = self.inner.lock().await;
+            if let Some(proc) = inner.processes.get_mut(&session_id) {
+                if proc.is_external() {
+                    proc.external_handle()
+                } else if proc.is_alive() {
+                    return true;
+                } else {
+                    proc.mark_stopped();
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        };
+
+        if let Some(handle) = external_handle {
+            let alive = Self::is_external_process_alive(&handle).await;
+            if !alive {
+                self.remove_stale_external_session(&session_id).await;
+            }
+            alive
         } else {
             false
         }
@@ -615,7 +825,7 @@ impl ProcessManager {
         inner
             .processes
             .get(&session_id)
-            .map(|p| p.get_uptime())
+            .and_then(|p| p.get_uptime())
     }
 
     /// 获取进程 PID
@@ -714,8 +924,10 @@ impl Default for ProcessManager {
 mod tests {
     use chrono::Utc;
 
-    use super::ProcessInfo;
-    use crate::models::RuntimeKind;
+    use super::{ProcessInfo, ProcessManager};
+    use crate::models::{ComponentType, RuntimeKind, RuntimeProfile};
+
+    use super::ProcessAttachmentKind;
 
     fn test_process_info(runtime_kind: RuntimeKind) -> ProcessInfo {
         ProcessInfo {
@@ -729,10 +941,12 @@ mod tests {
             start_time: Utc::now(),
             output_buffer: Vec::new(),
             buffer_size: 1000,
+            attachment_kind: ProcessAttachmentKind::Managed,
             child: None,
             writer: None,
             master: None,
             metadata_buffer: String::new(),
+            runtime_profile: None,
         }
     }
 
@@ -754,6 +968,61 @@ mod tests {
         assert!(first.is_none());
         assert_eq!(process.guest_pid, Some(5678));
         assert_eq!(second.as_deref(), Some("ready\n"));
+    }
+
+    #[test]
+    fn external_process_has_placeholder_history_and_no_uptime() {
+        let profile = RuntimeProfile::local("demo", None);
+        let process = ProcessInfo::from_external(
+            "inst_test",
+            "main",
+            &crate::runtime::DiscoveredRuntimeProcess {
+                component: ComponentType::Main,
+                runtime_kind: RuntimeKind::Wsl2,
+                status: crate::models::ComponentLifecycleStatus::Running,
+                host_pid: None,
+                guest_pid: Some(4321),
+            },
+            &profile,
+        );
+
+        assert!(process.is_external());
+        assert_eq!(process.get_uptime(), None);
+        assert!(process.output_buffer[0].contains("外部进程接管"));
+    }
+
+    #[tokio::test]
+    async fn sync_external_processes_registers_and_removes_external_sessions() {
+        let manager = ProcessManager::new();
+        let runtime_profile = RuntimeProfile::local("demo", None);
+
+        manager
+            .sync_external_processes(
+                "inst_test",
+                &runtime_profile,
+                &[ComponentType::Main],
+                &[crate::runtime::DiscoveredRuntimeProcess {
+                    component: ComponentType::Main,
+                    runtime_kind: RuntimeKind::Wsl2,
+                    status: crate::models::ComponentLifecycleStatus::Running,
+                    host_pid: None,
+                    guest_pid: Some(9527),
+                }],
+            )
+            .await;
+
+        let history = manager
+            .get_output_history("inst_test", "main", 10)
+            .await;
+        assert_eq!(manager.get_process_guest_pid("inst_test", "main").await, Some(9527));
+        assert!(history.iter().any(|line| line.contains("外部进程接管")));
+
+        manager
+            .sync_external_processes("inst_test", &runtime_profile, &[ComponentType::Main], &[])
+            .await;
+
+        assert_eq!(manager.get_process_guest_pid("inst_test", "main").await, None);
+        assert!(manager.get_output_history("inst_test", "main", 10).await.is_empty());
     }
 }
 

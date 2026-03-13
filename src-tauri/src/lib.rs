@@ -35,6 +35,11 @@ async fn init_rust_services() -> AppState {
         .await
         .expect("默认数据初始化失败");
 
+    let component_registry = components::ComponentRegistry::new();
+    let runtime_resolver = runtime::RuntimeResolver::new();
+    let process_manager = services::process_service::ProcessManager::new();
+    let terminal_stream_publisher = services::terminal_stream_service::ChannelTerminalStreamPublisher::new();
+
     let reconciled = services::lifecycle_service::reconcile_instance_states_on_startup(&pool)
         .await
         .expect("冷启动状态收敛失败");
@@ -45,8 +50,9 @@ async fn init_rust_services() -> AppState {
 
     let recovered = services::lifecycle_service::recover_instance_states_on_startup(
         &pool,
-        &components::ComponentRegistry::new(),
-        &runtime::RuntimeResolver::new(),
+        &component_registry,
+        &runtime_resolver,
+        &process_manager,
     )
     .await
     .expect("冷启动进程重建失败");
@@ -57,13 +63,11 @@ async fn init_rust_services() -> AppState {
 
     info!("[初始化] Rust 服务初始化完成");
 
-    let terminal_stream_publisher = services::terminal_stream_service::ChannelTerminalStreamPublisher::new();
-
     AppState {
         db: pool,
-        component_registry: components::ComponentRegistry::new(),
-        runtime_resolver: runtime::RuntimeResolver::new(),
-        process_manager: services::process_service::ProcessManager::new(),
+        component_registry,
+        runtime_resolver,
+        process_manager,
         terminal_stream_publisher,
         download_manager: services::download_service::DownloadManager::new(),
     }

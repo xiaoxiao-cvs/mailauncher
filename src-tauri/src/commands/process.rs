@@ -444,6 +444,10 @@ pub async fn get_component_status(
         .process_manager
         .get_process_pid(&instance_id, component_spec.component.internal_key())
         .await;
+    let guest_pid = state
+        .process_manager
+        .get_process_guest_pid(&instance_id, component_spec.component.internal_key())
+        .await;
 
     let uptime = state
         .process_manager
@@ -459,13 +463,10 @@ pub async fn get_component_status(
             ComponentLifecycleStatus::Stopped
         },
         running,
-        pid,
-        host_pid: pid,
-        guest_pid: state
-            .process_manager
-            .get_process_guest_pid(&instance_id, component_spec.component.internal_key())
-            .await,
-        uptime,
+        pid: if running { pid.or(guest_pid) } else { None },
+        host_pid: if running { pid } else { None },
+        guest_pid: if running { guest_pid } else { None },
+        uptime: if running { uptime } else { None },
         last_error: None,
     })
 }
