@@ -480,8 +480,37 @@ mod tests {
         let states = hydrate_discovered_component_states(&available, &discovered, RuntimeKind::Wsl2);
         assert_eq!(states.len(), 2);
         assert!(states[0].running);
+        assert!(states[0].externally_managed);
+        assert!(states[0].terminal_reconnectable);
         assert_eq!(states[0].guest_pid, Some(321));
+        assert!(!states[1].externally_managed);
+        assert!(!states[1].terminal_reconnectable);
         assert_eq!(states[1].status, ComponentLifecycleStatus::Stopped);
+    }
+
+    #[test]
+    fn hydrate_discovered_states_preserves_read_only_external_process() {
+        let registry = ComponentRegistry::new();
+        let available = vec![registry.get(ComponentType::Main).expect("缺少 main spec")];
+        let discovered = vec![DiscoveredRuntimeProcess {
+            component: ComponentType::Main,
+            runtime_kind: RuntimeKind::Docker,
+            status: ComponentLifecycleStatus::Running,
+            host_pid: None,
+            guest_pid: Some(9527),
+            terminal_session: Some(TerminalSessionInfo {
+                name: "mailauncher-inst-test-main".to_string(),
+                verified: false,
+            }),
+        }];
+
+        let states = hydrate_discovered_component_states(&available, &discovered, RuntimeKind::Docker);
+
+        assert_eq!(states.len(), 1);
+        assert!(states[0].running);
+        assert!(states[0].externally_managed);
+        assert!(!states[0].terminal_reconnectable);
+        assert_eq!(states[0].guest_pid, Some(9527));
     }
 
     #[test]

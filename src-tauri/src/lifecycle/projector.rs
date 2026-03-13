@@ -115,11 +115,15 @@ pub fn aggregate_instance_status(
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::aggregate_instance_status;
     use crate::models::{
         ComponentLifecycleStatus, ComponentType, InstanceComponentState, InstanceLifecycleStatus,
         RuntimeKind,
     };
+    use crate::services::process_service::ProcessManager;
+    use crate::{components::ComponentRegistry, lifecycle::collect_component_states};
 
     fn component_state(
         component: ComponentType,
@@ -174,5 +178,68 @@ mod tests {
             aggregate_instance_status(&states, Some("boom")),
             InstanceLifecycleStatus::Failed
         );
+    }
+
+    fn create_component_dirs(root: &std::path::Path, components: &[ComponentType]) {
+        for component in components {
+            fs::create_dir_all(root.join(component.relative_dir())).expect("创建测试组件目录失败");
+        }
+    }
+
+    #[tokio::test]
+    async fn collect_component_states_projects_managed_runtime_capabilities() {
+        let registry = ComponentRegistry::new();
+        let manager = ProcessManager::new();
+        let temp_root = std::env::temp_dir().join(format!(
+            "mailauncher-projector-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&temp_root);
+        create_component_dirs(&temp_root, &[ComponentType::Main, ComponentType::NapCat]);
+
+        manager
+            .start_process(
+                "inst_test",
+                "main",
+                RuntimeKind::Local,
+                if cfg!(windows) { "cmd" } else { "sh" },
+                if cfg!(windows) {
+                    &["/C", "ping", "127.0.0.1", "-n", "4"]
+                } else {
+                    &["-c", "sleep 2"]
+                },
+                &temp_root,
+            )
+            .await
+            .expect("启动托管测试进程失败");
+
+        let states = collect_component_states(&manager, "inst_test", &registry, &temp_root).await;
+        let main_state = states
+            .iter()
+            .find(|state| state.component == ComponentType::Main)
+            .expect("缺少 main 状态");
+        let napcat_state = states
+            .iter()
+            .find(|state| state.component == ComponentType::NapCat)
+            .expect("缺少 napcat 状态");
+
+        assert!(main_state.running);
+        assert!(!main_state.externally_managed);
+        assert!(main_state.terminal_reconnectable);
+        assert_eq!(main_state.runtime_kind, RuntimeKind::Local);
+        assert!(main_state.host_pid.is_some());
+
+        assert!(!napcat_state.running);
+        assert!(!napcat_state.externally_managed);
+        assert!(!napcat_state.terminal_reconnectable);
+        assert_eq!(napcat_state.runtime_kind, RuntimeKind::Local);
+        assert_eq!(napcat_state.status, ComponentLifecycleStatus::Stopped);
+
+        manager
+            .stop_process("inst_test", "main", true)
+            .await
+            .expect("停止托管测试进程失败");
+
+        let _ = fs::remove_dir_all(&temp_root);
     }
 }
