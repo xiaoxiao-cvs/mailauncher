@@ -381,11 +381,12 @@ impl ProcessManager {
         instance_id: &str,
     ) -> HashMap<String, bool> {
         let mut results = HashMap::new();
+        let session_ids: Vec<String>;
 
         // 单次锁内完成所有 kill
         {
             let mut inner = self.inner.lock().await;
-            let session_ids: Vec<String> = inner
+            session_ids = inner
                 .processes
                 .values()
                 .filter(|p| p.instance_id == instance_id)
@@ -410,8 +411,20 @@ impl ProcessManager {
             }
         }
 
-        // 锁外等待进程终止
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        // 锁外轮询确认进程退出，最多等待 1 秒
+        for _ in 0..10 {
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            let mut inner = self.inner.lock().await;
+            let all_dead = session_ids.iter().all(|sid| {
+                inner
+                    .processes
+                    .get_mut(sid)
+                    .map_or(true, |p| !p.is_alive())
+            });
+            if all_dead {
+                break;
+            }
+        }
 
         results
     }
