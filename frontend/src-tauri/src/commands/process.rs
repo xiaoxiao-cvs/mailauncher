@@ -32,8 +32,7 @@ fn map_component_name(frontend_name: &str) -> &str {
 
 /// 启动后台任务读取 PTY 输出，并通过 Tauri 事件推送到前端
 ///
-/// 事件名格式: `terminal-output-{instance_id}_{component}`
-/// 对应 Python 的 WebSocket 推送 `{"type": "output", "data": text}`
+/// 事件名格式: `terminal-output-{instance_id}::{component}`
 fn spawn_output_reader(
     app_handle: AppHandle,
     process_manager: ProcessManager,
