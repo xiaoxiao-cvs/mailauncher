@@ -22,8 +22,6 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
 
   const currentStepData = ONBOARDING_STEPS[currentStep]
 
-  const random = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
-
   useEffect(() => {
     // 背景光斑缓慢漂移动画
     if (blobRef1.current && blobRef2.current) {

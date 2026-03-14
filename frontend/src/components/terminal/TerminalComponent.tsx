@@ -16,23 +16,27 @@ import '@xterm/xterm/css/xterm.css';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { tauriInvoke } from '@/services/tauriInvoke';
 import { terminalOutputEvent } from '@/types/tauriEvents';
+import type { RuntimeKind } from '@/services/instanceApi';
 
 interface TerminalComponentProps {
   instanceId: string;
   component: 'MaiBot' | 'NapCat' | 'MaiBot-Napcat-Adapter';
   className?: string;
   isRunning?: boolean; // 组件是否正在运行
+  runtimeKind?: RuntimeKind;
 }
 
 export const TerminalComponent: React.FC<TerminalComponentProps> = ({
   instanceId,
   component,
   className = '',
-  isRunning: _isRunning = false,
+  isRunning = false,
+  runtimeKind = 'local',
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstance = useRef<Terminal | null>(null);
   const fitAddon = useRef<FitAddon | null>(null);
+  const snapshotRef = useRef('');
   
   // 初始化终端 (只执行一次)
   useEffect(() => {
@@ -140,6 +144,7 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     
     let unlisten: UnlistenFn | null = null;
     let cancelled = false;
+    let pollTimer: number | null = null;
     
     // 清空终端内容，准备显示新会话
     term.clear();
@@ -171,6 +176,7 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
           history.forEach((line: string) => {
             term.write(line);
           });
+          snapshotRef.current = history.join('');
           term.writeln('\x1b[90m--- 实时日志 ---\x1b[0m');
           term.writeln('');
         }
@@ -180,6 +186,7 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
         unlisten = await listen<string>(eventName, (event) => {
           if (!cancelled) {
             term.write(event.payload);
+            snapshotRef.current += event.payload;
           }
         });
         
@@ -191,6 +198,34 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
           rows,
           cols,
         });
+
+        if (isRunning && (runtimeKind === 'wsl2' || runtimeKind === 'docker')) {
+          pollTimer = window.setInterval(async () => {
+            if (cancelled) return;
+
+            try {
+              const latestHistory = await tauriInvoke<string[]>('terminal_get_history', {
+                instanceId,
+                component,
+                lines: 500,
+              });
+              const nextSnapshot = latestHistory.join('');
+              const currentSnapshot = snapshotRef.current;
+
+              if (nextSnapshot.startsWith(currentSnapshot)) {
+                const delta = nextSnapshot.slice(currentSnapshot.length);
+                if (delta) {
+                  term.write(delta);
+                  snapshotRef.current = nextSnapshot;
+                }
+              } else if (!currentSnapshot) {
+                snapshotRef.current = nextSnapshot;
+              }
+            } catch (error) {
+              console.error('终端轮询失败:', error);
+            }
+          }, 1000);
+        }
       } catch (error) {
         if (!cancelled) {
           term.writeln('');
@@ -231,10 +266,13 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
       if (unlisten) {
         unlisten();
       }
+      if (pollTimer) {
+        window.clearInterval(pollTimer);
+      }
       onDataDisposable.dispose();
       onResizeDisposable.dispose();
     };
-  }, [instanceId, component]);
+  }, [instanceId, component, isRunning, runtimeKind]);
   
   return (
     <div className={`terminal-container ${className} px-4 py-3`}>

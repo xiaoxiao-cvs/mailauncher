@@ -1,11 +1,15 @@
 use tracing::info;
+use tauri::Manager;
 
 // 模块声明
 mod commands;
+mod components;
 mod services;
+mod runtime;
 mod models;
 mod db;
 mod errors;
+mod lifecycle;
 mod state;
 mod utils;
 
@@ -31,11 +35,40 @@ async fn init_rust_services() -> AppState {
         .await
         .expect("默认数据初始化失败");
 
+    let component_registry = components::ComponentRegistry::new();
+    let runtime_resolver = runtime::RuntimeResolver::new();
+    let process_manager = services::process_service::ProcessManager::new();
+    let terminal_stream_publisher = services::terminal_stream_service::ChannelTerminalStreamPublisher::new();
+
+    let reconciled = services::lifecycle_service::reconcile_instance_states_on_startup(&pool)
+        .await
+        .expect("冷启动状态收敛失败");
+
+    if reconciled > 0 {
+        info!("[初始化] 已将 {} 个遗留活动实例状态收敛为 unknown", reconciled);
+    }
+
+    let recovered = services::lifecycle_service::recover_instance_states_on_startup(
+        &pool,
+        &component_registry,
+        &runtime_resolver,
+        &process_manager,
+    )
+    .await
+    .expect("冷启动进程重建失败");
+
+    if recovered > 0 {
+        info!("[初始化] 已完成 {} 个实例的冷启动状态重建", recovered);
+    }
+
     info!("[初始化] Rust 服务初始化完成");
 
     AppState {
         db: pool,
-        process_manager: services::process_service::ProcessManager::new(),
+        component_registry,
+        runtime_resolver,
+        process_manager,
+        terminal_stream_publisher,
         download_manager: services::download_service::DownloadManager::new(),
     }
 }
@@ -54,7 +87,9 @@ pub fn run() {
                 .level(log::LevelFilter::Info)
                 .build(),
         )
-        .setup(|_app| {
+        .setup(|app| {
+            let state = app.state::<AppState>();
+            state.terminal_stream_publisher.start_forwarder(app.handle().clone());
             Ok(())
         })
         .manage(app_state)
@@ -83,6 +118,11 @@ pub fn run() {
             commands::download::get_download_task,
             commands::download::get_all_download_tasks,
             commands::download::get_maibot_versions,
+            // 运行时与 WSL2
+            commands::runtime::list_wsl_distributions,
+            commands::runtime::set_instance_runtime_profile,
+            commands::runtime::refresh_instance_runtime_state,
+            commands::runtime::validate_runtime_profile,
             // 版本管理
             commands::version::get_instance_components_version,
             commands::version::check_component_update,

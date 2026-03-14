@@ -100,31 +100,20 @@ mailauncher/
 │   ├── src/
 │   │   ├── components/   # UI 组件（侧边栏、配置编辑器等）
 │   │   ├── pages/        # 页面（实例管理、下载、设置等）
-│   │   ├── services/     # API 服务层
+│   │   ├── services/     # Tauri IPC 服务层
 │   │   ├── stores/       # Zustand 状态管理
 │   │   └── types/        # TypeScript 类型定义
-│   └── src-tauri/        # Tauri 桌面应用配置
-│
-├── backend/              # FastAPI + Python 后端
-│   ├── app/
-│   │   ├── api/v1/      # RESTful API 端点
-│   │   ├── services/    # 业务逻辑层
-│   │   │   ├── instance_service.py       # 实例管理
-│   │   │   ├── deployment_service.py     # 部署任务
-│   │   │   ├── download_service.py       # Git 仓库克隆
-│   │   │   ├── process_manager.py        # 进程生命周期
-│   │   │   ├── napcat_installer.py       # NapCat 安装器
-│   │   │   └── maibot_config_service.py  # 配置文件管理
-│   │   ├── models/      # Pydantic 数据模型
-│   │   ├── core/        # 核心模块（配置、数据库、日志、WebSocket）
-│   │   └── utils/       # 工具函数
-│   └── data/            # 数据目录（数据库、日志、实例配置）
-│
+│   ├── package.json
+│   └── vite.config.ts
+├── src-tauri/             # Tauri 桌面应用配置与 Rust 后端
+│   ├── src/
+│   ├── Cargo.toml
+│   └── tauri.conf.json
 ├── docs/                # 项目文档
 │   ├── ARCHITECTURE.md  # 架构设计文档
 │   └── DESIGN_SYSTEM.md # UI 设计系统
-│
-└── deployments/         # 部署实例目录（自动创建）
+├── build.sh             # 一键打包脚本
+└── README.md
 ```
 
 
@@ -162,99 +151,47 @@ codesign --force --deep --sign - "/Applications/MAI Launcher.app"
 - **Zustand**: 轻量级状态管理
 - **Iconify**: 海量图标库
 
-### 后端
-- **FastAPI**: 高性能异步 Web 框架
-- **SQLAlchemy 2.0**: 现代化 ORM
-- **Pydantic 2.x**: 数据验证
-- **aiohttp**: 异步 HTTP 客户端
-- **tomlkit**: TOML 配置文件解析（保留注释）
-- **GitPython**: Git 仓库操作
-- **PyInstaller**: Python 应用打包
+### 原生后端
+- **Rust + Tauri IPC**: 进程内命令调用与事件通信
+- **sqlx + SQLite**: 本地数据库与迁移
+- **reqwest**: HTTP 请求与下载
+- **portable-pty + sysinfo**: 进程管理与资源监控
+- **serde / toml / toml_edit**: 配置与序列化
 
 ### 进程管理
-- **asyncio**: Python 异步 I/O
-- **winpty** (Windows): 伪终端支持
-- **pty** (Unix/Linux): 原生伪终端
-
-### 数据库
-- **SQLite**: 轻量级嵌入式数据库
-- **aiosqlite**: 异步 SQLite 支持
+- **Tokio**: Rust 异步运行时
+- **portable-pty**: 跨平台 PTY 支持
+- **sysinfo**: 进程资源采样
 
 ### 实时通信
-- **WebSocket**: 双向实时通信
-- **FastAPI WebSocket**: 内置 WebSocket 支持
+- **Tauri Commands**: 类型安全 IPC 调用
+- **Tauri Events / Channels**: 状态与流式消息推送
 
 ## 📚 文档
 
 - [架构设计文档](./docs/ARCHITECTURE.md) - 项目架构和开发规范
-- [API 接口文档](./backend/API.md) - 完整的 REST API 说明
 - [构建打包指南](./BUILD.md) - 详细的打包流程
 - [配置编辑器说明](./frontend/CONFIG_EDITOR_README.md) - 配置编辑器使用指南
-
-## 🔌 API 端点概览
-
-### 实例管理 (`/api/v1/instances`)
-- `GET /instances` - 获取所有实例列表
-- `POST /instances` - 创建新实例
-- `GET /instances/{id}` - 获取实例详情
-- `PUT /instances/{id}` - 更新实例配置
-- `DELETE /instances/{id}` - 删除实例
-- `POST /instances/{id}/start` - 启动实例
-- `POST /instances/{id}/stop` - 停止实例
-- `GET /instances/{id}/status` - 获取实例状态
-- `GET /instances/{id}/logs` - 获取实例日志
-
-### 下载管理 (`/api/v1/downloads`)
-- `GET /downloads/maibot/versions` - 获取可用的 MaiBot 版本
-- `POST /downloads/maibot` - 下载 MaiBot
-- `POST /downloads/napcat-adapter` - 下载 NapCat 适配器
-- `POST /downloads/lpmm` - 下载 LPMM 插件管理器
-
-### 部署管理 (`/api/v1/deployments`)
-- `GET /deployments` - 获取部署任务列表
-- `POST /deployments` - 创建部署任务
-- `GET /deployments/{id}` - 获取部署详情
-- `GET /deployments/{id}/logs` - 获取部署日志
-- `WS /ws/{task_id}` - WebSocket 实时进度推送
-
-### 配置管理 (`/api/v1/config`)
-- `GET /config/bot-config` - 获取 bot_config.toml
-- `PUT /config/bot-config` - 更新 bot_config.toml
-- `GET /config/model-config` - 获取 model_config.toml
-- `PUT /config/model-config` - 更新 model_config.toml
-- `GET /config/bot-config/raw` - 获取原始配置文本
-- `POST /config/bot-config/raw` - 保存原始配置文本
-
-### API Provider 管理 (`/api/v1/api-providers`)
-- `GET /api-providers` - 获取所有 API Provider
-- `POST /api-providers` - 添加新 Provider
-- `PUT /api-providers/{id}` - 更新 Provider
-- `DELETE /api-providers/{id}` - 删除 Provider
-
-### 系统信息 (`/api/v1/environment`)
-- `GET /environment` - 获取系统环境信息
-
-完整 API 文档请访问：`http://localhost:11111/docs`
 
 ## 🛠️ 开发规范
 
 请查看 [架构文档](./docs/ARCHITECTURE.md) 了解详细的开发规范和项目架构。
 
 ### 代码风格
-- Python 遵循 PEP 8
+- Rust 使用 cargo fmt / clippy
 - TypeScript 使用 ESLint + Prettier
 - 使用有意义的变量和函数命名
 - 添加必要的注释和文档字符串
 
 ### Git 提交规范
 ```
-feat: 新功能
-fix: 修复 bug
-docs: 文档更新
-style: 代码格式调整
-refactor: 重构
-test: 测试相关
-chore: 构建/工具链相关
+feat(scope): 新功能
+fix(scope): 修复 bug
+docs(scope): 文档更新
+refactor(scope): 重构
+perf(scope): 性能优化
+test(scope): 测试相关
+chore(scope): 构建/工具链相关
 ```
 
 ## 📋 功能路线图

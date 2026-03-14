@@ -7,10 +7,13 @@ use sqlx::SqlitePool;
 use tracing::{info, warn};
 use uuid::Uuid;
 
+use crate::components::ComponentRegistry;
 use crate::errors::{AppError, AppResult};
 use crate::models::{
-    CreateInstanceRequest, Instance, InstanceList, InstanceStatusResponse, UpdateInstanceRequest,
+    default_runtime_profile_json, CreateInstanceRequest, DbInstanceRecord, Instance,
+    InstanceList, InstanceStatusResponse, UpdateInstanceRequest,
 };
+use crate::services::lifecycle_service;
 use crate::utils::platform;
 
 /// 生成实例 ID（格式: inst_xxxxxxxxxxxx，与 Python 一致）
@@ -21,11 +24,13 @@ fn generate_instance_id() -> String {
 
 /// 获取所有实例列表
 pub async fn get_all_instances(pool: &SqlitePool) -> AppResult<InstanceList> {
-    let instances = sqlx::query_as::<_, Instance>(
+    let rows = sqlx::query_as::<_, DbInstanceRecord>(
         "SELECT * FROM instances ORDER BY created_at DESC",
     )
     .fetch_all(pool)
     .await?;
+
+    let instances = rows.into_iter().map(DbInstanceRecord::into_instance).collect::<Vec<_>>();
 
     let total = instances.len();
     Ok(InstanceList { total, instances })
@@ -33,12 +38,11 @@ pub async fn get_all_instances(pool: &SqlitePool) -> AppResult<InstanceList> {
 
 /// 获取单个实例
 pub async fn get_instance(pool: &SqlitePool, id: &str) -> AppResult<Option<Instance>> {
-    let instance =
-        sqlx::query_as::<_, Instance>("SELECT * FROM instances WHERE id = ?")
-            .bind(id)
-            .fetch_optional(pool)
-            .await?;
-    Ok(instance)
+    let record = sqlx::query_as::<_, DbInstanceRecord>("SELECT * FROM instances WHERE id = ?")
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
+    Ok(record.map(DbInstanceRecord::into_instance))
 }
 
 /// 创建新实例
@@ -77,12 +81,15 @@ pub async fn create_instance(
         AppError::FileSystem(format!("创建实例目录失败: {}", e))
     })?;
 
+    let runtime_profile_json = default_runtime_profile_json(Some(&data.name), data.python_path.clone());
+
     // 4. 写入数据库
     sqlx::query(
         r#"INSERT INTO instances
            (id, name, instance_path, bot_type, bot_version, description,
-            status, python_path, config_path, created_at, updated_at, run_time)
-           VALUES (?, ?, ?, ?, ?, ?, 'stopped', ?, ?, ?, ?, 0)"#,
+            status, python_path, config_path, created_at, updated_at, run_time,
+            runtime_profile, component_state)
+           VALUES (?, ?, ?, ?, ?, ?, 'stopped', ?, ?, ?, ?, 0, ?, '[]')"#,
     )
     .bind(&id)
     .bind(&data.name)
@@ -94,6 +101,7 @@ pub async fn create_instance(
     .bind(&data.config_path)
     .bind(now)
     .bind(now)
+    .bind(runtime_profile_json)
     .execute(pool)
     .await?;
 
@@ -128,11 +136,15 @@ pub async fn update_instance(
     let config_path = data.config_path.or(existing.config_path);
     let qq_account = data.qq_account.or(existing.qq_account);
     let now = Utc::now().naive_utc();
+    let runtime_profile_json = default_runtime_profile_json(
+        existing.instance_path.as_deref(),
+        python_path.clone(),
+    );
 
     sqlx::query(
         r#"UPDATE instances
            SET name = ?, description = ?, python_path = ?,
-               config_path = ?, qq_account = ?, updated_at = ?
+               config_path = ?, qq_account = ?, runtime_profile = ?, updated_at = ?
            WHERE id = ?"#,
     )
     .bind(&name)
@@ -140,6 +152,7 @@ pub async fn update_instance(
     .bind(&python_path)
     .bind(&config_path)
     .bind(&qq_account)
+    .bind(runtime_profile_json)
     .bind(now)
     .bind(id)
     .execute(pool)
@@ -161,7 +174,7 @@ pub async fn delete_instance(pool: &SqlitePool, id: &str) -> AppResult<bool> {
     };
 
     // 运行中的实例不允许删除
-    if instance.status == "running" || instance.status == "starting" {
+    if instance.status.is_active() {
         return Err(AppError::InvalidInput(format!(
             "实例 {} 正在运行，请先停止后再删除",
             id
@@ -200,46 +213,44 @@ pub async fn get_instance_status(
     pool: &SqlitePool,
     id: &str,
     process_manager: &crate::services::process_service::ProcessManager,
+    component_registry: &ComponentRegistry,
 ) -> AppResult<Option<InstanceStatusResponse>> {
     let instance = match get_instance(pool, id).await? {
         Some(inst) => inst,
         None => return Ok(None),
     };
 
-    // 从进程管理器获取实际运行状态
-    let is_running = process_manager.is_instance_running(id).await;
+    let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
+    let instance_root = platform::get_instances_dir().join(&instance_path_str);
 
-    // 获取主进程（main 组件）的 PID 和运行时间
+    let status = lifecycle_service::sync_instance_state(
+        pool,
+        process_manager,
+        component_registry,
+        id,
+        &instance_root,
+        &instance.runtime_profile,
+        instance.last_error.clone(),
+        instance.last_status_reason.clone(),
+    )
+    .await?;
+
     let pid = process_manager.get_process_pid(id, "main").await;
+    let guest_pid = process_manager.get_process_guest_pid(id, "main").await;
     let uptime = process_manager.get_process_uptime(id, "main").await;
 
-    // DB 状态与实际进程状态不一致时自动纠正
-    let status = if instance.status == "running" && !is_running {
-        // DB 说运行中但实际已停止 —— 纠正为 stopped
-        let _ = sqlx::query(
-            "UPDATE instances SET status = 'stopped', updated_at = datetime('now') WHERE id = ?"
-        )
-        .bind(id)
-        .execute(pool)
-        .await;
-        "stopped".to_string()
-    } else if instance.status == "stopped" && is_running {
-        // 进程在运行但 DB 说已停止 —— 纠正为 running
-        let _ = sqlx::query(
-            "UPDATE instances SET status = 'running', updated_at = datetime('now') WHERE id = ?"
-        )
-        .bind(id)
-        .execute(pool)
-        .await;
-        "running".to_string()
-    } else {
-        instance.status
-    };
+    let refreshed = get_instance(pool, id).await?.unwrap_or(instance);
 
     Ok(Some(InstanceStatusResponse {
-        id: instance.id,
+        id: refreshed.id,
         status,
         pid,
+        host_pid: pid,
+        guest_pid,
         uptime,
+        runtime_profile: refreshed.runtime_profile,
+        last_error: refreshed.last_error,
+        last_status_reason: refreshed.last_status_reason,
+        component_states: refreshed.component_states,
     }))
 }

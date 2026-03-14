@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.mailauncher.app",
   "build": {
-    "frontendDist": "../dist",
+    "frontendDist": "../frontend/dist",
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build"
+    "beforeDevCommand": "pnpm --dir frontend dev",
+    "beforeBuildCommand": "pnpm --dir frontend build"
   },
   "app": {
     "windows": [

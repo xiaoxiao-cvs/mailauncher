@@ -262,15 +262,13 @@ export const useInstanceStore = create<InstanceStore>((set, get) => ({
   },
   
   // 获取实例的组件列表（基于目录结构推断）
-  getInstanceComponents: () => {
-    // 基础组件总是包含 main
-    const components: ComponentType[] = ['main'];
-    
-    // TODO: 这里可以从实例信息中获取实际的组件列表
-    // 暂时假设所有实例都有这三个组件
-    components.push('napcat', 'napcat-ada');
-    
-    return components;
+  getInstanceComponents: (instanceId: string) => {
+    const instance = get().instances.find((item) => item.id === instanceId);
+    if (instance?.component_states?.length) {
+      return instance.component_states.map((state) => state.component);
+    }
+
+    return ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'];
   },
   
   // 清除错误

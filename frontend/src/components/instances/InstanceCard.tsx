@@ -24,29 +24,38 @@ interface InstanceCardProps {
 
 // 状态颜色映射 - 用于卡片背景
 const statusColors = {
+  pending: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
   running: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400',
+  partial: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400',
   stopped: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
   starting: 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400',
   stopping: 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400',
-  error: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
+  failed: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
+  unknown: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300',
 };
 
 // 状态文本颜色 - 用于指示点
 const statusTextColors = {
+  pending: 'bg-slate-500',
   running: 'bg-green-500',
+  partial: 'bg-amber-500',
   stopped: 'bg-gray-400',
   starting: 'bg-yellow-500',
   stopping: 'bg-orange-500',
-  error: 'bg-red-500',
+  failed: 'bg-red-500',
+  unknown: 'bg-zinc-500',
 };
 
 // 状态文本映射
 const statusTexts = {
+  pending: '待命中',
   running: '运行中',
+  partial: '部分运行',
   stopped: '已停止',
   starting: '启动中',
   stopping: '停止中',
-  error: '错误',
+  failed: '失败',
+  unknown: '未知',
 };
 
 export const InstanceCard: React.FC<InstanceCardProps> = ({
@@ -62,7 +71,7 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   
   // 计算组件数量（假设有 main, napcat, napcat-ada）
-  const componentCount = 3;
+  const componentCount = instance.component_states?.length || 0;
   
   // 格式化最后运行时间
   const formatLastRun = (lastRun?: string) => {
@@ -105,9 +114,9 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
     action();
   };
   
-  const isRunning = instance.status === 'running';
+  const isRunning = instance.status === 'running' || instance.status === 'partial';
   const isStopped = instance.status === 'stopped';
-  const isTransitioning = instance.status === 'starting' || instance.status === 'stopping';
+  const isTransitioning = instance.status === 'pending' || instance.status === 'starting' || instance.status === 'stopping';
   
   return (
     <div
@@ -202,7 +211,7 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
         {/* 操作按钮区域 */}
         <div className="flex items-center gap-3 pt-2">
           {/* 启动/停止按钮 - 自适应宽度 */}
-          {isStopped || instance.status === 'error' ? (
+          {isStopped || instance.status === 'failed' || instance.status === 'unknown' ? (
             <button
               onClick={(e) => handleButtonClick(e, () => onStart(instance.id))}
               disabled={loading || isTransitioning}

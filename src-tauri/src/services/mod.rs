@@ -4,6 +4,9 @@
 pub mod instance_service;
 pub mod config_service;
 pub mod process_service;
+pub mod lifecycle_service;
+pub mod runtime_service;
+pub mod terminal_stream_service;
 pub mod download_service;
 pub mod install_service;
 pub mod version_service;

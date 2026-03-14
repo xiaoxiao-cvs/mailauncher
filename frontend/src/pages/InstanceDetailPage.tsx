@@ -5,12 +5,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ComponentType } from '@/services/instanceApi';
+import { ComponentType, InstanceComponentState, InstanceStatus, RuntimeProbeResult, RuntimeProfile, instanceApi } from '@/services/instanceApi';
 import { TerminalComponent } from '@/components/terminal/TerminalComponent';
 import { ConfigModal } from '@/components/ConfigModal';
 import { ScheduleModal } from '@/components/ScheduleModal';
 import { VersionManagementSection } from '@/components/instances/VersionManagementSection';
 import { VersionManagerModal } from '@/components/instances/VersionManagerModal';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   Play,
@@ -21,6 +22,10 @@ import {
   ChevronDown,
   Loader2,
   FileText,
+  Save,
+  Radar,
+  ShieldCheck,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -43,12 +48,169 @@ import {
   useStopComponentMutation,
 } from '@/hooks/queries/useInstanceQueries';
 
+type RuntimeCapabilityState = 'ready' | 'warning' | 'blocked';
+
+interface RuntimeCapabilityCard {
+  key: string;
+  title: string;
+  detail: string;
+  action: string;
+  state: RuntimeCapabilityState;
+}
+
+function buildComponentRuntimeCard(state: InstanceComponentState): RuntimeCapabilityCard {
+  if (!state.running) {
+    return {
+      key: `${state.component}-idle`,
+      title: state.component,
+      state: 'blocked',
+      detail: '组件当前未运行，终端链路和外部接管能力都未激活。',
+      action: '先启动组件，再检查会话和运行态能力。',
+    };
+  }
+
+  if (state.externally_managed && state.terminal_reconnectable) {
+    return {
+      key: `${state.component}-external-reconnectable`,
+      title: state.component,
+      state: 'ready',
+      detail: '组件当前通过外部会话接管，并已确认存在可重连终端。',
+      action: '可以直接读取历史、写入输入并在刷新后重新接管会话。',
+    };
+  }
+
+  if (state.externally_managed) {
+    return {
+      key: `${state.component}-external-readonly`,
+      title: state.component,
+      state: 'warning',
+      detail: '组件当前仅以外部进程形式被探测到，缺少可重连终端会话。',
+      action: '当前可以探测状态并停止进程，但无法安全重连终端。',
+    };
+  }
+
+  return {
+    key: `${state.component}-managed`,
+    title: state.component,
+    state: 'ready',
+    detail: '组件由当前应用直接托管，终端交互和窗口 resize 可用。',
+    action: '当前终端由启动器控制，适合直接调试和查看实时输出。',
+  };
+}
+
+const capabilityStateClassName: Record<RuntimeCapabilityState, string> = {
+  ready: 'border-emerald-200/70 bg-emerald-50/70 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300',
+  warning: 'border-amber-200/70 bg-amber-50/70 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200',
+  blocked: 'border-rose-200/70 bg-rose-50/70 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300',
+};
+
+function buildRuntimeCapabilityCards(
+  runtimeDraft: RuntimeProfile,
+  runtimeProbe: RuntimeProbeResult,
+): RuntimeCapabilityCard[] {
+  const issueMap = new Map(runtimeProbe.issues.map((issue) => [issue.code, issue]));
+  const hasIssue = (...codes: string[]) => codes.some((code) => issueMap.has(code));
+
+  const configState: RuntimeCapabilityState = hasIssue(
+    'wsl_distribution_missing',
+    'wsl_distribution_not_found',
+    'wsl_workspace_missing',
+    'docker_container_missing',
+    'docker_workspace_missing',
+  )
+    ? 'blocked'
+    : 'ready';
+
+  const workspaceState: RuntimeCapabilityState = hasIssue('wsl_workspace_not_found', 'docker_workspace_not_found')
+    ? 'blocked'
+    : hasIssue('docker_container_stopped', 'docker_container_not_found')
+      ? 'warning'
+      : 'ready';
+
+  const reconnectState: RuntimeCapabilityState = hasIssue('wsl_tmux_missing', 'docker_tmux_missing')
+    ? 'warning'
+    : hasIssue('docker_container_stopped', 'docker_container_not_found', 'wsl_distribution_not_found')
+      ? 'blocked'
+      : 'ready';
+
+  const attachState: RuntimeCapabilityState = hasIssue('docker_container_not_found', 'wsl_distribution_not_found')
+    ? 'blocked'
+    : hasIssue('docker_container_stopped')
+      ? 'warning'
+      : 'ready';
+
+  return [
+    {
+      key: 'config',
+      title: '配置完整性',
+      state: configState,
+      detail: configState === 'blocked'
+        ? '当前 runtime_profile 仍缺少关键入口字段，保存前需要补全。'
+        : runtimeDraft.kind === 'local'
+          ? '本地运行时使用宿主机工作区与本地 Python 解析链路。'
+          : runtimeDraft.kind === 'wsl2'
+            ? `WSL2 入口已指向 ${runtimeDraft.distribution || '目标发行版'}。`
+            : `Docker 入口已指向容器 ${runtimeDraft.container_name || '目标容器'}。`,
+      action: configState === 'blocked'
+        ? runtimeDraft.kind === 'docker'
+          ? '补全容器名与 guest 工作区。'
+          : runtimeDraft.kind === 'wsl2'
+            ? '选择发行版并填写 guest 工作区。'
+            : '补全本地 Python 或工作区设置。'
+        : '当前可以继续保存并执行运行态刷新。',
+    },
+    {
+      key: 'workspace',
+      title: '工作区可达性',
+      state: workspaceState,
+      detail: workspaceState === 'blocked'
+        ? 'guest 工作区当前不可达，冷启动恢复和命令分发都会失败。'
+        : workspaceState === 'warning'
+          ? '运行时入口存在，但宿主环境尚未完全就绪。'
+          : 'guest 工作区可以被解析，实例命令能够落到正确目录。',
+      action: hasIssue('docker_container_stopped')
+        ? '先启动容器，再重新校验工作区。'
+        : hasIssue('wsl_workspace_not_found', 'docker_workspace_not_found')
+          ? '检查 guest 路径是否与实例目录一致。'
+          : '当前可以执行手动刷新或冷启动恢复。',
+    },
+    {
+      key: 'reconnect',
+      title: '终端重连',
+      state: reconnectState,
+      detail: reconnectState === 'ready'
+        ? '新启动会话会优先挂到 tmux，支持历史回放、输入写入和窗口 resize。'
+        : reconnectState === 'warning'
+          ? '实例仍可启动，但缺少 tmux 时无法提供跨应用重连终端。'
+          : '当前运行时还不具备稳定的会话重连前提。',
+      action: hasIssue('wsl_tmux_missing', 'docker_tmux_missing')
+        ? '在 guest 环境安装 tmux 后重新校验。'
+        : hasIssue('docker_container_stopped', 'docker_container_not_found')
+          ? '先恢复容器运行，再创建会话。'
+          : '当前可以直接使用可重连终端链路。',
+    },
+    {
+      key: 'attach',
+      title: '外部进程接管',
+      state: attachState,
+      detail: attachState === 'blocked'
+        ? '当前无法稳定探测 guest 进程，外部接管链路不可用。'
+        : attachState === 'warning'
+          ? '外部接管能力已配置，但底层环境未启动，暂时只能保留配置。'
+          : '冷启动后可以重发现 guest 进程，并将其同步进实例运行态。',
+      action: attachState === 'ready'
+        ? '适合配合手动刷新运行态，重建实例状态投影。'
+        : '先修复入口环境，再进行冷启动恢复。',
+    },
+  ];
+}
+
 export const InstanceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
   // 使用 React Query hooks
-  const { data: instance, isLoading } = useInstanceQuery(id, { refetchInterval: 10000 });
+  const { data: instance, isLoading, refetch: refetchInstance } = useInstanceQuery(id, { refetchInterval: 10000 });
   
   // 组件状态查询
   const { data: maibotStatus } = useComponentStatusQuery(id, 'MaiBot', { refetchInterval: 10000 });
@@ -68,6 +230,79 @@ export const InstanceDetailPage: React.FC = () => {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isVersionManagerOpen, setIsVersionManagerOpen] = useState(false);
+  const [runtimeDraft, setRuntimeDraft] = useState<RuntimeProfile | null>(null);
+  const [wslDistributions, setWslDistributions] = useState<Array<{ name: string; state: string; version: number; is_default: boolean }>>([]);
+  const [loadingWsl, setLoadingWsl] = useState(false);
+  const [savingRuntime, setSavingRuntime] = useState(false);
+  const [refreshingRuntime, setRefreshingRuntime] = useState(false);
+  const [probingRuntime, setProbingRuntime] = useState(false);
+  const [runtimeProbe, setRuntimeProbe] = useState<RuntimeProbeResult | null>(null);
+
+  const statusLabel = (status: InstanceStatus) => {
+    switch (status) {
+      case 'pending':
+        return '待命中';
+      case 'starting':
+        return '启动中';
+      case 'running':
+        return '运行中';
+      case 'partial':
+        return '部分运行';
+      case 'stopping':
+        return '停止中';
+      case 'failed':
+        return '失败';
+      case 'unknown':
+        return '未知';
+      default:
+        return '已停止';
+    }
+  };
+
+  const runtimeKindLabel = instance?.runtime_profile.kind === 'wsl2'
+    ? 'WSL2'
+    : instance?.runtime_profile.kind === 'docker'
+      ? 'Docker'
+      : 'Local';
+  const runtimeCapabilityCards = runtimeDraft && runtimeProbe
+    ? buildRuntimeCapabilityCards(runtimeDraft, runtimeProbe)
+    : [];
+
+  useEffect(() => {
+    if (instance?.runtime_profile) {
+      setRuntimeDraft(instance.runtime_profile);
+      setRuntimeProbe(null);
+    }
+  }, [instance?.id, instance?.runtime_profile]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadWslDistributions = async () => {
+      setLoadingWsl(true);
+      try {
+        const distributions = await instanceApi.listWslDistributions();
+        if (!cancelled) {
+          setWslDistributions(distributions);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('获取 WSL 发行版失败:', error);
+          setWslDistributions([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingWsl(false);
+        }
+      }
+    };
+
+    loadWslDistributions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 获取组件状态的辅助函数
   const getComponentStatus = (component: ComponentType) => {
@@ -136,7 +371,9 @@ export const InstanceDetailPage: React.FC = () => {
   useEffect(() => {
     if (!instance) return;
     
-    const allComponents: ComponentType[] = ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'];
+    const allComponents: ComponentType[] = instance.component_states?.length
+      ? instance.component_states.map((state) => state.component)
+      : ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'];
     
     // 只在当前选中的组件已经在运行时才自动切换
     if (selectedStartTarget !== 'all' && 
@@ -235,17 +472,133 @@ export const InstanceDetailPage: React.FC = () => {
       setActionLoading(null);
     }
   };
+
+  const handleRuntimeFieldChange = <K extends keyof RuntimeProfile>(key: K, value: RuntimeProfile[K]) => {
+    setRuntimeProbe(null);
+    setRuntimeDraft((current) => {
+      if (!current) return current;
+
+      if (key === 'kind' && value === 'local') {
+        return {
+          ...current,
+          kind: value,
+          guest_os: null,
+          guest_workspace_root: null,
+          container_name: null,
+          distribution: null,
+          user: null,
+          path_mapping: 'native',
+        };
+      }
+
+      if (key === 'kind' && value === 'wsl2') {
+        return {
+          ...current,
+          kind: value,
+          guest_os: 'linux',
+          container_name: null,
+          path_mapping: 'explicit',
+          guest_workspace_root: current.guest_workspace_root || `/home/${current.user || 'mai'}/mailauncher-instances/${current.workspace_root}`,
+        };
+      }
+
+      if (key === 'kind' && value === 'docker') {
+        return {
+          ...current,
+          kind: value,
+          guest_os: 'linux',
+          distribution: null,
+          path_mapping: 'explicit',
+          guest_workspace_root: current.guest_workspace_root || `/workspace/${current.workspace_root}`,
+        };
+      }
+
+      return {
+        ...current,
+        [key]: value,
+      };
+    });
+  };
+
+  const handleProbeRuntimeProfile = async () => {
+    if (!runtimeDraft) return null;
+
+    setProbingRuntime(true);
+    try {
+      const result = await instanceApi.validateRuntimeProfile(runtimeDraft);
+      setRuntimeProbe(result);
+
+      if (result.ok) {
+        toast.success('运行时配置校验通过');
+      } else {
+        const errorCount = result.issues.filter((issue) => issue.severity === 'error').length;
+        const warningCount = result.issues.filter((issue) => issue.severity === 'warning').length;
+        toast.error(`运行时校验发现 ${errorCount} 个错误，${warningCount} 个警告`);
+      }
+
+      return result;
+    } catch (error) {
+      console.error('校验运行时配置失败:', error);
+      toast.error('校验运行时配置失败');
+      return null;
+    } finally {
+      setProbingRuntime(false);
+    }
+  };
+
+  const handleSaveRuntimeProfile = async () => {
+    if (!instance || !runtimeDraft) return;
+
+    setSavingRuntime(true);
+    try {
+      const probe = await handleProbeRuntimeProfile();
+      if (!probe || !probe.ok) {
+        return;
+      }
+
+      await instanceApi.setInstanceRuntimeProfile(instance.id, runtimeDraft);
+      await refetchInstance();
+      toast.success('运行时配置已保存');
+    } catch (error) {
+      console.error('保存运行时配置失败:', error);
+      toast.error('保存运行时配置失败');
+    } finally {
+      setSavingRuntime(false);
+    }
+  };
+
+  const handleRefreshRuntimeState = async () => {
+    if (!instance) return;
+
+    setRefreshingRuntime(true);
+    try {
+      await instanceApi.refreshInstanceRuntimeState(instance.id);
+      await refetchInstance();
+      toast.success('运行态已刷新');
+    } catch (error) {
+      console.error('刷新运行态失败:', error);
+      toast.error('刷新运行态失败');
+    } finally {
+      setRefreshingRuntime(false);
+    }
+  };
   
-  const isRunning = instance.status === 'running';
   const isStopped = instance.status === 'stopped';
+  const availableComponents: ComponentType[] = instance.component_states?.length
+    ? instance.component_states.map((state) => state.component)
+    : ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'];
+  const componentRuntimeCards = availableComponents
+    .map((component) => getComponentStatus(component) ?? instance.component_states.find((state) => state.component === component))
+    .filter((state): state is InstanceComponentState => Boolean(state))
+    .map((state) => buildComponentRuntimeCard(state));
   
   // 检查是否有任何组件在运行
-  const hasAnyComponentRunning = ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'].some(
+  const hasAnyComponentRunning = availableComponents.some(
     (comp) => getComponentStatus(comp as ComponentType)?.running
   );
   
   // 检查是否所有组件都在运行
-  const allComponentsRunning = ['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'].every(
+  const allComponentsRunning = availableComponents.every(
     (comp) => getComponentStatus(comp as ComponentType)?.running
   );
   
@@ -267,35 +620,227 @@ export const InstanceDetailPage: React.FC = () => {
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <span className={`w-2 h-2 rounded-full ${
-                isRunning ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 
+                (instance.status === 'running' || instance.status === 'partial') ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 
                 isStopped ? 'bg-gray-400' : 'bg-yellow-500'
               }`} />
               <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                 {instance.description || '无描述'}
               </p>
+              <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold uppercase tracking-wide">
+                {runtimeKindLabel}
+              </span>
             </div>
           </div>
         </div>
 
         {/* Status Badge */}
         <div className={`px-4 py-1.5 rounded-full text-sm font-semibold backdrop-blur-md border shadow-sm ${
-          isRunning
+          (instance.status === 'running' || instance.status === 'partial')
             ? 'bg-green-500/10 text-green-600 border-green-200/50 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30'
             : isStopped
             ? 'bg-gray-200/50 text-gray-600 border-gray-200/50 dark:bg-gray-700/50 dark:text-gray-400 dark:border-gray-600/30'
             : 'bg-yellow-500/10 text-yellow-600 border-yellow-200/50 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30'
         }`}>
-          {instance.status === 'running' ? '运行中' : 
-           instance.status === 'stopped' ? '已停止' : 
-           instance.status === 'starting' ? '启动中' : 
-           instance.status === 'stopping' ? '停止中' : '错误'}
+          {statusLabel(instance.status)}
         </div>
       </header>
+
+      {instance.last_error && (
+        <div className="rounded-2xl border border-red-200/60 bg-red-50/70 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+          <div className="font-semibold">最近错误</div>
+          <div className="mt-1 break-all">{instance.last_error}</div>
+          {instance.last_status_reason && <div className="mt-1 text-xs opacity-80">{instance.last_status_reason}</div>}
+        </div>
+      )}
 
       {/* Main Content Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
         {/* Left Panel: Stats & Actions */}
         <div className="col-span-4 flex flex-col gap-6 overflow-y-auto scrollbar-thin pr-2 pb-2">
+          {runtimeDraft && (
+            <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm animate-slide-up opacity-0">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800 dark:text-white">运行时</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">实例级 runtime_profile 与 WSL2 入口</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button onClick={handleProbeRuntimeProfile} disabled={probingRuntime || savingRuntime} variant="outline" className="gap-2 rounded-full">
+                    {probingRuntime ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                    校验配置
+                  </Button>
+                  <Button onClick={handleRefreshRuntimeState} disabled={refreshingRuntime} variant="outline" className="gap-2 rounded-full">
+                    {refreshingRuntime ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radar className="w-4 h-4" />}
+                    刷新运行态
+                  </Button>
+                  <Button onClick={handleSaveRuntimeProfile} disabled={savingRuntime} className="gap-2 rounded-full">
+                    {savingRuntime ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    保存
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 text-sm">
+                <label className="space-y-1">
+                  <span className="text-gray-500 dark:text-gray-400">运行时类型</span>
+                  <select
+                    value={runtimeDraft.kind}
+                    onChange={(event) => handleRuntimeFieldChange('kind', event.target.value as RuntimeProfile['kind'])}
+                    className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                  >
+                    <option value="local">Local</option>
+                    <option value="wsl2">WSL2</option>
+                    <option value="docker">Docker</option>
+                  </select>
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-gray-500 dark:text-gray-400">工作区根目录</span>
+                  <input
+                    value={runtimeDraft.workspace_root}
+                    onChange={(event) => handleRuntimeFieldChange('workspace_root', event.target.value)}
+                    className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                  />
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-gray-500 dark:text-gray-400">Python 路径</span>
+                  <input
+                    value={runtimeDraft.python.path || ''}
+                    onChange={(event) => setRuntimeDraft((current) => current ? {
+                      ...current,
+                      python: { ...current.python, path: event.target.value || null },
+                    } : current)}
+                    placeholder={runtimeDraft.kind === 'wsl2' ? 'python3' : '留空则优先使用 .venv'}
+                    className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                  />
+                </label>
+
+                {runtimeDraft.kind === 'wsl2' && (
+                  <>
+                    <label className="space-y-1">
+                      <span className="text-gray-500 dark:text-gray-400">WSL 发行版</span>
+                      <select
+                        value={runtimeDraft.distribution || ''}
+                        onChange={(event) => handleRuntimeFieldChange('distribution', event.target.value || null)}
+                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                      >
+                        <option value="">{loadingWsl ? '加载中...' : '请选择发行版'}</option>
+                        {wslDistributions.map((distribution) => (
+                          <option key={distribution.name} value={distribution.name}>
+                            {distribution.name} ({distribution.state}, WSL{distribution.version})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-gray-500 dark:text-gray-400">Guest 用户</span>
+                      <input
+                        value={runtimeDraft.user || ''}
+                        onChange={(event) => handleRuntimeFieldChange('user', event.target.value || null)}
+                        placeholder="例如 mai"
+                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                      />
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-gray-500 dark:text-gray-400">Guest 工作区</span>
+                      <input
+                        value={runtimeDraft.guest_workspace_root || ''}
+                        onChange={(event) => handleRuntimeFieldChange('guest_workspace_root', event.target.value || null)}
+                        placeholder="/home/user/mailauncher-instances/demo"
+                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                      />
+                    </label>
+                  </>
+                )}
+
+                {runtimeDraft.kind === 'docker' && (
+                  <>
+                    <label className="space-y-1">
+                      <span className="text-gray-500 dark:text-gray-400">容器名称</span>
+                      <input
+                        value={runtimeDraft.container_name || ''}
+                        onChange={(event) => handleRuntimeFieldChange('container_name', event.target.value || null)}
+                        placeholder="例如 maibot-runtime"
+                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                      />
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-gray-500 dark:text-gray-400">容器用户</span>
+                      <input
+                        value={runtimeDraft.user || ''}
+                        onChange={(event) => handleRuntimeFieldChange('user', event.target.value || null)}
+                        placeholder="例如 root"
+                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                      />
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-gray-500 dark:text-gray-400">容器工作区</span>
+                      <input
+                        value={runtimeDraft.guest_workspace_root || ''}
+                        onChange={(event) => handleRuntimeFieldChange('guest_workspace_root', event.target.value || null)}
+                        placeholder="/workspace/demo"
+                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                      />
+                    </label>
+                  </>
+                )}
+
+                {runtimeProbe && (
+                  <div className={`rounded-2xl border px-4 py-3 ${runtimeProbe.ok
+                    ? 'border-emerald-200/70 bg-emerald-50/70 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300'
+                    : 'border-amber-200/70 bg-amber-50/70 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200'
+                  }`}>
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      {runtimeProbe.ok ? <ShieldCheck className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                      {runtimeProbe.ok ? '运行时校验通过' : '运行时校验发现问题'}
+                    </div>
+                    <div className="mt-3 grid grid-cols-1 gap-2">
+                      {runtimeCapabilityCards.map((card) => (
+                        <div key={card.key} className={`rounded-2xl border px-3 py-3 ${capabilityStateClassName[card.state]}`}>
+                          <div className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide">
+                            <span>{card.title}</span>
+                            <span>{card.state === 'ready' ? 'Ready' : card.state === 'warning' ? 'Warning' : 'Blocked'}</span>
+                          </div>
+                          <div className="mt-1 text-sm font-medium">{card.detail}</div>
+                          <div className="mt-1 text-xs opacity-80">{card.action}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {componentRuntimeCards.length > 0 && (
+                      <div className="mt-3 grid grid-cols-1 gap-2">
+                        {componentRuntimeCards.map((card) => (
+                          <div key={card.key} className={`rounded-2xl border px-3 py-3 ${capabilityStateClassName[card.state]}`}>
+                            <div className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide">
+                              <span>{card.title}</span>
+                              <span>Runtime</span>
+                            </div>
+                            <div className="mt-1 text-sm font-medium">{card.detail}</div>
+                            <div className="mt-1 text-xs opacity-80">{card.action}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {runtimeProbe.issues.length > 0 && (
+                      <div className="mt-2 space-y-2 text-xs leading-5">
+                        {runtimeProbe.issues.map((issue) => (
+                          <div key={issue.code} className="rounded-xl bg-white/50 px-3 py-2 dark:bg-black/10">
+                            <span className="mr-2 font-semibold uppercase">{issue.severity}</span>
+                            {issue.message}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Quick Actions */}
           <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm animate-slide-up opacity-0">
             <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
@@ -350,7 +895,7 @@ export const InstanceDetailPage: React.FC = () => {
                 className="flex-1"
               >
                 <TabsList className="bg-transparent h-auto p-0 gap-2">
-                  {['MaiBot', 'NapCat', 'MaiBot-Napcat-Adapter'].map((comp) => (
+                  {availableComponents.map((comp) => (
                     <TabsTrigger 
                       key={comp}
                       value={comp}
@@ -382,6 +927,7 @@ export const InstanceDetailPage: React.FC = () => {
                     component="MaiBot"
                     className="h-full"
                     isRunning={getComponentStatus('MaiBot')?.running === true}
+                    runtimeKind={getComponentStatus('MaiBot')?.runtime_kind ?? instance.runtime_profile.kind}
                   />
                 </TabsContent>
                 <TabsContent value="NapCat" className="h-full m-0">
@@ -391,6 +937,7 @@ export const InstanceDetailPage: React.FC = () => {
                     component="NapCat"
                     className="h-full"
                     isRunning={getComponentStatus('NapCat')?.running === true}
+                    runtimeKind={getComponentStatus('NapCat')?.runtime_kind ?? instance.runtime_profile.kind}
                   />
                 </TabsContent>
                 <TabsContent value="MaiBot-Napcat-Adapter" className="h-full m-0">
@@ -400,6 +947,7 @@ export const InstanceDetailPage: React.FC = () => {
                     component="MaiBot-Napcat-Adapter"
                     className="h-full"
                     isRunning={getComponentStatus('MaiBot-Napcat-Adapter')?.running === true}
+                    runtimeKind={getComponentStatus('MaiBot-Napcat-Adapter')?.runtime_kind ?? instance.runtime_profile.kind}
                   />
                 </TabsContent>
               </Tabs>

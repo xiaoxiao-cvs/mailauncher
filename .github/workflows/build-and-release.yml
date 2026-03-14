@@ -30,7 +30,7 @@ jobs:
       - name: Get version and timestamp
         id: version
         run: |
-          VERSION=$(node -p "require('./frontend/src-tauri/tauri.conf.json').version")
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
           TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
           TAG_NAME="v${VERSION}-dev.${TIMESTAMP}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
@@ -85,7 +85,7 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: frontend/src-tauri
+          workspaces: src-tauri
 
       - name: Setup Python virtual environment
         run: |
@@ -95,18 +95,20 @@ jobs:
           pip install -r backend/requirements.txt
           echo "${PWD}/.venv/bin" >> "$GITHUB_PATH"
 
+      - name: Install root dependencies
+        run: pnpm install
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install
 
       - name: Build Tauri app (Universal Binary)
-        working-directory: frontend
-        run: pnpm tauri build --target universal-apple-darwin
+        run: pnpm tauri:build -- --target universal-apple-darwin
 
       - name: Find DMG file
         id: find_dmg
         run: |
-          DMG_PATH=$(find frontend/src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -n 1)
+          DMG_PATH=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -n 1)
           if [ -z "$DMG_PATH" ]; then
             echo "Error: DMG file not found!"
             exit 1
@@ -117,7 +119,7 @@ jobs:
       - name: Find signature file
         id: find_sig
         run: |
-          SIG_PATH=$(find frontend/src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg.sig" | head -n 1)
+          SIG_PATH=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg.sig" | head -n 1)
           if [ -n "$SIG_PATH" ]; then
             echo "sig_path=${SIG_PATH}" >> $GITHUB_OUTPUT
             echo "signature=$(cat ${SIG_PATH})" >> $GITHUB_OUTPUT
@@ -162,7 +164,7 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: frontend/src-tauri
+          workspaces: src-tauri
 
       - name: Setup Python virtual environment
         shell: pwsh
@@ -177,20 +179,22 @@ jobs:
         run: |
           echo "${{ github.workspace }}\.venv\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
+      - name: Install root dependencies
+        run: pnpm install
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install
 
       - name: Build Tauri app
-        working-directory: frontend
         shell: pwsh
-        run: pnpm tauri build
+        run: pnpm tauri:build
 
       - name: Find NSIS installer
         id: find_nsis
         shell: pwsh
         run: |
-          $nsisPath = Get-ChildItem -Path "frontend/src-tauri/target/release/bundle/nsis" -Filter "*.exe" | Select-Object -First 1
+          $nsisPath = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter "*.exe" | Select-Object -First 1
           if ($nsisPath) {
             echo "nsis_path=$($nsisPath.FullName)" >> $env:GITHUB_OUTPUT
             echo "nsis_name=$($nsisPath.Name)" >> $env:GITHUB_OUTPUT
@@ -203,7 +207,7 @@ jobs:
         id: find_msi
         shell: pwsh
         run: |
-          $msiPath = Get-ChildItem -Path "frontend/src-tauri/target/release/bundle/msi" -Filter "*.msi" | Select-Object -First 1
+          $msiPath = Get-ChildItem -Path "src-tauri/target/release/bundle/msi" -Filter "*.msi" | Select-Object -First 1
           if ($msiPath) {
             echo "msi_path=$($msiPath.FullName)" >> $env:GITHUB_OUTPUT
             echo "msi_name=$($msiPath.Name)" >> $env:GITHUB_OUTPUT
@@ -213,7 +217,7 @@ jobs:
         id: find_sigs
         shell: pwsh
         run: |
-          $nsisSig = Get-ChildItem -Path "frontend/src-tauri/target/release/bundle/nsis" -Filter "*.exe.sig" | Select-Object -First 1
+          $nsisSig = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter "*.exe.sig" | Select-Object -First 1
           if ($nsisSig) {
             echo "nsis_sig_path=$($nsisSig.FullName)" >> $env:GITHUB_OUTPUT
             $sigContent = Get-Content $nsisSig.FullName -Raw
@@ -225,10 +229,10 @@ jobs:
         with:
           name: windows-installers
           path: |
-            frontend/src-tauri/target/release/bundle/nsis/*.exe
-            frontend/src-tauri/target/release/bundle/nsis/*.exe.sig
-            frontend/src-tauri/target/release/bundle/msi/*.msi
-            frontend/src-tauri/target/release/bundle/msi/*.msi.sig
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.exe.sig
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/msi/*.msi.sig
           if-no-files-found: error
 
   # 发布阶段
