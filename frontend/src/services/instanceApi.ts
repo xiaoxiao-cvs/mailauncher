@@ -283,11 +283,10 @@ class InstanceApiClient {
 
   /**
    * 获取NapCat已登录账号列表
-   * TODO: 尚未迁移至 Rust，暂时返回空列表
    */
-  async getNapCatAccounts(_instanceId: string): Promise<{success: boolean; accounts: Array<{account: string; nickname: string}>; message: string}> {
-    console.warn('[instanceApi] getNapCatAccounts 尚未迁移至 Rust');
-    return { success: true, accounts: [], message: '功能尚未迁移' };
+  async getNapCatAccounts(instanceId: string): Promise<{success: boolean; accounts: Array<{account: string; nickname: string}>; message: string}> {
+    const result = await tauriInvoke<{accounts: Array<{account: string; nickname: string}>}>('get_napcat_accounts', { instanceId });
+    return { success: true, accounts: result.accounts, message: '' };
   }
 }
 

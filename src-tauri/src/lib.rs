@@ -101,6 +101,7 @@ pub fn run() {
             commands::instance::create_instance,
             commands::instance::update_instance,
             commands::instance::delete_instance,
+            commands::instance::get_napcat_accounts,
             // 进程管理
             commands::process::start_instance,
             commands::process::stop_instance,

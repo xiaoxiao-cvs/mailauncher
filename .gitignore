@@ -27,46 +27,12 @@ dist-ssr
 old/
 .VSCodeCounter
 
-# Backend data
-backend/data/database/*.db
-backend/data/database/*.db-shm
-backend/data/database/*.db-wal
-backend/deployments/*.json
-backend/__pycache__/
-backend/**/__pycache__/
-backend/.env
-
-# Python
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.egg-info/
-.venv/
-venv/
-
-# PyInstaller
-backend/build/
-backend/dist/
-backend/*.spec.log
-frontend/build/mai-backend/
-
 # Tauri build output
-frontend/src-tauri/target/
-frontend/src-tauri/backend-dist/
-frontend/src-tauri/gen/
+src-tauri/target/
 
 # Frontend build output
 frontend/dist/
 frontend/build/
-
-# Log files (data directory)
-backend/data/Log/**/*.jsonl
-backend/data/Log/**/*.jsonl.gz
-
-# Backend build output
-backend/data
-backend/deployments
 
 .trae
 

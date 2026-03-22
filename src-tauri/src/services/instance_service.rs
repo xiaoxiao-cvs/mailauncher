@@ -204,6 +204,36 @@ pub async fn delete_instance(pool: &SqlitePool, id: &str) -> AppResult<bool> {
     Ok(true)
 }
 
+/// 内部版本：直接向内存数据库插入实例行，跳过文件系统操作。
+/// 仅用于单元测试。
+#[cfg(test)]
+async fn insert_instance_row(
+    pool: &SqlitePool,
+    id: &str,
+    name: &str,
+    bot_type: &str,
+) -> AppResult<()> {
+    let now = Utc::now().naive_utc();
+    let runtime_profile_json =
+        crate::models::default_runtime_profile_json(Some(name), None);
+    sqlx::query(
+        r#"INSERT INTO instances
+           (id, name, instance_path, bot_type, status, created_at, updated_at, run_time,
+            runtime_profile, component_state)
+           VALUES (?, ?, ?, ?, 'stopped', ?, ?, 0, ?, '[]')"#,
+    )
+    .bind(id)
+    .bind(name)
+    .bind(name)
+    .bind(bot_type)
+    .bind(now)
+    .bind(now)
+    .bind(runtime_profile_json)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 /// 获取实例运行状态
 ///
 /// 同步数据库状态与实际进程状态：
@@ -253,4 +283,121 @@ pub async fn get_instance_status(
         last_status_reason: refreshed.last_status_reason,
         component_states: refreshed.component_states,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use sqlx::SqlitePool;
+    use super::*;
+
+    async fn setup_test_db() -> SqlitePool {
+        let pool = SqlitePool::connect("sqlite::memory:").await.expect("创建内存数据库失败");
+        sqlx::query(
+            "CREATE TABLE instances (
+                id VARCHAR(50) PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                instance_path VARCHAR(500),
+                bot_type VARCHAR(20) NOT NULL,
+                bot_version VARCHAR(50),
+                description TEXT,
+                status VARCHAR(20) NOT NULL DEFAULT 'stopped',
+                python_path VARCHAR(500),
+                config_path VARCHAR(500),
+                created_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
+                updated_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
+                last_run DATETIME,
+                run_time INTEGER NOT NULL DEFAULT 0,
+                qq_account VARCHAR(20),
+                runtime_profile TEXT,
+                last_error TEXT,
+                last_status_reason TEXT,
+                component_state TEXT
+            )"
+        ).execute(&pool).await.expect("建表失败");
+        pool
+    }
+
+    #[tokio::test]
+    async fn create_instance_generates_inst_prefix_id() {
+        let pool = setup_test_db().await;
+        let req = CreateInstanceRequest {
+            name: "test-bot".to_string(),
+            bot_type: Some("maibot".to_string()),
+            bot_version: None,
+            description: None,
+            python_path: None,
+            config_path: None,
+        };
+        let instance = create_instance(&pool, req).await.expect("创建实例失败");
+        assert!(instance.id.starts_with("inst_"), "ID 应以 inst_ 开头, 实际: {}", instance.id);
+        assert_eq!(instance.name, "test-bot");
+        assert_eq!(instance.bot_type, "maibot");
+
+        // 清理：删除创建的目录
+        let instance_dir = platform::get_instances_dir().join("test-bot");
+        let _ = std::fs::remove_dir_all(&instance_dir);
+    }
+
+    #[tokio::test]
+    async fn create_instance_rejects_duplicate_name() {
+        let pool = setup_test_db().await;
+        // 先用 insert_instance_row 插入一条，避免文件系统副作用
+        insert_instance_row(&pool, "inst_aaaaaaaaaaaa", "dup-bot", "maibot")
+            .await
+            .expect("插入失败");
+
+        let req = CreateInstanceRequest {
+            name: "dup-bot".to_string(),
+            bot_type: None,
+            bot_version: None,
+            description: None,
+            python_path: None,
+            config_path: None,
+        };
+        let result = create_instance(&pool, req).await;
+        assert!(result.is_err(), "应拒绝重复名称");
+    }
+
+    #[tokio::test]
+    async fn get_all_instances_returns_correct_total() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_000000000001", "bot-a", "maibot")
+            .await
+            .unwrap();
+        insert_instance_row(&pool, "inst_000000000002", "bot-b", "maibot")
+            .await
+            .unwrap();
+
+        let list = get_all_instances(&pool).await.expect("查询失败");
+        assert_eq!(list.total, 2);
+        assert_eq!(list.instances.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn get_instance_returns_none_for_missing_id() {
+        let pool = setup_test_db().await;
+        let result = get_instance(&pool, "inst_nonexistent").await.expect("查询失败");
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn delete_instance_removes_from_db() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_to_delete_01", "del-bot", "maibot")
+            .await
+            .unwrap();
+
+        let deleted = delete_instance(&pool, "inst_to_delete_01").await.expect("删除失败");
+        assert!(deleted);
+
+        let after = get_instance(&pool, "inst_to_delete_01").await.expect("查询失败");
+        assert!(after.is_none(), "删除后应查不到实例");
+    }
+
+    #[tokio::test]
+    async fn delete_instance_returns_false_for_missing_id() {
+        let pool = setup_test_db().await;
+        let deleted = delete_instance(&pool, "inst_nonexistent").await.expect("删除失败");
+        assert!(!deleted);
+    }
 }

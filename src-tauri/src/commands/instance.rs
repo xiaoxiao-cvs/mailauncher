@@ -80,3 +80,58 @@ pub async fn delete_instance(
         Err(AppError::NotFound(format!("实例 {} 不存在", instance_id)))
     }
 }
+
+/// NapCat 账号信息
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NapCatAccountsResponse {
+    pub accounts: Vec<NapCatAccount>,
+}
+
+/// 单个 NapCat 账号
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NapCatAccount {
+    pub account: String,
+    pub nickname: String,
+}
+
+/// 获取 NapCat 已登录账号列表
+///
+/// 扫描实例目录下 NapCat/config/ 中的数字命名子目录，
+/// 每个子目录名即为一个 QQ 账号。
+#[tauri::command]
+pub async fn get_napcat_accounts(
+    state: State<'_, AppState>,
+    instance_id: String,
+) -> AppResult<NapCatAccountsResponse> {
+    let instance = instance_service::get_instance(&state.db, &instance_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
+
+    let instances_dir = crate::utils::platform::get_instances_dir();
+    let instance_path = instance.instance_path.unwrap_or_else(|| instance.name.clone());
+    let napcat_config_dir = instances_dir.join(&instance_path).join("NapCat").join("config");
+
+    let mut accounts = Vec::new();
+
+    if napcat_config_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&napcat_config_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                // NapCat 以 QQ 号命名目录（纯数字）
+                if entry.file_type().map(|t| t.is_dir()).unwrap_or(false)
+                    && name.chars().all(|c| c.is_ascii_digit())
+                    && !name.is_empty()
+                {
+                    accounts.push(NapCatAccount {
+                        account: name.clone(),
+                        nickname: name,
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(NapCatAccountsResponse { accounts })
+}

@@ -564,3 +564,85 @@ fn json_to_toml_value(value: &serde_json::Value) -> toml_edit::Value {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use sqlx::SqlitePool;
+    use super::*;
+
+    async fn setup_test_db() -> SqlitePool {
+        let pool = SqlitePool::connect("sqlite::memory:").await.expect("创建内存数据库失败");
+        sqlx::query(
+            "CREATE TABLE launcher_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key VARCHAR(100) NOT NULL UNIQUE,
+                value TEXT,
+                description TEXT,
+                updated_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime'))
+            )"
+        ).execute(&pool).await.expect("建表失败");
+
+        sqlx::query(
+            "CREATE TABLE python_environments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                path TEXT NOT NULL UNIQUE,
+                version TEXT,
+                major INTEGER,
+                minor INTEGER,
+                micro INTEGER,
+                is_default BOOLEAN DEFAULT 0,
+                is_selected BOOLEAN DEFAULT 0,
+                created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+            )"
+        ).execute(&pool).await.expect("建表失败");
+
+        sqlx::query(
+            "CREATE TABLE path_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(100) NOT NULL UNIQUE,
+                path TEXT NOT NULL,
+                path_type VARCHAR(50) DEFAULT 'custom',
+                is_verified BOOLEAN DEFAULT 0,
+                description TEXT,
+                updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
+            )"
+        ).execute(&pool).await.expect("建表失败");
+
+        pool
+    }
+
+    #[tokio::test]
+    async fn set_and_get_config_roundtrip() {
+        let pool = setup_test_db().await;
+        set_config(&pool, "theme", "dark", Some("UI 主题")).await.expect("写入配置失败");
+        let value = get_config(&pool, "theme").await.expect("读取配置失败");
+        assert_eq!(value, Some("dark".to_string()));
+    }
+
+    #[tokio::test]
+    async fn set_config_upserts_existing_key() {
+        let pool = setup_test_db().await;
+        set_config(&pool, "lang", "en", None).await.expect("首次写入失败");
+        set_config(&pool, "lang", "zh", None).await.expect("更新写入失败");
+        let value = get_config(&pool, "lang").await.expect("读取配置失败");
+        assert_eq!(value, Some("zh".to_string()));
+    }
+
+    #[tokio::test]
+    async fn get_config_returns_none_for_missing_key() {
+        let pool = setup_test_db().await;
+        let value = get_config(&pool, "nonexistent").await.expect("查询失败");
+        assert!(value.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_all_configs_returns_sorted_list() {
+        let pool = setup_test_db().await;
+        set_config(&pool, "zzz", "last", None).await.unwrap();
+        set_config(&pool, "aaa", "first", None).await.unwrap();
+        let configs = get_all_configs(&pool).await.expect("查询失败");
+        assert_eq!(configs.len(), 2);
+        assert_eq!(configs[0].key, "aaa");
+        assert_eq!(configs[1].key, "zzz");
+    }
+}
