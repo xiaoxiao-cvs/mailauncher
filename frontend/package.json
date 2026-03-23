@@ -5,7 +5,7 @@
   "type": "module",
   "description": "麦麦启动器 - MaiBot、NapCat 和适配器的可视化管理工具",
   "author": "xiaoxiao-cvs",
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
