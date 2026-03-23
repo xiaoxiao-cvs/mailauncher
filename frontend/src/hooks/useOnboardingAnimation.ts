@@ -43,6 +43,12 @@ export function useOnboardingAnimation() {
         duration: 200,
         easing: 'easeInCubic',
         complete: () => {
+          // 在 React 更新 DOM 前锁定不可见状态，防止新内容闪帧
+          if (contentRef.current) {
+            contentRef.current.style.opacity = '0'
+            contentRef.current.style.transform = `translateY(${enterY}px)`
+          }
+
           callback()
 
           // 等待 React 完成 DOM 更新后再入场
