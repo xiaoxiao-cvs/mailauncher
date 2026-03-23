@@ -38,3 +38,6 @@ frontend/build/
 
 # Plan file (local reference only)
 Plan.txt
+
+# Claude Code local config
+CLAUDE.md
