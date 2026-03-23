@@ -157,6 +157,7 @@ pub fn run() {
             commands::config::update_toml_array_item,
             commands::config::delete_toml_array_item,
             // 系统工具
+            commands::system::ping,
             commands::system::check_git_environment,
             commands::system::check_connectivity,
             // API 供应商管理

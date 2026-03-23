@@ -10,13 +10,19 @@ use crate::state::AppState;
 
 // ==================== 系统环境 ====================
 
+/// 后端健康检查（轻量，仅验证 Rust 后端存活）
+#[tauri::command]
+pub async fn ping() -> AppResult<String> {
+    Ok("pong".to_string())
+}
+
 /// 检测 Git 环境
 #[tauri::command]
 pub async fn check_git_environment() -> AppResult<system_service::GitInfo> {
     system_service::check_git_environment()
 }
 
-/// 网络连通性检查
+/// 网络连通性检查（GitHub/PyPI，用于下载和更新场景）
 #[tauri::command]
 pub async fn check_connectivity() -> AppResult<system_service::ConnectivityStatus> {
     system_service::check_connectivity().await

@@ -53,7 +53,7 @@ export function useConnectivityCheck(options: UseConnectivityCheckOptions = {}) 
 
     const startTime = performance.now()
     try {
-      await tauriInvoke<{ github: boolean; pypi: boolean }>('check_connectivity')
+      await tauriInvoke<string>('ping')
       const latency = Math.round(performance.now() - startTime)
 
       setBackendStatus({
