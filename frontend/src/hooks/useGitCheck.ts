@@ -62,13 +62,16 @@ export function useGitCheck(options: UseGitCheckOptions = {}) {
     }
   }
 
-  // 加载 Python 版本列表
+  // 加载 Python 版本列表（先自动发现再读取）
   const loadPythonVersions = async () => {
     setIsLoadingPython(true)
     setPythonError('')
-    environmentLogger.info('加载 Python 版本列表')
-    
+    environmentLogger.info('自动发现并加载 Python 版本列表')
+
     try {
+      // 先自动发现系统中的 Python 并写入数据库
+      await tauriInvoke('discover_python')
+      // 再从数据库读取完整列表
       const envs = await tauriInvoke<Array<{ path: string; version: string; is_selected: boolean; is_default?: boolean }>>('get_python_environments')
       const versions: PythonVersion[] = envs.map(e => ({
         version: e.version,

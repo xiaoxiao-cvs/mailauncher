@@ -159,6 +159,7 @@ pub fn run() {
             // 系统工具
             commands::system::ping,
             commands::system::check_git_environment,
+            commands::system::discover_python,
             commands::system::check_connectivity,
             // API 供应商管理
             commands::system::get_api_providers,

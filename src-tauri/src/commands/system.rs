@@ -22,6 +22,21 @@ pub async fn check_git_environment() -> AppResult<system_service::GitInfo> {
     system_service::check_git_environment()
 }
 
+/// 自动发现 Python 环境并保存到数据库
+#[tauri::command]
+pub async fn discover_python(state: State<'_, AppState>) -> AppResult<Vec<system_service::DiscoveredPython>> {
+    let found = system_service::discover_python_environments();
+
+    // 将发现的环境写入数据库
+    for env in &found {
+        let _ = crate::services::config_service::save_python_environment(
+            &state.db, &env.path, &env.version
+        ).await;
+    }
+
+    Ok(found)
+}
+
 /// 网络连通性检查（GitHub/PyPI，用于下载和更新场景）
 #[tauri::command]
 pub async fn check_connectivity() -> AppResult<system_service::ConnectivityStatus> {
