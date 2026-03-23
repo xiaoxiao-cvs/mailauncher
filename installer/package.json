@@ -1,0 +1,10 @@
+{
+  "name": "mailauncher-installer-root",
+  "private": true,
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.3"
+  }
+}

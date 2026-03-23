@@ -1,0 +1,11 @@
+{
+  "identifier": "default",
+  "description": "Installer default capabilities",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-minimize"
+  ]
+}

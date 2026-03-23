@@ -1,0 +1,41 @@
+{
+  "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "MAI Launcher Setup",
+  "version": "0.1.0",
+  "identifier": "com.mailauncher.installer",
+  "build": {
+    "frontendDist": "../frontend/dist",
+    "devUrl": "http://localhost:3001",
+    "beforeDevCommand": "pnpm --dir frontend dev",
+    "beforeBuildCommand": "pnpm --dir frontend build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "MAI Launcher Setup",
+        "width": 560,
+        "height": 420,
+        "resizable": false,
+        "fullscreen": false,
+        "center": true,
+        "decorations": false,
+        "transparent": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline';"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}
