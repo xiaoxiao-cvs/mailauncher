@@ -49,19 +49,21 @@ export function OnboardingContent({
 
         {/* 标题区域 */}
         <div className="mb-8 sm:mb-10 text-center md:text-left flex-shrink-0">
-          <p className="text-[13px] font-semibold text-[#007AFF] dark:text-[#0A84FF] mb-4 tracking-wide uppercase opacity-80">
+          <p data-animate="step-label" className="text-[13px] font-semibold text-[#007AFF] dark:text-[#0A84FF] mb-4 tracking-wide uppercase opacity-80">
             Step {currentStep + 1} of {steps.length}
           </p>
-          <h2 className="text-4xl md:text-5xl font-semibold text-gray-900 dark:text-white mb-4 tracking-tight leading-tight">
-            {currentStepData.title}
-          </h2>
-          <p className="text-xl text-gray-500 dark:text-gray-400 font-normal leading-relaxed max-w-xl">
+          <div data-animate="title">
+            <h2 className="text-4xl md:text-5xl font-semibold text-gray-900 dark:text-white mb-4 tracking-tight leading-tight">
+              {currentStepData.title}
+            </h2>
+          </div>
+          <p data-animate="subtitle" className="text-xl text-gray-500 dark:text-gray-400 font-normal leading-relaxed max-w-xl">
             {currentStepData.subtitle}
           </p>
         </div>
 
         {/* 内容区域 - 直接渲染步骤组件 */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-300/50 dark:scrollbar-thumb-white/10 scrollbar-track-transparent min-h-0 mb-6">
+        <div data-animate="content" className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-300/50 dark:scrollbar-thumb-white/10 scrollbar-track-transparent min-h-0 mb-6">
           <div className="pr-2">
           {currentStepData.component ? (
             /* 直接渲染步骤组件 */
@@ -95,7 +97,7 @@ export function OnboardingContent({
         </div>
 
         {/* 底部按钮 */}
-        <div className="flex items-center justify-between gap-4 pt-6 border-t border-gray-200/60 dark:border-white/[0.06] flex-shrink-0">
+        <div data-animate="buttons" className="flex items-center justify-between gap-4 pt-6 border-t border-gray-200/60 dark:border-white/[0.06] flex-shrink-0">
           <div className="flex items-center gap-2">
             {currentStep > 0 && (
               <Button
@@ -112,6 +114,7 @@ export function OnboardingContent({
           <Button
             onClick={onNext}
             disabled={isAnimating || !canProceed}
+            {...(currentStep === steps.length - 1 ? { 'data-complete-btn': '' } : {})}
             className="rounded-full px-8 h-12 text-[15px] font-medium shadow-sm hover:shadow-md transition-[background-color,box-shadow] duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-white bg-[#007AFF] hover:bg-[#0071E3] dark:bg-[#0A84FF] dark:hover:bg-[#0077ED] active:scale-[0.98]"
           >
             {buttonLabel ? (

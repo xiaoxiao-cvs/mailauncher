@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { OnboardingSidebar } from './OnboardingSidebar'
 import { OnboardingContent } from './OnboardingContent'
 import { useOnboardingAnimation } from '@/hooks/useOnboardingAnimation'
+import { useConfetti } from '@/hooks/useConfetti'
 import { ONBOARDING_STEPS } from './constants'
 import { EulaContext } from './EulaContext'
 import { routerLogger } from '@/utils/logger'
@@ -21,6 +22,8 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
   const [canProceed, setCanProceed] = useState(true)
   const [buttonLabel, setButtonLabel] = useState<string | null>(null)
   const { contentRef, isAnimating, animateTransition } = useOnboardingAnimation()
+  const windowRef = useRef<HTMLDivElement>(null)
+  const { triggerConfetti } = useConfetti(windowRef)
   const blobRef1 = useRef<HTMLDivElement>(null)
   const blobRef2 = useRef<HTMLDivElement>(null)
 
@@ -102,7 +105,11 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
     }, 'next')
   }
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
+    const btn = document.querySelector<HTMLElement>('[data-complete-btn]')
+    if (btn) {
+      await triggerConfetti(btn)
+    }
     routerLogger.success('引导完成！')
     onComplete?.()
   }
@@ -127,7 +134,7 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
       </div>
 
       {/* 主窗口容器 */}
-      <div className="relative w-[90vw] md:w-[85vw] lg:w-[80vw] xl:w-[70vw] min-h-[600px] max-h-[90vh] h-[85vh] z-10 flex bg-white/70 dark:bg-[#1C1C1E]/80 backdrop-blur-3xl rounded-3xl shadow-[0_8px_60px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_60px_-12px_rgba(0,0,0,0.5)] border border-white/50 dark:border-white/10 overflow-hidden transition-all duration-500">
+      <div ref={windowRef} className="relative w-[90vw] md:w-[85vw] lg:w-[80vw] xl:w-[70vw] min-h-[600px] max-h-[90vh] h-[85vh] z-10 flex bg-white/70 dark:bg-[#1C1C1E]/80 backdrop-blur-3xl rounded-3xl shadow-[0_8px_60px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_60px_-12px_rgba(0,0,0,0.5)] border border-white/50 dark:border-white/10 overflow-hidden transition-all duration-500">
         {/* 左侧：侧边栏 */}
         <div className="hidden md:flex w-[240px] lg:w-[280px] xl:w-[300px] flex-shrink-0 border-r border-black/[0.06] dark:border-white/[0.06] bg-black/[0.02] dark:bg-white/[0.02] flex-col">
           <OnboardingSidebar
