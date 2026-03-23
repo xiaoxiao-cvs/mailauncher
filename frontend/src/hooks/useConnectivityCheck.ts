@@ -1,9 +1,9 @@
 /**
  * 联通性检查自定义 Hook
- * 职责：管理 Rust 后端、GitHub、Gitee 的连接状态检查
+ * 职责：管理 Rust 后端连接状态检查
  *
  * Tauri 模式下，Rust 后端嵌入在应用内，始终可用。
- * GitHub/PyPI 通过 Rust check_connectivity 命令检查，Gitee 通过浏览器 fetch 检查。
+ * 通过简单 invoke 验证后端可达性。
  */
 
 import { useState, useEffect } from 'react'
@@ -38,18 +38,6 @@ export function useConnectivityCheck(options: UseConnectivityCheckOptions = {}) 
     status: 'pending'
   })
 
-  const [githubStatus, setGithubStatus] = useState<ConnectivityStatus>({
-    name: 'GitHub 发行版',
-    url: 'https://github.com',
-    status: 'pending'
-  })
-
-  const [giteeStatus, setGiteeStatus] = useState<ConnectivityStatus>({
-    name: 'Gitee 发行版',
-    url: 'https://gitee.com',
-    status: 'pending'
-  })
-
   // URL 管理（Tauri 模式下为空操作，保留接口兼容 UI）
   const handleUrlChange = (newUrl: string) => {
     setTempUrl(newUrl)
@@ -58,17 +46,16 @@ export function useConnectivityCheck(options: UseConnectivityCheckOptions = {}) 
   const handleSave = () => {}
   const saveBackendUrl = (_url: string) => {}
 
-  // 检查 Rust 后端连接（Tauri 内置后端始终可用，通过简单 invoke 验证）
+  // 检查 Rust 后端连接
   const checkBackend = async () => {
     setBackendStatus(prev => ({ ...prev, status: 'checking' }))
     connectivityLogger.info('检查 Rust 后端连接')
-    
+
     const startTime = performance.now()
     try {
-      // 通过调用 check_connectivity 命令来验证 Rust 后端可用性
       await tauriInvoke<{ github: boolean; pypi: boolean }>('check_connectivity')
       const latency = Math.round(performance.now() - startTime)
-      
+
       setBackendStatus({
         name: 'Rust 后端',
         url: backendUrl,
@@ -87,85 +74,10 @@ export function useConnectivityCheck(options: UseConnectivityCheckOptions = {}) 
     }
   }
 
-  // 检查 GitHub 连接（通过 Rust check_connectivity）
-  const checkGitHub = async () => {
-    setGithubStatus(prev => ({ ...prev, status: 'checking' }))
-    connectivityLogger.info('开始检查 GitHub 连接')
-    
-    const startTime = performance.now()
-    try {
-      const result = await tauriInvoke<{ github: boolean; pypi: boolean }>('check_connectivity')
-      const latency = Math.round(performance.now() - startTime)
-
-      if (result.github) {
-        setGithubStatus({
-          name: 'GitHub 发行版',
-          url: 'https://github.com',
-          status: 'success',
-          latency
-        })
-        connectivityLogger.success('GitHub 连接成功', { latency })
-      } else {
-        setGithubStatus({
-          name: 'GitHub 发行版',
-          url: 'https://github.com',
-          status: 'error',
-          error: '无法访问 GitHub'
-        })
-        connectivityLogger.error('GitHub 连接失败')
-      }
-    } catch (error) {
-      setGithubStatus({
-        name: 'GitHub 发行版',
-        url: 'https://github.com',
-        status: 'error',
-        error: '连接超时或失败'
-      })
-      connectivityLogger.error('GitHub 连接检查异常', error)
-    }
-  }
-
-  // 检查 Gitee 延迟（浏览器 fetch，Rust 不支持 Gitee 检查）
-  const checkGitee = async () => {
-    setGiteeStatus(prev => ({ ...prev, status: 'checking' }))
-    connectivityLogger.info('开始检查 Gitee 连接')
-    
-    const startTime = performance.now()
-    try {
-      await fetch('https://gitee.com', {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(10000),
-        mode: 'no-cors'
-      })
-      const endTime = performance.now()
-      const latency = Math.round(endTime - startTime)
-
-      setGiteeStatus({
-        name: 'Gitee 发行版',
-        url: 'https://gitee.com',
-        status: 'success',
-        latency
-      })
-      connectivityLogger.success('Gitee 连接成功', { latency })
-    } catch (error) {
-      setGiteeStatus({
-        name: 'Gitee 发行版',
-        url: 'https://gitee.com',
-        status: 'error',
-        error: '连接超时或失败'
-      })
-      connectivityLogger.error('Gitee 连接失败', error)
-    }
-  }
-
-  // 执行所有检查
+  // 执行检查
   const checkAll = async () => {
     connectivityLogger.info('开始执行联通性检查')
-    await Promise.all([
-      checkBackend(),
-      checkGitHub(),
-      checkGitee()
-    ])
+    await checkBackend()
     connectivityLogger.success('联通性检查完成')
   }
 
@@ -197,16 +109,12 @@ export function useConnectivityCheck(options: UseConnectivityCheckOptions = {}) 
     handleBlur,
     handleSave,
     saveBackendUrl,
-    
+
     // 连接状态
     backendStatus,
-    githubStatus,
-    giteeStatus,
-    
+
     // 检查方法
     checkBackend,
-    checkGitHub,
-    checkGitee,
     checkAll
   }
 }
