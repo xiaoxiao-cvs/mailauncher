@@ -1,0 +1,71 @@
+import { useContext } from 'react'
+import ReactMarkdown from 'react-markdown'
+import { CheckCircle2Icon } from 'lucide-react'
+import eulaContent from '@/assets/EULA.md?raw'
+import { useEulaAgreement } from '@/hooks/useEulaAgreement'
+import { EulaContext } from './EulaContext'
+
+const markdownComponents = {
+  h1: ({ children }: { children?: React.ReactNode }) => (
+    <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">{children}</h1>
+  ),
+  h2: ({ children }: { children?: React.ReactNode }) => (
+    <h2 className="text-xl font-semibold mb-3 mt-6 text-gray-900 dark:text-white">{children}</h2>
+  ),
+  h3: ({ children }: { children?: React.ReactNode }) => (
+    <h3 className="text-lg font-semibold mb-2 mt-4 text-gray-900 dark:text-white">{children}</h3>
+  ),
+  p: ({ children }: { children?: React.ReactNode }) => (
+    <p className="mb-3 text-gray-700 dark:text-gray-300 leading-relaxed text-[14px]">{children}</p>
+  ),
+  ul: ({ children }: { children?: React.ReactNode }) => (
+    <ul className="list-disc pl-6 mb-3 space-y-1">{children}</ul>
+  ),
+  ol: ({ children }: { children?: React.ReactNode }) => (
+    <ol className="list-decimal pl-6 mb-3 space-y-1">{children}</ol>
+  ),
+  li: ({ children }: { children?: React.ReactNode }) => (
+    <li className="text-gray-700 dark:text-gray-300 text-[14px]">{children}</li>
+  ),
+  strong: ({ children }: { children?: React.ReactNode }) => (
+    <strong className="font-semibold text-gray-900 dark:text-white">{children}</strong>
+  ),
+  blockquote: ({ children }: { children?: React.ReactNode }) => (
+    <blockquote className="border-l-4 border-[#007AFF]/30 pl-4 my-3 text-gray-600 dark:text-gray-400 text-[14px]">
+      {children}
+    </blockquote>
+  ),
+  hr: () => <hr className="my-6 border-gray-200 dark:border-white/10" />,
+}
+
+export function EulaAgreement() {
+  const { onCanProceedChange, onButtonLabelChange } = useContext(EulaContext)
+  const {
+    alreadyAccepted,
+    scrollContainerRef,
+    handleScroll,
+  } = useEulaAgreement(onCanProceedChange, onButtonLabelChange)
+
+  if (alreadyAccepted) {
+    return (
+      <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20">
+        <CheckCircle2Icon className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+        <p className="text-[14px] text-emerald-700 dark:text-emerald-400">
+          你已同意当前版本的用户协议，可直接继续。
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={scrollContainerRef}
+      onScroll={handleScroll}
+      className="h-full overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300/50 dark:scrollbar-thumb-white/10 scrollbar-track-transparent"
+    >
+      <ReactMarkdown components={markdownComponents}>
+        {eulaContent}
+      </ReactMarkdown>
+    </div>
+  )
+}

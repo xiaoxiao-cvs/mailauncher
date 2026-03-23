@@ -5,6 +5,7 @@ export { OnboardingPage } from './OnboardingPage'
 export { ONBOARDING_STEPS } from './constants'
 
 // 新版步骤组件
+export { EulaAgreement } from './EulaAgreement'
 export { BackendConnectivity } from './BackendConnectivity'
 export { EnvironmentDetection } from './EnvironmentDetection'
 export { EnvironmentSettings } from './EnvironmentSettings'

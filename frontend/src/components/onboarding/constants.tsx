@@ -1,4 +1,5 @@
 import {
+  ScrollTextIcon,
   PaletteIcon,
   ServerIcon,
   SearchCheckIcon,
@@ -6,6 +7,7 @@ import {
   FolderOpenIcon,
 } from 'lucide-react'
 import type { OnboardingStep } from '@/types/onboarding'
+import { EulaAgreement } from './EulaAgreement'
 import { ThemeSelector } from '@/components/theme/ThemeSelector'
 import { BackendConnectivity } from './BackendConnectivity'
 import { EnvironmentDetection } from './EnvironmentDetection'
@@ -17,8 +19,9 @@ const APPLE_BLUE = '#007AFF'
 /**
  * 引导步骤数据
  * 职责：存储引导流程的所有步骤配置
- * 
+ *
  * 步骤流程：
+ * 0. 用户协议 - 阅读并同意 EULA
  * 1. 外观设置 - 选择主题
  * 2. 联通性检查 - 配置后端服务地址
  * 3. 环境检测 - 检查 Git 和 Python 是否安装
@@ -26,6 +29,16 @@ const APPLE_BLUE = '#007AFF'
  * 5. 安装配置 - 设置 Bot 实例安装路径
  */
 export const ONBOARDING_STEPS: OnboardingStep[] = [
+  {
+    id: 0,
+    title: '用户协议',
+    subtitle: '请阅读并同意最终用户许可协议',
+    description: [],
+    icon: <ScrollTextIcon className="w-5 h-5" />,
+    gradient: 'from-[#007AFF] to-[#007AFF]',
+    color: APPLE_BLUE,
+    component: <EulaAgreement />
+  },
   {
     id: 1,
     title: '外观设置',

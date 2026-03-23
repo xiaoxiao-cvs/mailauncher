@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { OnboardingSidebar } from './OnboardingSidebar'
 import { OnboardingContent } from './OnboardingContent'
 import { useOnboardingAnimation } from '@/hooks/useOnboardingAnimation'
 import { ONBOARDING_STEPS } from './constants'
+import { EulaContext } from './EulaContext'
 import { routerLogger } from '@/utils/logger'
 import type { OnboardingCallbacks } from '@/types/onboarding'
 import { animate } from 'animejs'
@@ -16,9 +17,24 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
   const [currentStep, setCurrentStep] = useState(0)
   // 记录用户曾经到达过的最远步骤
   const [maxReachedStep, setMaxReachedStep] = useState(0)
+  // EULA 步骤的 canProceed 控制
+  const [canProceed, setCanProceed] = useState(true)
+  const [buttonLabel, setButtonLabel] = useState<string | null>(null)
   const { contentRef, isAnimating, animateTransition } = useOnboardingAnimation()
   const blobRef1 = useRef<HTMLDivElement>(null)
   const blobRef2 = useRef<HTMLDivElement>(null)
+
+  // 稳定的回调引用
+  const handleCanProceedChange = useCallback((v: boolean) => setCanProceed(v), [])
+  const handleButtonLabelChange = useCallback((v: string | null) => setButtonLabel(v), [])
+
+  // 切换步骤时重置 canProceed（非 EULA 步骤默认可继续）
+  useEffect(() => {
+    if (currentStep !== 0) {
+      setCanProceed(true)
+      setButtonLabel(null)
+    }
+  }, [currentStep])
 
   const currentStepData = ONBOARDING_STEPS[currentStep]
 
@@ -125,29 +141,35 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
 
         {/* 右侧：内容展示区 */}
         <div className="flex-1 relative flex flex-col min-w-0">
-          <OnboardingContent
-            steps={ONBOARDING_STEPS}
-            currentStep={currentStep}
-            currentStepData={currentStepData}
-            isAnimating={isAnimating}
-            contentRef={contentRef}
-            onNext={handleNext}
-            onPrevious={handlePrevious}
-          />
+          <EulaContext.Provider value={{ onCanProceedChange: handleCanProceedChange, onButtonLabelChange: handleButtonLabelChange }}>
+            <OnboardingContent
+              steps={ONBOARDING_STEPS}
+              currentStep={currentStep}
+              currentStepData={currentStepData}
+              isAnimating={isAnimating}
+              contentRef={contentRef}
+              onNext={handleNext}
+              onPrevious={handlePrevious}
+              canProceed={canProceed}
+              buttonLabel={buttonLabel}
+            />
+          </EulaContext.Provider>
         </div>
       </div>
 
-      {/* 跳过按钮 - 绝对定位在左下角 */}
-      <div className="absolute bottom-8 left-8 hidden md:block">
-        <Button
-          variant="ghost"
-          onClick={handleSkip}
-          disabled={isAnimating}
-          className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-        >
-          跳过引导，直接开始
-        </Button>
-      </div>
+      {/* 跳过按钮 - EULA 步骤不允许跳过 */}
+      {currentStep > 0 && (
+        <div className="absolute bottom-8 left-8 hidden md:block">
+          <Button
+            variant="ghost"
+            onClick={handleSkip}
+            disabled={isAnimating}
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+          >
+            跳过引导，直接开始
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

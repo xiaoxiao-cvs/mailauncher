@@ -11,6 +11,8 @@ interface OnboardingContentProps {
   contentRef: RefObject<HTMLDivElement>
   onNext: () => void
   onPrevious: () => void
+  canProceed?: boolean
+  buttonLabel?: string | null
 }
 
 /**
@@ -24,7 +26,9 @@ export function OnboardingContent({
   isAnimating,
   contentRef,
   onNext,
-  onPrevious
+  onPrevious,
+  canProceed = true,
+  buttonLabel = null
 }: OnboardingContentProps) {
 
   return (
@@ -107,10 +111,12 @@ export function OnboardingContent({
           
           <Button
             onClick={onNext}
-            disabled={isAnimating}
+            disabled={isAnimating || !canProceed}
             className="rounded-full px-8 h-12 text-[15px] font-medium shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed text-white bg-[#007AFF] hover:bg-[#0071E3] dark:bg-[#0A84FF] dark:hover:bg-[#0077ED] active:scale-[0.98]"
           >
-            {currentStep === steps.length - 1 ? (
+            {buttonLabel ? (
+              <>{buttonLabel}</>
+            ) : currentStep === steps.length - 1 ? (
               <>
                 开始使用
                 <CheckCircle2Icon className="w-4 h-4 ml-2" />
