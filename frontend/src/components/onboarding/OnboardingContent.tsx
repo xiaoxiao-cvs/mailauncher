@@ -112,7 +112,7 @@ export function OnboardingContent({
           <Button
             onClick={onNext}
             disabled={isAnimating || !canProceed}
-            className="rounded-full px-8 h-12 text-[15px] font-medium shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed text-white bg-[#007AFF] hover:bg-[#0071E3] dark:bg-[#0A84FF] dark:hover:bg-[#0077ED] active:scale-[0.98]"
+            className="rounded-full px-8 h-12 text-[15px] font-medium shadow-sm hover:shadow-md transition-[background-color,box-shadow] duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-white bg-[#007AFF] hover:bg-[#0071E3] dark:bg-[#0A84FF] dark:hover:bg-[#0077ED] active:scale-[0.98]"
           >
             {buttonLabel ? (
               <>{buttonLabel}</>

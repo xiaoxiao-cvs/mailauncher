@@ -43,10 +43,9 @@ export function useOnboardingAnimation() {
         duration: 200,
         easing: 'easeInCubic',
         complete: () => {
-          // 在 React 更新 DOM 前锁定不可见状态，防止新内容闪帧
           if (contentRef.current) {
-            contentRef.current.style.opacity = '0'
-            contentRef.current.style.transform = `translateY(${enterY}px)`
+            // 用 visibility 硬性隐藏，防止 animejs 清理 inline style 时闪帧
+            contentRef.current.style.visibility = 'hidden'
           }
 
           callback()
@@ -55,6 +54,11 @@ export function useOnboardingAnimation() {
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               if (contentRef.current) {
+                // 设好入场起始状态后再恢复可见
+                contentRef.current.style.opacity = '0'
+                contentRef.current.style.transform = `translateY(${enterY}px)`
+                contentRef.current.style.visibility = 'visible'
+
                 animate(contentRef.current, {
                   opacity: [0, 1],
                   translateY: [enterY, 0],
