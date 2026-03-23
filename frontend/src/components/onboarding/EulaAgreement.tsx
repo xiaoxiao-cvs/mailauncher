@@ -46,26 +46,28 @@ export function EulaAgreement() {
     handleScroll,
   } = useEulaAgreement(onCanProceedChange, onButtonLabelChange)
 
-  if (alreadyAccepted) {
-    return (
-      <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20">
-        <CheckCircle2Icon className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-        <p className="text-[14px] text-emerald-700 dark:text-emerald-400">
-          你已同意当前版本的用户协议，可直接继续。
-        </p>
-      </div>
-    )
-  }
-
   return (
-    <div
-      ref={scrollContainerRef}
-      onScroll={handleScroll}
-      className="h-full overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300/50 dark:scrollbar-thumb-white/10 scrollbar-track-transparent"
-    >
-      <ReactMarkdown components={markdownComponents}>
-        {eulaContent}
-      </ReactMarkdown>
+    <div className="h-full flex flex-col gap-3">
+      {/* 已接受提示条 */}
+      {alreadyAccepted && (
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20 flex-shrink-0">
+          <CheckCircle2Icon className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+          <p className="text-[13px] text-emerald-700 dark:text-emerald-400">
+            你已同意当前版本的用户协议，可直接继续。
+          </p>
+        </div>
+      )}
+
+      {/* 协议全文始终可见 */}
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300/50 dark:scrollbar-thumb-white/10 scrollbar-track-transparent"
+      >
+        <ReactMarkdown components={markdownComponents}>
+          {eulaContent}
+        </ReactMarkdown>
+      </div>
     </div>
   )
 }
