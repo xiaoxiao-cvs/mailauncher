@@ -9,10 +9,28 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "dev": "pnpm tauri:dev",
-    "build": "pnpm tauri:build"
+    "build": "pnpm tauri:build",
+    "installer:install": "pnpm --dir installer/frontend install",
+    "installer:dev": "cd installer && pnpm tauri dev",
+    "installer:build": "cd installer && pnpm tauri build",
+    "prepare": "simple-git-hooks"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.3",
+    "lint-staged": "^15.2.0",
+    "simple-git-hooks": "^2.11.0",
     "shadcn": "^3.5.0"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged"
+  },
+  "lint-staged": {
+    "frontend/src/**/*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix --max-warnings 0"
+    ],
+    "frontend/src/**/*.css": [
+      "prettier --write"
+    ]
   }
 }
