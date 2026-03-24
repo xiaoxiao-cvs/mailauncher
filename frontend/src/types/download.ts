@@ -10,7 +10,7 @@ export type DownloadItemType = 'maibot' | 'napcat' | 'adapter' | 'quick-algo'
 /**
  * 下载项状态
  */
-export type DownloadStatus = 'pending' | 'downloading' | 'completed' | 'failed' | 'installed'
+export type DownloadStatus = 'pending' | 'downloading' | 'installing' | 'configuring' | 'completed' | 'failed' | 'cancelled' | 'installed'
 
 /**
  * Maibot 版本来源类型
