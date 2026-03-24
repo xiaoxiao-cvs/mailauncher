@@ -64,12 +64,12 @@ async fn init_rust_services() -> AppState {
     info!("[初始化] Rust 服务初始化完成");
 
     AppState {
-        db: pool,
+        db: pool.clone(),
         component_registry,
         runtime_resolver,
         process_manager,
         terminal_stream_publisher,
-        download_manager: services::download_service::DownloadManager::new(),
+        download_manager: services::download_service::DownloadManager::new(pool),
     }
 }
 
@@ -118,6 +118,7 @@ pub fn run() {
             commands::download::create_download_task,
             commands::download::get_download_task,
             commands::download::get_all_download_tasks,
+            commands::download::cancel_download_task,
             commands::download::get_maibot_versions,
             // 运行时与 WSL2
             commands::runtime::list_wsl_distributions,

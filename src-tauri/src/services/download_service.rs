@@ -12,6 +12,8 @@ use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 use tracing::{info, warn};
 
+use sqlx::SqlitePool;
+
 use crate::errors::{AppError, AppResult};
 use crate::models::download::*;
 
@@ -62,13 +64,15 @@ pub struct DownloadManager {
 struct DownloadManagerInner {
     /// 任务映射表
     tasks: HashMap<String, DownloadTask>,
+    pool: SqlitePool,
 }
 
 impl DownloadManager {
-    pub fn new() -> Self {
+    pub fn new(pool: SqlitePool) -> Self {
         Self {
             inner: Arc::new(Mutex::new(DownloadManagerInner {
                 tasks: HashMap::new(),
+                pool,
             })),
         }
     }
@@ -110,6 +114,24 @@ impl DownloadManager {
 
         let mut inner = self.inner.lock().await;
         inner.tasks.insert(task_id, task.clone());
+
+        // 持久化到数据库
+        let items_json = serde_json::to_string(&task.selected_items).unwrap_or_default();
+        let status_str = serde_json::to_string(&task.status).unwrap_or_default().trim_matches('"').to_string();
+        let _ = sqlx::query(
+            "INSERT INTO download_tasks (id, instance_name, deployment_path, maibot_version_source, maibot_version_value, selected_items, python_path, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+            .bind(&task.id)
+            .bind(&task.instance_name)
+            .bind(&task.deployment_path)
+            .bind(task.maibot_version_source.as_ref().map(|s| serde_json::to_string(s).unwrap_or_default().trim_matches('"').to_string()))
+            .bind(&task.maibot_version_value)
+            .bind(&items_json)
+            .bind(&task.python_path)
+            .bind(&status_str)
+            .execute(&inner.pool)
+            .await;
+
         task
     }
 
@@ -130,8 +152,14 @@ impl DownloadManager {
         let mut inner = self.inner.lock().await;
         if let Some(task) = inner.tasks.get_mut(task_id) {
             task.status = status.clone();
-            task.progress.status = status;
+            task.progress.status = status.clone();
         }
+        let status_str = serde_json::to_string(&status).unwrap_or_default().trim_matches('"').to_string();
+        let _ = sqlx::query("UPDATE download_tasks SET status = ? WHERE id = ?")
+            .bind(&status_str)
+            .bind(task_id)
+            .execute(&inner.pool)
+            .await;
     }
 
     /// 更新任务进度百分比和消息
@@ -139,8 +167,14 @@ impl DownloadManager {
         let mut inner = self.inner.lock().await;
         if let Some(task) = inner.tasks.get_mut(task_id) {
             task.progress.progress = progress;
-            task.progress.message = Some(message);
+            task.progress.message = Some(message.clone());
         }
+        let _ = sqlx::query("UPDATE download_tasks SET progress = ?, progress_message = ? WHERE id = ?")
+            .bind(progress)
+            .bind(&message)
+            .bind(task_id)
+            .execute(&inner.pool)
+            .await;
     }
 
     /// 添加日志
@@ -159,6 +193,10 @@ impl DownloadManager {
             task.started_at = Some(Utc::now().naive_utc());
             task.progress.status = DownloadStatus::Downloading;
         }
+        let _ = sqlx::query("UPDATE download_tasks SET status = 'downloading', started_at = datetime('now', 'localtime') WHERE id = ?")
+            .bind(task_id)
+            .execute(&inner.pool)
+            .await;
     }
 
     /// 标记任务完成
@@ -169,8 +207,13 @@ impl DownloadManager {
             task.completed_at = Some(Utc::now().naive_utc());
             task.progress.status = DownloadStatus::Completed;
             task.progress.progress = 100.0;
-            task.instance_id = instance_id;
+            task.instance_id = instance_id.clone();
         }
+        let _ = sqlx::query("UPDATE download_tasks SET status = 'completed', completed_at = datetime('now', 'localtime'), instance_id = ?, progress = 100.0 WHERE id = ?")
+            .bind(&instance_id)
+            .bind(task_id)
+            .execute(&inner.pool)
+            .await;
     }
 
     /// 标记任务失败
@@ -181,8 +224,13 @@ impl DownloadManager {
             task.completed_at = Some(Utc::now().naive_utc());
             task.error_message = Some(error.clone());
             task.progress.status = DownloadStatus::Failed;
-            task.progress.error = Some(error);
+            task.progress.error = Some(error.clone());
         }
+        let _ = sqlx::query("UPDATE download_tasks SET status = 'failed', completed_at = datetime('now', 'localtime'), error_message = ? WHERE id = ?")
+            .bind(&error)
+            .bind(task_id)
+            .execute(&inner.pool)
+            .await;
     }
 }
 
@@ -387,6 +435,9 @@ async fn download_file(
 
     let total_size = response.content_length();
     let mut downloaded: u64 = 0;
+    let mut last_speed_update = std::time::Instant::now();
+    let mut bytes_since_last_update: u64 = 0;
+    let mut current_speed: u64 = 0; // bytes/sec
 
     // 确保父目录存在
     if let Some(parent) = dest.parent() {
@@ -410,14 +461,30 @@ async fn download_file(
 
         downloaded += chunk.len() as u64;
 
+        bytes_since_last_update += chunk.len() as u64;
+        let elapsed = last_speed_update.elapsed();
+        if elapsed.as_millis() >= 500 {
+            current_speed = (bytes_since_last_update as f64 / elapsed.as_secs_f64()) as u64;
+            bytes_since_last_update = 0;
+            last_speed_update = std::time::Instant::now();
+        }
+
         // 推送进度
         if let Some(total) = total_size {
             let pct = (downloaded as f64 / total as f64 * 100.0).min(100.0);
+            let speed_str = if current_speed > 1_048_576 {
+                format!("{:.1} MB/s", current_speed as f64 / 1_048_576.0)
+            } else if current_speed > 1024 {
+                format!("{:.0} KB/s", current_speed as f64 / 1024.0)
+            } else {
+                format!("{} B/s", current_speed)
+            };
             let msg = format!(
-                "下载中... {:.1}MB / {:.1}MB ({:.0}%)",
+                "下载中... {:.1}MB / {:.1}MB ({:.0}%) - {}",
                 downloaded as f64 / 1_048_576.0,
                 total as f64 / 1_048_576.0,
-                pct
+                pct,
+                speed_str
             );
             let _ = app_handle.emit(event_name, &msg);
         }
@@ -426,6 +493,15 @@ async fn download_file(
     file.flush()
         .await
         .map_err(|e| AppError::FileSystem(format!("刷新文件失败: {}", e)))?;
+
+    // 计算文件 SHA256 校验和
+    let file_bytes = tokio::fs::read(dest).await
+        .map_err(|e| AppError::FileSystem(format!("读取文件计算校验和失败: {}", e)))?;
+    use sha2::{Sha256, Digest};
+    let hash = Sha256::digest(&file_bytes);
+    let hash_hex = format!("{:x}", hash);
+    info!("文件下载完成: {:?}, SHA256: {}", dest, hash_hex);
+    let _ = app_handle.emit(event_name, &format!("SHA256: {}", hash_hex));
 
     Ok(())
 }

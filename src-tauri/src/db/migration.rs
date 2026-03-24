@@ -321,7 +321,34 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
         .execute(pool)
         .await?;
 
-    info!("[数据库] 建表迁移完成（13 张表）");
+    // 下载任务记录（用于崩溃恢复）
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS download_tasks (
+            id VARCHAR(50) PRIMARY KEY,
+            instance_name VARCHAR(100) NOT NULL,
+            deployment_path VARCHAR(500) NOT NULL,
+            maibot_version_source VARCHAR(20),
+            maibot_version_value VARCHAR(100),
+            selected_items TEXT NOT NULL,
+            python_path VARCHAR(500),
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            progress REAL NOT NULL DEFAULT 0.0,
+            progress_message TEXT,
+            error_message TEXT,
+            instance_id VARCHAR(50),
+            created_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
+            started_at DATETIME,
+            completed_at DATETIME
+        )"
+    )
+    .execute(pool)
+    .await?;
+
+    sqlx::query("CREATE INDEX IF NOT EXISTS ix_download_tasks_status ON download_tasks (status)")
+        .execute(pool)
+        .await?;
+
+    info!("[数据库] 建表迁移完成（14 张表）");
     Ok(())
 }
 
