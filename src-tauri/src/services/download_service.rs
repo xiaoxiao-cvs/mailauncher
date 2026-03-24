@@ -591,15 +591,25 @@ pub async fn run_command_with_output(
 // ==================== 目录递归复制 ====================
 
 /// 递归复制目录
+///
+/// 跳过符号链接以避免循环引用和跨目录意外复制。
 pub fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
     if !dst.exists() {
         std::fs::create_dir_all(dst)?;
     }
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
+        let file_type = entry.file_type()?;
         let src_path = entry.path();
         let dst_path = dst.join(entry.file_name());
-        if src_path.is_dir() {
+
+        if file_type.is_symlink() {
+            // 跳过符号链接，避免循环引用或复制到意外位置
+            tracing::debug!("跳过符号链接: {:?}", src_path);
+            continue;
+        }
+
+        if file_type.is_dir() {
             copy_dir_recursive(&src_path, &dst_path)?;
         } else {
             std::fs::copy(&src_path, &dst_path)?;
@@ -1086,5 +1096,48 @@ mod tests {
 
         assert_eq!(row.0, "failed");
         assert_eq!(row.1, Some("磁盘空间不足".to_string()));
+    }
+
+    // ==================== copy_dir_recursive ====================
+
+    #[test]
+    fn copy_dir_recursive_copies_files_and_subdirs() {
+        let tmp = tempfile::tempdir().expect("创建临时目录失败");
+        let src = tmp.path().join("src");
+        let dst = tmp.path().join("dst");
+        std::fs::create_dir_all(src.join("sub")).unwrap();
+        std::fs::write(src.join("a.txt"), "hello").unwrap();
+        std::fs::write(src.join("sub/b.txt"), "world").unwrap();
+
+        copy_dir_recursive(&src, &dst).unwrap();
+
+        assert_eq!(std::fs::read_to_string(dst.join("a.txt")).unwrap(), "hello");
+        assert_eq!(std::fs::read_to_string(dst.join("sub/b.txt")).unwrap(), "world");
+    }
+
+    #[test]
+    fn copy_dir_recursive_skips_symlinks() {
+        let tmp = tempfile::tempdir().expect("创建临时目录失败");
+        let src = tmp.path().join("src");
+        let dst = tmp.path().join("dst");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(src.join("real.txt"), "content").unwrap();
+
+        // 创建符号链接（文件级）
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(src.join("real.txt"), src.join("link.txt")).unwrap();
+        #[cfg(windows)]
+        {
+            // Windows 下创建符号链接可能需要权限，失败则跳过
+            if std::os::windows::fs::symlink_file(src.join("real.txt"), src.join("link.txt")).is_err() {
+                // 无权限创建符号链接，跳过本测试
+                return;
+            }
+        }
+
+        copy_dir_recursive(&src, &dst).unwrap();
+
+        assert!(dst.join("real.txt").exists(), "普通文件应被复制");
+        assert!(!dst.join("link.txt").exists(), "符号链接应被跳过");
     }
 }
