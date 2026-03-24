@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { Icon } from '@iconify/react'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,6 +22,7 @@ import { animate, utils } from 'animejs'
  * 职责：管理 Maibot、Napcat、适配器等组件的下载和安装
  */
 export function DownloadsPage() {
+  const navigate = useNavigate()
   const {
     deploymentPath,
     instanceName,
@@ -168,6 +170,9 @@ export function DownloadsPage() {
       components,
       deploymentPath,
     })
+
+    // 导航到安装进度页
+    navigate(`/install-progress?taskId=${taskId}`)
 
     console.log('[Install] 任务已提交,任务 ID:', taskId)
   }

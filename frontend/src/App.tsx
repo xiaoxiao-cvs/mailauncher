@@ -6,6 +6,7 @@ import { InstancesPage } from '@/pages/InstancesPage'
 import { InstanceDetailPageWrapper } from '@/pages/InstanceDetailPageWrapper'
 import { DownloadsPage } from '@/pages/DownloadsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import InstallProgressPage from '@/pages/InstallProgressPage'
 import { InstallTaskProvider } from '@/contexts/InstallTaskContext'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import { GlobalWebSocketManager } from '@/components/GlobalWebSocketManager'
@@ -62,6 +63,8 @@ function AppRoutes() {
         } 
       />
       
+      <Route path="/install-progress" element={<InstallProgressPage />} />
+
       <Route element={<MainLayout />}>
         <Route path="/home" element={<HomePage />} />
         <Route path="/instances" element={<InstancesPage />} />
