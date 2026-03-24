@@ -97,6 +97,7 @@ export interface Instance {
   last_run?: string;
   run_time: number;
   runtime_profile: RuntimeProfile;
+  component_runtime_profiles: Partial<Record<ComponentType, RuntimeProfile>>;
   last_error?: string | null;
   last_status_reason?: string | null;
   component_states: InstanceComponentState[];
@@ -271,6 +272,13 @@ class InstanceApiClient {
   async refreshInstanceRuntimeState(instanceId: string): Promise<InstanceStatus> {
     return tauriInvoke<InstanceStatus>('refresh_instance_runtime_state', {
       instanceId,
+    });
+  }
+
+  async setComponentRuntimeProfiles(instanceId: string, componentRuntimeProfiles: Partial<Record<ComponentType, RuntimeProfile>>): Promise<SuccessResponse> {
+    return tauriInvoke<SuccessResponse>('set_component_runtime_profiles', {
+      instanceId,
+      componentRuntimeProfiles,
     });
   }
 

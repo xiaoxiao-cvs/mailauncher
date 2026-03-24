@@ -219,6 +219,8 @@ export const InstanceDetailPage: React.FC = () => {
   const [refreshingRuntime, setRefreshingRuntime] = useState(false);
   const [probingRuntime, setProbingRuntime] = useState(false);
   const [runtimeProbe, setRuntimeProbe] = useState<RuntimeProbeResult | null>(null);
+  const [componentRuntimeDrafts, setComponentRuntimeDrafts] = useState<Partial<Record<ComponentType, RuntimeProfile>>>({});
+  const [savingComponentRuntime, setSavingComponentRuntime] = useState(false);
 
   const statusLabel = (status: InstanceStatus) => {
     switch (status) {
@@ -254,6 +256,12 @@ export const InstanceDetailPage: React.FC = () => {
       setRuntimeProbe(null);
     }
   }, [instance?.id, instance?.runtime_profile]);
+
+  useEffect(() => {
+    if (instance?.component_runtime_profiles) {
+      setComponentRuntimeDrafts(instance.component_runtime_profiles);
+    }
+  }, [instance?.id, instance?.component_runtime_profiles]);
 
   useEffect(() => {
     let cancelled = false;
@@ -550,6 +558,70 @@ export const InstanceDetailPage: React.FC = () => {
     }
   };
   
+  const handleComponentRuntimeKindChange = (component: ComponentType, value: 'inherit' | 'local' | 'wsl2') => {
+    setComponentRuntimeDrafts((current) => {
+      if (value === 'inherit') {
+        const next = { ...current };
+        delete next[component];
+        return next;
+      }
+
+      const base = current[component] ?? instance.runtime_profile;
+      if (value === 'local') {
+        return {
+          ...current,
+          [component]: {
+            ...base,
+            kind: 'local' as const,
+            guest_os: null,
+            guest_workspace_root: null,
+            distribution: null,
+            user: null,
+            path_mapping: 'native' as const,
+          },
+        };
+      }
+
+      return {
+        ...current,
+        [component]: {
+          ...base,
+          kind: 'wsl2' as const,
+          guest_os: 'linux' as const,
+          path_mapping: 'explicit' as const,
+          guest_workspace_root: base.guest_workspace_root || `/home/${base.user || 'mai'}/mailauncher-instances/${base.workspace_root}`,
+        },
+      };
+    });
+  };
+
+  const handleComponentRuntimeFieldChange = (component: ComponentType, key: keyof RuntimeProfile, value: unknown) => {
+    setComponentRuntimeDrafts((current) => {
+      const profile = current[component];
+      if (!profile) return current;
+      return {
+        ...current,
+        [component]: { ...profile, [key]: value },
+      };
+    });
+  };
+
+  const handleSaveComponentRuntimeProfiles = async () => {
+    if (!instance) return;
+
+    setSavingComponentRuntime(true);
+    try {
+      await instanceApi.setComponentRuntimeProfiles(instance.id, componentRuntimeDrafts);
+      await refetchInstance();
+      toast.success('组件级运行时配置已保存');
+    } catch (error) {
+      console.error('保存组件级运行时配置失败:', error);
+      toast.error('保存组件级运行时配置失败');
+    } finally {
+      setSavingComponentRuntime(false);
+    }
+  };
+
   const isStopped = instance.status === 'stopped';
   const availableComponents: ComponentType[] = instance.component_states?.length
     ? instance.component_states.map((state) => state.component)
@@ -772,6 +844,101 @@ export const InstanceDetailPage: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* Component-level Runtime Override */}
+          <div className="bg-card backdrop-blur-xl rounded-3xl p-6 border border-border shadow-sm animate-slide-up opacity-0">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-foreground">组件运行时</h3>
+                <p className="text-sm text-muted-foreground">为各组件单独指定运行时，未覆盖则继承实例配置</p>
+              </div>
+              <Button
+                onClick={handleSaveComponentRuntimeProfiles}
+                disabled={savingComponentRuntime}
+                className="gap-2 rounded-full"
+              >
+                {savingComponentRuntime ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                保存
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              {availableComponents.map((component) => {
+                const override = componentRuntimeDrafts[component];
+                const effectiveKind: 'inherit' | 'local' | 'wsl2' = override ? override.kind : 'inherit';
+                const inheritLabel = instance.runtime_profile.kind === 'wsl2' ? 'WSL2' : 'Local';
+
+                return (
+                  <div key={component} className="rounded-2xl border border-border p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-foreground">
+                        {component === 'MaiBot-Napcat-Adapter' ? 'Adapter' : component}
+                      </span>
+                      <select
+                        value={effectiveKind}
+                        onChange={(event) => handleComponentRuntimeKindChange(component, event.target.value as 'inherit' | 'local' | 'wsl2')}
+                        className="rounded-xl border border-border bg-white/70 px-3 py-1.5 text-sm dark:bg-gray-900/60"
+                      >
+                        <option value="inherit">继承实例 ({inheritLabel})</option>
+                        <option value="local">Local</option>
+                        <option value="wsl2">WSL2</option>
+                      </select>
+                    </div>
+
+                    {override && override.kind === 'wsl2' && (
+                      <div className="grid grid-cols-1 gap-2 text-sm pt-1">
+                        <label className="space-y-1">
+                          <span className="text-xs text-muted-foreground">WSL 发行版</span>
+                          <select
+                            value={override.distribution || ''}
+                            onChange={(event) => handleComponentRuntimeFieldChange(component, 'distribution', event.target.value || null)}
+                            className="w-full rounded-xl border border-border bg-white/70 px-3 py-1.5 dark:bg-gray-900/60"
+                          >
+                            <option value="">{loadingWsl ? '加载中...' : '请选择发行版'}</option>
+                            {wslDistributions.map((distribution) => (
+                              <option key={distribution.name} value={distribution.name}>
+                                {distribution.name} ({distribution.state}, WSL{distribution.version})
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Guest 用户</span>
+                          <input
+                            value={override.user || ''}
+                            onChange={(event) => handleComponentRuntimeFieldChange(component, 'user', event.target.value || null)}
+                            placeholder="例如 mai"
+                            className="w-full rounded-xl border border-border bg-white/70 px-3 py-1.5 dark:bg-gray-900/60"
+                          />
+                        </label>
+                        <label className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Guest 工作区</span>
+                          <input
+                            value={override.guest_workspace_root || ''}
+                            onChange={(event) => handleComponentRuntimeFieldChange(component, 'guest_workspace_root', event.target.value || null)}
+                            placeholder="/home/user/mailauncher-instances/demo"
+                            className="w-full rounded-xl border border-border bg-white/70 px-3 py-1.5 dark:bg-gray-900/60"
+                          />
+                        </label>
+                      </div>
+                    )}
+
+                    {!override && (
+                      <p className="text-xs text-muted-foreground">
+                        使用实例级配置（{inheritLabel}）
+                      </p>
+                    )}
+
+                    {override && override.kind === 'local' && (
+                      <p className="text-xs text-muted-foreground">
+                        使用宿主机本地运行时
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Quick Actions */}
           <div className="bg-card backdrop-blur-xl rounded-3xl p-6 border border-border shadow-sm animate-slide-up opacity-0">
