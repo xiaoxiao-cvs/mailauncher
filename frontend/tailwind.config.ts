@@ -12,6 +12,10 @@ const config: Config = {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        /* 语义化圆角令牌 */
+        panel: '1.5rem',     /* 24px — 顶层面板/卡片容器 */
+        card: '1rem',        /* 16px — 内部卡片/子区块 */
+        control: '0.75rem',  /* 12px — 按钮/输入框/标签 */
       },
       colors: {
         /* shadcn 基础色 */
@@ -92,6 +96,12 @@ const config: Config = {
           '4': 'hsl(var(--chart-4))',
           '5': 'hsl(var(--chart-5))',
         },
+      },
+      boxShadow: {
+        /* 语义化阴影令牌 */
+        'panel': '0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04)',
+        'panel-hover': '0 10px 30px -5px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04)',
+        'overlay': '0 20px 60px -12px rgb(0 0 0 / 0.12)',
       },
       keyframes: {
         'slide-in-left': {

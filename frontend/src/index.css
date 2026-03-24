@@ -174,6 +174,26 @@
   }
 }
 
+/* ===== 语义化组件样式 ===== */
+@layer components {
+  /* 顶层面板：详情页左右分栏的卡片容器 */
+  .glass-panel {
+    @apply bg-card rounded-panel border border-border shadow-panel
+           backdrop-blur-xl;
+  }
+
+  /* 悬浮面板：弹窗、下拉菜单 */
+  .glass-overlay {
+    @apply bg-popover rounded-panel border border-border shadow-overlay
+           backdrop-blur-2xl;
+  }
+
+  /* 内嵌卡片：面板内的子区块 */
+  .glass-card {
+    @apply rounded-card border border-border p-3;
+  }
+}
+
 /* 液态背景动画 */
 @keyframes blob {
   0% {
