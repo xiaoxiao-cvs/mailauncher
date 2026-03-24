@@ -154,60 +154,44 @@ interface StatCardProps {
   formatter?: (n: number) => string;
   icon: React.ReactNode;
   trend?: number;
-  gradient: string;
   delay?: number;
 }
 
-function StatCard({ title, value, formatter, icon, trend, gradient, delay = 0 }: StatCardProps) {
+function StatCard({ title, value, formatter, icon, trend, delay = 0 }: StatCardProps) {
   const [isVisible, setIsVisible] = useState(false);
-  
+
   useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), delay);
     return () => clearTimeout(timer);
   }, [delay]);
-  
+
   return (
-    <div 
+    <div
       className={cn(
-        "relative overflow-hidden rounded-2xl p-5 transition-all duration-500",
-        "bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl",
-        "border border-gray-200/50 dark:border-gray-700/50",
-        "hover:shadow-lg hover:shadow-gray-200/50 dark:hover:shadow-gray-900/50",
-        "hover:-translate-y-0.5",
+        "rounded-2xl p-5 transition-all duration-500",
+        "bg-card border border-border",
+        "hover:shadow-md hover:-translate-y-0.5",
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
       )}
     >
-      {/* 背景渐变装饰 */}
-      <div 
-        className={cn("absolute -right-8 -top-8 w-24 h-24 rounded-full opacity-20 blur-2xl", gradient)}
-      />
-      
-      <div className="relative flex items-center">
-        {/* 图标 + 内容 */}
-        <div className="flex items-center gap-3">
-          {/* 图标 */}
-          <div className={cn(
-            "p-3 rounded-xl flex-shrink-0",
-            gradient
-          )}>
-            {icon}
-          </div>
-          {/* 标题和数值 */}
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              <AnimatedNumber value={value} formatter={formatter} />
-            </p>
-            {trend !== undefined && (
-              <div className={cn(
-                "flex items-center gap-1 text-xs font-medium",
-                trend >= 0 ? "text-green-600" : "text-red-500"
-              )}>
-                <TrendingUp className={cn("w-3 h-3", trend < 0 && "rotate-180")} />
-                <span>{Math.abs(trend).toFixed(1)}%</span>
-              </div>
-            )}
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 rounded-xl bg-brand-muted flex-shrink-0">
+          {icon}
+        </div>
+        <div className="space-y-1 min-w-0">
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="text-2xl font-bold text-foreground">
+            <AnimatedNumber value={value} formatter={formatter} />
+          </p>
+          {trend !== undefined && (
+            <div className={cn(
+              "flex items-center gap-1 text-xs font-medium",
+              trend >= 0 ? "text-success" : "text-destructive"
+            )}>
+              <TrendingUp className={cn("w-3 h-3", trend < 0 && "rotate-180")} />
+              <span>{Math.abs(trend).toFixed(1)}%</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -355,7 +339,7 @@ function ModelDistribution({ data, type }: ModelDistributionProps) {
   
   if (chartData.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-400">
+      <div className="flex items-center justify-center h-64 text-muted-foreground">
         <div className="text-center space-y-2">
           <Cpu className="w-12 h-12 mx-auto opacity-50" />
           <p>暂无模型使用数据</p>
@@ -416,9 +400,9 @@ function ModelDistribution({ data, type }: ModelDistributionProps) {
               ref={el => listItemRefs.current[position] = el}
               className={cn(
                 "absolute left-0 right-0 group cursor-pointer p-2 rounded-lg transition-all duration-500 ease-out",
-                hoveredIndex === position 
-                  ? "bg-gray-100 dark:bg-gray-800 scale-[1.02]" 
-                  : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                hoveredIndex === position
+                  ? "bg-muted scale-[1.02]"
+                  : "hover:bg-muted/50"
               )}
               style={{
                 transform: `translateY(${position * ITEM_HEIGHT}px)`,
@@ -435,20 +419,20 @@ function ModelDistribution({ data, type }: ModelDistributionProps) {
                     )}
                     style={{ backgroundColor: MODEL_COLORS[colorIndex % MODEL_COLORS.length] }}
                   />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-[120px]">
+                  <span className="text-sm font-medium text-foreground truncate max-w-[120px]">
                     {model.display_name || model.model_name}
                   </span>
                 </div>
                 <span className={cn(
                   "text-sm transition-colors duration-200",
-                  hoveredIndex === position 
-                    ? "text-gray-900 dark:text-white font-medium"
-                    : "text-gray-500 dark:text-gray-400"
+                  hoveredIndex === position
+                    ? "text-foreground font-medium"
+                    : "text-muted-foreground"
                 )}>
                   {formatValue(model)}
                 </span>
               </div>
-              <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                 <div 
                   className="h-full rounded-full transition-all duration-700 ease-out"
                   style={{ 
@@ -655,10 +639,10 @@ export function StatsDashboard() {
       {/* 顶部控制栏 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-bold text-foreground">
             统计概览
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             {selectedInstance 
               ? `${instances?.find(i => i.id === selectedInstance)?.name || '实例'} 的运行统计`
               : '全部实例汇总统计'}
@@ -692,7 +676,7 @@ export function StatsDashboard() {
                 >
                   <div className={cn(
                     "w-2 h-2 rounded-full mr-2",
-                    instance.status === 'running' ? "bg-green-500" : "bg-gray-400"
+                    instance.status === 'running' ? "bg-success" : "bg-muted-foreground"
                   )} />
                   {instance.name}
                 </DropdownMenuItem>
@@ -752,14 +736,14 @@ export function StatsDashboard() {
       </div>
       
       {/* 状态提示 */}
-      <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+      <div className="flex items-center gap-4 text-sm text-muted-foreground">
         <span>最后更新: {lastUpdatedText}</span>
         {!selectedInstance && overviewData && (
           <>
             <span>•</span>
             <span>{overviewData.total_instances} 个实例</span>
             <span>•</span>
-            <span className="text-green-600">{overviewData.running_instances} 个运行中</span>
+            <span className="text-success">{overviewData.running_instances} 个运行中</span>
           </>
         )}
       </div>
@@ -770,60 +754,53 @@ export function StatsDashboard() {
           title="总请求数"
           value={summary?.total_requests || 0}
           formatter={(n) => formatNumber(n)}
-          icon={<Activity className="w-5 h-5 text-white" />}
-          gradient="bg-gradient-to-br from-indigo-500 to-purple-600"
+          icon={<Activity className="w-5 h-5 text-brand" />}
           delay={0}
         />
         <StatCard
           title="总花费"
           value={summary?.total_cost || 0}
           formatter={(n) => formatCurrency(n)}
-          icon={<DollarSign className="w-5 h-5 text-white" />}
-          gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
+          icon={<DollarSign className="w-5 h-5 text-brand" />}
           delay={100}
         />
         <StatCard
           title="Token 消耗"
           value={summary?.total_tokens || 0}
           formatter={(n) => formatNumber(n)}
-          icon={<Zap className="w-5 h-5 text-white" />}
-          gradient="bg-gradient-to-br from-amber-500 to-orange-600"
+          icon={<Zap className="w-5 h-5 text-brand" />}
           delay={200}
         />
         <StatCard
           title="平均响应"
           value={summary?.avg_response_time || 0}
           formatter={(n) => `${n.toFixed(2)}s`}
-          icon={<Clock className="w-5 h-5 text-white" />}
-          gradient="bg-gradient-to-br from-pink-500 to-rose-600"
+          icon={<Clock className="w-5 h-5 text-brand" />}
           delay={300}
         />
       </div>
-      
+
       {/* 第二行卡片 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           title="在线时长"
           value={summary?.online_time || 0}
           formatter={(n) => formatDuration(n)}
-          icon={<Clock className="w-5 h-5 text-white" />}
-          gradient="bg-gradient-to-br from-cyan-500 to-blue-600"
+          icon={<Clock className="w-5 h-5 text-brand" />}
           delay={400}
         />
         <StatCard
           title="消息处理"
           value={summary?.total_messages || 0}
           formatter={(n) => formatNumber(n)}
-          icon={<MessageSquare className="w-5 h-5 text-white" />}
-          gradient="bg-gradient-to-br from-violet-500 to-purple-600"
+          icon={<MessageSquare className="w-5 h-5 text-brand" />}
           delay={500}
         />
         <StatCard
           title="回复数量"
           value={summary?.total_replies || 0}
           formatter={(n) => formatNumber(n)}
-          icon={<Reply className="w-5 h-5 text-white" />}
-          gradient="bg-gradient-to-br from-fuchsia-500 to-pink-600"
+          icon={<Reply className="w-5 h-5 text-brand" />}
           delay={600}
         />
       </div>
@@ -831,13 +808,13 @@ export function StatsDashboard() {
       {/* 图表区域 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 模型使用分布 - 饼图/条状图切换 */}
-        <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50">
+        <div className="bg-card rounded-2xl p-6 border border-border">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-foreground">
               模型使用分布
             </h3>
             {/* 数据类型切换 */}
-            <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            <div className="flex gap-1 p-1 bg-muted rounded-lg">
               {(['cost', 'requests', 'tokens'] as const).map((type) => (
                 <button
                   key={type}
@@ -845,8 +822,8 @@ export function StatsDashboard() {
                   className={cn(
                     "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
                     chartType === type
-                      ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
-                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   {type === 'cost' && '花费'}
@@ -861,21 +838,21 @@ export function StatsDashboard() {
           <ModelDistribution data={modelStats} type={chartType} />
           
           {/* 时间段总计 */}
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="mt-4 pt-4 border-t border-border">
             <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="text-center p-3 bg-muted rounded-xl">
+                <p className="text-2xl font-bold text-foreground">
                   {formatCurrency(summary?.total_cost || 0)}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {timeRange === '1h' ? '最近1小时' : timeRange === '6h' ? '最近6小时' : timeRange === '12h' ? '最近12小时' : timeRange === '24h' ? '最近24小时' : timeRange === '7d' ? '最近7天' : '最近30天'}花费
                 </p>
               </div>
-              <div className="text-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="text-center p-3 bg-muted rounded-xl">
+                <p className="text-2xl font-bold text-foreground">
                   {formatNumber(summary?.total_tokens || 0)}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {timeRange === '1h' ? '最近1小时' : timeRange === '6h' ? '最近6小时' : timeRange === '12h' ? '最近12小时' : timeRange === '24h' ? '最近24小时' : timeRange === '7d' ? '最近7天' : '最近30天'} Token
                 </p>
               </div>
