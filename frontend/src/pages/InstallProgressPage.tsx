@@ -184,7 +184,7 @@ export default function InstallProgressPage() {
       <div className="flex-1 overflow-hidden">
         <div className="max-w-5xl mx-auto h-full px-6 py-6 flex flex-col gap-6">
           {/* 进度条 */}
-          <div className="shrink-0 bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6">
+          <div className="shrink-0 bg-gray-800/50 backdrop-blur-sm rounded-card border border-gray-700 p-6">
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-300 font-medium">{progress.message}</span>
@@ -204,7 +204,7 @@ export default function InstallProgressPage() {
           </div>
 
           {/* 日志窗口 */}
-          <div className="flex-1 bg-gray-900/80 backdrop-blur-sm rounded-xl border border-gray-700 overflow-hidden flex flex-col">
+          <div className="flex-1 bg-gray-900/80 backdrop-blur-sm rounded-card border border-gray-700 overflow-hidden flex flex-col">
             <div className="shrink-0 px-4 py-3 border-b border-gray-700 bg-gray-800/50">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-gray-300 flex items-center gap-2">

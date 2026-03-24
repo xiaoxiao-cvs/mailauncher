@@ -45,7 +45,7 @@ export function OnboardingSidebar({
               key={step.id}
               onClick={() => onStepClick(index)}
               disabled={isAnimating || !isAccessible}
-              className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-300 group flex items-center gap-3.5 select-none ${
+              className={`w-full text-left px-4 py-3 rounded-card transition-all duration-300 group flex items-center gap-3.5 select-none ${
                 isCurrent
                   ? 'bg-brand text-brand-foreground shadow-[0_4px_12px_rgba(0,122,255,0.25)] font-medium scale-[1.02]'
                   : isAccessible

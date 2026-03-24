@@ -74,7 +74,7 @@ export function EnvironmentDetection({ onEnvironmentReady }: EnvironmentDetectio
       {/* 检测项列表 */}
       <div className="space-y-3">
         {/* Git 环境检测 */}
-        <div className="group flex items-center gap-4 p-5 rounded-2xl bg-card shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:bg-white/[0.05] dark:shadow-none transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)]">
+        <div className="group flex items-center gap-4 p-5 rounded-card bg-card shadow-panel dark:bg-white/[0.05] dark:shadow-none transition-all duration-300 hover:shadow-panel-hover">
           <StatusIcon isLoading={isCheckingGit} isSuccess={isGitAvailable} hasError={!!gitError} />
           
           <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
@@ -109,7 +109,7 @@ export function EnvironmentDetection({ onEnvironmentReady }: EnvironmentDetectio
         </div>
 
         {/* Python 环境检测 */}
-        <div className="group flex items-center gap-4 p-5 rounded-2xl bg-card shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:bg-white/[0.05] dark:shadow-none transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)]">
+        <div className="group flex items-center gap-4 p-5 rounded-card bg-card shadow-panel dark:bg-white/[0.05] dark:shadow-none transition-all duration-300 hover:shadow-panel-hover">
           <StatusIcon isLoading={isCheckingPython} isSuccess={isPythonAvailable} hasError={!!pythonError} />
           
           <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
@@ -160,7 +160,7 @@ export function EnvironmentDetection({ onEnvironmentReady }: EnvironmentDetectio
 
       {/* 状态总结 */}
       {!isChecking && (
-        <div className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl ${
+        <div className={`flex items-center justify-center gap-2 py-3 px-4 rounded-card ${
           isAllReady
             ? 'bg-success/10'
             : 'bg-warning/10'

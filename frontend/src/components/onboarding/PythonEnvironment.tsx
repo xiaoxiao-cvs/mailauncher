@@ -57,7 +57,7 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
   return (
     <div className="space-y-4 h-full flex flex-col">
       {/* Python 版本选择 - 优化布局，不超出区域 */}
-      <div className="p-3.5 rounded-xl bg-card border border-border">
+      <div className="p-3.5 rounded-card bg-card border border-border">
         <div className="flex items-center gap-2.5 mb-3">
           <div 
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"
@@ -173,7 +173,7 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
       </div>
 
       {/* 虚拟环境类型选择 */}
-      <div className="p-3.5 rounded-xl bg-card border border-border">
+      <div className="p-3.5 rounded-card bg-card border border-border">
         <div className="flex items-center gap-2.5 mb-3">
           <div 
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"

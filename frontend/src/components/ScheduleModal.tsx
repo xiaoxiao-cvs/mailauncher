@@ -219,7 +219,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
       {/* Modal 容器 */}
       <div className="absolute top-0 right-0 bottom-0 left-0 md:left-[272px] flex items-center justify-center p-4 md:p-8 pointer-events-none">
-        <div className="relative w-full max-w-3xl h-[75vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 dark:border-white/10 flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 ring-1 ring-black/5 pointer-events-auto">
+        <div className="relative w-full max-w-3xl h-[75vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-panel shadow-overlay border border-white/20 dark:border-white/10 flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 ring-1 ring-black/5 pointer-events-auto">
 
           {/* Header */}
           <div className="flex items-center justify-between px-6 h-16 border-b border-gray-200/50 dark:border-gray-700/50 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm shrink-0">

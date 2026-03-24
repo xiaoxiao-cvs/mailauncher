@@ -74,7 +74,7 @@ export function OnboardingContent({
               {currentStepData.description.map((item, index) => (
                 <div 
                   key={index}
-                  className="flex items-start gap-4 p-5 rounded-2xl bg-muted/80 transition-all duration-200 hover:bg-muted"
+                  className="flex items-start gap-4 p-5 rounded-card bg-muted/80 transition-all duration-200 hover:bg-muted"
                 >
                   <div 
                     className="w-7 h-7 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0 mt-0.5 bg-brand"

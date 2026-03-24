@@ -80,7 +80,7 @@ export function EnvironmentConfig({ stepColor, onGitStatusChange }: EnvironmentC
   return (
     <div className="space-y-4 h-full overflow-hidden">
       {/* Git 环境检查 */}
-      <div className="p-3.5 rounded-xl bg-card border border-border">
+      <div className="p-3.5 rounded-card bg-card border border-border">
         <div className="flex items-start justify-between mb-2.5">
           <div className="flex items-center gap-2.5">
             <div 
@@ -170,7 +170,7 @@ export function EnvironmentConfig({ stepColor, onGitStatusChange }: EnvironmentC
       </div>
 
       {/* 部署路径配置 */}
-      <div className="p-3.5 rounded-xl bg-card border border-border">
+      <div className="p-3.5 rounded-card bg-card border border-border">
         <div className="flex items-center gap-2.5 mb-2.5">
           <div 
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"

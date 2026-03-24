@@ -23,7 +23,7 @@ export function InstanceTerminalPanel({
   getComponentStatus,
 }: InstanceTerminalPanelProps) {
   return (
-    <div className="flex-1 bg-[#1e1e1e] rounded-panel shadow-lg overflow-hidden flex flex-col">
+    <div className="flex-1 bg-[#1e1e1e] rounded-panel shadow-panel overflow-hidden flex flex-col">
       <div className="flex items-center px-4 py-3 bg-[#252526] border-b border-gray-700/30">
         <div className="flex gap-2 mr-4">
           <div className="w-3 h-3 rounded-full bg-red-500/80" />

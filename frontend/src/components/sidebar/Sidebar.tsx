@@ -101,10 +101,10 @@ export function Sidebar() {
         'flex flex-col transition-all duration-300 ease-in-out relative z-50',
         
         // 形状
-        'rounded-2xl',
-        
+        'rounded-panel',
+
         // 深度感
-        'shadow-2xl shadow-black/5',
+        'shadow-overlay shadow-black/5',
         
         // 宽度
         'w-64'

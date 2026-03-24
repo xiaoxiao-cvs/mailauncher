@@ -68,7 +68,7 @@ export function InstallPathConfig({ stepColor }: InstallPathConfigProps) {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* 安装路径配置 */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-card shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:shadow-none">
+      <div className="p-5 sm:p-6 rounded-card bg-card shadow-panel dark:shadow-none">
         <div className="flex items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-5">
           <div 
             className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white shadow-sm flex-shrink-0"
@@ -157,7 +157,7 @@ export function InstallPathConfig({ stepColor }: InstallPathConfigProps) {
 
       {/* 路径结构预览 */}
       {localPath && (
-        <div className="p-3 sm:p-4 rounded-xl bg-card border border-border">
+        <div className="p-3 sm:p-4 rounded-card bg-card border border-border">
           <h4 className="text-xs sm:text-sm font-medium text-foreground mb-2 sm:mb-3">
             目录结构预览
           </h4>

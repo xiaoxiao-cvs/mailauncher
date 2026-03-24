@@ -64,7 +64,7 @@ export const ComponentVersionCard: React.FC<ComponentVersionCardProps> = ({
   };
 
   return (
-    <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm animate-slide-up opacity-0">
+    <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-panel p-6 border border-white/40 dark:border-gray-700/40 shadow-panel animate-slide-up opacity-0">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
           <Package className="w-5 h-5 text-green-500" />
@@ -89,7 +89,7 @@ export const ComponentVersionCard: React.FC<ComponentVersionCardProps> = ({
           {components.map((component) => (
             <div
               key={component.component}
-              className="p-3 bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-white/20 dark:border-gray-600/20"
+              className="p-3 bg-white/50 dark:bg-gray-700/30 rounded-card border border-white/20 dark:border-gray-600/20"
             >
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
@@ -129,7 +129,7 @@ export const ComponentVersionCard: React.FC<ComponentVersionCardProps> = ({
           <div className="pt-2 flex gap-2">
             <button
               onClick={onOpenVersionManager}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-xl font-medium text-sm transition-all duration-200 hover:scale-[1.02] active:scale-95 shadow-lg shadow-blue-500/20"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-control font-medium text-sm transition-all duration-200 hover:scale-[1.02] active:scale-95 shadow-lg shadow-blue-500/20"
             >
               <Package className="w-4 h-4" />
               版本管理

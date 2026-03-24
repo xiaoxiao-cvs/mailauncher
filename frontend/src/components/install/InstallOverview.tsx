@@ -25,10 +25,10 @@ export function InstallOverview({ state }: InstallOverviewProps) {
     )}>
       <div className="w-full max-w-2xl">
         <div className={cn(
-          'p-8 rounded-xl border',
+          'p-8 rounded-card border',
           'bg-card',
           'border-border',
-          'shadow-lg'
+          'shadow-panel'
         )}>
           {loading ? (
             // 骨架屏

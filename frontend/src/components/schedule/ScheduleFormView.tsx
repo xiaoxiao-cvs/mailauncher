@@ -65,7 +65,7 @@ export const ScheduleFormView: React.FC<ScheduleFormViewProps> = ({
             <button
               key={action}
               onClick={() => onFormDataChange({ ...formData, action })}
-              className={`p-3 rounded-xl border-2 transition-all text-left ${
+              className={`p-3 rounded-card border-2 transition-all text-left ${
                 formData.action === action
                   ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
                   : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700'
@@ -96,7 +96,7 @@ export const ScheduleFormView: React.FC<ScheduleFormViewProps> = ({
                 onFormDataChange({ ...formData, schedule_type: type })
                 if (type === 'weekly') onResetWeekdays()
               }}
-              className={`p-3 rounded-xl border-2 transition-all text-left ${
+              className={`p-3 rounded-card border-2 transition-all text-left ${
                 formData.schedule_type === type
                   ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
                   : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700'
@@ -120,14 +120,14 @@ export const ScheduleFormView: React.FC<ScheduleFormViewProps> = ({
       </div>
 
       {formData.schedule_type === 'once' && (
-        <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+        <div className="p-4 rounded-card border border-gray-200 dark:border-gray-700">
           <Label className="mb-2 block">选择日期和时间</Label>
           <div className="flex flex-col gap-3">
             <Calendar
               mode="single"
               selected={selectedDate}
               onSelect={onSelectedDateChange}
-              className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 mx-auto"
+              className="rounded-card border border-gray-200 dark:border-gray-700 p-3 mx-auto"
             />
             <div>
               <Label htmlFor="time" className="text-xs">时间</Label>
@@ -144,7 +144,7 @@ export const ScheduleFormView: React.FC<ScheduleFormViewProps> = ({
       )}
 
       {(formData.schedule_type === 'daily' || formData.schedule_type === 'weekly') && (
-        <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
+        <div className="p-4 rounded-card border border-gray-200 dark:border-gray-700 space-y-3">
           <div>
             <Label htmlFor="time">执行时间</Label>
             <Input
@@ -180,7 +180,7 @@ export const ScheduleFormView: React.FC<ScheduleFormViewProps> = ({
       )}
 
       {formData.schedule_type === 'monitor' && (
-        <div className="p-4 rounded-xl border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20">
+        <div className="p-4 rounded-card border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20">
           <p className="text-sm text-yellow-800 dark:text-yellow-200">
             <Power className="w-4 h-4 inline mr-2" />
             进程监控模式：当检测到实例进程停止时，将自动执行选择的动作（通常选择"启动"）

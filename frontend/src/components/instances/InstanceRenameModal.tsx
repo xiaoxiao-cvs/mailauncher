@@ -84,7 +84,7 @@ export const InstanceRenameModal: React.FC<InstanceRenameModalProps> = ({
       {/* 模态框 - 长条型 */}
       <div
         ref={modalRef}
-        className="relative w-full max-w-md mx-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/50 dark:border-gray-700/50 overflow-hidden"
+        className="relative w-full max-w-md mx-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-2xl rounded-panel shadow-overlay border border-white/50 dark:border-gray-700/50 overflow-hidden"
         style={{
           animation: 'slideIn 0.3s ease-out',
         }}
@@ -120,7 +120,7 @@ export const InstanceRenameModal: React.FC<InstanceRenameModalProps> = ({
               onKeyDown={handleKeyDown}
               onBlur={handleBlur}
               placeholder="请输入实例名称"
-              className="w-full px-4 py-3 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-xl 
+              className="w-full px-4 py-3 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-card
                        text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500
                        focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent
                        transition-all duration-200"
@@ -134,8 +134,8 @@ export const InstanceRenameModal: React.FC<InstanceRenameModalProps> = ({
           <div className="flex items-center gap-3 mt-6">
             <button
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl 
-                       hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-95 
+              className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-control
+                       hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-95
                        transition-all duration-200 font-medium text-sm"
             >
               取消
@@ -143,7 +143,7 @@ export const InstanceRenameModal: React.FC<InstanceRenameModalProps> = ({
             <button
               onClick={handleSave}
               disabled={!name.trim() || name.trim() === instanceName}
-              className="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-xl 
+              className="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-control
                        hover:bg-blue-600 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
                        transition-all duration-200 font-medium text-sm shadow-lg shadow-blue-500/25"
             >

@@ -93,7 +93,7 @@ export function NotificationPopover({
         'flex flex-col',
         // Glassmorphism 容器样式
         'bg-popover backdrop-blur-2xl',
-        'rounded-2xl shadow-2xl',
+        'rounded-panel shadow-overlay',
         'border border-border',
         'animate-in fade-in slide-in-from-left-2 duration-200',
         'transition-all duration-300'

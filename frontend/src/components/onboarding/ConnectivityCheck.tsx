@@ -27,7 +27,7 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
   return (
     <div className="space-y-2">
       {/* 后端服务配置和状态 - 合并为一个卡片 */}
-      <div className="relative p-3 rounded-xl bg-card border border-border">
+      <div className="relative p-3 rounded-card bg-card border border-border">
         <div className="flex items-start gap-2 mb-2.5">
           <div 
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0"

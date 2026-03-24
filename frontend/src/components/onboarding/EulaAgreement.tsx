@@ -50,7 +50,7 @@ export function EulaAgreement() {
     <div className="h-full flex flex-col gap-3">
       {/* 已接受提示条 */}
       {alreadyAccepted && (
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20 flex-shrink-0">
+        <div className="flex items-center gap-3 p-3 rounded-card bg-emerald-50/80 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20 flex-shrink-0">
           <CheckCircle2Icon className="w-4 h-4 text-emerald-500 flex-shrink-0" />
           <p className="text-[13px] text-emerald-700 dark:text-emerald-400">
             你已同意当前版本的用户协议，可直接继续。

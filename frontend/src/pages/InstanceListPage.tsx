@@ -311,8 +311,8 @@ export const InstanceListPage: React.FC = () => {
       
       {/* 错误提示 */}
       {error && (
-        <div className="mb-8 p-4 bg-destructive/10 border border-destructive/20 
-                      rounded-2xl flex items-center gap-4 backdrop-blur-sm">
+        <div className="mb-8 p-4 bg-destructive/10 border border-destructive/20
+                      rounded-panel flex items-center gap-4 backdrop-blur-sm">
           <div className="w-10 h-10 rounded-full bg-destructive/20 flex items-center justify-center flex-shrink-0">
             <AlertCircle className="w-5 h-5 text-destructive" />
           </div>

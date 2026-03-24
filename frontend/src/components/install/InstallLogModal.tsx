@@ -207,7 +207,7 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
             "relative",
             "w-full max-w-2xl mx-4", // 移除 md:ml-[18rem]，因为容器已经定位
             "bg-popover backdrop-blur-xl",
-            "rounded-2xl shadow-2xl",
+            "rounded-panel shadow-overlay",
             "border border-white/20 dark:border-white/10",
             "flex flex-col overflow-hidden",
             "animate-in zoom-in-95 fade-in slide-in-from-bottom-4 duration-300 ease-out-expo",
@@ -248,7 +248,7 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
                 <div className="flex-1 overflow-hidden relative">
                   <TabsContent value="details" className="h-full m-0 p-6 overflow-y-auto space-y-6">
                     {/* 状态卡片 */}
-                    <div className="p-6 rounded-xl bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/5 flex flex-col items-center text-center space-y-4">
+                    <div className="p-6 rounded-card bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/5 flex flex-col items-center text-center space-y-4">
                       <div className={cn("w-16 h-16 rounded-full flex items-center justify-center bg-gradient-to-br shadow-lg", 
                         currentNotification.task?.status === TaskStatus.SUCCESS ? "from-green-400 to-green-600" :
                         currentNotification.task?.status === TaskStatus.FAILED ? "from-red-400 to-red-600" :

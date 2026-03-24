@@ -39,7 +39,7 @@ export const ScheduleListView: React.FC<ScheduleListViewProps> = ({
         schedules.map((schedule) => (
           <div
             key={schedule.id}
-            className="p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 hover:border-purple-300 dark:hover:border-purple-700 transition-all"
+            className="p-4 rounded-card bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 hover:border-purple-300 dark:hover:border-purple-700 transition-all"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">

@@ -51,11 +51,11 @@ export function ThemeSelector() {
             key={option.value}
             onClick={() => setTheme(option.value)}
             className={`
-              w-full p-3.5 rounded-xl transition-all duration-300
+              w-full p-3.5 rounded-card transition-all duration-300
               flex items-center gap-2.5
-              ${isSelected 
-                ? 'bg-card shadow-lg border-2 border-brand'
-                : 'bg-card/60 border-2 border-transparent hover:bg-card/80 hover:shadow-md'
+              ${isSelected
+                ? 'bg-card shadow-panel border-2 border-brand'
+                : 'bg-card/60 border-2 border-transparent hover:bg-card/80 hover:shadow-panel'
               }
             `}
           >

@@ -64,7 +64,7 @@ export function BackendConnectivity({ onStatusChange, onRecheckRequest }: Backen
       </div>
 
       {/* 连接状态 */}
-      <div className="flex items-center gap-4 p-5 rounded-2xl bg-card shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:bg-white/[0.05] dark:shadow-none">
+      <div className="flex items-center gap-4 p-5 rounded-card bg-card shadow-panel dark:bg-white/[0.05] dark:shadow-none">
         {/* 状态指示器 */}
         <div className="relative">
           {backendStatus.status === 'checking' ? (

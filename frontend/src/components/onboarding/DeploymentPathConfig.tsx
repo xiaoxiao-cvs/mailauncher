@@ -67,7 +67,7 @@ export function DeploymentPathConfig({ stepColor }: DeploymentPathConfigProps) {
 
   return (
     <div className="space-y-4">
-      <div className="p-3.5 rounded-xl bg-card border border-border">
+      <div className="p-3.5 rounded-card bg-card border border-border">
         <div className="flex items-center gap-2.5 mb-2.5">
           <div 
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"

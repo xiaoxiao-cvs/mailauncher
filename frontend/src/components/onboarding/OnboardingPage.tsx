@@ -90,7 +90,7 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
       } as React.CSSProperties}
     >
       {/* 主窗口容器 */}
-      <div ref={windowRef} className="relative w-[90vw] md:w-[85vw] lg:w-[80vw] xl:w-[72vw] max-w-[1100px] h-[82vh] min-h-[580px] max-h-[760px] z-10 flex bg-card rounded-3xl shadow-[0_8px_60px_-12px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_60px_-12px_rgba(0,0,0,0.5)] border border-border overflow-hidden">
+      <div ref={windowRef} className="relative w-[90vw] md:w-[85vw] lg:w-[80vw] xl:w-[72vw] max-w-[1100px] h-[82vh] min-h-[580px] max-h-[760px] z-10 flex bg-card rounded-panel shadow-[0_8px_60px_-12px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_60px_-12px_rgba(0,0,0,0.5)] border border-border overflow-hidden">
         {/* 左侧：侧边栏 */}
         <div className="hidden md:flex w-[220px] lg:w-[240px] flex-shrink-0 border-r border-black/[0.06] dark:border-white/[0.06] bg-black/[0.02] dark:bg-white/[0.02] flex-col">
           <OnboardingSidebar
