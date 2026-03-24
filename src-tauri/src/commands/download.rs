@@ -352,6 +352,8 @@ async fn execute_download_task(
                 // 安装依赖
                 dm.update_task_status(task_id, DownloadStatus::Installing)
                     .await;
+                let _ = app_handle.emit(&status_event, "installing");
+                emit_progress(app_handle, task_id, progress + 5.0, "正在安装 NapCat Adapter 依赖...", "installing");
                 let venv_dir = instance_dir.join(".venv");
                 install_service::install_dependencies(
                     &component_dir,
@@ -364,6 +366,8 @@ async fn execute_download_task(
                 // 配置
                 dm.update_task_status(task_id, DownloadStatus::Configuring)
                     .await;
+                let _ = app_handle.emit(&status_event, "configuring");
+                emit_progress(app_handle, task_id, progress + 10.0, "正在配置 NapCat Adapter...", "configuring");
                 install_service::setup_adapter_config(&component_dir, app_handle, &event_name)
                     .await?;
             }
@@ -371,7 +375,10 @@ async fn execute_download_task(
             DownloadItemType::Napcat => {
                 dm.update_task_progress(task_id, progress, "正在安装 NapCat...".to_string())
                     .await;
-                emit_progress(app_handle, task_id, progress, "正在安装 NapCat...", "downloading");
+                dm.update_task_status(task_id, DownloadStatus::Installing)
+                    .await;
+                let _ = app_handle.emit(&status_event, "installing");
+                emit_progress(app_handle, task_id, progress, "正在安装 NapCat...", "installing");
                 let _ = app_handle.emit(&event_name, "正在下载安装 NapCat...");
 
                 download_service::download_napcat(&instance_dir, app_handle, &event_name).await?;
@@ -397,6 +404,8 @@ async fn execute_download_task(
                     // 安装依赖
                     dm.update_task_status(task_id, DownloadStatus::Installing)
                         .await;
+                    let _ = app_handle.emit(&status_event, "installing");
+                    emit_progress(app_handle, task_id, progress + 5.0, "正在安装 LPMM 依赖...", "installing");
                     let venv_dir = instance_dir.join(".venv");
                     install_service::install_dependencies(
                         &component_dir,
