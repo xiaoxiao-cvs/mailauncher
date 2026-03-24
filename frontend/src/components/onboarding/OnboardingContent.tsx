@@ -32,9 +32,9 @@ export function OnboardingContent({
 }: OnboardingContentProps) {
 
   return (
-    <div className="flex-1 h-full flex flex-col p-6 sm:p-8 md:p-10 lg:p-12 xl:p-16 overflow-hidden">
+    <div className="flex-1 flex flex-col p-6 sm:p-8 md:p-10 lg:p-12 xl:p-16 overflow-hidden">
       {/* 内容区域 - 包含移动端指示器以确保动画一致 */}
-      <div ref={contentRef} className="flex-1 flex flex-col w-full min-h-0">
+      <div ref={contentRef} className="flex flex-col w-full flex-1 min-h-0">
         {/* 移动端步骤指示器 */}
         <div className="md:hidden flex justify-center gap-2 mb-8">
           {steps.map((step, index) => (

@@ -8,7 +8,6 @@ import { animate, stagger, set, splitText } from 'animejs'
 export function useOnboardingAnimation() {
   const contentRef = useRef<HTMLDivElement>(null)
   const [isAnimating, setIsAnimating] = useState(false)
-  // 缓存 splitText 实例，以便在下次动画前 revert
   const splitterRef = useRef<ReturnType<typeof splitText> | null>(null)
 
   /** 清理上一次的 splitText */
@@ -60,14 +59,11 @@ export function useOnboardingAnimation() {
     const duration = isMount ? 400 : 320
     const staggerDelay = isMount ? 80 : 60
 
-    // 找到 title 元素，单独处理
     const titleEl = targets.find(el => el.dataset.animate === 'title')
     const otherTargets = targets.filter(el => el.dataset.animate !== 'title')
 
-    // 设置所有元素初始状态
     set(targets, { opacity: 0, translateY: enterY })
 
-    // title 容器只做 opacity，translateY 由逐字动画负责
     if (titleEl) {
       set(titleEl, { translateY: 0 })
     }
@@ -93,7 +89,7 @@ export function useOnboardingAnimation() {
 
     // title 容器 opacity 渐显 + 逐字揭示
     if (titleEl) {
-      const titleDelay = staggerDelay // title 在序列中第二位
+      const titleDelay = staggerDelay
       animate(titleEl, {
         opacity: [0, 1],
         duration: duration * 0.6,
@@ -108,7 +104,6 @@ export function useOnboardingAnimation() {
   useEffect(() => {
     if (contentRef.current) {
       setIsAnimating(true)
-      // 首次加载时延迟一帧确保 DOM 就绪
       requestAnimationFrame(() => {
         staggerEnter(24, true)
       })
@@ -117,7 +112,7 @@ export function useOnboardingAnimation() {
   }, [])
 
   /**
-   * 执行过渡动画
+   * 执行过渡动画（固定高度容器，仅做内容淡出→切换→淡入）
    */
   const animateTransition = (
     callback: () => void,
@@ -129,39 +124,30 @@ export function useOnboardingAnimation() {
     const enterY = direction === 'next' ? 16 : -16
     const targets = getAnimTargets()
 
+    const afterExit = () => {
+      if (contentRef.current) {
+        contentRef.current.style.visibility = 'hidden'
+      }
+
+      callback()
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          staggerEnter(enterY)
+        })
+      })
+    }
+
     // 退出动画：所有元素同时快速淡出
     if (targets.length > 0) {
       animate(targets, {
         opacity: [1, 0],
         duration: 180,
         easing: 'easeInCubic',
-        onComplete: () => {
-          // 锁定容器不可见
-          if (contentRef.current) {
-            contentRef.current.style.visibility = 'hidden'
-          }
-
-          callback()
-
-          // 等 React DOM 更新后交错入场
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              staggerEnter(enterY)
-            })
-          })
-        }
+        onComplete: afterExit
       })
     } else {
-      // 没有 targets 时的 fallback
-      if (contentRef.current) {
-        contentRef.current.style.visibility = 'hidden'
-      }
-      callback()
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          staggerEnter(enterY)
-        })
-      })
+      afterExit()
     }
   }
 

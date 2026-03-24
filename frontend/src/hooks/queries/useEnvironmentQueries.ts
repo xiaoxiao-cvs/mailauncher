@@ -94,6 +94,9 @@ export function usePythonVersionsQuery() {
   return useQuery({
     queryKey: environmentKeys.pythonVersions(),
     queryFn: async () => {
+      // 先自动发现系统中的 Python 并写入数据库
+      await tauriInvoke('discover_python');
+      // 再从数据库读取完整列表
       const envs = await tauriInvoke<Array<{ path: string; version: string; is_selected: boolean }>>('get_python_environments');
       return envs.map(e => ({
         version: e.version,

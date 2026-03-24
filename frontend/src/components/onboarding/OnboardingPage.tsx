@@ -8,7 +8,6 @@ import { ONBOARDING_STEPS } from './constants'
 import { EulaContext } from './EulaContext'
 import { routerLogger } from '@/utils/logger'
 import type { OnboardingCallbacks } from '@/types/onboarding'
-import { animate } from 'animejs'
 
 /**
  * 引导页主组件
@@ -21,11 +20,9 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
   // EULA 步骤的 canProceed 控制
   const [canProceed, setCanProceed] = useState(true)
   const [buttonLabel, setButtonLabel] = useState<string | null>(null)
-  const { contentRef, isAnimating, animateTransition } = useOnboardingAnimation()
   const windowRef = useRef<HTMLDivElement>(null)
+  const { contentRef, isAnimating, animateTransition } = useOnboardingAnimation()
   const { triggerConfetti } = useConfetti(windowRef)
-  const blobRef1 = useRef<HTMLDivElement>(null)
-  const blobRef2 = useRef<HTMLDivElement>(null)
 
   // 稳定的回调引用
   const handleCanProceedChange = useCallback((v: boolean) => setCanProceed(v), [])
@@ -41,35 +38,6 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
 
   const currentStepData = ONBOARDING_STEPS[currentStep]
 
-  useEffect(() => {
-    // 背景光斑缓慢漂移动画
-    if (blobRef1.current && blobRef2.current) {
-      animate(
-        blobRef1.current,
-        {
-          translateX: [-20, 20],
-          translateY: [-15, 15],
-          scale: [1, 1.05],
-          duration: 8000,
-          direction: 'alternate',
-          loop: true,
-          easing: 'easeInOutQuad'
-        }
-      )
-      animate(
-        blobRef2.current,
-        {
-          translateX: [15, -15],
-          translateY: [10, -10],
-          scale: [1, 1.08],
-          duration: 10000,
-          direction: 'alternate',
-          loop: true,
-          easing: 'easeInOutQuad'
-        }
-      )
-    }
-  }, [])
 
   const handleNext = () => {
     if (isAnimating) return
@@ -121,22 +89,10 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingCallbacks = {})
         ['--step-color' as string]: currentStepData.color,
       } as React.CSSProperties}
     >
-      {/* 动态背景 */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div 
-          ref={blobRef1}
-          className="absolute top-[-30%] left-[-20%] w-[70vw] h-[70vw] rounded-full blur-[150px] opacity-10 bg-[#007AFF]/30 dark:bg-[#0A84FF]/20"
-        />
-        <div 
-          ref={blobRef2}
-          className="absolute bottom-[-30%] right-[-20%] w-[50vw] h-[50vw] rounded-full blur-[120px] opacity-5 bg-[#007AFF]/20 dark:bg-[#0A84FF]/10"
-        />
-      </div>
-
       {/* 主窗口容器 */}
-      <div ref={windowRef} className="relative w-[90vw] md:w-[85vw] lg:w-[80vw] xl:w-[70vw] min-h-[600px] max-h-[90vh] h-[85vh] z-10 flex bg-white/70 dark:bg-[#1C1C1E]/80 backdrop-blur-3xl rounded-3xl shadow-[0_8px_60px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_60px_-12px_rgba(0,0,0,0.5)] border border-white/50 dark:border-white/10 overflow-hidden transition-all duration-500">
+      <div ref={windowRef} className="relative w-[90vw] md:w-[85vw] lg:w-[80vw] xl:w-[72vw] max-w-[1100px] h-[82vh] min-h-[580px] max-h-[760px] z-10 flex bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-[0_8px_60px_-12px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_60px_-12px_rgba(0,0,0,0.5)] border border-black/[0.06] dark:border-white/10 overflow-hidden">
         {/* 左侧：侧边栏 */}
-        <div className="hidden md:flex w-[240px] lg:w-[280px] xl:w-[300px] flex-shrink-0 border-r border-black/[0.06] dark:border-white/[0.06] bg-black/[0.02] dark:bg-white/[0.02] flex-col">
+        <div className="hidden md:flex w-[220px] lg:w-[240px] flex-shrink-0 border-r border-black/[0.06] dark:border-white/[0.06] bg-black/[0.02] dark:bg-white/[0.02] flex-col">
           <OnboardingSidebar
             steps={ONBOARDING_STEPS}
             currentStep={currentStep}

@@ -1,5 +1,5 @@
 import { LoaderIcon, AlertCircleIcon, ChevronDownIcon, CheckCircle2Icon } from 'lucide-react'
-import { 
+import {
   usePythonVersionsQuery,
   usePythonDefaultQuery,
   useSetPythonDefaultMutation,
@@ -8,46 +8,39 @@ import {
 } from '@/hooks/queries/useEnvironmentQueries'
 import { useState, useEffect } from 'react'
 
-export const VENV_TYPES = [
-  { value: 'venv', label: 'venv', desc: 'Python 内置虚拟环境' },
-  { value: 'uv', label: 'uv', desc: '快速的 Python 包管理器' },
-  { value: 'conda', label: 'conda', desc: 'Conda 环境管理' },
+const VENV_TYPES = [
+  { value: 'venv', label: 'venv' },
+  { value: 'uv', label: 'uv' },
+  { value: 'conda', label: 'conda' },
 ]
 
 interface EnvironmentSettingsProps {
-  stepColor: string
+  stepColor?: string
 }
-
-const iconStyle = (color: string) => ({ backgroundColor: color })
 
 /**
  * 环境配置组件
  * 职责：选择默认 Python 版本和虚拟环境类型
  */
-export function EnvironmentSettings({ stepColor }: EnvironmentSettingsProps) {
-  // Python 版本管理
+export function EnvironmentSettings(_props: EnvironmentSettingsProps) {
   const { data: pythonVersions = [], isLoading: isLoadingPython, error: pythonErrorObj } = usePythonVersionsQuery()
   const { data: selectedPython } = usePythonDefaultQuery()
   const savePythonMutation = useSetPythonDefaultMutation()
   const pythonError = pythonErrorObj ? String(pythonErrorObj) : null
-  
-  // Venv 类型管理
+
   const { data: venvType = 'venv', isLoading: isLoadingVenv } = useVenvTypeQuery()
   const saveVenvMutation = useSetVenvTypeMutation()
-  
-  // 本地状态
+
   const [showPythonDropdown, setShowPythonDropdown] = useState(false)
-  const [localSelectedPython, setLocalSelectedPython] = useState(selectedPython || '')
+  const [localSelectedPython, setLocalSelectedPython] = useState(selectedPython?.path || '')
   const [localVenvType, setLocalVenvType] = useState(venvType)
-  
-  // 同步 selectedPython
+
   useEffect(() => {
-    if (selectedPython && typeof selectedPython === 'string') {
-      setLocalSelectedPython(selectedPython)
+    if (selectedPython?.path) {
+      setLocalSelectedPython(selectedPython.path)
     }
   }, [selectedPython])
-  
-  // 同步 venvType
+
   useEffect(() => {
     if (typeof venvType === 'string') {
       setLocalVenvType(venvType)
@@ -55,148 +48,99 @@ export function EnvironmentSettings({ stepColor }: EnvironmentSettingsProps) {
   }, [venvType])
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Python 版本选择 */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:bg-[#2e2e2e] dark:shadow-none">
-        <div className="flex items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-5">
-          <div 
-            className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white shadow-sm flex-shrink-0"
-            style={iconStyle(stepColor)}
-          >
-            {isLoadingPython ? (
-              <LoaderIcon className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" />
-            ) : (
-              <span className="text-sm sm:text-base font-bold">Py</span>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
-              默认 Python 版本
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              新建实例时使用的 Python 版本
-            </p>
-          </div>
-        </div>
+    <div className="space-y-6">
+      {/* Python 版本 */}
+      <div>
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+          默认 Python 版本
+        </h3>
 
         {pythonError ? (
-          <div className="flex items-start gap-2 p-3 sm:p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30">
-            <AlertCircleIcon className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-red-700 dark:text-red-300 break-words">{pythonError}</p>
+          <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400">
+            <AlertCircleIcon className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>{pythonError}</span>
           </div>
         ) : isLoadingPython ? (
-          <div className="py-6 sm:py-8 text-center">
-            <LoaderIcon className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto text-[#007AFF] dark:text-white" />
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">加载中...</p>
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
+            <span>检测中…</span>
           </div>
         ) : pythonVersions.length > 0 ? (
-          <div className="space-y-3 sm:space-y-4">
-            {/* 当前选中的版本 - 下拉选择器 */}
-            <div className="relative">
-              <button
-                onClick={() => setShowPythonDropdown(!showPythonDropdown)}
-                disabled={savePythonMutation.isPending}
-                className="w-full flex items-center justify-between py-3 sm:py-4 px-4 sm:px-5 rounded-xl bg-gray-50 dark:bg-[#3a3a3a]/50 hover:bg-gray-100 dark:hover:bg-[#3a3a3a]/70 transition-all disabled:opacity-60"
-              >
-                <div className="flex-1 text-left min-w-0">
-                  {localSelectedPython ? (
-                    <div>
-                      <div className="text-xs sm:text-sm font-medium text-[#023e8a] dark:text-white">
-                        {pythonVersions.find(v => v.path === localSelectedPython)?.version || '未选择'}
-                      </div>
-                      <div className="text-xs text-[#023e8a]/60 dark:text-white/60 font-mono truncate">
-                        {typeof localSelectedPython === 'string' ? localSelectedPython : ''}
-                      </div>
+          <div className="relative">
+            <button
+              onClick={() => setShowPythonDropdown(!showPythonDropdown)}
+              disabled={savePythonMutation.isPending}
+              className="w-full flex items-center justify-between py-2.5 px-3.5 rounded-lg bg-gray-100/80 dark:bg-white/[0.06] hover:bg-gray-200/60 dark:hover:bg-white/[0.1] transition-colors disabled:opacity-60 text-left"
+            >
+              <div className="flex-1 min-w-0">
+                {localSelectedPython ? (
+                  <>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {pythonVersions.find(v => v.path === localSelectedPython)?.version || '未选择'}
                     </div>
-                  ) : (
-                    <div className="text-xs sm:text-sm text-[#023e8a]/60 dark:text-white/60">
-                      选择 Python 版本
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400 font-mono truncate mt-0.5">
+                      {localSelectedPython}
                     </div>
-                  )}
-                </div>
-                <ChevronDownIcon className={`w-4 h-4 sm:w-5 sm:h-5 text-[#023e8a] dark:text-white transition-transform ml-2 flex-shrink-0 ${showPythonDropdown ? 'rotate-180' : ''}`} />
-              </button>
+                  </>
+                ) : (
+                  <span className="text-sm text-gray-400 dark:text-gray-500">选择 Python 版本</span>
+                )}
+              </div>
+              <ChevronDownIcon className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ml-2 flex-shrink-0 ${showPythonDropdown ? 'rotate-180' : ''}`} />
+            </button>
 
-              {/* 下拉列表 */}
-              {showPythonDropdown && (
-                <div className="absolute z-10 w-full mt-1 py-1 rounded-lg bg-white dark:bg-[#2e2e2e] border border-[#023e8a]/20 dark:border-[#3a3a3a] shadow-lg max-h-[200px] sm:max-h-[240px] overflow-y-auto">
-                  {pythonVersions.map((version) => (
-                    <button
-                      key={version.path}
-                      onClick={() => {
-                        setLocalSelectedPython(version.path)
-                        setShowPythonDropdown(false)
-                        savePythonMutation.mutate(version.path)
-                      }}
-                      className={`w-full text-left px-3 sm:px-4 py-2 hover:bg-[#023e8a]/5 dark:hover:bg-white/5 transition-colors ${
-                        version.path === localSelectedPython ? 'bg-[#023e8a]/10 dark:bg-white/10' : ''
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs sm:text-sm font-medium text-[#023e8a] dark:text-white">
-                            {version.version}
-                            {version.is_default && (
-                              <span className="ml-1 sm:ml-2 text-xs text-[#023e8a]/60 dark:text-white/60">
-                                (系统默认)
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-[#023e8a]/60 dark:text-white/60 font-mono truncate">
-                            {version.path}
-                          </div>
+            {showPythonDropdown && (
+              <div className="absolute z-10 w-full mt-1 py-1 rounded-lg bg-white dark:bg-[#2c2c2e] border border-gray-200 dark:border-white/10 shadow-lg max-h-[200px] overflow-y-auto">
+                {pythonVersions.map((version) => (
+                  <button
+                    key={version.path}
+                    onClick={() => {
+                      setLocalSelectedPython(version.path)
+                      setShowPythonDropdown(false)
+                      savePythonMutation.mutate(version.path)
+                    }}
+                    className={`w-full text-left px-3.5 py-2 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors ${
+                      version.path === localSelectedPython ? 'bg-gray-50 dark:bg-white/5' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {version.version}
                         </div>
-                        {version.path === localSelectedPython && (
-                          <CheckCircle2Icon className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                        )}
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400 font-mono truncate">
+                          {version.path}
+                        </div>
                       </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 提示信息 */}
-            <div className="p-2 sm:p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                💡 共检测到 <span className="font-semibold">{pythonVersions.length}</span> 个 Python 版本可用
-              </p>
-            </div>
+                      {version.path === localSelectedPython && (
+                        <CheckCircle2Icon className="w-4 h-4 text-[#007AFF] flex-shrink-0" />
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
-          <div className="p-2 sm:p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
-            <p className="text-xs sm:text-sm text-yellow-700 dark:text-yellow-300">
-              未检测到 Python 环境，请返回上一步安装
-            </p>
-          </div>
+          <p className="text-xs text-yellow-600 dark:text-yellow-400">
+            未检测到 Python 环境，请返回上一步安装
+          </p>
         )}
       </div>
 
-      {/* 虚拟环境类型选择 */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:bg-[#2e2e2e] dark:shadow-none">
-        <div className="flex items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-5">
-          <div 
-            className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white shadow-sm flex-shrink-0"
-            style={iconStyle(stepColor)}
-          >
-            <span className="text-sm sm:text-base font-bold">Env</span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
-              虚拟环境类型
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              新建实例时使用的虚拟环境管理器
-            </p>
-          </div>
-        </div>
+      {/* 虚拟环境类型 */}
+      <div>
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+          虚拟环境类型
+        </h3>
 
         {isLoadingVenv ? (
-          <div className="py-6 sm:py-8 text-center">
-            <LoaderIcon className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto text-[#007AFF] dark:text-white" />
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
+            <span>加载中…</span>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+          <div className="flex gap-2">
             {VENV_TYPES.map((type) => (
               <button
                 key={type.value}
@@ -205,36 +149,17 @@ export function EnvironmentSettings({ stepColor }: EnvironmentSettingsProps) {
                   saveVenvMutation.mutate(type.value)
                 }}
                 disabled={saveVenvMutation.isPending}
-                className={`p-3 sm:p-4 rounded-xl border transition-all text-center ${
+                className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
                   localVenvType === type.value
-                    ? 'bg-[#007AFF]/5 dark:bg-white/10 border-[#007AFF] dark:border-white shadow-sm'
-                    : 'bg-gray-50 dark:bg-[#3a3a3a]/50 border-transparent hover:bg-gray-100 dark:hover:bg-[#3a3a3a]/70'
+                    ? 'bg-[#007AFF] text-white shadow-sm'
+                    : 'bg-gray-100/80 dark:bg-white/[0.06] text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-white/[0.1]'
                 } disabled:opacity-60`}
               >
-                <div className="flex flex-col items-center gap-1.5 sm:gap-2">
-                  <span className={`text-sm sm:text-base font-semibold ${
-                    localVenvType === type.value ? 'text-[#007AFF] dark:text-white' : 'text-gray-700 dark:text-gray-300'
-                  }`}>
-                    {type.label}
-                  </span>
-                  {localVenvType === type.value && (
-                    <CheckCircle2Icon className="w-4 h-4 text-[#007AFF] dark:text-white" />
-                  )}
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 sm:mt-2 hidden sm:block">
-                  {type.desc}
-                </p>
+                {type.label}
               </button>
             ))}
           </div>
         )}
-
-        {/* 说明 */}
-        <div className="mt-3 sm:mt-4 p-3 sm:p-4 rounded-xl bg-gray-50 dark:bg-[#3a3a3a]/30 border border-gray-100 dark:border-[#3a3a3a]">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            推荐使用 <strong>uv</strong> 以获得最快的包安装速度，或使用 <strong>venv</strong> 保持兼容性
-          </p>
-        </div>
       </div>
     </div>
   )

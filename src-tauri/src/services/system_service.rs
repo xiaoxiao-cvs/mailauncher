@@ -106,12 +106,56 @@ fn discover_from_path(found: &mut Vec<DiscoveredPython>, seen: &mut std::collect
     };
 
     for cmd in candidates {
-        // 获取所有匹配路径
+        info!("[discover] where/which {} ...", cmd);
         let paths = get_all_command_paths(cmd);
+        info!("[discover] where/which {} 返回 {} 条路径: {:?}", cmd, paths.len(), paths);
         for path in paths {
             try_add_python(&path, found, seen);
         }
     }
+
+    // Windows: 使用 py launcher（最可靠的 Windows Python 发现方式）
+    #[cfg(target_os = "windows")]
+    {
+        info!("[discover] 尝试 py launcher...");
+        discover_from_py_launcher(found, seen);
+    }
+}
+
+/// 通过 Windows py launcher 发现 Python（py -0p 列出所有已注册的 Python）
+#[cfg(target_os = "windows")]
+fn discover_from_py_launcher(found: &mut Vec<DiscoveredPython>, seen: &mut std::collections::HashSet<String>) {
+    let output = Command::new("py").args(["-0p"]).output();
+    if let Ok(o) = output {
+        if o.status.success() {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            // 每行格式如: " -3.12-64       D:\Python\python.exe *"
+            // 路径从盘符开始（X:\），用正则或简单查找 "X:\" 模式
+            for line in stdout.lines() {
+                let line = line.trim();
+                if line.is_empty() { continue; }
+                // 找到路径起始位置：第一个 "X:\" 模式
+                if let Some(idx) = find_drive_path_start(line) {
+                    let path = line[idx..].trim_end_matches('*').trim();
+                    if !path.is_empty() {
+                        try_add_python(path, found, seen);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 在字符串中查找 Windows 驱动器路径的起始位置（如 "C:\"）
+#[cfg(target_os = "windows")]
+fn find_drive_path_start(s: &str) -> Option<usize> {
+    let bytes = s.as_bytes();
+    for i in 0..bytes.len().saturating_sub(2) {
+        if bytes[i].is_ascii_alphabetic() && bytes[i + 1] == b':' && bytes[i + 2] == b'\\' {
+            return Some(i);
+        }
+    }
+    None
 }
 
 /// 获取某个命令的所有路径（where 返回多行）
@@ -143,13 +187,24 @@ fn discover_from_common_paths(found: &mut Vec<DiscoveredPython>, seen: &mut std:
         for drive in &["C:", "D:", "E:"] {
             dirs.push(std::path::PathBuf::from(format!("{}\\Python", drive)));
             dirs.push(std::path::PathBuf::from(format!("{}\\Python3", drive)));
-            // 扫描 C:\PythonXX 风格
+            // 扫描驱动器根目录一级子目录：匹配包含 "python" 的目录名
             if let Ok(entries) = std::fs::read_dir(format!("{}\\", drive)) {
                 for entry in entries.flatten() {
-                    let name = entry.file_name().to_string_lossy().to_string();
-                    if name.starts_with("Python3") || name.starts_with("python") {
+                    if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) { continue; }
+                    let name = entry.file_name().to_string_lossy().to_lowercase();
+                    if name.contains("python") {
                         dirs.push(entry.path());
                     }
+                }
+            }
+        }
+
+        // 深度扫描：在 PATH 环境变量的每个目录中查找 python.exe
+        if let Ok(path_var) = std::env::var("PATH") {
+            for dir in path_var.split(';') {
+                let exe = std::path::PathBuf::from(dir).join("python.exe");
+                if exe.exists() {
+                    try_add_python(&exe.to_string_lossy(), found, seen);
                 }
             }
         }
@@ -263,13 +318,18 @@ fn discover_from_registry(found: &mut Vec<DiscoveredPython>, seen: &mut std::col
 
 /// 尝试运行 python --version 并加入结果
 fn try_add_python(path: &str, found: &mut Vec<DiscoveredPython>, seen: &mut std::collections::HashSet<String>) {
+    info!("[discover] try_add_python: {}", path);
     // 规范化路径
     let canonical = match std::fs::canonicalize(path) {
         Ok(p) => p.to_string_lossy().to_string(),
-        Err(_) => path.to_string(),
+        Err(e) => {
+            info!("[discover]   canonicalize 失败 ({}), 使用原始路径", e);
+            path.to_string()
+        }
     };
 
     if seen.contains(&canonical) {
+        info!("[discover]   已存在，跳过");
         return;
     }
 
@@ -277,10 +337,9 @@ fn try_add_python(path: &str, found: &mut Vec<DiscoveredPython>, seen: &mut std:
         .arg("--version")
         .output();
 
-    if let Ok(o) = output {
-        if o.status.success() {
+    match &output {
+        Ok(o) if o.status.success() => {
             let version_str = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            // "Python 3.12.0" → "3.12.0"
             let version = version_str
                 .strip_prefix("Python ")
                 .unwrap_or(&version_str)
@@ -288,12 +347,22 @@ fn try_add_python(path: &str, found: &mut Vec<DiscoveredPython>, seen: &mut std:
                 .to_string();
 
             if !version.is_empty() {
+                info!("[discover]   ✓ 发现 Python {} at {}", version, path);
                 seen.insert(canonical);
                 found.push(DiscoveredPython {
                     path: path.to_string(),
                     version,
                 });
+            } else {
+                info!("[discover]   版本字符串为空: {:?}", version_str);
             }
+        }
+        Ok(o) => {
+            let stderr = String::from_utf8_lossy(&o.stderr);
+            info!("[discover]   执行失败 (exit={}): {}", o.status, stderr.trim());
+        }
+        Err(e) => {
+            info!("[discover]   无法执行: {}", e);
         }
     }
 }
