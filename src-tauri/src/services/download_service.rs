@@ -5,6 +5,7 @@
 /// 通过 Tauri 事件推送进度（替代 Python 的 WebSocket）。
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use chrono::Utc;
@@ -64,6 +65,8 @@ pub struct DownloadManager {
 struct DownloadManagerInner {
     /// 任务映射表
     tasks: HashMap<String, DownloadTask>,
+    /// 取消信号表：task_id → 取消标记
+    cancel_tokens: HashMap<String, Arc<AtomicBool>>,
     pool: SqlitePool,
 }
 
@@ -72,6 +75,7 @@ impl DownloadManager {
         Self {
             inner: Arc::new(Mutex::new(DownloadManagerInner {
                 tasks: HashMap::new(),
+                cancel_tokens: HashMap::new(),
                 pool,
             })),
         }
@@ -231,6 +235,27 @@ impl DownloadManager {
             .bind(task_id)
             .execute(&inner.pool)
             .await;
+    }
+
+    /// 为任务创建取消令牌
+    pub async fn create_cancel_token(&self, task_id: &str) -> Arc<AtomicBool> {
+        let token = Arc::new(AtomicBool::new(false));
+        let mut inner = self.inner.lock().await;
+        inner.cancel_tokens.insert(task_id.to_string(), token.clone());
+        token
+    }
+
+    /// 触发任务取消
+    pub async fn cancel_task(&self, task_id: &str) {
+        let inner = self.inner.lock().await;
+        if let Some(token) = inner.cancel_tokens.get(task_id) {
+            token.store(true, Ordering::Relaxed);
+        }
+    }
+
+    /// 检查任务是否已被取消
+    pub fn is_cancelled(token: &Arc<AtomicBool>) -> bool {
+        token.load(Ordering::Relaxed)
     }
 }
 

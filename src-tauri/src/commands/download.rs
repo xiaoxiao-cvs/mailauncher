@@ -64,9 +64,10 @@ pub async fn create_download_task(
     let dm = state.download_manager.clone();
     let pool = state.db.clone();
     let app = app_handle.clone();
+    let cancel_token = state.download_manager.create_cancel_token(&task_id).await;
 
     tokio::spawn(async move {
-        if let Err(e) = execute_download_task(&app, &dm, &pool, &task_id).await {
+        if let Err(e) = execute_download_task(&app, &dm, &pool, &task_id, &cancel_token).await {
             error!("下载任务 {} 执行失败: {}", task_id, e);
 
             // 清理失败任务的整个实例目录（避免残留不完整文件）
@@ -118,6 +119,8 @@ pub async fn cancel_download_task(
     state: State<'_, AppState>,
     task_id: String,
 ) -> AppResult<()> {
+    // 触发取消信号，后台任务会在下一个检查点中止
+    state.download_manager.cancel_task(&task_id).await;
     state.download_manager.mark_failed(&task_id, "用户取消".to_string()).await;
     info!("下载任务已取消: {}", task_id);
     Ok(())
@@ -198,6 +201,7 @@ async fn execute_download_task(
     dm: &download_service::DownloadManager,
     pool: &sqlx::SqlitePool,
     task_id: &str,
+    cancel_token: &std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> AppResult<()> {
     let task = dm
         .get_task(task_id)
@@ -254,6 +258,11 @@ async fn execute_download_task(
 
     // 3. 按顺序下载各组件
     for item_type in &task.selected_items {
+        // 取消检查点
+        if download_service::DownloadManager::is_cancelled(cancel_token) {
+            return Err(AppError::Process("任务已被用户取消".to_string()));
+        }
+
         current_step += 1;
         let progress = (current_step as f64 / (total_items as f64 + 2.0)) * 100.0;
 
@@ -398,6 +407,11 @@ async fn execute_download_task(
                 }
             }
         }
+    }
+
+    // 取消检查点
+    if download_service::DownloadManager::is_cancelled(cancel_token) {
+        return Err(AppError::Process("任务已被用户取消".to_string()));
     }
 
     // 4. 创建实例 DB 记录
