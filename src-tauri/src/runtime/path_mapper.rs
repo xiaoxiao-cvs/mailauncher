@@ -19,7 +19,7 @@ impl<'a> PathMapper<'a> {
             RuntimeKind::Local => instance_root
                 .map(|instance_root| Self::Local { instance_root })
                 .ok_or_else(|| AppError::InvalidInput("Local 运行时缺少实例根目录，无法建立路径映射".to_string())),
-            RuntimeKind::Wsl2 | RuntimeKind::Docker => profile
+            RuntimeKind::Wsl2 => profile
                 .guest_workspace_root
                 .as_deref()
                 .filter(|value| !value.trim().is_empty())

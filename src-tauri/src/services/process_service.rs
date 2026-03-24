@@ -51,7 +51,7 @@ pub struct ProcessInfo {
     pub runtime_kind: RuntimeKind,
     /// 宿主进程 PID
     pub host_pid: Option<u32>,
-    /// 访客进程 PID（WSL2/Docker 等场景使用）
+    /// 访客进程 PID（WSL2 等场景使用）
     pub guest_pid: Option<u32>,
     /// 兼容旧接口的主 PID 字段（当前等同 host_pid）
     pub pid: Option<u32>,
@@ -311,15 +311,6 @@ impl ProcessManager {
                     false
                 }
             }
-            RuntimeKind::Docker => {
-                if let Some(pid) = handle.guest_pid {
-                    crate::runtime::docker::probe_guest_process_alive(&handle.runtime_profile, pid)
-                        .await
-                        .unwrap_or(false)
-                } else {
-                    false
-                }
-            }
             _ => false,
         }
     }
@@ -334,12 +325,6 @@ impl ProcessManager {
                 })?;
                 crate::runtime::wsl::signal_guest_process(&handle.runtime_profile, pid, signal).await
             }
-            RuntimeKind::Docker => {
-                let pid = handle.guest_pid.ok_or_else(|| {
-                    AppError::Process(format!("外部进程 {} 缺少 guest_pid", handle.session_id))
-                })?;
-                crate::runtime::docker::signal_guest_process(&handle.runtime_profile, pid, signal).await
-            }
             _ => Err(AppError::Process(format!("暂不支持停止 {:?} 外部进程", handle.runtime_kind))),
         }
     }
@@ -351,13 +336,6 @@ impl ProcessManager {
                     crate::runtime::wsl::capture_tmux_history(&handle.runtime_profile, session_name, lines).await
                 } else {
                     Ok(vec!["[外部进程接管] 当前会话没有可重连的 tmux 会话，只能显示探测状态。\n".to_string()])
-                }
-            }
-            RuntimeKind::Docker => {
-                if let Some(session_name) = verified_session_name(handle) {
-                    crate::runtime::docker::capture_tmux_history(&handle.runtime_profile, session_name, lines).await
-                } else {
-                    Ok(vec!["[Docker 运行时] 当前会话没有可重连的 tmux 会话，只能显示探测状态。\n".to_string()])
                 }
             }
             _ => Ok(Vec::new()),
@@ -372,12 +350,6 @@ impl ProcessManager {
                 })?;
                 crate::runtime::wsl::send_tmux_input(&handle.runtime_profile, session_name, data).await
             }
-            RuntimeKind::Docker => {
-                let session_name = verified_session_name(handle).ok_or_else(|| {
-                    AppError::Process("当前外部 Docker 进程没有可重连的 tmux 会话".to_string())
-                })?;
-                crate::runtime::docker::send_tmux_input(&handle.runtime_profile, session_name, data).await
-            }
             _ => Err(AppError::Process("当前外部进程暂不支持终端写入".to_string())),
         }
     }
@@ -391,13 +363,6 @@ impl ProcessManager {
             RuntimeKind::Wsl2 => {
                 if let Some(session_name) = verified_session_name(handle) {
                     crate::runtime::wsl::resize_tmux_session(&handle.runtime_profile, session_name, rows, cols).await
-                } else {
-                    Ok(())
-                }
-            }
-            RuntimeKind::Docker => {
-                if let Some(session_name) = verified_session_name(handle) {
-                    crate::runtime::docker::resize_tmux_session(&handle.runtime_profile, session_name, rows, cols).await
                 } else {
                     Ok(())
                 }
@@ -1179,7 +1144,7 @@ mod tests {
             "main",
             &crate::runtime::DiscoveredRuntimeProcess {
                 component: ComponentType::Main,
-                runtime_kind: RuntimeKind::Docker,
+                runtime_kind: RuntimeKind::Wsl2,
                 status: crate::models::ComponentLifecycleStatus::Running,
                 host_pid: None,
                 guest_pid: Some(9527),

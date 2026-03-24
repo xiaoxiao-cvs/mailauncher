@@ -1,12 +1,10 @@
 pub mod adapter;
-pub mod docker;
 pub mod local;
 pub mod path_mapper;
 pub mod resolver;
 pub mod wsl;
 
 pub use adapter::{DiscoveredRuntimeProcess, ResolvedCommand, RuntimeAdapter, TerminalSessionInfo};
-pub use docker::DockerRuntimeAdapter;
 pub use local::LocalRuntimeAdapter;
 pub use path_mapper::PathMapper;
 pub use resolver::RuntimeResolver;

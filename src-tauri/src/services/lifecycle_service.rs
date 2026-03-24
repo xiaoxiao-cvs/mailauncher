@@ -131,33 +131,6 @@ fn evaluate_recovered_instance_state(
                 }
             }
         }
-        RuntimeKind::Docker => {
-            let adapter = runtime_resolver.resolve(&instance.runtime_profile);
-            match adapter.discover_processes(&instance.runtime_profile, &instance.id, &available) {
-                Ok(discovered) => RuntimeDiscoverySnapshot {
-                    component_states: hydrate_discovered_component_states(
-                        &available,
-                        &discovered,
-                        instance.runtime_profile.kind,
-                    ),
-                    discovered_processes: discovered,
-                    discovery_succeeded: true,
-                    discovery_failed: false,
-                },
-                Err(error) => {
-                    last_error = Some(error.to_string());
-                    if last_status_reason.is_none() {
-                        last_status_reason = Some("Docker 冷启动探测失败，保留 unknown 状态".to_string());
-                    }
-                    RuntimeDiscoverySnapshot {
-                        component_states: hydrate_unknown_component_states(&available, instance.runtime_profile.kind),
-                        discovered_processes: Vec::new(),
-                        discovery_succeeded: false,
-                        discovery_failed: true,
-                    }
-                }
-            }
-        }
         _ => RuntimeDiscoverySnapshot {
             component_states: hydrate_stopped_component_states(&available, instance.runtime_profile.kind),
             discovered_processes: Vec::new(),
@@ -179,7 +152,7 @@ fn evaluate_recovered_instance_state(
         InstanceLifecycleStatus::Running => Some("冷启动重建为运行中".to_string()),
         InstanceLifecycleStatus::Partial => Some("冷启动重建为部分运行".to_string()),
         InstanceLifecycleStatus::Stopped
-            if matches!(instance.runtime_profile.kind, RuntimeKind::Wsl2 | RuntimeKind::Docker)
+            if instance.runtime_profile.kind == RuntimeKind::Wsl2
                 && snapshot.discovery_succeeded => {
             Some("冷启动探测未发现运行中的组件".to_string())
         }
@@ -494,7 +467,7 @@ mod tests {
         let available = vec![registry.get(ComponentType::Main).expect("缺少 main spec")];
         let discovered = vec![DiscoveredRuntimeProcess {
             component: ComponentType::Main,
-            runtime_kind: RuntimeKind::Docker,
+            runtime_kind: RuntimeKind::Wsl2,
             status: ComponentLifecycleStatus::Running,
             host_pid: None,
             guest_pid: Some(9527),
@@ -504,7 +477,7 @@ mod tests {
             }),
         }];
 
-        let states = hydrate_discovered_component_states(&available, &discovered, RuntimeKind::Docker);
+        let states = hydrate_discovered_component_states(&available, &discovered, RuntimeKind::Wsl2);
 
         assert_eq!(states.len(), 1);
         assert!(states[0].running);
@@ -521,17 +494,17 @@ mod tests {
             registry.get(ComponentType::NapCat).expect("缺少 napcat spec"),
         ];
 
-        let states = hydrate_unknown_component_states(&available, RuntimeKind::Docker);
+        let states = hydrate_unknown_component_states(&available, RuntimeKind::Wsl2);
         assert_eq!(states.len(), 2);
         assert!(states.iter().all(|state| state.status == ComponentLifecycleStatus::Unknown));
-        assert!(states.iter().all(|state| state.runtime_kind == RuntimeKind::Docker));
+        assert!(states.iter().all(|state| state.runtime_kind == RuntimeKind::Wsl2));
     }
 
     #[test]
     fn aggregate_unknown_components_with_error_keeps_unknown_for_remote_recovery() {
         let states = vec![InstanceComponentState {
             component: ComponentType::Main,
-            runtime_kind: RuntimeKind::Docker,
+            runtime_kind: RuntimeKind::Wsl2,
             status: ComponentLifecycleStatus::Unknown,
             running: false,
             externally_managed: false,
@@ -546,7 +519,7 @@ mod tests {
         let status = if true {
             InstanceLifecycleStatus::Unknown
         } else {
-            crate::lifecycle::aggregate_instance_status(&states, Some("docker not ready"))
+            crate::lifecycle::aggregate_instance_status(&states, Some("runtime not ready"))
         };
 
         assert_eq!(status, InstanceLifecycleStatus::Unknown);

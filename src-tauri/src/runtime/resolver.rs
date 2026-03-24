@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
 use crate::models::{RuntimeKind, RuntimeProfile};
-use crate::runtime::{DockerRuntimeAdapter, LocalRuntimeAdapter, RuntimeAdapter, Wsl2RuntimeAdapter};
+use crate::runtime::{LocalRuntimeAdapter, RuntimeAdapter, Wsl2RuntimeAdapter};
 
 #[derive(Clone)]
 pub struct RuntimeResolver {
     local: Arc<LocalRuntimeAdapter>,
     wsl2: Arc<Wsl2RuntimeAdapter>,
-    docker: Arc<DockerRuntimeAdapter>,
 }
 
 impl RuntimeResolver {
@@ -15,7 +14,6 @@ impl RuntimeResolver {
         Self {
             local: Arc::new(LocalRuntimeAdapter),
             wsl2: Arc::new(Wsl2RuntimeAdapter),
-            docker: Arc::new(DockerRuntimeAdapter),
         }
     }
 
@@ -23,7 +21,6 @@ impl RuntimeResolver {
         match profile.kind {
             RuntimeKind::Local => self.local.clone(),
             RuntimeKind::Wsl2 => self.wsl2.clone(),
-            RuntimeKind::Docker => self.docker.clone(),
         }
     }
 }
