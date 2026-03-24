@@ -64,11 +64,22 @@ const LAUNCHER_REPO: &str = "mailauncher";
 // ==================== GitHub API 客户端 ====================
 
 /// 创建 HTTP 客户端（带 User-Agent）
-fn github_client() -> reqwest::Client {
-    reqwest::Client::builder()
-        .user_agent("mailauncher/1.0")
-        .build()
-        .unwrap_or_default()
+pub(crate) fn github_client() -> reqwest::Client {
+    let mut builder = reqwest::Client::builder()
+        .user_agent("mailauncher/1.0");
+
+    // 支持可选 GitHub token，提升速率限制 (60 → 5000 req/hour)
+    if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+        if !token.is_empty() {
+            let mut headers = reqwest::header::HeaderMap::new();
+            if let Ok(val) = reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token)) {
+                headers.insert(reqwest::header::AUTHORIZATION, val);
+                builder = builder.default_headers(headers);
+            }
+        }
+    }
+
+    builder.build().unwrap_or_else(|_| reqwest::Client::new())
 }
 
 /// 从 GitHub API 获取最新 commit
