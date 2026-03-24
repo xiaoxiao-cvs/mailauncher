@@ -16,6 +16,56 @@ import { cn } from '@/lib/utils'
 import { TaskStatus } from '@/types/notification'
 import { useEffect, useRef } from 'react'
 import { animate, utils } from 'animejs'
+import type { DownloadItem } from '@/types/download'
+
+// ==================== 组件选择项 ====================
+
+interface ComponentSelectItemProps {
+  item: DownloadItem
+  selected: boolean
+  disabled: boolean
+  locked?: boolean
+  onToggle: () => void
+  badge?: React.ReactNode
+}
+
+function ComponentSelectItem({ item, selected, disabled, locked, onToggle, badge }: ComponentSelectItemProps) {
+  return (
+    <div
+      onClick={() => !disabled && !locked && item.status !== 'completed' && onToggle()}
+      className={cn(
+        "group p-3.5 rounded-xl border transition-all duration-200",
+        disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+        selected
+          ? "bg-brand-muted border-brand/20"
+          : "bg-transparent border-transparent hover:bg-muted/60"
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div className={cn(
+          "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors mt-0.5 flex-shrink-0",
+          selected
+            ? "bg-brand border-brand"
+            : "border-border group-hover:border-muted-foreground"
+        )}>
+          {selected && <Icon icon="ph:check-bold" className="w-3 h-3 text-brand-foreground" />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-0.5">
+            <h3 className="text-sm font-medium text-foreground">{item.name}</h3>
+            {item.status === 'completed' && (
+              <Icon icon="ph:check-circle-fill" className="w-4 h-4 text-success" />
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
+          {badge}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ==================== 主页面 ====================
 
 /**
  * 下载页面
@@ -74,7 +124,7 @@ export function DownloadsPage() {
   useEffect(() => {
     if (currentTask && currentTask.isActive) {
       console.log('[DownloadsPage] 恢复活跃任务:', currentTask)
-      
+
       // 恢复概览显示
       showOverview({
         taskId: currentTask.taskId,
@@ -83,7 +133,7 @@ export function DownloadsPage() {
         components: currentTask.components,
         deploymentPath: currentTask.deploymentPath,
       })
-      
+
       // 恢复任务状态
       updateStatus(currentTask.status)
     }
@@ -105,7 +155,6 @@ export function DownloadsPage() {
   const isWindows = window.navigator.platform.toLowerCase().includes('win')
 
   // 获取各个组件
-  const maibotItem = downloadItems.find(item => item.type === 'maibot')
   const adapterItem = downloadItems.find(item => item.type === 'adapter')
   const napcatItem = downloadItems.find(item => item.type === 'napcat')
   const quickAlgoItem = downloadItems.find(item => item.type === 'quick-algo')
@@ -114,10 +163,10 @@ export function DownloadsPage() {
   const hasDownloading = downloadItems.some(item => item.status === 'downloading')
 
   // 检查是否可以开始下载（需要有部署路径和实例名称）
-  const canStartDownload = 
-    deploymentPath.trim() !== '' && 
-    instanceName.trim() !== '' && 
-    !isDownloading && 
+  const canStartDownload =
+    deploymentPath.trim() !== '' &&
+    instanceName.trim() !== '' &&
+    !isDownloading &&
     selectedItems.size > 0
 
   // 处理开始安装
@@ -141,7 +190,7 @@ export function DownloadsPage() {
     // 调用下载方法获取真实任务 ID
     console.log('[Install] 开始创建下载任务...')
     const taskId = await downloadAll()
-    
+
     if (!taskId) {
       // 下载失败，更新通知状态
       console.error('[Install] 创建下载任务失败')
@@ -183,85 +232,63 @@ export function DownloadsPage() {
       {overviewState.visible ? (
           <InstallOverview state={overviewState} />
         ) : (
-          <div className="flex-1 overflow-y-auto scrollbar-hide z-10">
-            <div className="max-w-6xl mx-auto p-4 md:p-6 lg:p-8 space-y-6 pb-32" ref={containerRef}>
-              
+          <div className="flex-1 overflow-y-auto scrollbar-thin z-10">
+            <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8 space-y-5 pb-28" ref={containerRef}>
+
               {/* 页面标题 */}
-              <div className="text-center space-y-3 animate-item py-2">
-                <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
-                  下载与安装
-                </h1>
-                <p className="text-lg text-muted-foreground max-w-2xl mx-auto font-medium">
-                  构建您的专属 MaiBot，简单几步即可完成配置。
+              <div className="animate-item">
+                <h1 className="text-2xl font-bold text-foreground">下载与安装</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  配置实例信息，选择组件，一键部署。
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                
-                {/* 左侧主要配置区 */}
-                <div className="lg:col-span-7 space-y-6 animate-item">
-                  
-                  {/* Maibot 核心卡片 */}
-                  <div className="group relative bg-card backdrop-blur-xl rounded-[2rem] p-8 shadow-sm hover:shadow-2xl border border-border transition-all duration-500 ease-out hover:-translate-y-1">
-                    {/* 装饰背景 */}
-                    <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-gray-400/20 to-gray-400/20 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
-                    <div className="relative z-10">
-                      <div className="flex items-center gap-5 mb-8">
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-800 to-black flex items-center justify-center text-white shadow-lg shadow-foreground/5 flex-shrink-0 transform transition-transform group-hover:rotate-3">
-                          <Icon icon="ph:robot-fill" className="w-9 h-9" />
+                {/* 左侧：实例配置（合并卡片） */}
+                <div className="lg:col-span-7 animate-item">
+                  <div className="bg-card rounded-2xl border border-border overflow-hidden">
+                    {/* Maibot 核心信息 */}
+                    <div className="p-6">
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-800 to-black flex items-center justify-center text-white flex-shrink-0">
+                          <Icon icon="ph:robot-fill" className="w-7 h-7" />
                         </div>
                         <div>
-                          <div className="flex items-center gap-3 mb-1">
-                            <h3 className="text-2xl font-bold text-foreground">
-                              Maibot
-                            </h3>
-                            <span className="px-3 py-1 text-xs font-semibold rounded-full bg-destructive/10 text-destructive">
-                              核心组件
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-semibold text-foreground">Maibot</h3>
+                            <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-destructive/10 text-destructive uppercase tracking-wide">
+                              核心
                             </span>
-                            {maibotItem?.status === 'completed' && (
-                              <span className="px-3 py-1 text-xs font-semibold rounded-full bg-success/10 text-success">
-                                已完成
-                              </span>
-                            )}
                           </div>
-                          <p className="text-muted-foreground">
-                            MAI 机器人核心框架，提供基础运行环境
-                          </p>
+                          <p className="text-sm text-muted-foreground">MAI 机器人核心框架</p>
                         </div>
                       </div>
 
-                      <div className="space-y-6">
+                      <div className="space-y-4">
                         {/* 实例名称 */}
-                        <div className="space-y-3">
-                          <label className="text-sm font-medium text-foreground ml-1">
-                            实例名称
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={instanceName}
-                              onChange={(e) => setInstanceName(e.target.value)}
-                              placeholder="给您的机器人起个名字..."
-                              disabled={hasDownloading}
-                              className={cn(
-                                'w-full px-5 py-4 text-base rounded-2xl border-0',
-                                'bg-muted backdrop-blur-sm',
-                                'text-foreground',
-                                'placeholder:text-muted-foreground',
-                                'focus:outline-none focus:ring-2 focus:ring-ring/20',
-                                'transition-all duration-200',
-                                'disabled:opacity-60 disabled:cursor-not-allowed'
-                              )}
-                            />
-                          </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-medium text-muted-foreground ml-0.5">实例名称</label>
+                          <input
+                            type="text"
+                            value={instanceName}
+                            onChange={(e) => setInstanceName(e.target.value)}
+                            placeholder="给您的机器人起个名字..."
+                            disabled={hasDownloading}
+                            className={cn(
+                              'w-full px-4 py-3 text-sm rounded-xl border border-border',
+                              'bg-muted/50 text-foreground',
+                              'placeholder:text-muted-foreground',
+                              'focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand/30',
+                              'transition-all duration-200',
+                              'disabled:opacity-60 disabled:cursor-not-allowed'
+                            )}
+                          />
                         </div>
 
                         {/* 版本选择 */}
-                        <div className="space-y-3">
-                          <label className="text-sm font-medium text-foreground ml-1">
-                            选择版本
-                          </label>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-medium text-muted-foreground ml-0.5">选择版本</label>
                           <Select
                             value={selectedMaibotVersion.value}
                             onValueChange={(value) => {
@@ -270,22 +297,22 @@ export function DownloadsPage() {
                             }}
                             disabled={hasDownloading}
                           >
-                            <SelectTrigger className="w-full h-14 px-5 rounded-2xl border-0 bg-muted backdrop-blur-sm text-foreground focus:ring-2 focus:ring-ring/20 transition-all duration-200">
+                            <SelectTrigger className="w-full h-11 px-4 rounded-xl border border-border bg-muted/50 text-foreground text-sm focus:ring-2 focus:ring-brand/20 transition-all duration-200">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="rounded-xl border-0 bg-popover backdrop-blur-xl shadow-xl">
+                            <SelectContent className="rounded-xl border border-border bg-popover shadow-lg">
                               {maibotVersions.map((version) => (
-                                <SelectItem key={version.value} value={version.value} className="rounded-lg my-1 focus:bg-gray-100 dark:focus:bg-gray-700 cursor-pointer">
+                                <SelectItem key={version.value} value={version.value} className="rounded-lg my-0.5 cursor-pointer">
                                   <div className="flex items-center gap-2">
-                                    <Icon 
+                                    <Icon
                                       icon={
-                                        version.source === 'latest' 
-                                          ? 'ph:code-bold' 
-                                          : version.source === 'tag' 
-                                          ? 'ph:tag-bold' 
+                                        version.source === 'latest'
+                                          ? 'ph:code-bold'
+                                          : version.source === 'tag'
+                                          ? 'ph:tag-bold'
                                           : 'ph:git-branch-bold'
-                                      } 
-                                      className="w-4 h-4 opacity-70"
+                                      }
+                                      className="w-4 h-4 text-muted-foreground"
                                     />
                                     <span className="font-medium">{version.label}</span>
                                   </div>
@@ -296,22 +323,19 @@ export function DownloadsPage() {
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* 部署路径卡片 */}
-                  <div className="group relative bg-card backdrop-blur-xl rounded-[2rem] p-8 shadow-sm hover:shadow-2xl border border-border transition-all duration-500 ease-out hover:-translate-y-1">
-                    <div className="relative z-10">
-                      <div className="flex items-center gap-4 mb-6">
-                        <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-foreground">
-                          <Icon icon="ph:folder-open-fill" className="w-6 h-6" />
-                        </div>
-                        <h3 className="text-xl font-bold text-foreground">
-                          部署位置
-                        </h3>
+                    {/* 分隔线 */}
+                    <div className="border-t border-border" />
+
+                    {/* 部署路径 */}
+                    <div className="p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <Icon icon="ph:folder-open" className="w-5 h-5 text-muted-foreground" />
+                        <h3 className="text-sm font-semibold text-foreground">部署位置</h3>
                       </div>
 
-                      <div className="flex gap-3">
-                        <div className="flex-1 relative group/input">
+                      <div className="flex gap-2">
+                        <div className="flex-1 relative">
                           <input
                             type="text"
                             value={deploymentPath}
@@ -319,167 +343,82 @@ export function DownloadsPage() {
                             placeholder="选择安装目录..."
                             disabled={hasDownloading || isLoadingPath}
                             className={cn(
-                              'w-full px-5 py-4 text-base rounded-2xl border-0',
-                              'bg-muted backdrop-blur-sm',
-                              'text-foreground',
+                              'w-full px-4 py-3 text-sm rounded-xl border border-border',
+                              'bg-muted/50 text-foreground',
                               'placeholder:text-muted-foreground',
-                              'focus:outline-none focus:ring-2 focus:ring-ring/20',
+                              'focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand/30',
                               'transition-all duration-200',
                               'disabled:opacity-60 disabled:cursor-not-allowed'
                             )}
                           />
                           {isLoadingPath && (
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                              <Icon icon="ph:spinner-bold" className="w-5 h-5 animate-spin text-gray-500" />
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              <Icon icon="ph:spinner-bold" className="w-4 h-4 animate-spin text-muted-foreground" />
                             </div>
                           )}
                         </div>
-                        
+
                         <Button
                           onClick={selectDeploymentPath}
                           disabled={hasDownloading || isLoadingPath}
-                          className="h-auto px-6 rounded-2xl bg-foreground hover:bg-foreground text-white dark:text-background border-0 shadow-lg shadow-foreground/5 transition-all duration-200 active:scale-95"
+                          variant="outline"
+                          className="h-auto px-4 rounded-xl border-border"
                         >
-                          <Icon icon="ph:folder-simple-bold" className="w-5 h-5" />
+                          <Icon icon="ph:folder-simple-bold" className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* 右侧：依赖组件 */}
-                <div className="lg:col-span-5 animate-item h-full">
-                  <div className="bg-card backdrop-blur-xl rounded-[2rem] p-8 shadow-sm hover:shadow-2xl border border-border h-full flex flex-col transition-all duration-500 ease-out hover:-translate-y-1">
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-bold text-foreground">
-                        组件选择
-                      </h2>
-                      <span className="text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                {/* 右侧：组件选择 */}
+                <div className="lg:col-span-5 animate-item">
+                  <div className="bg-card rounded-2xl border border-border p-6 h-full flex flex-col">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-sm font-semibold text-foreground">组件选择</h2>
+                      <span className="text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
                         已选 {selectedItems.size}
                       </span>
                     </div>
 
-                    <div className="space-y-4 flex-1">
-                      {/* Adapter */}
+                    <div className="space-y-2 flex-1">
                       {adapterItem && (
-                        <div 
-                          onClick={() => !hasDownloading && adapterItem.status !== 'completed' && toggleItemSelection(adapterItem.id)}
-                          className={cn(
-                            "group relative p-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer",
-                            selectedItems.has(adapterItem.id)
-                              ? "bg-gray-100/80 border-gray-900/10 dark:bg-white/10 dark:border-white/20"
-                              : "bg-transparent border-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                          )}
-                        >
-                          <div className="flex items-start gap-4">
-                            <div className={cn(
-                              "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors mt-1",
-                              selectedItems.has(adapterItem.id)
-                                ? "bg-foreground border-foreground"
-                                : "border-border group-hover:border-foreground"
-                            )}>
-                              {selectedItems.has(adapterItem.id) && <Icon icon="ph:check-bold" className="w-3.5 h-3.5 text-white dark:text-background" />}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-1">
-                                <h3 className="font-semibold text-foreground">
-                                  {adapterItem.name}
-                                </h3>
-                                {adapterItem.status === 'completed' && (
-                                  <Icon icon="ph:check-circle-fill" className="w-5 h-5 text-success" />
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                {adapterItem.description}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                        <ComponentSelectItem
+                          item={adapterItem}
+                          selected={selectedItems.has(adapterItem.id)}
+                          disabled={hasDownloading}
+                          onToggle={() => toggleItemSelection(adapterItem.id)}
+                        />
                       )}
 
-                      {/* Napcat */}
                       {napcatItem && (
-                        <div 
-                          onClick={() => !hasDownloading && napcatItem.status !== 'completed' && toggleItemSelection(napcatItem.id)}
-                          className={cn(
-                            "group relative p-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer",
-                            selectedItems.has(napcatItem.id)
-                              ? "bg-gray-100/80 border-gray-900/10 dark:bg-white/10 dark:border-white/20"
-                              : "bg-transparent border-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                          )}
-                        >
-                          <div className="flex items-start gap-4">
-                            <div className={cn(
-                              "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors mt-1",
-                              selectedItems.has(napcatItem.id)
-                                ? "bg-foreground border-foreground"
-                                : "border-border group-hover:border-foreground"
-                            )}>
-                              {selectedItems.has(napcatItem.id) && <Icon icon="ph:check-bold" className="w-3.5 h-3.5 text-white dark:text-background" />}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-1">
-                                <h3 className="font-semibold text-foreground">
-                                  {napcatItem.name}
-                                </h3>
-                                {napcatItem.status === 'completed' && (
-                                  <Icon icon="ph:check-circle-fill" className="w-5 h-5 text-success" />
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                {napcatItem.description}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                        <ComponentSelectItem
+                          item={napcatItem}
+                          selected={selectedItems.has(napcatItem.id)}
+                          disabled={hasDownloading}
+                          onToggle={() => toggleItemSelection(napcatItem.id)}
+                        />
                       )}
 
-                      {/* Quick-algo */}
                       {quickAlgoItem && (
-                        <div 
-                          onClick={() => !isMacOS && !isWindows && !hasDownloading && quickAlgoItem.status !== 'completed' && toggleItemSelection(quickAlgoItem.id)}
-                          className={cn(
-                            "group relative p-4 rounded-2xl border-2 transition-all duration-200",
-                            isWindows ? "opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-800/50" : "cursor-pointer",
-                            !isWindows && (isMacOS || selectedItems.has(quickAlgoItem.id))
-                              ? "bg-gray-100/80 border-gray-900/10 dark:bg-white/10 dark:border-white/20"
-                              : !isWindows && "bg-transparent border-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                          )}
-                        >
-                          <div className="flex items-start gap-4">
-                            <div className={cn(
-                              "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors mt-1",
-                              (isMacOS || selectedItems.has(quickAlgoItem.id))
-                                ? "bg-foreground border-foreground"
-                                : "border-border group-hover:border-foreground"
-                            )}>
-                              {(isMacOS || selectedItems.has(quickAlgoItem.id)) && <Icon icon="ph:check-bold" className="w-3.5 h-3.5 text-white dark:text-background" />}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-1">
-                                <h3 className="font-semibold text-foreground">
-                                  {quickAlgoItem.name}
-                                </h3>
-                                {quickAlgoItem.status === 'completed' && (
-                                  <Icon icon="ph:check-circle-fill" className="w-5 h-5 text-success" />
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                {quickAlgoItem.description}
-                              </p>
-                              {isMacOS && (
-                                <span className="inline-block mt-2 text-xs font-medium text-foreground bg-muted px-2 py-0.5 rounded">
-                                  macOS 必需
-                                </span>
-                              )}
-                              {isWindows && (
-                                <span className="inline-block mt-2 text-xs font-medium text-muted-foreground">
-                                  Windows 无需编译
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                        <ComponentSelectItem
+                          item={quickAlgoItem}
+                          selected={isMacOS || selectedItems.has(quickAlgoItem.id)}
+                          disabled={isWindows || hasDownloading}
+                          locked={isMacOS}
+                          onToggle={() => toggleItemSelection(quickAlgoItem.id)}
+                          badge={
+                            isMacOS ? (
+                              <span className="inline-block mt-1.5 text-[10px] font-medium text-brand bg-brand-muted px-2 py-0.5 rounded">
+                                macOS 必需
+                              </span>
+                            ) : isWindows ? (
+                              <span className="inline-block mt-1.5 text-[10px] text-muted-foreground">
+                                Windows 无需编译
+                              </span>
+                            ) : undefined
+                          }
+                        />
                       )}
                     </div>
                   </div>
@@ -488,30 +427,31 @@ export function DownloadsPage() {
             </div>
 
             {/* 底部悬浮操作栏 */}
-            <div className="fixed bottom-8 left-0 md:left-[272px] right-0 z-50 px-6 animate-item flex justify-center pointer-events-none">
-              <div className="bg-card backdrop-blur-xl rounded-full shadow-[0_8px_40px_rgba(0,0,0,0.16)] border border-white/20 dark:border-white/10 p-2 pl-8 flex items-center gap-6 pointer-events-auto w-auto transition-all hover:scale-[1.02]">
+            <div className="fixed bottom-6 left-0 md:left-[272px] right-0 z-50 px-6 flex justify-center pointer-events-none">
+              <div className="bg-card/90 backdrop-blur-xl rounded-2xl shadow-lg border border-border p-2 pl-6 flex items-center gap-4 pointer-events-auto">
                 <div className="min-w-0">
                   {!instanceName.trim() ? (
-                    <div className="flex items-center gap-2 text-warning">
-                      <Icon icon="ph:warning-circle-fill" className="w-5 h-5 flex-shrink-0" />
+                    <div className="flex items-center gap-2 text-warning text-sm">
+                      <Icon icon="ph:warning-circle-fill" className="w-4 h-4 flex-shrink-0" />
                       <span className="font-medium">请设置实例名称</span>
                     </div>
                   ) : !deploymentPath ? (
-                    <div className="flex items-center gap-2 text-warning">
-                      <Icon icon="ph:warning-circle-fill" className="w-5 h-5 flex-shrink-0" />
+                    <div className="flex items-center gap-2 text-warning text-sm">
+                      <Icon icon="ph:warning-circle-fill" className="w-4 h-4 flex-shrink-0" />
                       <span className="font-medium">请选择部署路径</span>
                     </div>
                   ) : selectedItems.size === 0 ? (
-                    <div className="flex items-center gap-2 text-foreground">
-                      <Icon icon="ph:info-fill" className="w-5 h-5 flex-shrink-0" />
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <Icon icon="ph:info-fill" className="w-4 h-4 flex-shrink-0" />
                       <span className="font-medium">请选择组件</span>
                     </div>
                   ) : (
-                    <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">准备就绪</span>
-                      <span className="text-sm font-medium text-foreground truncate max-w-[200px]">
-                        将安装到: {instanceName}
+                    <div className="flex items-center gap-2 text-sm">
+                      <Icon icon="ph:check-circle-fill" className="w-4 h-4 text-success flex-shrink-0" />
+                      <span className="font-medium text-foreground truncate max-w-[200px]">
+                        {instanceName}
                       </span>
+                      <span className="text-muted-foreground">准备就绪</span>
                     </div>
                   )}
                 </div>
@@ -520,22 +460,20 @@ export function DownloadsPage() {
                   onClick={handleStartInstall}
                   disabled={!canStartDownload || hasDownloading}
                   className={cn(
-                    'rounded-full px-8 py-6 text-base font-semibold shadow-lg transition-all duration-300',
-                    'bg-foreground hover:bg-foreground text-white border-0',
-                    'dark:text-background',
+                    'rounded-xl px-6 h-10 text-sm font-medium transition-all duration-200',
+                    'bg-brand hover:bg-brand-hover text-brand-foreground',
                     'disabled:opacity-50 disabled:cursor-not-allowed',
-                    hasDownloading ? 'pl-6 pr-8' : ''
                   )}
                 >
                   {hasDownloading ? (
                     <>
-                      <Icon icon="ph:spinner-bold" className="w-5 h-5 mr-2 animate-spin" />
+                      <Icon icon="ph:spinner-bold" className="w-4 h-4 mr-2 animate-spin" />
                       安装中...
                     </>
                   ) : (
                     <>
                       开始安装
-                      <Icon icon="ph:arrow-right-bold" className="w-4 h-4 ml-2" />
+                      <Icon icon="ph:arrow-right-bold" className="w-3.5 h-3.5 ml-2" />
                     </>
                   )}
                 </Button>
