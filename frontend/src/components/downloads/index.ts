@@ -1,3 +1,3 @@
-/**
- * 下载组件统一导出
- */
+export { ComponentSelectItem } from './ComponentSelectItem'
+export { DownloadComponentSelector } from './DownloadComponentSelector'
+export { InstanceConfigPanel } from './InstanceConfigPanel'
