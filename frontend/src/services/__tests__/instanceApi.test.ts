@@ -59,7 +59,7 @@ describe('instanceApi', () => {
 
     const result = await instanceApi.deleteInstance('inst_abc')
     expect(invoke).toHaveBeenCalledWith('delete_instance', { instanceId: 'inst_abc' })
-    expect(result).toBeDefined()
+    expect(result).toEqual({ success: true, message: 'deleted' })
   })
 
   it('getInstanceStatus should invoke get_instance_status', async () => {
