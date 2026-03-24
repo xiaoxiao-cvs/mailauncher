@@ -57,9 +57,16 @@ pub async fn create_virtual_environment(
     .await?;
 
     if !output.success {
+        let combined = if output.stdout.is_empty() {
+            output.stderr.clone()
+        } else if output.stderr.is_empty() {
+            output.stdout.clone()
+        } else {
+            format!("[stdout] {}\n[stderr] {}", output.stdout, output.stderr)
+        };
         return Err(AppError::Process(format!(
             "创建虚拟环境失败: {}",
-            output.stderr
+            combined
         )));
     }
 
@@ -138,9 +145,16 @@ pub async fn install_dependencies(
     .await?;
 
     if !output.success {
+        let combined = if output.stdout.is_empty() {
+            output.stderr.clone()
+        } else if output.stderr.is_empty() {
+            output.stdout.clone()
+        } else {
+            format!("[stdout] {}\n[stderr] {}", output.stdout, output.stderr)
+        };
         return Err(AppError::Process(format!(
             "安装依赖失败 ({:?}): {}",
-            project_dir, output.stderr
+            project_dir, combined
         )));
     }
 
