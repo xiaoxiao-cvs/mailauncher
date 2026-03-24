@@ -63,7 +63,7 @@
     "react-day-picker": "^9.11.2",
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
-    "react-router-dom": "^6.28.0",
+    "react-router-dom": "^6.30.3",
     "recharts": "^3.5.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^2.5.4",
@@ -95,5 +95,15 @@
     "typescript": "^5.6.3",
     "vite": "^6.0.1",
     "vitest": "^4.1.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "rollup": ">=4.59.0",
+      "minimatch": ">=9.0.7",
+      "glob": ">=10.5.0",
+      "flatted": ">=3.4.2",
+      "ajv": ">=6.14.0",
+      "js-yaml": ">=4.1.1"
+    }
   }
 }
