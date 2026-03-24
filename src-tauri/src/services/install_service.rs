@@ -33,7 +33,12 @@ pub async fn create_virtual_environment(
         return Ok(());
     }
 
-    let python = python_path.unwrap_or("python3");
+    let default_python = if cfg!(target_os = "windows") {
+        "python"
+    } else {
+        "python3"
+    };
+    let python = python_path.unwrap_or(default_python);
 
     info!("创建虚拟环境: {:?} (python: {})", venv_dir, python);
 
@@ -588,16 +593,30 @@ mod tests {
     }
 
     #[test]
-    fn python_path_defaults_to_python3_when_none() {
+    fn python_path_defaults_to_platform_specific_when_none() {
         let python_path: Option<&str> = None;
-        let python = python_path.unwrap_or("python3");
-        assert_eq!(python, "python3");
+        let default_python = if cfg!(target_os = "windows") {
+            "python"
+        } else {
+            "python3"
+        };
+        let python = python_path.unwrap_or(default_python);
+        if cfg!(target_os = "windows") {
+            assert_eq!(python, "python");
+        } else {
+            assert_eq!(python, "python3");
+        }
     }
 
     #[test]
     fn python_path_uses_custom_when_provided() {
         let python_path: Option<&str> = Some("/usr/local/bin/python3.11");
-        let python = python_path.unwrap_or("python3");
+        let default_python = if cfg!(target_os = "windows") {
+            "python"
+        } else {
+            "python3"
+        };
+        let python = python_path.unwrap_or(default_python);
         assert_eq!(python, "/usr/local/bin/python3.11");
     }
 
