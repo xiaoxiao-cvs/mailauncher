@@ -86,8 +86,7 @@ export function SettingsPage() {
   
   const pendingUpdate = updateInfo
 
-  // 自定义 Select 组件 (参考 comp-204)
-  const CustomSelect = ({ 
+  const CustomSelect = ({
     label, 
     value, 
     onChange, 
