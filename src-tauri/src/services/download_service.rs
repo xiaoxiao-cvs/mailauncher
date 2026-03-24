@@ -477,12 +477,15 @@ async fn download_file(
 
     if !response.status().is_success() {
         return Err(AppError::Network(format!(
-            "HTTP 下载失败，状态码: {}",
-            response.status()
+            "HTTP 下载失败 ({}): 状态码 {}",
+            url, response.status()
         )));
     }
 
     let total_size = response.content_length();
+    if total_size.is_none() {
+        warn!("服务器未返回 Content-Length，无法显示下载进度: {}", url);
+    }
     let mut downloaded: u64 = 0;
     let mut last_speed_update = std::time::Instant::now();
     let mut bytes_since_last_update: u64 = 0;
@@ -590,7 +593,7 @@ pub async fn run_command_with_output(
 
     let mut child = cmd
         .spawn()
-        .map_err(|e| AppError::Process(format!("启动命令 {} 失败: {}", program, e)))?;
+        .map_err(|e| AppError::Process(format!("启动命令 {} {:?} 失败: {}", program, args, e)))?;
 
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();

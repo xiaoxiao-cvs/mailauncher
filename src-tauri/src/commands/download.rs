@@ -9,7 +9,7 @@
 /// - `download-progress-{taskId}` — 结构化进度（JSON 载荷）
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::errors::{AppError, AppResult};
 use crate::models::download::*;
@@ -76,7 +76,9 @@ pub async fn create_download_task(
                 let instance_dir = instances_dir.join(&task.deployment_path);
                 if instance_dir.exists() {
                     info!("清理失败任务的残留实例目录: {:?}", instance_dir);
-                    let _ = std::fs::remove_dir_all(&instance_dir);
+                    if let Err(cleanup_err) = std::fs::remove_dir_all(&instance_dir) {
+                        warn!("清理残留目录失败 ({:?}): {}", instance_dir, cleanup_err);
+                    }
                 }
             }
 
@@ -220,7 +222,7 @@ async fn execute_download_task(
     let instances_dir = platform::get_instances_dir();
     let instance_dir = instances_dir.join(&task.deployment_path);
     std::fs::create_dir_all(&instance_dir)
-        .map_err(|e| AppError::FileSystem(format!("创建实例目录失败: {}", e)))?;
+        .map_err(|e| AppError::FileSystem(format!("创建实例目录失败 ({:?}): {}", instance_dir, e)))?;
 
     dm.add_log(task_id, format!("创建实例目录: {:?}", instance_dir))
         .await;
@@ -248,8 +250,9 @@ async fn execute_download_task(
                 break;
             }
         }
-        if checked {
-            let _ = app_handle.emit(&event_name, "磁盘空间检查通过");
+        if !checked {
+            warn!("无法确定实例目录所在磁盘，跳过磁盘空间检查: {:?}", instance_dir);
+            let _ = app_handle.emit(&event_name, "⚠️ 无法检测磁盘空间，跳过检查");
         }
     }
 

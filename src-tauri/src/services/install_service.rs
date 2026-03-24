@@ -139,8 +139,8 @@ pub async fn install_dependencies(
 
     if !output.success {
         return Err(AppError::Process(format!(
-            "安装依赖失败: {}",
-            output.stderr
+            "安装依赖失败 ({:?}): {}",
+            project_dir, output.stderr
         )));
     }
 
