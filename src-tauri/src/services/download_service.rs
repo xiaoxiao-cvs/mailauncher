@@ -585,7 +585,10 @@ pub async fn run_command_with_output(
     let mut cmd = Command::new(program);
     cmd.args(args)
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
+        .stderr(std::process::Stdio::piped())
+        // 强制 Python 子进程使用 UTF-8，避免 Windows 中文环境 GBK 编码导致管道断裂
+        .env("PYTHONIOENCODING", "utf-8")
+        .env("PYTHONUTF8", "1");
 
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
