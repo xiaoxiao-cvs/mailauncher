@@ -13,7 +13,7 @@ use tracing::{error, info, warn};
 
 use crate::errors::{AppError, AppResult};
 use crate::models::download::*;
-use crate::services::{download_service, install_service, instance_service};
+use crate::services::{config_service, download_service, install_service, instance_service};
 use crate::state::AppState;
 use crate::utils::platform;
 
@@ -72,7 +72,10 @@ pub async fn create_download_task(
 
             // 清理失败任务的整个实例目录（避免残留不完整文件）
             if let Some(task) = dm.get_task(&task_id).await {
-                let instances_dir = platform::get_instances_dir();
+                let instances_dir = match config_service::get_path(&pool, "instances_dir").await {
+                    Ok(Some(config)) => std::path::PathBuf::from(&config.path),
+                    _ => platform::get_instances_dir(),
+                };
                 let instance_dir = instances_dir.join(&task.deployment_path);
                 if instance_dir.exists() {
                     info!("清理失败任务的残留实例目录: {:?}", instance_dir);
@@ -218,8 +221,11 @@ async fn execute_download_task(
     let _ = app_handle.emit(&status_event, "downloading");
     emit_progress(app_handle, task_id, 0.0, "开始下载...", "downloading");
 
-    // 1. 创建实例目录
-    let instances_dir = platform::get_instances_dir();
+    // 1. 创建实例目录（优先使用用户配置的 instances_dir，回退到默认值）
+    let instances_dir = match config_service::get_path(pool, "instances_dir").await {
+        Ok(Some(config)) => std::path::PathBuf::from(&config.path),
+        _ => platform::get_instances_dir(),
+    };
     let instance_dir = instances_dir.join(&task.deployment_path);
     std::fs::create_dir_all(&instance_dir)
         .map_err(|e| AppError::FileSystem(format!("创建实例目录失败 ({:?}): {}", instance_dir, e)))?;

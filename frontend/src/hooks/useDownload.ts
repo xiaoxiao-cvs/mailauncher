@@ -276,7 +276,7 @@ export function useDownload() {
       const selectedItemsArray = Array.from(selectedItems)
       const data = {
         instance_name: instanceName.trim(),
-        deployment_path: deploymentPath,
+        deployment_path: null,
         maibot_version_source: selectedMaibotVersion.source,
         maibot_version_value: selectedMaibotVersion.value,
         selected_items: selectedItemsArray.map(itemId => {
