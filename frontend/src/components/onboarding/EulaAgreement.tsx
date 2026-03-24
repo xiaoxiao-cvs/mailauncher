@@ -7,16 +7,16 @@ import { EulaContext } from './EulaContext'
 
 const markdownComponents = {
   h1: ({ children }: { children?: React.ReactNode }) => (
-    <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">{children}</h1>
+    <h1 className="text-2xl font-bold mb-4 text-foreground">{children}</h1>
   ),
   h2: ({ children }: { children?: React.ReactNode }) => (
-    <h2 className="text-xl font-semibold mb-3 mt-6 text-gray-900 dark:text-white">{children}</h2>
+    <h2 className="text-xl font-semibold mb-3 mt-6 text-foreground">{children}</h2>
   ),
   h3: ({ children }: { children?: React.ReactNode }) => (
-    <h3 className="text-lg font-semibold mb-2 mt-4 text-gray-900 dark:text-white">{children}</h3>
+    <h3 className="text-lg font-semibold mb-2 mt-4 text-foreground">{children}</h3>
   ),
   p: ({ children }: { children?: React.ReactNode }) => (
-    <p className="mb-3 text-gray-700 dark:text-gray-300 leading-relaxed text-[14px]">{children}</p>
+    <p className="mb-3 text-muted-foreground leading-relaxed text-[14px]">{children}</p>
   ),
   ul: ({ children }: { children?: React.ReactNode }) => (
     <ul className="list-disc pl-6 mb-3 space-y-1">{children}</ul>
@@ -25,17 +25,17 @@ const markdownComponents = {
     <ol className="list-decimal pl-6 mb-3 space-y-1">{children}</ol>
   ),
   li: ({ children }: { children?: React.ReactNode }) => (
-    <li className="text-gray-700 dark:text-gray-300 text-[14px]">{children}</li>
+    <li className="text-muted-foreground text-[14px]">{children}</li>
   ),
   strong: ({ children }: { children?: React.ReactNode }) => (
-    <strong className="font-semibold text-gray-900 dark:text-white">{children}</strong>
+    <strong className="font-semibold text-foreground">{children}</strong>
   ),
   blockquote: ({ children }: { children?: React.ReactNode }) => (
-    <blockquote className="border-l-4 border-[#007AFF]/30 pl-4 my-3 text-gray-600 dark:text-gray-400 text-[14px]">
+    <blockquote className="border-l-4 border-brand/30 pl-4 my-3 text-muted-foreground text-[14px]">
       {children}
     </blockquote>
   ),
-  hr: () => <hr className="my-6 border-gray-200 dark:border-white/10" />,
+  hr: () => <hr className="my-6 border-border" />,
 }
 
 export function EulaAgreement() {

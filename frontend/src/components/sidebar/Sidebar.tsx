@@ -111,20 +111,20 @@ export function Sidebar() {
       )}
     >
       {/* 顶部：Logo 区域 */}
-      <div className="px-4 py-6 border-b border-[#023e8a]/10 dark:border-white/10 overflow-hidden">
+      <div className="px-4 py-6 border-b border-border overflow-hidden">
         <div className={cn(
           'flex items-center gap-3 transition-all duration-200',
           'justify-start' // 左对齐
         )}>
           {/* Logo 图标 */}
-          <div className="w-8 h-8 bg-gradient-to-br from-[#0077b6] to-[#00b4d8] rounded-lg flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 bg-gradient-to-br from-brand to-brand/70 rounded-lg flex items-center justify-center flex-shrink-0">
             <span className="text-white font-bold text-sm">MAI</span>
           </div>
           
           {/* Logo 文字 */}
           <span 
             className={cn(
-              'text-lg font-semibold text-[#03045e] dark:text-white whitespace-nowrap transition-all duration-200',
+              'text-lg font-semibold text-foreground whitespace-nowrap transition-all duration-200',
               'opacity-100'
             )}
           >

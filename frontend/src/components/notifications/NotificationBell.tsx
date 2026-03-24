@@ -23,8 +23,8 @@ export function NotificationBell({ unreadCount, isCollapsed, onClick }: Notifica
       onClick={onClick}
       className={cn(
         'w-full flex items-center rounded-lg transition-all duration-200',
-        'hover:bg-[#023e8a]/5 dark:hover:bg-white/5',
-        'text-[#023e8a]/70 dark:text-white/70',
+        'hover:bg-muted',
+        'text-muted-foreground',
         'overflow-hidden',
         'py-2.5 relative',
         'pl-[18px]',

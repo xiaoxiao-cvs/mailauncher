@@ -21,8 +21,8 @@ export function SidebarNavItemComponent({ item, isCollapsed }: SidebarNavItemCom
       to={item.path}
       className={cn(
         'relative flex items-center rounded-lg transition-all duration-200',
-        'hover:bg-[#023e8a]/5 dark:hover:bg-white/5',
-        isActive && 'bg-[#023e8a]/10 dark:bg-white/10',
+        'hover:bg-muted/50',
+        isActive && 'bg-muted',
         'overflow-hidden', // 防止内容溢出
         'py-2.5',
         // 统一使用固定的左内边距，确保图标位置不变
@@ -40,9 +40,9 @@ export function SidebarNavItemComponent({ item, isCollapsed }: SidebarNavItemCom
           className={cn(
             'transition-colors duration-200',
             'text-xl', // 统一尺寸
-            isActive 
-              ? 'text-[#0077b6] dark:text-[#00b4d8]' 
-              : 'text-[#023e8a]/70 dark:text-white/70'
+            isActive
+              ? 'text-brand'
+              : 'text-muted-foreground'
           )}
         />
       </div>
@@ -51,9 +51,9 @@ export function SidebarNavItemComponent({ item, isCollapsed }: SidebarNavItemCom
       <span
         className={cn(
           'text-sm font-medium transition-all duration-200 whitespace-nowrap',
-          isActive 
-            ? 'text-[#03045e] dark:text-white' 
-            : 'text-[#023e8a]/70 dark:text-white/70',
+          isActive
+            ? 'text-foreground'
+            : 'text-muted-foreground',
           // 收起时完全隐藏（opacity + width），展开时平滑出现
           isCollapsed ? 'opacity-0 w-0 ml-0' : 'opacity-100 ml-3'
         )}
@@ -63,7 +63,7 @@ export function SidebarNavItemComponent({ item, isCollapsed }: SidebarNavItemCom
 
       {/* 收起状态的高亮框 - 四边等宽 */}
       {isActive && isCollapsed && (
-        <div className="absolute inset-0 border-2 border-[#0077b6]/30 dark:border-[#00b4d8]/30 rounded-lg pointer-events-none" />
+        <div className="absolute inset-0 border-2 border-brand/30 rounded-lg pointer-events-none" />
       )}
     </Link>
   )

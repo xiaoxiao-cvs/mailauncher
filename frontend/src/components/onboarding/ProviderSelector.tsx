@@ -28,19 +28,19 @@ export function ProviderSelector({
 
   return (
     <div className="mb-4">
-      <label className="block text-sm font-medium text-[#03045e] dark:text-white mb-2">
+      <label className="block text-sm font-medium text-foreground mb-2">
         选择供应商
       </label>
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-4 py-2.5 bg-white dark:bg-[#2e2e2e] border border-[#023e8a]/20 dark:border-[#3a3a3a] rounded-lg text-left flex items-center justify-between hover:border-[#023e8a]/40 dark:hover:border-white/40 transition-colors"
+          className="w-full px-4 py-2.5 bg-card border border-border rounded-lg text-left flex items-center justify-between hover:border-ring transition-colors"
         >
-          <span className="text-[#03045e] dark:text-white">
+          <span className="text-foreground">
             {currentProvider?.name || '选择供应商'}
           </span>
           <ChevronDownIcon 
-            className={`w-4 h-4 text-[#023e8a]/60 dark:text-white/60 transition-transform ${
+            className={`w-4 h-4 text-muted-foreground transition-transform ${
               isOpen ? 'rotate-180' : ''
             }`} 
           />
@@ -48,14 +48,14 @@ export function ProviderSelector({
 
         {/* 下拉菜单 */}
         {isOpen && (
-          <div className="absolute z-10 w-full mt-1 bg-white dark:bg-[#2e2e2e] border border-[#023e8a]/20 dark:border-[#3a3a3a] rounded-lg shadow-lg overflow-hidden">
+          <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
             {/* 供应商列表 */}
             <div className="max-h-60 overflow-y-auto">
               {providers.map((provider, index) => (
                 <div
                   key={index}
-                  className={`px-4 py-2.5 flex items-center justify-between hover:bg-[#023e8a]/5 dark:hover:bg-white/5 cursor-pointer transition-colors ${
-                    selectedIndex === index ? 'bg-[#023e8a]/10 dark:bg-white/10' : ''
+                  className={`px-4 py-2.5 flex items-center justify-between hover:bg-muted cursor-pointer transition-colors ${
+                    selectedIndex === index ? 'bg-muted' : ''
                   }`}
                 >
                   <button
@@ -63,7 +63,7 @@ export function ProviderSelector({
                       onSelect(index)
                       setIsOpen(false)
                     }}
-                    className="flex-1 text-left text-[#03045e] dark:text-white"
+                    className="flex-1 text-left text-foreground"
                   >
                     {provider.name}
                     {provider.isValid && (
@@ -83,7 +83,7 @@ export function ProviderSelector({
                       className="p-1.5 hover:bg-red-500/10 rounded transition-colors group"
                       title="删除供应商"
                     >
-                      <XIcon className="w-4 h-4 text-[#023e8a]/40 dark:text-white/40 group-hover:text-red-500 transition-colors" />
+                      <XIcon className="w-4 h-4 text-muted-foreground group-hover:text-red-500 transition-colors" />
                     </button>
                   )}
                 </div>
@@ -96,7 +96,7 @@ export function ProviderSelector({
                 onAddCustom()
                 setIsOpen(false)
               }}
-              className="w-full px-4 py-2.5 border-t border-[#023e8a]/10 dark:border-[#3a3a3a] flex items-center justify-center gap-2 hover:bg-[#023e8a]/5 dark:hover:bg-white/5 transition-colors"
+              className="w-full px-4 py-2.5 border-t border-border flex items-center justify-center gap-2 hover:bg-muted transition-colors"
               style={{ color: stepColor }}
             >
               <PlusIcon className="w-4 h-4" />

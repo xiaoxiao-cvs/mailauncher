@@ -135,7 +135,7 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
   return (
     <div className="space-y-4">
       {/* Git 环境检查 */}
-      <div className="p-3.5 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a]">
+      <div className="p-3.5 rounded-xl bg-card border border-border">
         <div className="flex items-start justify-between mb-2.5">
           <div className="flex items-center gap-2.5">
             <div 
@@ -151,10 +151,10 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
               )}
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-[#023e8a] dark:text-white">
+              <h3 className="text-sm font-semibold text-foreground">
                 Git 环境
               </h3>
-              <p className="text-xs text-[#023e8a]/70 dark:text-white/70">
+              <p className="text-xs text-muted-foreground">
                 克隆和更新 Bot 实例所需
               </p>
             </div>
@@ -164,7 +164,7 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
             size="sm"
             onClick={checkGitEnvironment}
             disabled={isCheckingGit}
-            className="bg-white/60 dark:bg-[#3a3a3a] border-[#023e8a]/20 dark:border-[#3a3a3a] text-xs h-8"
+            className="bg-card border-border text-xs h-8"
           >
             {isCheckingGit ? '检查中...' : '重新检查'}
           </Button>
@@ -177,9 +177,9 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
           </div>
         ) : gitInfo ? (
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-white/40 dark:bg-[#3a3a3a]/50">
-              <span className="text-xs text-[#023e8a]/70 dark:text-white/70">状态</span>
-              <span className="text-xs font-medium text-[#023e8a] dark:text-white">
+            <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-muted">
+              <span className="text-xs text-muted-foreground">状态</span>
+              <span className="text-xs font-medium text-foreground">
                 {gitInfo.is_available ? (
                   <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
                     <CheckCircle2Icon className="w-4 h-4" />
@@ -196,15 +196,15 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
             
             {gitInfo.is_available && (
               <>
-                <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-white/40 dark:bg-[#3a3a3a]/50">
-                  <span className="text-xs text-[#023e8a]/70 dark:text-white/70">版本</span>
-                  <span className="text-xs font-medium text-[#023e8a] dark:text-white font-mono">
+                <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-muted">
+                  <span className="text-xs text-muted-foreground">版本</span>
+                  <span className="text-xs font-medium text-foreground font-mono">
                     {gitInfo.version}
                   </span>
                 </div>
-                <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-white/40 dark:bg-[#3a3a3a]/50">
-                  <span className="text-xs text-[#023e8a]/70 dark:text-white/70">路径</span>
-                  <span className="text-xs font-mono text-[#023e8a] dark:text-white truncate max-w-xs">
+                <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-muted">
+                  <span className="text-xs text-muted-foreground">路径</span>
+                  <span className="text-xs font-mono text-foreground truncate max-w-xs">
                     {gitInfo.path}
                   </span>
                 </div>
@@ -231,7 +231,7 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
       </div>
 
       {/* 部署路径配置 */}
-      <div className="p-3.5 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a]">
+      <div className="p-3.5 rounded-xl bg-card border border-border">
         <div className="flex items-center gap-2.5 mb-2.5">
           <div 
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"
@@ -240,10 +240,10 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
             <FolderOpenIcon className="w-4.5 h-4.5" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-[#023e8a] dark:text-white">
+            <h3 className="text-sm font-semibold text-foreground">
               部署路径
             </h3>
-            <p className="text-xs text-[#023e8a]/70 dark:text-white/70">
+            <p className="text-xs text-muted-foreground">
               Bot 实例将安装到此目录
             </p>
           </div>
@@ -258,12 +258,12 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
                 onChange={(e) => handlePathChange(e.target.value)}
                 placeholder="/path/to/deployments"
                 disabled={isSavingPath}
-                className={`w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-[#3a3a3a] text-[#023e8a] dark:text-white placeholder:text-[#023e8a]/40 dark:placeholder:text-white/40 focus:outline-none focus:ring-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+                className={`w-full px-3 py-2 text-sm rounded-lg border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
                   pathError
                     ? 'border-red-300 dark:border-red-700 focus:ring-red-200 dark:focus:ring-red-800'
                     : pathSuccess
                     ? 'border-green-300 dark:border-green-700 focus:ring-green-200 dark:focus:ring-green-800'
-                    : 'border-[#023e8a]/20 dark:border-[#3a3a3a] focus:ring-[#023e8a]/20'
+                    : 'border-border focus:ring-ring/20'
                 }`}
               />
               {pathError && (
@@ -273,7 +273,7 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
               )}
               {isSavingPath && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <LoaderIcon className="w-4 h-4 animate-spin text-[#023e8a] dark:text-white" />
+                  <LoaderIcon className="w-4 h-4 animate-spin text-foreground" />
                 </div>
               )}
             </div>

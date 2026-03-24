@@ -35,7 +35,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     subtitle: '请阅读并同意最终用户许可协议',
     description: [],
     icon: <ScrollTextIcon className="w-5 h-5" />,
-    gradient: 'from-[#007AFF] to-[#007AFF]',
+    gradient: 'from-brand to-brand',
     color: APPLE_BLUE,
     component: <EulaAgreement />
   },
@@ -45,7 +45,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     subtitle: '选择你喜欢的主题风格',
     description: [],
     icon: <PaletteIcon className="w-5 h-5" />,
-    gradient: 'from-[#007AFF] to-[#007AFF]',
+    gradient: 'from-brand to-brand',
     color: APPLE_BLUE,
     component: <ThemeSelector />
   },
@@ -55,7 +55,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     subtitle: '配置后端服务连接',
     description: [],
     icon: <ServerIcon className="w-5 h-5" />,
-    gradient: 'from-[#007AFF] to-[#007AFF]',
+    gradient: 'from-brand to-brand',
     color: APPLE_BLUE,
     component: <BackendConnectivity stepColor={APPLE_BLUE} />
   },
@@ -65,7 +65,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     subtitle: '检查必要的开发工具',
     description: [],
     icon: <SearchCheckIcon className="w-5 h-5" />,
-    gradient: 'from-[#007AFF] to-[#007AFF]',
+    gradient: 'from-brand to-brand',
     color: APPLE_BLUE,
     component: <EnvironmentDetection stepColor={APPLE_BLUE} />
   },
@@ -75,7 +75,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     subtitle: '配置 Python 运行环境',
     description: [],
     icon: <SettingsIcon className="w-5 h-5" />,
-    gradient: 'from-[#007AFF] to-[#007AFF]',
+    gradient: 'from-brand to-brand',
     color: APPLE_BLUE,
     component: <EnvironmentSettings stepColor={APPLE_BLUE} />
   },
@@ -85,7 +85,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     subtitle: '设置 Bot 实例安装位置',
     description: [],
     icon: <FolderOpenIcon className="w-5 h-5" />,
-    gradient: 'from-[#007AFF] to-[#007AFF]',
+    gradient: 'from-brand to-brand',
     color: APPLE_BLUE,
     component: <InstallPathConfig stepColor={APPLE_BLUE} />
   }

@@ -178,7 +178,7 @@ export function DownloadsPage() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden relative z-10 font-sans selection:bg-[#0071e3] selection:text-white">
+    <div className="h-full flex flex-col overflow-hidden relative z-10 font-sans selection:bg-brand selection:text-brand-foreground">
       {/* 根据是否显示概要卡片切换内容 */}
       {overviewState.visible ? (
           <InstallOverview state={overviewState} />
@@ -188,10 +188,10 @@ export function DownloadsPage() {
               
               {/* 页面标题 */}
               <div className="text-center space-y-3 animate-item py-2">
-                <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-[#1d1d1f] dark:text-[#f5f5f7]">
+                <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
                   下载与安装
                 </h1>
-                <p className="text-lg text-[#86868b] dark:text-[#86868b] max-w-2xl mx-auto font-medium">
+                <p className="text-lg text-muted-foreground max-w-2xl mx-auto font-medium">
                   构建您的专属 MaiBot，简单几步即可完成配置。
                 </p>
               </div>
@@ -202,30 +202,30 @@ export function DownloadsPage() {
                 <div className="lg:col-span-7 space-y-6 animate-item">
                   
                   {/* Maibot 核心卡片 */}
-                  <div className="group relative bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-sm hover:shadow-2xl border border-white/50 dark:border-gray-700/50 transition-all duration-500 ease-out hover:-translate-y-1">
+                  <div className="group relative bg-card backdrop-blur-xl rounded-[2rem] p-8 shadow-sm hover:shadow-2xl border border-border transition-all duration-500 ease-out hover:-translate-y-1">
                     {/* 装饰背景 */}
                     <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-gray-400/20 to-gray-400/20 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                    
+
                     <div className="relative z-10">
                       <div className="flex items-center gap-5 mb-8">
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-800 to-black flex items-center justify-center text-white shadow-lg shadow-gray-500/20 flex-shrink-0 transform transition-transform group-hover:rotate-3">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-800 to-black flex items-center justify-center text-white shadow-lg shadow-foreground/5 flex-shrink-0 transform transition-transform group-hover:rotate-3">
                           <Icon icon="ph:robot-fill" className="w-9 h-9" />
                         </div>
                         <div>
                           <div className="flex items-center gap-3 mb-1">
-                            <h3 className="text-2xl font-bold text-[#1d1d1f] dark:text-[#f5f5f7]">
+                            <h3 className="text-2xl font-bold text-foreground">
                               Maibot
                             </h3>
-                            <span className="px-3 py-1 text-xs font-semibold rounded-full bg-[#ff3b30]/10 text-[#ff3b30] dark:bg-[#ff453a]/20 dark:text-[#ff453a]">
+                            <span className="px-3 py-1 text-xs font-semibold rounded-full bg-destructive/10 text-destructive">
                               核心组件
                             </span>
                             {maibotItem?.status === 'completed' && (
-                              <span className="px-3 py-1 text-xs font-semibold rounded-full bg-[#34c759]/10 text-[#34c759] dark:bg-[#30d158]/20 dark:text-[#30d158]">
+                              <span className="px-3 py-1 text-xs font-semibold rounded-full bg-success/10 text-success">
                                 已完成
                               </span>
                             )}
                           </div>
-                          <p className="text-[#86868b] dark:text-[#98989d]">
+                          <p className="text-muted-foreground">
                             MAI 机器人核心框架，提供基础运行环境
                           </p>
                         </div>
@@ -234,7 +234,7 @@ export function DownloadsPage() {
                       <div className="space-y-6">
                         {/* 实例名称 */}
                         <div className="space-y-3">
-                          <label className="text-sm font-medium text-[#1d1d1f] dark:text-[#f5f5f7] ml-1">
+                          <label className="text-sm font-medium text-foreground ml-1">
                             实例名称
                           </label>
                           <div className="relative">
@@ -246,10 +246,10 @@ export function DownloadsPage() {
                               disabled={hasDownloading}
                               className={cn(
                                 'w-full px-5 py-4 text-base rounded-2xl border-0',
-                                'bg-gray-100/50 dark:bg-gray-800/50 backdrop-blur-sm',
-                                'text-[#1d1d1f] dark:text-white',
-                                'placeholder:text-[#86868b] dark:placeholder:text-[#636366]',
-                                'focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-white/20',
+                                'bg-muted backdrop-blur-sm',
+                                'text-foreground',
+                                'placeholder:text-muted-foreground',
+                                'focus:outline-none focus:ring-2 focus:ring-ring/20',
                                 'transition-all duration-200',
                                 'disabled:opacity-60 disabled:cursor-not-allowed'
                               )}
@@ -259,7 +259,7 @@ export function DownloadsPage() {
 
                         {/* 版本选择 */}
                         <div className="space-y-3">
-                          <label className="text-sm font-medium text-[#1d1d1f] dark:text-[#f5f5f7] ml-1">
+                          <label className="text-sm font-medium text-foreground ml-1">
                             选择版本
                           </label>
                           <Select
@@ -270,10 +270,10 @@ export function DownloadsPage() {
                             }}
                             disabled={hasDownloading}
                           >
-                            <SelectTrigger className="w-full h-14 px-5 rounded-2xl border-0 bg-gray-100/50 dark:bg-gray-800/50 backdrop-blur-sm text-[#1d1d1f] dark:text-white focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-white/20 transition-all duration-200">
+                            <SelectTrigger className="w-full h-14 px-5 rounded-2xl border-0 bg-muted backdrop-blur-sm text-foreground focus:ring-2 focus:ring-ring/20 transition-all duration-200">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="rounded-xl border-0 bg-white/90 dark:bg-[#2c2c2e]/90 backdrop-blur-xl shadow-xl">
+                            <SelectContent className="rounded-xl border-0 bg-popover backdrop-blur-xl shadow-xl">
                               {maibotVersions.map((version) => (
                                 <SelectItem key={version.value} value={version.value} className="rounded-lg my-1 focus:bg-gray-100 dark:focus:bg-gray-700 cursor-pointer">
                                   <div className="flex items-center gap-2">
@@ -299,13 +299,13 @@ export function DownloadsPage() {
                   </div>
 
                   {/* 部署路径卡片 */}
-                  <div className="group relative bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-sm hover:shadow-2xl border border-white/50 dark:border-gray-700/50 transition-all duration-500 ease-out hover:-translate-y-1">
+                  <div className="group relative bg-card backdrop-blur-xl rounded-[2rem] p-8 shadow-sm hover:shadow-2xl border border-border transition-all duration-500 ease-out hover:-translate-y-1">
                     <div className="relative z-10">
                       <div className="flex items-center gap-4 mb-6">
-                        <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-900 dark:text-white">
+                        <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-foreground">
                           <Icon icon="ph:folder-open-fill" className="w-6 h-6" />
                         </div>
-                        <h3 className="text-xl font-bold text-[#1d1d1f] dark:text-[#f5f5f7]">
+                        <h3 className="text-xl font-bold text-foreground">
                           部署位置
                         </h3>
                       </div>
@@ -320,10 +320,10 @@ export function DownloadsPage() {
                             disabled={hasDownloading || isLoadingPath}
                             className={cn(
                               'w-full px-5 py-4 text-base rounded-2xl border-0',
-                              'bg-gray-100/50 dark:bg-gray-800/50 backdrop-blur-sm',
-                              'text-[#1d1d1f] dark:text-white',
-                              'placeholder:text-[#86868b] dark:placeholder:text-[#636366]',
-                              'focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-white/20',
+                              'bg-muted backdrop-blur-sm',
+                              'text-foreground',
+                              'placeholder:text-muted-foreground',
+                              'focus:outline-none focus:ring-2 focus:ring-ring/20',
                               'transition-all duration-200',
                               'disabled:opacity-60 disabled:cursor-not-allowed'
                             )}
@@ -338,7 +338,7 @@ export function DownloadsPage() {
                         <Button
                           onClick={selectDeploymentPath}
                           disabled={hasDownloading || isLoadingPath}
-                          className="h-auto px-6 rounded-2xl bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 border-0 shadow-lg shadow-gray-900/10 transition-all duration-200 active:scale-95"
+                          className="h-auto px-6 rounded-2xl bg-foreground hover:bg-foreground text-white dark:text-background border-0 shadow-lg shadow-foreground/5 transition-all duration-200 active:scale-95"
                         >
                           <Icon icon="ph:folder-simple-bold" className="w-5 h-5" />
                         </Button>
@@ -349,12 +349,12 @@ export function DownloadsPage() {
 
                 {/* 右侧：依赖组件 */}
                 <div className="lg:col-span-5 animate-item h-full">
-                  <div className="bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-sm hover:shadow-2xl border border-white/50 dark:border-gray-700/50 h-full flex flex-col transition-all duration-500 ease-out hover:-translate-y-1">
+                  <div className="bg-card backdrop-blur-xl rounded-[2rem] p-8 shadow-sm hover:shadow-2xl border border-border h-full flex flex-col transition-all duration-500 ease-out hover:-translate-y-1">
                     <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-bold text-[#1d1d1f] dark:text-[#f5f5f7]">
+                      <h2 className="text-xl font-bold text-foreground">
                         组件选择
                       </h2>
-                      <span className="text-sm font-medium text-[#86868b] bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
+                      <span className="text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
                         已选 {selectedItems.size}
                       </span>
                     </div>
@@ -375,21 +375,21 @@ export function DownloadsPage() {
                             <div className={cn(
                               "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors mt-1",
                               selectedItems.has(adapterItem.id)
-                                ? "bg-gray-900 border-gray-900 dark:bg-white dark:border-white"
-                                : "border-gray-300 dark:border-gray-600 group-hover:border-gray-900 dark:group-hover:border-white"
+                                ? "bg-foreground border-foreground"
+                                : "border-border group-hover:border-foreground"
                             )}>
-                              {selectedItems.has(adapterItem.id) && <Icon icon="ph:check-bold" className="w-3.5 h-3.5 text-white dark:text-gray-900" />}
+                              {selectedItems.has(adapterItem.id) && <Icon icon="ph:check-bold" className="w-3.5 h-3.5 text-white dark:text-background" />}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center justify-between mb-1">
-                                <h3 className="font-semibold text-[#1d1d1f] dark:text-white">
+                                <h3 className="font-semibold text-foreground">
                                   {adapterItem.name}
                                 </h3>
                                 {adapterItem.status === 'completed' && (
-                                  <Icon icon="ph:check-circle-fill" className="w-5 h-5 text-[#34c759]" />
+                                  <Icon icon="ph:check-circle-fill" className="w-5 h-5 text-success" />
                                 )}
                               </div>
-                              <p className="text-sm text-[#86868b] dark:text-[#98989d] leading-relaxed">
+                              <p className="text-sm text-muted-foreground leading-relaxed">
                                 {adapterItem.description}
                               </p>
                             </div>
@@ -412,21 +412,21 @@ export function DownloadsPage() {
                             <div className={cn(
                               "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors mt-1",
                               selectedItems.has(napcatItem.id)
-                                ? "bg-gray-900 border-gray-900 dark:bg-white dark:border-white"
-                                : "border-gray-300 dark:border-gray-600 group-hover:border-gray-900 dark:group-hover:border-white"
+                                ? "bg-foreground border-foreground"
+                                : "border-border group-hover:border-foreground"
                             )}>
-                              {selectedItems.has(napcatItem.id) && <Icon icon="ph:check-bold" className="w-3.5 h-3.5 text-white dark:text-gray-900" />}
+                              {selectedItems.has(napcatItem.id) && <Icon icon="ph:check-bold" className="w-3.5 h-3.5 text-white dark:text-background" />}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center justify-between mb-1">
-                                <h3 className="font-semibold text-[#1d1d1f] dark:text-white">
+                                <h3 className="font-semibold text-foreground">
                                   {napcatItem.name}
                                 </h3>
                                 {napcatItem.status === 'completed' && (
-                                  <Icon icon="ph:check-circle-fill" className="w-5 h-5 text-[#34c759]" />
+                                  <Icon icon="ph:check-circle-fill" className="w-5 h-5 text-success" />
                                 )}
                               </div>
-                              <p className="text-sm text-[#86868b] dark:text-[#98989d] leading-relaxed">
+                              <p className="text-sm text-muted-foreground leading-relaxed">
                                 {napcatItem.description}
                               </p>
                             </div>
@@ -450,30 +450,30 @@ export function DownloadsPage() {
                             <div className={cn(
                               "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors mt-1",
                               (isMacOS || selectedItems.has(quickAlgoItem.id))
-                                ? "bg-gray-900 border-gray-900 dark:bg-white dark:border-white"
-                                : "border-gray-300 dark:border-gray-600 group-hover:border-gray-900 dark:group-hover:border-white"
+                                ? "bg-foreground border-foreground"
+                                : "border-border group-hover:border-foreground"
                             )}>
-                              {(isMacOS || selectedItems.has(quickAlgoItem.id)) && <Icon icon="ph:check-bold" className="w-3.5 h-3.5 text-white dark:text-gray-900" />}
+                              {(isMacOS || selectedItems.has(quickAlgoItem.id)) && <Icon icon="ph:check-bold" className="w-3.5 h-3.5 text-white dark:text-background" />}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center justify-between mb-1">
-                                <h3 className="font-semibold text-[#1d1d1f] dark:text-white">
+                                <h3 className="font-semibold text-foreground">
                                   {quickAlgoItem.name}
                                 </h3>
                                 {quickAlgoItem.status === 'completed' && (
-                                  <Icon icon="ph:check-circle-fill" className="w-5 h-5 text-[#34c759]" />
+                                  <Icon icon="ph:check-circle-fill" className="w-5 h-5 text-success" />
                                 )}
                               </div>
-                              <p className="text-sm text-[#86868b] dark:text-[#98989d] leading-relaxed">
+                              <p className="text-sm text-muted-foreground leading-relaxed">
                                 {quickAlgoItem.description}
                               </p>
                               {isMacOS && (
-                                <span className="inline-block mt-2 text-xs font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded">
+                                <span className="inline-block mt-2 text-xs font-medium text-foreground bg-muted px-2 py-0.5 rounded">
                                   macOS 必需
                                 </span>
                               )}
                               {isWindows && (
-                                <span className="inline-block mt-2 text-xs font-medium text-[#86868b]">
+                                <span className="inline-block mt-2 text-xs font-medium text-muted-foreground">
                                   Windows 无需编译
                                 </span>
                               )}
@@ -489,27 +489,27 @@ export function DownloadsPage() {
 
             {/* 底部悬浮操作栏 */}
             <div className="fixed bottom-8 left-0 md:left-[272px] right-0 z-50 px-6 animate-item flex justify-center pointer-events-none">
-              <div className="bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl rounded-full shadow-[0_8px_40px_rgba(0,0,0,0.16)] border border-white/20 dark:border-white/10 p-2 pl-8 flex items-center gap-6 pointer-events-auto w-auto transition-all hover:scale-[1.02]">
+              <div className="bg-card backdrop-blur-xl rounded-full shadow-[0_8px_40px_rgba(0,0,0,0.16)] border border-white/20 dark:border-white/10 p-2 pl-8 flex items-center gap-6 pointer-events-auto w-auto transition-all hover:scale-[1.02]">
                 <div className="min-w-0">
                   {!instanceName.trim() ? (
-                    <div className="flex items-center gap-2 text-[#ff9f0a]">
+                    <div className="flex items-center gap-2 text-warning">
                       <Icon icon="ph:warning-circle-fill" className="w-5 h-5 flex-shrink-0" />
                       <span className="font-medium">请设置实例名称</span>
                     </div>
                   ) : !deploymentPath ? (
-                    <div className="flex items-center gap-2 text-[#ff9f0a]">
+                    <div className="flex items-center gap-2 text-warning">
                       <Icon icon="ph:warning-circle-fill" className="w-5 h-5 flex-shrink-0" />
                       <span className="font-medium">请选择部署路径</span>
                     </div>
                   ) : selectedItems.size === 0 ? (
-                    <div className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <div className="flex items-center gap-2 text-foreground">
                       <Icon icon="ph:info-fill" className="w-5 h-5 flex-shrink-0" />
                       <span className="font-medium">请选择组件</span>
                     </div>
                   ) : (
                     <div className="flex flex-col">
-                      <span className="text-xs text-[#86868b] uppercase tracking-wider font-semibold">准备就绪</span>
-                      <span className="text-sm font-medium text-[#1d1d1f] dark:text-white truncate max-w-[200px]">
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">准备就绪</span>
+                      <span className="text-sm font-medium text-foreground truncate max-w-[200px]">
                         将安装到: {instanceName}
                       </span>
                     </div>
@@ -521,8 +521,8 @@ export function DownloadsPage() {
                   disabled={!canStartDownload || hasDownloading}
                   className={cn(
                     'rounded-full px-8 py-6 text-base font-semibold shadow-lg transition-all duration-300',
-                    'bg-gray-900 hover:bg-black text-white border-0',
-                    'dark:bg-white dark:hover:bg-gray-100 dark:text-gray-900',
+                    'bg-foreground hover:bg-foreground text-white border-0',
+                    'dark:text-background',
                     'disabled:opacity-50 disabled:cursor-not-allowed',
                     hasDownloading ? 'pl-6 pr-8' : ''
                   )}

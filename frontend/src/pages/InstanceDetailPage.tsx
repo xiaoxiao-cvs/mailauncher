@@ -399,11 +399,11 @@ export const InstanceDetailPage: React.FC = () => {
           {isLoading ? (
             <>
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-400">加载中...</p>
+              <p className="text-muted-foreground">加载中...</p>
             </>
           ) : (
             <>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">实例不存在</p>
+              <p className="text-muted-foreground mb-4">实例不存在</p>
               <button
                 onClick={() => navigate('/instances')}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -611,11 +611,11 @@ export const InstanceDetailPage: React.FC = () => {
             onClick={() => navigate('/instances')}
             className="w-10 h-10 flex items-center justify-center rounded-full bg-white/50 dark:bg-gray-800/50 backdrop-blur-md border border-white/20 dark:border-gray-700/30 shadow-sm hover:scale-105 transition-transform duration-200 group"
           >
-            <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors" />
+            <ArrowLeft className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
           </button>
           
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">
               {instance.name}
             </h1>
             <div className="flex items-center gap-2 mt-1">
@@ -623,7 +623,7 @@ export const InstanceDetailPage: React.FC = () => {
                 (instance.status === 'running' || instance.status === 'partial') ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 
                 isStopped ? 'bg-gray-400' : 'bg-yellow-500'
               }`} />
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+              <p className="text-sm text-muted-foreground font-medium">
                 {instance.description || '无描述'}
               </p>
               <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold uppercase tracking-wide">
@@ -658,11 +658,11 @@ export const InstanceDetailPage: React.FC = () => {
         {/* Left Panel: Stats & Actions */}
         <div className="col-span-4 flex flex-col gap-6 overflow-y-auto scrollbar-thin pr-2 pb-2">
           {runtimeDraft && (
-            <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm animate-slide-up opacity-0">
+            <div className="bg-card backdrop-blur-xl rounded-3xl p-6 border border-border shadow-sm animate-slide-up opacity-0">
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-800 dark:text-white">运行时</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">实例级 runtime_profile 与 WSL2 入口</p>
+                  <h3 className="text-lg font-bold text-foreground">运行时</h3>
+                  <p className="text-sm text-muted-foreground">实例级 runtime_profile 与 WSL2 入口</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button onClick={handleProbeRuntimeProfile} disabled={probingRuntime || savingRuntime} variant="outline" className="gap-2 rounded-full">
@@ -682,11 +682,11 @@ export const InstanceDetailPage: React.FC = () => {
 
               <div className="grid grid-cols-1 gap-3 text-sm">
                 <label className="space-y-1">
-                  <span className="text-gray-500 dark:text-gray-400">运行时类型</span>
+                  <span className="text-muted-foreground">运行时类型</span>
                   <select
                     value={runtimeDraft.kind}
                     onChange={(event) => handleRuntimeFieldChange('kind', event.target.value as RuntimeProfile['kind'])}
-                    className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                    className="w-full rounded-2xl border border-border bg-white/70 px-3 py-2 dark:bg-gray-900/60"
                   >
                     <option value="local">Local</option>
                     <option value="wsl2">WSL2</option>
@@ -695,16 +695,16 @@ export const InstanceDetailPage: React.FC = () => {
                 </label>
 
                 <label className="space-y-1">
-                  <span className="text-gray-500 dark:text-gray-400">工作区根目录</span>
+                  <span className="text-muted-foreground">工作区根目录</span>
                   <input
                     value={runtimeDraft.workspace_root}
                     onChange={(event) => handleRuntimeFieldChange('workspace_root', event.target.value)}
-                    className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                    className="w-full rounded-2xl border border-border bg-white/70 px-3 py-2 dark:bg-gray-900/60"
                   />
                 </label>
 
                 <label className="space-y-1">
-                  <span className="text-gray-500 dark:text-gray-400">Python 路径</span>
+                  <span className="text-muted-foreground">Python 路径</span>
                   <input
                     value={runtimeDraft.python.path || ''}
                     onChange={(event) => setRuntimeDraft((current) => current ? {
@@ -712,18 +712,18 @@ export const InstanceDetailPage: React.FC = () => {
                       python: { ...current.python, path: event.target.value || null },
                     } : current)}
                     placeholder={runtimeDraft.kind === 'wsl2' ? 'python3' : '留空则优先使用 .venv'}
-                    className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                    className="w-full rounded-2xl border border-border bg-white/70 px-3 py-2 dark:bg-gray-900/60"
                   />
                 </label>
 
                 {runtimeDraft.kind === 'wsl2' && (
                   <>
                     <label className="space-y-1">
-                      <span className="text-gray-500 dark:text-gray-400">WSL 发行版</span>
+                      <span className="text-muted-foreground">WSL 发行版</span>
                       <select
                         value={runtimeDraft.distribution || ''}
                         onChange={(event) => handleRuntimeFieldChange('distribution', event.target.value || null)}
-                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                        className="w-full rounded-2xl border border-border bg-white/70 px-3 py-2 dark:bg-gray-900/60"
                       >
                         <option value="">{loadingWsl ? '加载中...' : '请选择发行版'}</option>
                         {wslDistributions.map((distribution) => (
@@ -735,22 +735,22 @@ export const InstanceDetailPage: React.FC = () => {
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-gray-500 dark:text-gray-400">Guest 用户</span>
+                      <span className="text-muted-foreground">Guest 用户</span>
                       <input
                         value={runtimeDraft.user || ''}
                         onChange={(event) => handleRuntimeFieldChange('user', event.target.value || null)}
                         placeholder="例如 mai"
-                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                        className="w-full rounded-2xl border border-border bg-white/70 px-3 py-2 dark:bg-gray-900/60"
                       />
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-gray-500 dark:text-gray-400">Guest 工作区</span>
+                      <span className="text-muted-foreground">Guest 工作区</span>
                       <input
                         value={runtimeDraft.guest_workspace_root || ''}
                         onChange={(event) => handleRuntimeFieldChange('guest_workspace_root', event.target.value || null)}
                         placeholder="/home/user/mailauncher-instances/demo"
-                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                        className="w-full rounded-2xl border border-border bg-white/70 px-3 py-2 dark:bg-gray-900/60"
                       />
                     </label>
                   </>
@@ -759,32 +759,32 @@ export const InstanceDetailPage: React.FC = () => {
                 {runtimeDraft.kind === 'docker' && (
                   <>
                     <label className="space-y-1">
-                      <span className="text-gray-500 dark:text-gray-400">容器名称</span>
+                      <span className="text-muted-foreground">容器名称</span>
                       <input
                         value={runtimeDraft.container_name || ''}
                         onChange={(event) => handleRuntimeFieldChange('container_name', event.target.value || null)}
                         placeholder="例如 maibot-runtime"
-                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                        className="w-full rounded-2xl border border-border bg-white/70 px-3 py-2 dark:bg-gray-900/60"
                       />
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-gray-500 dark:text-gray-400">容器用户</span>
+                      <span className="text-muted-foreground">容器用户</span>
                       <input
                         value={runtimeDraft.user || ''}
                         onChange={(event) => handleRuntimeFieldChange('user', event.target.value || null)}
                         placeholder="例如 root"
-                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                        className="w-full rounded-2xl border border-border bg-white/70 px-3 py-2 dark:bg-gray-900/60"
                       />
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-gray-500 dark:text-gray-400">容器工作区</span>
+                      <span className="text-muted-foreground">容器工作区</span>
                       <input
                         value={runtimeDraft.guest_workspace_root || ''}
                         onChange={(event) => handleRuntimeFieldChange('guest_workspace_root', event.target.value || null)}
                         placeholder="/workspace/demo"
-                        className="w-full rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/60"
+                        className="w-full rounded-2xl border border-border bg-white/70 px-3 py-2 dark:bg-gray-900/60"
                       />
                     </label>
                   </>
@@ -842,8 +842,8 @@ export const InstanceDetailPage: React.FC = () => {
           )}
 
           {/* Quick Actions */}
-          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm animate-slide-up opacity-0">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+          <div className="bg-card backdrop-blur-xl rounded-3xl p-6 border border-border shadow-sm animate-slide-up opacity-0">
+            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
               <Server className="w-5 h-5 text-purple-500" />
               快捷操作
             </h3>
@@ -853,22 +853,22 @@ export const InstanceDetailPage: React.FC = () => {
                 className="flex flex-col items-center justify-center p-4 bg-blue-50/50 dark:bg-blue-900/10 hover:bg-blue-100/50 dark:hover:bg-blue-900/20 rounded-2xl border border-blue-100/50 dark:border-blue-800/30 transition-all duration-200 hover:scale-[1.02] active:scale-95"
               >
                 <Server className="w-6 h-6 text-blue-600 dark:text-blue-400 mb-2" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">配置</span>
+                <span className="text-sm font-medium text-muted-foreground">配置</span>
               </button>
               <button 
                 onClick={() => setIsScheduleModalOpen(true)}
                 className="flex flex-col items-center justify-center p-4 bg-purple-50/50 dark:bg-purple-900/10 hover:bg-purple-100/50 dark:hover:bg-purple-900/20 rounded-2xl border border-purple-100/50 dark:border-purple-800/30 transition-all duration-200 hover:scale-[1.02] active:scale-95"
               >
                 <Clock className="w-6 h-6 text-purple-600 dark:text-purple-400 mb-2" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">计划</span>
+                <span className="text-sm font-medium text-muted-foreground">计划</span>
               </button>
               <button className="flex flex-col items-center justify-center p-4 bg-orange-50/50 dark:bg-orange-900/10 hover:bg-orange-100/50 dark:hover:bg-orange-900/20 rounded-2xl border border-orange-100/50 dark:border-orange-800/30 transition-all duration-200 hover:scale-[1.02] active:scale-95">
                 <FileText className="w-6 h-6 text-orange-600 dark:text-orange-400 mb-2" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">日志</span>
+                <span className="text-sm font-medium text-muted-foreground">日志</span>
               </button>
               <button className="flex flex-col items-center justify-center p-4 bg-gray-50/50 dark:bg-gray-700/10 hover:bg-gray-100/50 dark:hover:bg-gray-700/20 rounded-2xl border border-gray-100/50 dark:border-gray-600/30 transition-all duration-200 hover:scale-[1.02] active:scale-95">
-                <RotateCw className="w-6 h-6 text-gray-600 dark:text-gray-400 mb-2" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">更多</span>
+                <RotateCw className="w-6 h-6 text-muted-foreground mb-2" />
+                <span className="text-sm font-medium text-muted-foreground">更多</span>
               </button>
             </div>
           </div>
@@ -955,7 +955,7 @@ export const InstanceDetailPage: React.FC = () => {
           </div>
 
           {/* Control Bar */}
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-3 border border-white/40 dark:border-gray-700/40 shadow-sm flex items-center justify-between">
+          <div className="bg-card backdrop-blur-xl rounded-2xl p-3 border border-border shadow-sm flex items-center justify-between">
              <div className="flex items-center gap-2">
                 {/* Start Button Group */}
                 {!allComponentsRunning && (

@@ -57,7 +57,7 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
   return (
     <div className="space-y-4 h-full flex flex-col">
       {/* Python 版本选择 - 优化布局，不超出区域 */}
-      <div className="p-3.5 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a]">
+      <div className="p-3.5 rounded-xl bg-card border border-border">
         <div className="flex items-center gap-2.5 mb-3">
           <div 
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"
@@ -70,10 +70,10 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
             )}
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-[#023e8a] dark:text-white">
+            <h3 className="text-sm font-semibold text-foreground">
               默认 Python 版本
             </h3>
-            <p className="text-xs text-[#023e8a]/70 dark:text-white/70">
+            <p className="text-xs text-muted-foreground">
               新建实例时使用的 Python 版本
             </p>
           </div>
@@ -86,8 +86,8 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
           </div>
         ) : isLoadingPython ? (
           <div className="py-6 text-center">
-            <LoaderIcon className="w-5 h-5 animate-spin mx-auto text-[#023e8a] dark:text-white" />
-            <p className="text-xs text-[#023e8a]/70 dark:text-white/70 mt-2">加载中...</p>
+            <LoaderIcon className="w-5 h-5 animate-spin mx-auto text-foreground" />
+            <p className="text-xs text-muted-foreground mt-2">加载中...</p>
           </div>
         ) : pythonVersions.length > 0 ? (
           <div className="space-y-3">
@@ -96,30 +96,30 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
               <button
                 onClick={() => setShowPythonDropdown(!showPythonDropdown)}
                 disabled={savePythonMutation.isPending}
-                className="w-full flex items-center justify-between py-2 px-3 rounded-lg bg-white/40 dark:bg-[#3a3a3a]/50 hover:bg-white/60 dark:hover:bg-[#3a3a3a]/70 transition-all disabled:opacity-60 border border-[#023e8a]/10 dark:border-[#3a3a3a]"
+                className="w-full flex items-center justify-between py-2 px-3 rounded-lg bg-muted hover:bg-muted/80 transition-all disabled:opacity-60 border border-border"
               >
                 <div className="flex-1 text-left">
                   {localSelectedPython ? (
                     <div>
-                      <div className="text-sm font-medium text-[#023e8a] dark:text-white">
+                      <div className="text-sm font-medium text-foreground">
                         {pythonVersions.find(v => v.path === localSelectedPython)?.version || '未选择'}
                       </div>
-                      <div className="text-xs text-[#023e8a]/60 dark:text-white/60 font-mono truncate max-w-md">
+                      <div className="text-xs text-muted-foreground font-mono truncate max-w-md">
                         {typeof localSelectedPython === 'string' ? localSelectedPython : ''}
                       </div>
                     </div>
                   ) : (
-                    <div className="text-sm text-[#023e8a]/60 dark:text-white/60">
+                    <div className="text-sm text-muted-foreground">
                       选择 Python 版本
                     </div>
                   )}
                 </div>
-                <ChevronDownIcon className={`w-4 h-4 text-[#023e8a] dark:text-white transition-transform ml-2 flex-shrink-0 ${showPythonDropdown ? 'rotate-180' : ''}`} />
+                <ChevronDownIcon className={`w-4 h-4 text-foreground transition-transform ml-2 flex-shrink-0 ${showPythonDropdown ? 'rotate-180' : ''}`} />
               </button>
 
               {/* 下拉列表 - 优化高度，限制在 200px 内 */}
               {showPythonDropdown && (
-                <div className="absolute z-10 w-full mt-1 py-1 rounded-lg bg-white dark:bg-[#2e2e2e] border border-[#023e8a]/20 dark:border-[#3a3a3a] shadow-lg max-h-[200px] overflow-y-auto">
+                <div className="absolute z-10 w-full mt-1 py-1 rounded-lg bg-popover border border-border shadow-lg max-h-[200px] overflow-y-auto">
                   {pythonVersions.map((version) => (
                     <button
                       key={version.path}
@@ -128,21 +128,21 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
                         setShowPythonDropdown(false)
                         savePythonMutation.mutate(version.path)
                       }}
-                      className={`w-full text-left px-3 py-1.5 hover:bg-[#023e8a]/5 dark:hover:bg-white/5 transition-colors ${
-                        version.path === localSelectedPython ? 'bg-[#023e8a]/10 dark:bg-white/10' : ''
+                      className={`w-full text-left px-3 py-1.5 hover:bg-muted transition-colors ${
+                        version.path === localSelectedPython ? 'bg-muted' : ''
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs font-medium text-[#023e8a] dark:text-white">
+                          <div className="text-xs font-medium text-foreground">
                             {version.version}
                             {version.is_default && (
-                              <span className="ml-2 text-[10px] text-[#023e8a]/60 dark:text-white/60">
+                              <span className="ml-2 text-[10px] text-muted-foreground">
                                 (默认)
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] text-[#023e8a]/60 dark:text-white/60 font-mono truncate">
+                          <div className="text-[10px] text-muted-foreground font-mono truncate">
                             {version.path}
                           </div>
                         </div>
@@ -173,7 +173,7 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
       </div>
 
       {/* 虚拟环境类型选择 */}
-      <div className="p-3.5 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a]">
+      <div className="p-3.5 rounded-xl bg-card border border-border">
         <div className="flex items-center gap-2.5 mb-3">
           <div 
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"
@@ -182,10 +182,10 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
             <span className="text-xs font-bold">Env</span>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-[#023e8a] dark:text-white">
+            <h3 className="text-sm font-semibold text-foreground">
               虚拟环境类型
             </h3>
-            <p className="text-xs text-[#023e8a]/70 dark:text-white/70">
+            <p className="text-xs text-muted-foreground">
               新建实例时使用的虚拟环境管理器
             </p>
           </div>
@@ -193,7 +193,7 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
 
         {isLoadingVenv ? (
           <div className="py-4 text-center">
-            <LoaderIcon className="w-5 h-5 animate-spin mx-auto text-[#023e8a] dark:text-white" />
+            <LoaderIcon className="w-5 h-5 animate-spin mx-auto text-foreground" />
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-2">
@@ -207,19 +207,19 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
                 disabled={saveVenvMutation.isPending}
                 className={`p-2 rounded-lg border transition-all text-center ${
                   localVenvType === type.value
-                    ? 'bg-[#023e8a]/10 dark:bg-white/10 border-[#023e8a] dark:border-white'
-                    : 'bg-white/40 dark:bg-[#3a3a3a]/50 border-[#023e8a]/10 dark:border-[#3a3a3a] hover:bg-white/60 dark:hover:bg-[#3a3a3a]/70'
+                    ? 'bg-brand/10 border-brand'
+                    : 'bg-muted border-border hover:bg-muted/80'
                 } disabled:opacity-60`}
               >
                 <div className="flex flex-col items-center gap-1">
-                  <span className="text-sm font-semibold text-[#023e8a] dark:text-white">
+                  <span className="text-sm font-semibold text-foreground">
                     {type.label}
                   </span>
                   {localVenvType === type.value && (
                     <CheckCircle2Icon className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
                   )}
                 </div>
-                <p className="text-[10px] text-[#023e8a]/60 dark:text-white/60 mt-1">
+                <p className="text-[10px] text-muted-foreground mt-1">
                   {type.desc}
                 </p>
               </button>

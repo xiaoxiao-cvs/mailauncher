@@ -28,8 +28,8 @@ export function OnboardingSidebar({
           <BotIcon className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight leading-none">MAI Launcher</h1>
-          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 font-medium">Setup Guide</p>
+          <h1 className="text-[15px] font-semibold text-foreground tracking-tight leading-none">MAI Launcher</h1>
+          <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">Setup Guide</p>
         </div>
       </div>
 
@@ -47,14 +47,14 @@ export function OnboardingSidebar({
               disabled={isAnimating || !isAccessible}
               className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-300 group flex items-center gap-3.5 select-none ${
                 isCurrent
-                  ? 'bg-[#007AFF] text-white shadow-[0_4px_12px_rgba(0,122,255,0.25)] font-medium scale-[1.02]'
+                  ? 'bg-brand text-brand-foreground shadow-[0_4px_12px_rgba(0,122,255,0.25)] font-medium scale-[1.02]'
                   : isAccessible
-                  ? 'text-gray-600 dark:text-gray-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.08] active:scale-[0.98]'
-                  : 'text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50'
+                  ? 'text-muted-foreground hover:bg-black/[0.03] dark:hover:bg-white/[0.08] active:scale-[0.98]'
+                  : 'text-muted-foreground cursor-not-allowed opacity-50'
               }`}
             >
               <div className={`flex items-center justify-center transition-colors ${
-                isCurrent ? 'text-white' : isCompleted ? 'text-[#007AFF]' : 'text-current opacity-70'
+                isCurrent ? 'text-brand-foreground' : isCompleted ? 'text-brand' : 'text-current opacity-70'
               }`}>
                 {isCompleted ? (
                   <CheckCircle2Icon className="w-4 h-4" />
@@ -80,7 +80,7 @@ export function OnboardingSidebar({
       
       {/* 底部版本号或其他信息 */}
       <div className="px-3 py-4 mt-auto border-t border-black/5 dark:border-white/5">
-        <p className="text-[10px] text-gray-400 dark:text-gray-600 text-center font-medium">
+        <p className="text-[10px] text-muted-foreground text-center font-medium">
           MAI Launcher
         </p>
       </div>

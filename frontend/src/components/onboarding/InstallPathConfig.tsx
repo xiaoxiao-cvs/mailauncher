@@ -68,7 +68,7 @@ export function InstallPathConfig({ stepColor }: InstallPathConfigProps) {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* 安装路径配置 */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:bg-[#2e2e2e] dark:shadow-none">
+      <div className="p-5 sm:p-6 rounded-2xl bg-card shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:shadow-none">
         <div className="flex items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-5">
           <div 
             className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white shadow-sm flex-shrink-0"
@@ -77,10 +77,10 @@ export function InstallPathConfig({ stepColor }: InstallPathConfigProps) {
             <FolderOpenIcon className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-base sm:text-lg font-semibold text-foreground">
               安装路径
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Bot 实例将被安装到此目录
             </p>
           </div>
@@ -88,8 +88,8 @@ export function InstallPathConfig({ stepColor }: InstallPathConfigProps) {
 
         {isLoadingPath ? (
           <div className="py-6 sm:py-8 text-center">
-            <LoaderIcon className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto text-[#007AFF] dark:text-white" />
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">加载中...</p>
+            <LoaderIcon className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto text-brand" />
+            <p className="text-sm text-muted-foreground mt-2">加载中...</p>
           </div>
         ) : (
           <div className="space-y-3 sm:space-y-4">
@@ -102,24 +102,24 @@ export function InstallPathConfig({ stepColor }: InstallPathConfigProps) {
                   onChange={(e) => handlePathChange(e.target.value)}
                   placeholder="选择或输入安装路径"
                   disabled={savePathMutation.isPending}
-                  className={`w-full px-4 py-3 text-sm sm:text-base rounded-xl border-0 bg-gray-50 dark:bg-[#3a3a3a]/50 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono ${
+                  className={`w-full px-4 py-3 text-sm sm:text-base rounded-xl border-0 bg-muted text-foreground placeholder:text-muted-foreground focus:ring-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono ${
                     pathError
                       ? 'focus:ring-red-500/30 bg-red-50/50'
                       : pathSuccess
                       ? 'focus:ring-green-500/30 bg-green-50/50'
-                      : 'focus:ring-[#007AFF]/30'
+                      : 'focus:ring-brand/30'
                   }`}
                 />
                 {savePathMutation.isPending && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <LoaderIcon className="w-4 h-4 animate-spin text-[#007AFF] dark:text-white" />
+                    <LoaderIcon className="w-4 h-4 animate-spin text-brand" />
                   </div>
                 )}
               </div>
               <Button
                 onClick={handleSelectFolder}
                 disabled={savePathMutation.isPending}
-                className="h-12 px-6 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-[#3a3a3a] dark:hover:bg-[#4a4a4a] text-gray-900 dark:text-white border-0 transition-colors shadow-none"
+                className="h-12 px-6 rounded-xl bg-muted hover:bg-muted/80 text-foreground border-0 transition-colors shadow-none"
               >
                 浏览...
               </Button>
@@ -157,25 +157,25 @@ export function InstallPathConfig({ stepColor }: InstallPathConfigProps) {
 
       {/* 路径结构预览 */}
       {localPath && (
-        <div className="p-3 sm:p-4 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a]">
-          <h4 className="text-xs sm:text-sm font-medium text-[#023e8a] dark:text-white mb-2 sm:mb-3">
+        <div className="p-3 sm:p-4 rounded-xl bg-card border border-border">
+          <h4 className="text-xs sm:text-sm font-medium text-foreground mb-2 sm:mb-3">
             目录结构预览
           </h4>
-          <div className="font-mono text-xs text-[#023e8a]/70 dark:text-white/70 space-y-1 bg-gray-50 dark:bg-[#3a3a3a]/50 p-2 sm:p-3 rounded-lg overflow-x-auto">
+          <div className="font-mono text-xs text-muted-foreground space-y-1 bg-muted p-2 sm:p-3 rounded-lg overflow-x-auto">
             <div className="flex items-center gap-2 whitespace-nowrap">
               <FolderOpenIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
               <span className="truncate">{localPath.split('/').pop() || localPath}</span>
             </div>
-            <div className="pl-4 sm:pl-5 border-l border-dashed border-[#023e8a]/20 dark:border-white/20 ml-1 sm:ml-1.5 space-y-1">
-              <div className="flex items-center gap-2 text-[#023e8a]/50 dark:text-white/50">
+            <div className="pl-4 sm:pl-5 border-l border-dashed border-border ml-1 sm:ml-1.5 space-y-1">
+              <div className="flex items-center gap-2 text-muted-foreground/70">
                 <FolderOpenIcon className="w-3 h-3 flex-shrink-0" />
                 <span>instance-1/</span>
               </div>
-              <div className="flex items-center gap-2 text-[#023e8a]/50 dark:text-white/50">
+              <div className="flex items-center gap-2 text-muted-foreground/70">
                 <FolderOpenIcon className="w-3 h-3 flex-shrink-0" />
                 <span>instance-2/</span>
               </div>
-              <div className="flex items-center gap-2 text-[#023e8a]/40 dark:text-white/40">
+              <div className="flex items-center gap-2 text-muted-foreground/50">
                 <span className="pl-4 sm:pl-5">...</span>
               </div>
             </div>

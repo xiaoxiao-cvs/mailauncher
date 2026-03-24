@@ -31,7 +31,7 @@ export function OnboardingTabs({ tabs, onTabChange, currentTab = 0, extraProps }
   // 安全检查 - 移到 hooks 之后
   if (!tabs || tabs.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-[#023e8a]/40 dark:text-white/40">
+      <div className="flex items-center justify-center h-full text-muted-foreground/40">
         <p>暂无配置项</p>
       </div>
     )
@@ -47,7 +47,7 @@ export function OnboardingTabs({ tabs, onTabChange, currentTab = 0, extraProps }
   return (
     <div className="flex flex-col h-full">
       {/* Tabs 导航 */}
-      <div className="flex p-1 mb-6 bg-gray-100 dark:bg-white/5 rounded-lg self-start">
+      <div className="flex p-1 mb-6 bg-muted rounded-lg self-start">
         {tabs.map((tab, index) => (
           <button
             key={tab.id}
@@ -55,8 +55,8 @@ export function OnboardingTabs({ tabs, onTabChange, currentTab = 0, extraProps }
             className={`
               relative px-4 py-1.5 text-[13px] font-medium rounded-[6px] transition-all duration-200 select-none
               ${activeTab === index
-                ? 'text-gray-900 dark:text-white bg-white dark:bg-[#636366] shadow-sm'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                ? 'text-foreground bg-card shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
               }
             `}
           >

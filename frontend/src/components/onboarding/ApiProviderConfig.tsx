@@ -61,7 +61,7 @@ export function ApiProviderConfig({ stepColor }: ApiProviderConfigProps) {
           saveStatus={saveStatus}
         />
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-[#023e8a]/40 dark:text-white/40">
+        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
           <AlertCircleIcon className="w-12 h-12 mb-2" />
           <p>暂无供应商</p>
           <p className="text-sm mt-1">请从上方下拉菜单中添加</p>
