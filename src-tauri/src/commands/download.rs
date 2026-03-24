@@ -65,13 +65,13 @@ pub async fn create_download_task(
         if let Err(e) = execute_download_task(&app, &dm, &pool, &task_id).await {
             error!("下载任务 {} 执行失败: {}", task_id, e);
 
-            // 清理可能残留的不完整虚拟环境
+            // 清理失败任务的整个实例目录（避免残留不完整文件）
             if let Some(task) = dm.get_task(&task_id).await {
                 let instances_dir = platform::get_instances_dir();
-                let venv_dir = instances_dir.join(&task.deployment_path).join(".venv");
-                if venv_dir.exists() {
-                    info!("清理失败任务的残留虚拟环境: {:?}", venv_dir);
-                    let _ = std::fs::remove_dir_all(&venv_dir);
+                let instance_dir = instances_dir.join(&task.deployment_path);
+                if instance_dir.exists() {
+                    info!("清理失败任务的残留实例目录: {:?}", instance_dir);
+                    let _ = std::fs::remove_dir_all(&instance_dir);
                 }
             }
 
