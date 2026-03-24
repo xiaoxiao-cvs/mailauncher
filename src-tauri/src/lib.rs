@@ -35,6 +35,28 @@ async fn init_rust_services() -> AppState {
         .await
         .expect("默认数据初始化失败");
 
+    // 预写默认部署路径（仅当尚未配置时）
+    if services::config_service::get_path(&pool, "instances_dir")
+        .await
+        .ok()
+        .flatten()
+        .is_none()
+    {
+        let default_instances_dir = utils::platform::get_instances_dir();
+        let instances_dir_str = default_instances_dir.to_string_lossy().to_string();
+        services::config_service::set_path(
+            &pool,
+            "instances_dir",
+            &instances_dir_str,
+            "directory",
+            true,
+            Some("Bot实例部署目录"),
+        )
+        .await
+        .expect("默认部署路径写入失败");
+        info!("[初始化] 写入默认部署路径: {}", instances_dir_str);
+    }
+
     let component_registry = components::ComponentRegistry::new();
     let runtime_resolver = runtime::RuntimeResolver::new();
     let process_manager = services::process_service::ProcessManager::new();
