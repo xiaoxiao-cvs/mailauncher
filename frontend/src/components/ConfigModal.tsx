@@ -2,10 +2,8 @@
  * MAIBot 配置模态框 - 重构版
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { Loader2, Save } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { TomlEditor } from '@/components/TomlEditor'
 import {
   getBotConfig,
   getModelConfig,
@@ -27,14 +25,13 @@ import {
   ConfigModalProps,
   ConfigType,
   ConfigHeader,
-  ConfigSidebar,
-  NapCatAccounts,
-  ConfigItemsRenderer,
   groupBotConfig,
   groupModelConfig,
   buildTreeData,
   buildNapCatGroups,
 } from '@/components/config'
+import { ConfigTextEditor } from '@/components/config/ConfigTextEditor'
+import { ConfigTreeEditor } from '@/components/config/ConfigTreeEditor'
 
 export const ConfigModal: React.FC<ConfigModalProps> = ({
   isOpen,
@@ -49,25 +46,25 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
   const [adapterConfig, setAdapterConfig] = useState<ConfigWithComments | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  
+
   // 编辑状态
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<any>(null)
   const [hasChanges, setHasChanges] = useState(false)
   const [addingTagPath, setAddingTagPath] = useState<string | null>(null)
   const [newTagValue, setNewTagValue] = useState<string>('')
-  
+
   // 编辑模式
   const [editMode, setEditMode] = useState<'tree' | 'text'>('tree')
   const [rawText, setRawText] = useState<string>('')
   const [originalRawText, setOriginalRawText] = useState<string>('')
-  
+
   // NapCat 状态
   const [napCatAccounts, setNapCatAccounts] = useState<Array<{account: string; nickname: string}>>([])
   const [selectedQQAccount, setSelectedQQAccount] = useState<string | null>(null)
   const [originalQQAccount, setOriginalQQAccount] = useState<string | null>(null)
   const [loadingAccounts, setLoadingAccounts] = useState(false)
-  
+
   // 布局状态
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState<number>(1200)
@@ -95,7 +92,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
         getModelConfigRaw(instanceId).catch(() => ''),
         getAdapterConfigRaw(instanceId).catch(() => ''),
       ])
-      
+
       const [bot, model, adapter] = await Promise.all([
         getBotConfig(instanceId).catch((err) => {
           toast.error(`Bot配置解析失败: ${err.message}`)
@@ -110,11 +107,11 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
           return null
         }),
       ])
-      
+
       setBotConfig(bot)
       setModelConfig(model)
       setAdapterConfig(adapter)
-      
+
       if (activeConfig === 'bot') {
         setRawText(botRaw)
         setOriginalRawText(botRaw)
@@ -125,7 +122,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
         setRawText(adapterRaw)
         setOriginalRawText(adapterRaw)
       }
-      
+
       if (!bot || !model || !adapter) {
         setEditMode('text')
       }
@@ -136,7 +133,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
       setLoading(false)
     }
   }
-  
+
   // 加载 NapCat 账号
   const loadNapCatAccounts = async () => {
     if (!instanceId) return
@@ -146,7 +143,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
         instanceApi.getNapCatAccounts(instanceId),
         instanceApi.getInstance(instanceId)
       ])
-      
+
       if (accountsResponse.success) {
         setNapCatAccounts(accountsResponse.accounts)
         const currentAccount = (instanceData as any).qq_account || null
@@ -169,7 +166,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     setSelectedPath(null)
     setEditValue(null)
     setHasChanges(false)
-    
+
     if (activeConfig === 'bot' && botConfig) {
       getBotConfigRaw(instanceId).then(text => {
         setRawText(text)
@@ -227,36 +224,6 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     if (!selectedGroupId) return null
     return treeData.find((g) => g.id === selectedGroupId) || null
   }, [selectedGroupId, treeData])
-
-  // 渲染 NapCat 内容
-  const renderNapCatContent = (group: any) => {
-    if (group.id === 'napcat-accounts') {
-      return (
-        <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-              {group.name}
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              配置 NapCat 使用的 QQ 账号
-            </p>
-          </div>
-          <NapCatAccounts
-            napCatAccounts={napCatAccounts}
-            selectedQQAccount={selectedQQAccount}
-            originalQQAccount={originalQQAccount}
-            loadingAccounts={loadingAccounts}
-            onLoadAccounts={loadNapCatAccounts}
-            onSelectAccount={(account) => {
-              setSelectedQQAccount(account)
-              setHasChanges(account !== originalQQAccount)
-            }}
-          />
-        </div>
-      )
-    }
-    return null
-  }
 
   // 保存更改
   const handleSave = async () => {
@@ -319,6 +286,21 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     }
   }
 
+  const handleSaveQQAccount = async () => {
+    setSaving(true)
+    try {
+      await instanceApi.updateInstance(instanceId!, { qq_account: selectedQQAccount } as any)
+      setOriginalQQAccount(selectedQQAccount)
+      toast.success('保存成功')
+      setHasChanges(false)
+    } catch (error) {
+      console.error('保存失败:', error)
+      toast.error('保存失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (!isOpen) return null
 
   return (
@@ -326,7 +308,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
       <div className="absolute inset-0 backdrop-blur-md transition-opacity" onClick={onClose} />
 
       <div className="absolute top-0 right-0 bottom-0 left-0 md:left-[272px] flex items-center justify-center p-2 sm:p-4 md:p-6 lg:p-8 pointer-events-none">
-        <div 
+        <div
           ref={containerRef}
           className="relative w-full max-w-7xl h-[90vh] md:h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 dark:border-white/10 flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 ring-1 ring-black/5 pointer-events-auto"
         >
@@ -351,206 +333,73 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
               </div>
             ) : (
               <div className="flex-1 flex overflow-hidden relative">
-                {/* 文本编辑器模式 */}
-                <div 
-                  className={`absolute inset-0 flex flex-col overflow-hidden transition-transform duration-500 ease-in-out ${
-                    editMode === 'text' ? 'translate-x-0' : 'translate-x-full'
-                  }`}
-                >
-                  <div className="flex-1 overflow-hidden relative">
-                    <TomlEditor
-                      value={rawText}
-                      onChange={(value) => {
-                        setRawText(value)
-                        setHasChanges(value !== originalRawText)
-                      }}
-                      className="w-full h-full"
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md">
-                    <div className="text-xs text-gray-500 dark:text-gray-400 font-mono hidden sm:block">
-                      {rawText.length} characters
-                    </div>
-                    <div className="flex gap-3 w-full sm:w-auto justify-end">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setRawText(originalRawText)
-                          setHasChanges(false)
-                        }}
-                        disabled={!hasChanges}
-                        className="rounded-lg"
-                      >
-                        重置更改
-                      </Button>
-                      <Button
-                        variant="default"
-                        onClick={handleSave}
-                        disabled={!hasChanges || saving}
-                        className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 rounded-lg min-w-[100px]"
-                      >
-                        {saving ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            保存中
-                          </>
-                        ) : (
-                          <>
-                            <Save className="w-4 h-4 mr-2" />
-                            保存
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                <ConfigTextEditor
+                  rawText={rawText}
+                  hasChanges={hasChanges}
+                  saving={saving}
+                  editMode={editMode}
+                  onRawTextChange={(value) => {
+                    setRawText(value)
+                    setHasChanges(value !== originalRawText)
+                  }}
+                  onResetChanges={() => {
+                    setRawText(originalRawText)
+                    setHasChanges(false)
+                  }}
+                  onSave={handleSave}
+                />
 
-                {/* 可视化编辑模式 */}
-                <div 
-                  className={`absolute inset-0 flex overflow-hidden transition-transform duration-500 ease-in-out ${
-                    editMode === 'tree' ? 'translate-x-0' : '-translate-x-full'
-                  }`}
-                >
-                  {!isCompact && (
-                    <ConfigSidebar
-                      treeData={treeData}
-                      selectedGroupId={selectedGroupId}
-                      onSelectGroup={(groupId) => {
-                        setSelectedGroupId(groupId)
-                        setSelectedPath(null)
-                        setEditValue(null)
-                        setHasChanges(false)
-                      }}
-                    />
-                  )}
-
-                <div className="flex-1 overflow-hidden relative bg-gray-50/50 dark:bg-black/5 flex flex-col">
-                  {isCompact && (
-                    <div className="p-3 border-b border-gray-200/50 dark:border-gray-700/50 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm overflow-x-auto no-scrollbar">
-                      <div className="flex gap-2">
-                        {treeData.map((group) => (
-                          <button
-                            key={group.id}
-                            onClick={() => {
-                              setSelectedGroupId(group.id)
-                              setSelectedPath(null)
-                              setEditValue(null)
-                              setHasChanges(false)
-                            }}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                              selectedGroupId === group.id
-                                ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20'
-                                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
-                            }`}
-                          >
-                            {group.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex-1 overflow-y-auto scrollbar-thin">
-                    <div className={`p-4 md:p-6 lg:p-8 max-w-4xl mx-auto pb-20 ${isCompact ? 'px-4' : ''} animate-in fade-in slide-in-from-right-4 duration-300`}>
-                      {selectedGroup ? (
-                        activeConfig === 'napcat' ? (
-                          renderNapCatContent(selectedGroup)
-                        ) : (
-                          <div>
-                            <div className="mb-6">
-                              <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-                                {selectedGroup.name}
-                              </h3>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                配置 {selectedGroup.name} 的相关参数
-                              </p>
-                            </div>
-                            <div className="space-y-6">
-                              <ConfigItemsRenderer
-                                nodes={selectedGroup.children}
-                                selectedPath={selectedPath}
-                                editValue={editValue}
-                                hasChanges={hasChanges}
-                                saving={saving}
-                                activeConfig={activeConfig}
-                                botConfig={botConfig}
-                                modelConfig={modelConfig}
-                                adapterConfig={adapterConfig}
-                                addingTagPath={addingTagPath}
-                                newTagValue={newTagValue}
-                                onPathSelect={(path) => {
-                                  setSelectedPath(path)
-                                  setHasChanges(true)
-                                }}
-                                onValueChange={setEditValue}
-                                onSave={handleSave}
-                                onCancel={() => {
-                                  setEditValue(null)
-                                  setSelectedPath(null)
-                                  setHasChanges(false)
-                                }}
-                                onAddTag={setAddingTagPath}
-                                onNewTagValueChange={setNewTagValue}
-                                onCancelAddTag={() => setAddingTagPath(null)}
-                              />
-                            </div>
-                          </div>
-                        )
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-                
-                {activeConfig === 'napcat' && (
-                  <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end px-6 py-4 border-t border-gray-200/50 dark:border-gray-700/50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md">
-                    <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedQQAccount(originalQQAccount)
-                          setHasChanges(false)
-                        }}
-                        disabled={selectedQQAccount === originalQQAccount}
-                        className="rounded-lg"
-                      >
-                        重置
-                      </Button>
-                      <Button
-                        variant="default"
-                        onClick={async () => {
-                          setSaving(true)
-                          try {
-                            await instanceApi.updateInstance(instanceId!, { qq_account: selectedQQAccount } as any)
-                            setOriginalQQAccount(selectedQQAccount)
-                            toast.success('保存成功')
-                            setHasChanges(false)
-                          } catch (error) {
-                            console.error('保存失败:', error)
-                            toast.error('保存失败')
-                          } finally {
-                            setSaving(false)
-                          }
-                        }}
-                        disabled={selectedQQAccount === originalQQAccount || saving}
-                        className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 rounded-lg min-w-[100px]"
-                      >
-                        {saving ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            保存中
-                          </>
-                        ) : (
-                          <>
-                            <Save className="w-4 h-4 mr-2" />
-                            保存
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                </div>
+                <ConfigTreeEditor
+                  editMode={editMode}
+                  isCompact={isCompact}
+                  treeData={treeData}
+                  selectedGroupId={selectedGroupId}
+                  selectedGroup={selectedGroup}
+                  activeConfig={activeConfig}
+                  selectedPath={selectedPath}
+                  editValue={editValue}
+                  hasChanges={hasChanges}
+                  saving={saving}
+                  botConfig={botConfig}
+                  modelConfig={modelConfig}
+                  adapterConfig={adapterConfig}
+                  addingTagPath={addingTagPath}
+                  newTagValue={newTagValue}
+                  napCatAccounts={napCatAccounts}
+                  selectedQQAccount={selectedQQAccount}
+                  originalQQAccount={originalQQAccount}
+                  loadingAccounts={loadingAccounts}
+                  onSelectGroup={(groupId) => {
+                    setSelectedGroupId(groupId)
+                    setSelectedPath(null)
+                    setEditValue(null)
+                    setHasChanges(false)
+                  }}
+                  onPathSelect={(path) => {
+                    setSelectedPath(path)
+                    setHasChanges(true)
+                  }}
+                  onValueChange={setEditValue}
+                  onSave={handleSave}
+                  onCancel={() => {
+                    setEditValue(null)
+                    setSelectedPath(null)
+                    setHasChanges(false)
+                  }}
+                  onAddTag={setAddingTagPath}
+                  onNewTagValueChange={setNewTagValue}
+                  onCancelAddTag={() => setAddingTagPath(null)}
+                  onLoadNapCatAccounts={loadNapCatAccounts}
+                  onSelectQQAccount={(account) => {
+                    setSelectedQQAccount(account)
+                    setHasChanges(account !== originalQQAccount)
+                  }}
+                  onResetQQAccount={() => {
+                    setSelectedQQAccount(originalQQAccount)
+                    setHasChanges(false)
+                  }}
+                  onSaveQQAccount={handleSaveQQAccount}
+                />
               </div>
             )}
           </div>
