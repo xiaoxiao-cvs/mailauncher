@@ -64,6 +64,17 @@ pub async fn create_download_task(
     tokio::spawn(async move {
         if let Err(e) = execute_download_task(&app, &dm, &pool, &task_id).await {
             error!("下载任务 {} 执行失败: {}", task_id, e);
+
+            // 清理可能残留的不完整虚拟环境
+            if let Some(task) = dm.get_task(&task_id).await {
+                let instances_dir = platform::get_instances_dir();
+                let venv_dir = instances_dir.join(&task.deployment_path).join(".venv");
+                if venv_dir.exists() {
+                    info!("清理失败任务的残留虚拟环境: {:?}", venv_dir);
+                    let _ = std::fs::remove_dir_all(&venv_dir);
+                }
+            }
+
             dm.mark_failed(&task_id, e.to_string()).await;
             emit_progress(&app, &task_id, 0.0, &e.to_string(), "failed");
             let _ = app.emit(
@@ -95,6 +106,17 @@ pub async fn get_all_download_tasks(
     state: State<'_, AppState>,
 ) -> AppResult<Vec<DownloadTask>> {
     Ok(state.download_manager.get_all_tasks().await)
+}
+
+/// 取消下载任务
+#[tauri::command]
+pub async fn cancel_download_task(
+    state: State<'_, AppState>,
+    task_id: String,
+) -> AppResult<()> {
+    state.download_manager.mark_failed(&task_id, "用户取消".to_string()).await;
+    info!("下载任务已取消: {}", task_id);
+    Ok(())
 }
 
 /// 获取 MaiBot 可用版本
@@ -139,6 +161,33 @@ async fn execute_download_task(
     dm.add_log(task_id, format!("创建实例目录: {:?}", instance_dir))
         .await;
     let _ = app_handle.emit(&event_name, "创建实例目录...");
+
+    // 磁盘空间预检（至少需要 2GB）
+    {
+        use sysinfo::Disks;
+        let disks = Disks::new_with_refreshed_list();
+        let instance_path_str = instance_dir.to_string_lossy().to_string();
+        let mut checked = false;
+        for disk in disks.list() {
+            let mount = disk.mount_point().to_string_lossy().to_string();
+            if instance_path_str.starts_with(&mount) {
+                checked = true;
+                let available = disk.available_space();
+                const MIN_SPACE: u64 = 2 * 1024 * 1024 * 1024; // 2 GB
+                if available < MIN_SPACE {
+                    let available_mb = available / 1024 / 1024;
+                    return Err(AppError::FileSystem(format!(
+                        "磁盘空间不足：可用 {}MB，至少需要 2048MB",
+                        available_mb
+                    )));
+                }
+                break;
+            }
+        }
+        if checked {
+            let _ = app_handle.emit(&event_name, "磁盘空间检查通过");
+        }
+    }
 
     // 2. 计算总步骤
     let total_items = task.selected_items.len();
