@@ -388,7 +388,7 @@ impl ProcessManager {
     pub async fn sync_external_processes(
         &self,
         instance_id: &str,
-        runtime_profile: &RuntimeProfile,
+        instance: &crate::models::Instance,
         available_components: &[ComponentType],
         discovered: &[crate::runtime::DiscoveredRuntimeProcess],
     ) {
@@ -404,6 +404,7 @@ impl ProcessManager {
                 }
             }
 
+            let runtime_profile = instance.get_component_runtime(*component);
             if let Some(process) = discovered.iter().find(|process| process.component == *component) {
                 inner.processes.insert(
                     session_id,
@@ -1157,15 +1158,42 @@ mod tests {
         assert!(process.output_buffer[0].contains("仅提供状态与停止能力"));
     }
 
+    fn test_instance(id: &str) -> crate::models::Instance {
+        use chrono::NaiveDateTime;
+        crate::models::Instance {
+            id: id.to_string(),
+            name: "test".to_string(),
+            instance_path: Some("demo".to_string()),
+            bot_type: "maibot".to_string(),
+            bot_version: None,
+            description: None,
+            status: crate::models::InstanceLifecycleStatus::Stopped,
+            python_path: None,
+            config_path: None,
+            created_at: NaiveDateTime::default(),
+            updated_at: NaiveDateTime::default(),
+            last_run: None,
+            run_time: 0,
+            qq_account: None,
+            runtime_profile: RuntimeProfile::local("demo", None),
+            component_runtime_profiles: std::collections::HashMap::new(),
+            last_error: None,
+            last_status_reason: None,
+            component_states: Vec::new(),
+            cpu_usage: None,
+            memory_usage: None,
+        }
+    }
+
     #[tokio::test]
     async fn sync_external_processes_registers_and_removes_external_sessions() {
         let manager = ProcessManager::new();
-        let runtime_profile = RuntimeProfile::local("demo", None);
+        let instance = test_instance("inst_test");
 
         manager
             .sync_external_processes(
                 "inst_test",
-                &runtime_profile,
+                &instance,
                 &[ComponentType::Main],
                 &[crate::runtime::DiscoveredRuntimeProcess {
                     component: ComponentType::Main,
@@ -1188,7 +1216,7 @@ mod tests {
         assert!(!history.is_empty());
 
         manager
-            .sync_external_processes("inst_test", &runtime_profile, &[ComponentType::Main], &[])
+            .sync_external_processes("inst_test", &instance, &[ComponentType::Main], &[])
             .await;
 
         assert_eq!(manager.get_process_guest_pid("inst_test", "main").await, None);

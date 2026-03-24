@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use tauri::State;
 
 use crate::errors::AppResult;
 use crate::models::{
-    InstanceLifecycleStatus, RuntimeProfile, RuntimeProbeResult, SuccessResponse,
+    ComponentType, InstanceLifecycleStatus, RuntimeProfile, RuntimeProbeResult, SuccessResponse,
     WslDistributionInfo,
 };
 use crate::services::runtime_service;
@@ -36,6 +38,16 @@ pub async fn refresh_instance_runtime_state(
         &instance_id,
     )
     .await
+}
+
+#[tauri::command]
+pub async fn set_component_runtime_profiles(
+    state: State<'_, AppState>,
+    instance_id: String,
+    component_runtime_profiles: HashMap<ComponentType, RuntimeProfile>,
+) -> AppResult<SuccessResponse> {
+    runtime_service::set_component_runtime_profiles(&state.db, &instance_id, component_runtime_profiles).await?;
+    Ok(SuccessResponse::ok(format!("实例 {} 组件级运行时配置已更新", instance_id)))
 }
 
 #[tauri::command]

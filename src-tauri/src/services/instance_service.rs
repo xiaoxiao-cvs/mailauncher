@@ -309,6 +309,7 @@ mod tests {
                 run_time INTEGER NOT NULL DEFAULT 0,
                 qq_account VARCHAR(20),
                 runtime_profile TEXT,
+                component_runtime_profiles TEXT,
                 last_error TEXT,
                 last_status_reason TEXT,
                 component_state TEXT

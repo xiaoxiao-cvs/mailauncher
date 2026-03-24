@@ -181,7 +181,7 @@ pub async fn start_instance(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
 
-    let instance_path_str = instance.instance_path.unwrap_or(instance.name.clone());
+    let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
     let instance_path = platform::get_instances_dir().join(&instance_path_str);
 
     if !instance_path.exists() {
@@ -220,7 +220,7 @@ pub async fn start_instance(
             &instance_id,
             &instance_path,
             component,
-            &instance.runtime_profile,
+            instance.get_component_runtime(component.component),
             instance.qq_account.as_deref(),
         )
         .await
@@ -374,7 +374,7 @@ pub async fn start_component(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
 
-    let instance_path_str = instance.instance_path.unwrap_or(instance.name.clone());
+    let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
     let instance_path = platform::get_instances_dir().join(&instance_path_str);
 
     let startup_chain = state
@@ -390,7 +390,7 @@ pub async fn start_component(
             &instance_id,
             &instance_path,
             spec,
-            &instance.runtime_profile,
+            instance.get_component_runtime(spec.component),
             instance.qq_account.as_deref(),
         )
         .await?;
@@ -505,7 +505,7 @@ pub async fn get_component_status(
 
     Ok(ComponentStatus {
         component: component_spec.component,
-        runtime_kind: instance.runtime_profile.kind,
+        runtime_kind: instance.get_component_runtime(component_spec.component).kind,
         status: if running {
             ComponentLifecycleStatus::Running
         } else {
@@ -532,7 +532,7 @@ pub async fn get_instance_components(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
 
-    let instance_path_str = instance.instance_path.unwrap_or(instance.name.clone());
+    let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
     let instance_path = platform::get_instances_dir().join(&instance_path_str);
 
     let components = lifecycle_service::available_components(&state.component_registry, &instance_path)

@@ -145,6 +145,7 @@ pub fn run() {
             // 运行时与 WSL2
             commands::runtime::list_wsl_distributions,
             commands::runtime::set_instance_runtime_profile,
+            commands::runtime::set_component_runtime_profiles,
             commands::runtime::refresh_instance_runtime_state,
             commands::runtime::validate_runtime_profile,
             // 版本管理

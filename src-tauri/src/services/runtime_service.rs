@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
 use sqlx::SqlitePool;
 
 use crate::errors::{AppError, AppResult};
 use crate::models::{
-    InstanceLifecycleStatus, RuntimeKind, RuntimeProfile, RuntimeProbeIssue, RuntimeProbeResult,
-    RuntimeProbeSeverity, WslDistributionInfo,
+    ComponentType, InstanceLifecycleStatus, RuntimeKind, RuntimeProfile, RuntimeProbeIssue,
+    RuntimeProbeResult, RuntimeProbeSeverity, WslDistributionInfo,
 };
 use crate::runtime::PathMapper;
 
@@ -33,6 +35,45 @@ pub async fn set_instance_runtime_profile(
            WHERE id = ?"#,
     )
     .bind(runtime_profile_json)
+    .bind(instance_id)
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound(format!("实例 {} 不存在", instance_id)));
+    }
+
+    Ok(())
+}
+
+pub async fn set_component_runtime_profiles(
+    pool: &SqlitePool,
+    instance_id: &str,
+    profiles: HashMap<ComponentType, RuntimeProfile>,
+) -> AppResult<()> {
+    for profile in profiles.values() {
+        let probe = validate_runtime_profile(profile).await?;
+        let blocking_errors = probe
+            .issues
+            .iter()
+            .filter(|issue| issue.severity == RuntimeProbeSeverity::Error)
+            .map(|issue| issue.message.clone())
+            .collect::<Vec<_>>();
+
+        if !blocking_errors.is_empty() {
+            return Err(AppError::InvalidInput(blocking_errors.join("；")));
+        }
+    }
+
+    let profiles_json = serde_json::to_string(&profiles)?;
+
+    let result = sqlx::query(
+        r#"UPDATE instances
+           SET component_runtime_profiles = ?,
+               updated_at = datetime('now')
+           WHERE id = ?"#,
+    )
+    .bind(profiles_json)
     .bind(instance_id)
     .execute(pool)
     .await?;
