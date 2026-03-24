@@ -3,16 +3,8 @@ import {
   usePythonVersionsQuery,
   usePythonDefaultQuery,
   useSetPythonDefaultMutation,
-  useVenvTypeQuery,
-  useSetVenvTypeMutation
 } from '@/hooks/queries/useEnvironmentQueries'
 import { useState, useEffect } from 'react'
-
-const VENV_TYPES = [
-  { value: 'venv', label: 'venv' },
-  { value: 'uv', label: 'uv' },
-  { value: 'conda', label: 'conda' },
-]
 
 interface EnvironmentSettingsProps {
   stepColor?: string
@@ -20,7 +12,7 @@ interface EnvironmentSettingsProps {
 
 /**
  * 环境配置组件
- * 职责：选择默认 Python 版本和虚拟环境类型
+ * 职责：选择默认 Python 版本
  */
 export function EnvironmentSettings(_props: EnvironmentSettingsProps) {
   const { data: pythonVersions = [], isLoading: isLoadingPython, error: pythonErrorObj } = usePythonVersionsQuery()
@@ -28,24 +20,14 @@ export function EnvironmentSettings(_props: EnvironmentSettingsProps) {
   const savePythonMutation = useSetPythonDefaultMutation()
   const pythonError = pythonErrorObj ? String(pythonErrorObj) : null
 
-  const { data: venvType = 'venv', isLoading: isLoadingVenv } = useVenvTypeQuery()
-  const saveVenvMutation = useSetVenvTypeMutation()
-
   const [showPythonDropdown, setShowPythonDropdown] = useState(false)
   const [localSelectedPython, setLocalSelectedPython] = useState(selectedPython?.path || '')
-  const [localVenvType, setLocalVenvType] = useState(venvType)
 
   useEffect(() => {
     if (selectedPython?.path) {
       setLocalSelectedPython(selectedPython.path)
     }
   }, [selectedPython])
-
-  useEffect(() => {
-    if (typeof venvType === 'string') {
-      setLocalVenvType(venvType)
-    }
-  }, [venvType])
 
   return (
     <div className="space-y-6">
@@ -125,40 +107,6 @@ export function EnvironmentSettings(_props: EnvironmentSettingsProps) {
           <p className="text-xs text-yellow-600 dark:text-yellow-400">
             未检测到 Python 环境，请返回上一步安装
           </p>
-        )}
-      </div>
-
-      {/* 虚拟环境类型 */}
-      <div>
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-          虚拟环境类型
-        </h3>
-
-        {isLoadingVenv ? (
-          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
-            <span>加载中…</span>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            {VENV_TYPES.map((type) => (
-              <button
-                key={type.value}
-                onClick={() => {
-                  setLocalVenvType(type.value)
-                  saveVenvMutation.mutate(type.value)
-                }}
-                disabled={saveVenvMutation.isPending}
-                className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
-                  localVenvType === type.value
-                    ? 'bg-[#007AFF] text-white shadow-sm'
-                    : 'bg-gray-100/80 dark:bg-white/[0.06] text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-white/[0.1]'
-                } disabled:opacity-60`}
-              >
-                {type.label}
-              </button>
-            ))}
-          </div>
         )}
       </div>
     </div>
