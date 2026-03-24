@@ -13,7 +13,7 @@ export const NapCatAccounts: React.FC<NapCatAccountsProps> = ({
   onSelectAccount,
 }) => {
   return (
-    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-6 border border-white/40 dark:border-gray-700/40 shadow-sm">
+    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-panel p-6 border border-white/40 dark:border-gray-700/40 shadow-panel">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">账号管理</h3>

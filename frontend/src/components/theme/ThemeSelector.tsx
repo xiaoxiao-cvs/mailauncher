@@ -51,11 +51,11 @@ export function ThemeSelector() {
             key={option.value}
             onClick={() => setTheme(option.value)}
             className={`
-              w-full p-3.5 rounded-xl transition-all duration-300
+              w-full p-3.5 rounded-card transition-all duration-300
               flex items-center gap-2.5
-              ${isSelected 
-                ? 'bg-white dark:bg-[#2e2e2e] shadow-lg border-2 border-[#0077b6] dark:border-[#595959]' 
-                : 'bg-white/60 dark:bg-[#161616] border-2 border-transparent hover:bg-white/80 dark:hover:bg-[#252525] hover:shadow-md'
+              ${isSelected
+                ? 'bg-card shadow-panel border-2 border-brand'
+                : 'bg-card/60 border-2 border-transparent hover:bg-card/80 hover:shadow-panel'
               }
             `}
           >
@@ -74,13 +74,13 @@ export function ThemeSelector() {
 
             {/* 文字区域 */}
             <div className="flex-1 text-left min-w-0">
-              <div className="text-sm font-semibold text-[#03045e] dark:text-white flex items-center gap-2 leading-relaxed">
+              <div className="text-sm font-semibold text-foreground flex items-center gap-2 leading-relaxed">
                 {option.label}
                 {isSelected && (
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#0077b6] dark:bg-[#8c8c8c] animate-pulse flex-shrink-0"></div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse flex-shrink-0"></div>
                 )}
               </div>
-              <div className="text-xs text-[#023e8a]/70 dark:text-white/70 leading-relaxed">
+              <div className="text-xs text-muted-foreground leading-relaxed">
                 {option.description}
               </div>
             </div>
@@ -89,9 +89,9 @@ export function ThemeSelector() {
             <div className={`
               w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0
               transition-all duration-300
-              ${isSelected 
-                ? 'border-[#0077b6] dark:border-[#8c8c8c] bg-[#0077b6] dark:bg-[#8c8c8c]' 
-                : 'border-[#023e8a]/30 dark:border-white/30'
+              ${isSelected
+                ? 'border-brand bg-brand'
+                : 'border-border'
               }
             `}>
               {isSelected && (

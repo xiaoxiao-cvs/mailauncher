@@ -124,7 +124,7 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
       className={`
         group relative overflow-hidden
         bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl
-        rounded-[2rem] shadow-sm hover:shadow-2xl
+        rounded-panel shadow-panel hover:shadow-panel-hover
         border border-white/50 dark:border-gray-700/50
         transition-all duration-300 ease-out
         hover:-translate-y-1 cursor-pointer

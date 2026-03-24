@@ -35,6 +35,28 @@ async fn init_rust_services() -> AppState {
         .await
         .expect("默认数据初始化失败");
 
+    // 预写默认部署路径（仅当尚未配置时）
+    if services::config_service::get_path(&pool, "instances_dir")
+        .await
+        .ok()
+        .flatten()
+        .is_none()
+    {
+        let default_instances_dir = utils::platform::get_instances_dir();
+        let instances_dir_str = default_instances_dir.to_string_lossy().to_string();
+        services::config_service::set_path(
+            &pool,
+            "instances_dir",
+            &instances_dir_str,
+            "directory",
+            true,
+            Some("Bot实例部署目录"),
+        )
+        .await
+        .expect("默认部署路径写入失败");
+        info!("[初始化] 写入默认部署路径: {}", instances_dir_str);
+    }
+
     let component_registry = components::ComponentRegistry::new();
     let runtime_resolver = runtime::RuntimeResolver::new();
     let process_manager = services::process_service::ProcessManager::new();
@@ -64,12 +86,12 @@ async fn init_rust_services() -> AppState {
     info!("[初始化] Rust 服务初始化完成");
 
     AppState {
-        db: pool,
+        db: pool.clone(),
         component_registry,
         runtime_resolver,
         process_manager,
         terminal_stream_publisher,
-        download_manager: services::download_service::DownloadManager::new(),
+        download_manager: services::download_service::DownloadManager::new(pool),
     }
 }
 
@@ -101,6 +123,7 @@ pub fn run() {
             commands::instance::create_instance,
             commands::instance::update_instance,
             commands::instance::delete_instance,
+            commands::instance::get_napcat_accounts,
             // 进程管理
             commands::process::start_instance,
             commands::process::stop_instance,
@@ -117,10 +140,12 @@ pub fn run() {
             commands::download::create_download_task,
             commands::download::get_download_task,
             commands::download::get_all_download_tasks,
+            commands::download::cancel_download_task,
             commands::download::get_maibot_versions,
             // 运行时与 WSL2
             commands::runtime::list_wsl_distributions,
             commands::runtime::set_instance_runtime_profile,
+            commands::runtime::set_component_runtime_profiles,
             commands::runtime::refresh_instance_runtime_state,
             commands::runtime::validate_runtime_profile,
             // 版本管理
@@ -156,7 +181,9 @@ pub fn run() {
             commands::config::update_toml_array_item,
             commands::config::delete_toml_array_item,
             // 系统工具
+            commands::system::ping,
             commands::system::check_git_environment,
+            commands::system::discover_python,
             commands::system::check_connectivity,
             // API 供应商管理
             commands::system::get_api_providers,

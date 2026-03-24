@@ -92,9 +92,9 @@ export function NotificationPopover({
         'max-h-[60vh]', // 增加最大高度
         'flex flex-col',
         // Glassmorphism 容器样式
-        'bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-2xl',
-        'rounded-2xl shadow-2xl',
-        'border border-white/20 dark:border-white/10',
+        'bg-popover backdrop-blur-2xl',
+        'rounded-panel shadow-overlay',
+        'border border-border',
         'animate-in fade-in slide-in-from-left-2 duration-200',
         'transition-all duration-300'
       )}
@@ -105,14 +105,14 @@ export function NotificationPopover({
     >
       {/* 头部 */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 dark:border-white/5 bg-white/10 dark:bg-white/5">
-        <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white tracking-wide">
+        <h3 className="text-[13px] font-semibold text-foreground tracking-wide">
           {notifications.length > 1 ? `共 ${notifications.length} 个通知` : '通知中心'}
         </h3>
         
         {notifications.length > 0 && (
           <button
             onClick={onClearAll}
-            className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400"
+            className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-muted-foreground"
             title="全部清除"
           >
             <Icon icon="ph:trash" className="w-4 h-4" />
@@ -123,7 +123,7 @@ export function NotificationPopover({
       {/* 通知列表 */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-hide">
         {notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-gray-400 dark:text-gray-500">
+          <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
             <Icon icon="ph:bell-slash" className="w-10 h-10 mb-2 opacity-50" />
             <p className="text-xs">暂无通知</p>
           </div>

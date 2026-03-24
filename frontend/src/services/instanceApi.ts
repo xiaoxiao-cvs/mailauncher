@@ -12,7 +12,7 @@ export type InstanceStatus = 'pending' | 'starting' | 'running' | 'partial' | 's
 export type BotType = 'maibot' | 'napcat' | 'other';
 export type ComponentType = 'MaiBot' | 'NapCat' | 'MaiBot-Napcat-Adapter';
 export type ComponentLifecycleStatus = 'starting' | 'running' | 'stopping' | 'stopped' | 'failed' | 'unknown';
-export type RuntimeKind = 'local' | 'wsl2' | 'docker';
+export type RuntimeKind = 'local' | 'wsl2';
 export type HostOs = 'windows' | 'macos' | 'linux';
 export type GuestOs = 'linux';
 export type PythonMode = 'venv' | 'system' | 'explicit';
@@ -39,7 +39,6 @@ export interface RuntimeProfile {
   guest_os?: GuestOs | null;
   workspace_root: string;
   guest_workspace_root?: string | null;
-  container_name?: string | null;
   python: PythonRuntimeConfig;
   terminal: TerminalCapability;
   signal_policy: SignalPolicy;
@@ -98,6 +97,7 @@ export interface Instance {
   last_run?: string;
   run_time: number;
   runtime_profile: RuntimeProfile;
+  component_runtime_profiles: Partial<Record<ComponentType, RuntimeProfile>>;
   last_error?: string | null;
   last_status_reason?: string | null;
   component_states: InstanceComponentState[];
@@ -275,6 +275,13 @@ class InstanceApiClient {
     });
   }
 
+  async setComponentRuntimeProfiles(instanceId: string, componentRuntimeProfiles: Partial<Record<ComponentType, RuntimeProfile>>): Promise<SuccessResponse> {
+    return tauriInvoke<SuccessResponse>('set_component_runtime_profiles', {
+      instanceId,
+      componentRuntimeProfiles,
+    });
+  }
+
   async validateRuntimeProfile(runtimeProfile: RuntimeProfile): Promise<RuntimeProbeResult> {
     return tauriInvoke<RuntimeProbeResult>('validate_runtime_profile', {
       runtimeProfile,
@@ -283,11 +290,10 @@ class InstanceApiClient {
 
   /**
    * 获取NapCat已登录账号列表
-   * TODO: 尚未迁移至 Rust，暂时返回空列表
    */
-  async getNapCatAccounts(_instanceId: string): Promise<{success: boolean; accounts: Array<{account: string; nickname: string}>; message: string}> {
-    console.warn('[instanceApi] getNapCatAccounts 尚未迁移至 Rust');
-    return { success: true, accounts: [], message: '功能尚未迁移' };
+  async getNapCatAccounts(instanceId: string): Promise<{success: boolean; accounts: Array<{account: string; nickname: string}>; message: string}> {
+    const result = await tauriInvoke<{accounts: Array<{account: string; nickname: string}>}>('get_napcat_accounts', { instanceId });
+    return { success: true, accounts: result.accounts, message: '' };
   }
 }
 

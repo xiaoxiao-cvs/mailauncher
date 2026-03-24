@@ -33,16 +33,20 @@ fn resolve_component_spec<'a>(state: &'a AppState, component_name: &str) -> AppR
 
 /// 启动后台任务读取 PTY 输出，并通过 Tauri 事件推送到前端
 ///
-/// 事件名格式: `terminal-output-{instance_id}::{component}`
+/// 事件名格式: `terminal-output-{instance_id}::{display_component}`
+///
+/// `internal_component` 用于进程管理器内部的 session_id 查找（如 "main"），
+/// `display_component` 用于 Tauri 事件名（与前端订阅保持一致，如 "MaiBot"）。
 fn spawn_output_reader(
     app_handle: AppHandle,
     process_manager: ProcessManager,
     publisher: ChannelTerminalStreamPublisher,
     instance_id: String,
-    component: String,
+    internal_component: String,
+    display_component: String,
     mut reader: Box<dyn Read + Send>,
 ) {
-    let session_id = format!("{}::{}", instance_id, component);
+    let session_id = format!("{}::{}", instance_id, internal_component);
     let runtime_handle = Handle::current();
 
     std::thread::spawn(move || {
@@ -57,16 +61,16 @@ fn spawn_output_reader(
                 Ok(n) => {
                     let text = String::from_utf8_lossy(&buf[..n]).to_string();
 
-                    // 存入缓冲区
+                    // 存入缓冲区（使用 internal_component 匹配 session_id）
                     let pm = process_manager.clone();
                     let iid = instance_id.clone();
-                    let comp = component.clone();
+                    let comp = internal_component.clone();
                     let t = text.clone();
                     let sanitized = runtime_handle.block_on(async { pm.add_output(&iid, &comp, t).await });
 
-                    // 通过 Tauri 事件推送到前端
+                    // 通过 Tauri 事件推送到前端（使用 display_component 匹配前端订阅）
                     if let Some(sanitized) = sanitized {
-                        let _ = publisher.publish_output(&app_handle, &instance_id, &component, &sanitized);
+                        let _ = publisher.publish_output(&app_handle, &instance_id, &display_component, &sanitized);
                     }
                 }
                 Err(e) => {
@@ -150,6 +154,7 @@ async fn start_component_inner(
             process_manager.clone(),
             state.terminal_stream_publisher.clone(),
             instance_id.to_string(),
+            component_spec.component.internal_key().to_string(),
             component_spec.component.display_name().to_string(),
             reader,
         );
@@ -176,7 +181,7 @@ pub async fn start_instance(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
 
-    let instance_path_str = instance.instance_path.unwrap_or(instance.name.clone());
+    let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
     let instance_path = platform::get_instances_dir().join(&instance_path_str);
 
     if !instance_path.exists() {
@@ -215,7 +220,7 @@ pub async fn start_instance(
             &instance_id,
             &instance_path,
             component,
-            &instance.runtime_profile,
+            instance.get_component_runtime(component.component),
             instance.qq_account.as_deref(),
         )
         .await
@@ -369,7 +374,7 @@ pub async fn start_component(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
 
-    let instance_path_str = instance.instance_path.unwrap_or(instance.name.clone());
+    let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
     let instance_path = platform::get_instances_dir().join(&instance_path_str);
 
     let startup_chain = state
@@ -385,7 +390,7 @@ pub async fn start_component(
             &instance_id,
             &instance_path,
             spec,
-            &instance.runtime_profile,
+            instance.get_component_runtime(spec.component),
             instance.qq_account.as_deref(),
         )
         .await?;
@@ -500,7 +505,7 @@ pub async fn get_component_status(
 
     Ok(ComponentStatus {
         component: component_spec.component,
-        runtime_kind: instance.runtime_profile.kind,
+        runtime_kind: instance.get_component_runtime(component_spec.component).kind,
         status: if running {
             ComponentLifecycleStatus::Running
         } else {
@@ -527,7 +532,7 @@ pub async fn get_instance_components(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
 
-    let instance_path_str = instance.instance_path.unwrap_or(instance.name.clone());
+    let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
     let instance_path = platform::get_instances_dir().join(&instance_path_str);
 
     let components = lifecycle_service::available_components(&state.component_registry, &instance_path)

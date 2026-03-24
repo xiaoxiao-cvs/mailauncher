@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+/* 无边框窗口拖拽区 */
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+}
+
+/* 按钮等不可拖拽 */
+button, input, a, [role="button"] {
+  -webkit-app-region: no-drag;
+}

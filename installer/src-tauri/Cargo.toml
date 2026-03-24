@@ -1,0 +1,21 @@
+[package]
+name = "mailauncher-installer"
+version = "0.1.0"
+description = "MAI Launcher Custom Installer"
+authors = ["xiaoxiao-cvs"]
+license = "AGPL-3.0"
+edition = "2021"
+rust-version = "1.77.2"
+
+[build-dependencies]
+tauri-build = { version = "2.5.1", features = [] }
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tauri = { version = "2.9.2", features = [] }
+tokio = { version = "1", features = ["full"] }
+log = "0.4"
+
+# 用于资源解压和文件操作
+tempfile = "3"

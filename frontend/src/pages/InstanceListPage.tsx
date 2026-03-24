@@ -266,15 +266,15 @@ export const InstanceListPage: React.FC = () => {
       {/* 页面头部 */}
       <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white tracking-tight mb-3">
+          <h1 className="text-4xl font-bold text-foreground tracking-tight mb-3">
             实例管理
           </h1>
-          <div className="flex items-center gap-4 text-sm font-medium text-gray-500 dark:text-gray-400">
-            <span className="bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
+          <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
+            <span className="bg-muted px-3 py-1 rounded-full">
               总计 {instances.length}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#34C759]" />
+              <span className="w-2 h-2 rounded-full bg-success" />
               运行中 {instances.filter(i => i.status === 'running').length}
             </span>
             <span className="flex items-center gap-1.5">
@@ -288,9 +288,8 @@ export const InstanceListPage: React.FC = () => {
           <button
             onClick={handleRefresh}
             disabled={isLoading}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-800 
-                     text-gray-600 dark:text-gray-300 rounded-full border border-gray-200 
-                     dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700
+            className="flex items-center gap-2 px-5 py-2.5 bg-card
+                     text-muted-foreground rounded-full border border-border hover:bg-muted
                      hover:shadow-md active:scale-95 disabled:opacity-50 
                      transition-all duration-300 font-medium text-sm"
           >
@@ -299,8 +298,8 @@ export const InstanceListPage: React.FC = () => {
           </button>
           
           <button
-            className="flex items-center gap-2 px-6 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900
-                     rounded-full hover:shadow-lg hover:shadow-gray-900/20 dark:hover:shadow-white/20
+            className="flex items-center gap-2 px-6 py-2.5 bg-foreground text-white dark:text-background
+                     rounded-full hover:shadow-lg hover:shadow-foreground/5
                      hover:-translate-y-0.5 active:translate-y-0 active:scale-95
                      transition-all duration-300 font-medium text-sm"
           >
@@ -312,18 +311,18 @@ export const InstanceListPage: React.FC = () => {
       
       {/* 错误提示 */}
       {error && (
-        <div className="mb-8 p-4 bg-[#FF3B30]/10 border border-[#FF3B30]/20 
-                      rounded-2xl flex items-center gap-4 backdrop-blur-sm">
-          <div className="w-10 h-10 rounded-full bg-[#FF3B30]/20 flex items-center justify-center flex-shrink-0">
-            <AlertCircle className="w-5 h-5 text-[#FF3B30]" />
+        <div className="mb-8 p-4 bg-destructive/10 border border-destructive/20
+                      rounded-panel flex items-center gap-4 backdrop-blur-sm">
+          <div className="w-10 h-10 rounded-full bg-destructive/20 flex items-center justify-center flex-shrink-0">
+            <AlertCircle className="w-5 h-5 text-destructive" />
           </div>
           <div className="flex-1">
-            <p className="text-[#FF3B30] font-semibold">加载失败</p>
-            <p className="text-[#FF3B30]/80 text-sm mt-0.5">{error.message}</p>
+            <p className="text-destructive font-semibold">加载失败</p>
+            <p className="text-destructive/80 text-sm mt-0.5">{error.message}</p>
           </div>
           <button
             onClick={handleRefresh}
-            className="px-4 py-2 bg-white/50 hover:bg-white text-[#FF3B30] rounded-full 
+            className="px-4 py-2 bg-white/50 hover:bg-white text-destructive rounded-full 
                      text-sm font-medium transition-colors duration-200"
           >
             重试
@@ -335,15 +334,15 @@ export const InstanceListPage: React.FC = () => {
       {isLoading && instances.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-32">
           <div className="w-16 h-16 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mb-6" />
-          <p className="text-gray-500 font-medium">正在加载实例数据...</p>
+          <p className="text-muted-foreground font-medium">正在加载实例数据...</p>
         </div>
       ) : instances.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-32 text-center">
-          <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
+          <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
             <Server className="w-10 h-10 text-gray-400" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">暂无实例</h3>
-          <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-8">
+          <h3 className="text-xl font-bold text-foreground mb-2">暂无实例</h3>
+          <p className="text-muted-foreground max-w-md mx-auto mb-8">
             您还没有创建任何实例。点击右上角的"创建新实例"按钮开始您的第一个部署。
           </p>
           <button className="px-8 py-3 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">

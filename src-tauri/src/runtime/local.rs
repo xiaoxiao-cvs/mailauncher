@@ -12,10 +12,7 @@ pub struct LocalRuntimeAdapter;
 
 impl LocalRuntimeAdapter {
     fn resolve_python(&self, instance_root: &Path, profile: &RuntimeProfile) -> String {
-        if let Some(path) = profile.python.path.as_deref() {
-            return path.to_string();
-        }
-
+        // 优先使用虚拟环境 Python（依赖安装在 venv 中，显式路径仅用于创建 venv）
         let venv_python = match HostOs::current() {
             HostOs::Windows => instance_root.join(".venv").join("Scripts").join("python.exe"),
             _ => instance_root.join(".venv").join("bin").join("python"),
@@ -24,6 +21,11 @@ impl LocalRuntimeAdapter {
         if venv_python.exists() {
             info!("使用虚拟环境 Python: {}", venv_python.display());
             return venv_python.to_string_lossy().to_string();
+        }
+
+        if let Some(path) = profile.python.path.as_deref() {
+            info!("虚拟环境不存在，回退到显式 Python: {}", path);
+            return path.to_string();
         }
 
         match profile.python.mode {

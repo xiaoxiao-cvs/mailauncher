@@ -51,7 +51,7 @@ export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
   return (
     <div className="space-y-4">
       {/* Git 环境检查 */}
-      <div className="p-3.5 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a]">
+      <div className="p-3.5 rounded-card bg-card border border-border">
         <div className="flex items-start justify-between mb-2.5">
           <div className="flex items-center gap-2.5">
             <div 
@@ -67,10 +67,10 @@ export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
               )}
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-[#023e8a] dark:text-white">
+              <h3 className="text-sm font-semibold text-foreground">
                 Git 环境
               </h3>
-              <p className="text-xs text-[#023e8a]/70 dark:text-white/70">
+              <p className="text-xs text-muted-foreground">
                 克隆和更新 Bot 实例所需
               </p>
             </div>
@@ -80,7 +80,7 @@ export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
             size="sm"
             onClick={() => checkGitEnvironment()}
             disabled={isCheckingGit}
-            className="bg-white/60 dark:bg-[#3a3a3a] border-[#023e8a]/20 dark:border-[#3a3a3a] text-xs h-8"
+            className="bg-card border-border text-xs h-8"
           >
             {isCheckingGit ? '检查中...' : '重新检查'}
           </Button>
@@ -93,9 +93,9 @@ export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
           </div>
         ) : gitInfo ? (
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-white/40 dark:bg-[#3a3a3a]/50">
-              <span className="text-xs text-[#023e8a]/70 dark:text-white/70">状态</span>
-              <span className="text-xs font-medium text-[#023e8a] dark:text-white">
+            <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-muted/50">
+              <span className="text-xs text-muted-foreground">状态</span>
+              <span className="text-xs font-medium text-foreground">
                 {gitInfo.is_available ? (
                   <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
                     <CheckCircle2Icon className="w-4 h-4" />
@@ -112,15 +112,15 @@ export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
             
             {gitInfo.is_available && (
               <>
-                <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-white/40 dark:bg-[#3a3a3a]/50">
-                  <span className="text-xs text-[#023e8a]/70 dark:text-white/70">版本</span>
-                  <span className="text-xs font-medium text-[#023e8a] dark:text-white font-mono">
+                <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-muted/50">
+                  <span className="text-xs text-muted-foreground">版本</span>
+                  <span className="text-xs font-medium text-foreground font-mono">
                     {gitInfo.version}
                   </span>
                 </div>
-                <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-white/40 dark:bg-[#3a3a3a]/50">
-                  <span className="text-xs text-[#023e8a]/70 dark:text-white/70">路径</span>
-                  <span className="text-xs font-mono text-[#023e8a] dark:text-white truncate max-w-xs">
+                <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-muted/50">
+                  <span className="text-xs text-muted-foreground">路径</span>
+                  <span className="text-xs font-mono text-foreground truncate max-w-xs">
                     {gitInfo.path}
                   </span>
                 </div>
@@ -147,7 +147,7 @@ export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
       </div>
 
       {/* Python 版本选择 */}
-      <div className="p-3.5 rounded-xl bg-white/60 dark:bg-[#2e2e2e] border border-[#023e8a]/10 dark:border-[#3a3a3a]">
+      <div className="p-3.5 rounded-card bg-card border border-border">
         <div className="flex items-center gap-2.5 mb-2.5">
           <div 
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"
@@ -160,10 +160,10 @@ export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
             )}
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-[#023e8a] dark:text-white">
+            <h3 className="text-sm font-semibold text-foreground">
               默认 Python 版本
             </h3>
-            <p className="text-xs text-[#023e8a]/70 dark:text-white/70">
+            <p className="text-xs text-muted-foreground">
               新建实例时使用的 Python 版本
             </p>
           </div>
@@ -176,37 +176,37 @@ export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
           </div>
         ) : isLoadingPython ? (
           <div className="py-3 text-center">
-            <LoaderIcon className="w-5 h-5 animate-spin mx-auto text-[#023e8a] dark:text-white" />
-            <p className="text-xs text-[#023e8a]/70 dark:text-white/70 mt-2">加载 Python 版本...</p>
+            <LoaderIcon className="w-5 h-5 animate-spin mx-auto text-foreground" />
+            <p className="text-xs text-muted-foreground mt-2">加载 Python 版本...</p>
           </div>
         ) : pythonVersions.length > 0 ? (
           <div className="relative">
             <button
               onClick={() => setShowPythonDropdown(!showPythonDropdown)}
               disabled={savePythonMutation.isPending}
-              className="w-full flex items-center justify-between py-2 px-3 rounded-lg bg-white/40 dark:bg-[#3a3a3a]/50 hover:bg-white/60 dark:hover:bg-[#3a3a3a]/70 transition-all disabled:opacity-60"
+              className="w-full flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50 hover:bg-muted/70 transition-all disabled:opacity-60"
             >
               <div className="flex-1 text-left">
                 {localSelectedPython ? (
                   <div>
-                    <div className="text-xs font-medium text-[#023e8a] dark:text-white">
+                    <div className="text-xs font-medium text-foreground">
                       {pythonVersions.find(v => v.path === localSelectedPython)?.version || '未选择'}
                     </div>
-                      <div className="text-xs text-[#023e8a]/60 dark:text-white/60 font-mono truncate">
+                      <div className="text-xs text-muted-foreground font-mono truncate">
                         {typeof localSelectedPython === 'string' ? localSelectedPython : ''}
                       </div>
                   </div>
                 ) : (
-                  <div className="text-xs text-[#023e8a]/60 dark:text-white/60">
+                  <div className="text-xs text-muted-foreground">
                     选择 Python 版本
                   </div>
                 )}
               </div>
-              <ChevronDownIcon className={`w-4 h-4 text-[#023e8a] dark:text-white transition-transform ${showPythonDropdown ? 'rotate-180' : ''}`} />
+              <ChevronDownIcon className={`w-4 h-4 text-foreground transition-transform ${showPythonDropdown ? 'rotate-180' : ''}`} />
             </button>
 
             {showPythonDropdown && (
-              <div className="absolute z-10 w-full mt-1 py-1 rounded-lg bg-white dark:bg-[#2e2e2e] border border-[#023e8a]/20 dark:border-[#3a3a3a] shadow-lg max-h-60 overflow-y-auto">
+              <div className="absolute z-10 w-full mt-1 py-1 rounded-lg bg-popover border border-border shadow-lg max-h-60 overflow-y-auto">
                 {pythonVersions.map((version) => (
                   <button
                     key={version.path}
@@ -215,16 +215,16 @@ export function GitCheck({ stepColor, onGitStatusChange }: GitCheckProps) {
                       setShowPythonDropdown(false)
                       savePythonMutation.mutate(version.path)
                     }}
-                    className={`w-full text-left px-3 py-2 hover:bg-[#023e8a]/5 dark:hover:bg-white/5 transition-colors ${
-                      version.path === localSelectedPython ? 'bg-[#023e8a]/10 dark:bg-white/10' : ''
+                    className={`w-full text-left px-3 py-2 hover:bg-muted transition-colors ${
+                      version.path === localSelectedPython ? 'bg-muted' : ''
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <div className="text-xs font-medium text-[#023e8a] dark:text-white">
+                        <div className="text-xs font-medium text-foreground">
                           {version.version}
                         </div>
-                        <div className="text-xs text-[#023e8a]/60 dark:text-white/60 font-mono truncate">
+                        <div className="text-xs text-muted-foreground font-mono truncate">
                           {version.path}
                         </div>
                       </div>

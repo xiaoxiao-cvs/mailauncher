@@ -25,33 +25,33 @@ export function InstallOverview({ state }: InstallOverviewProps) {
     )}>
       <div className="w-full max-w-2xl">
         <div className={cn(
-          'p-8 rounded-xl border',
-          'bg-white dark:bg-[#1a1a1a]',
-          'border-[#023e8a]/10 dark:border-white/10',
-          'shadow-lg'
+          'p-8 rounded-card border',
+          'bg-card',
+          'border-border',
+          'shadow-panel'
         )}>
           {loading ? (
             // 骨架屏
             <div className="space-y-6 animate-pulse">
-              <div className="h-8 bg-[#023e8a]/10 dark:bg-white/10 rounded w-2/3" />
+              <div className="h-8 bg-muted rounded w-2/3" />
               <div className="space-y-3">
-                <div className="h-4 bg-[#023e8a]/10 dark:bg-white/10 rounded w-full" />
-                <div className="h-4 bg-[#023e8a]/10 dark:bg-white/10 rounded w-5/6" />
-                <div className="h-4 bg-[#023e8a]/10 dark:bg-white/10 rounded w-4/6" />
+                <div className="h-4 bg-muted rounded w-full" />
+                <div className="h-4 bg-muted rounded w-5/6" />
+                <div className="h-4 bg-muted rounded w-4/6" />
               </div>
             </div>
           ) : (
             <div className="space-y-6">
               {/* 标题 */}
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0077b6] to-[#00b4d8] flex items-center justify-center text-white shadow-md flex-shrink-0">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand to-brand/70 flex items-center justify-center text-white shadow-md flex-shrink-0">
                   <Icon icon="ph:robot" className="w-7 h-7" />
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-[#03045e] dark:text-white mb-1">
+                  <h2 className="text-2xl font-bold text-foreground mb-1">
                     {getStatusIcon(status)} {getStatusTitle(status)}
                   </h2>
-                  <p className="text-sm text-[#023e8a]/70 dark:text-white/70">
+                  <p className="text-sm text-muted-foreground">
                     {instanceName} · {version}
                   </p>
                 </div>
@@ -61,14 +61,14 @@ export function InstallOverview({ state }: InstallOverviewProps) {
               <div className="space-y-4">
                 {/* 组件列表 */}
                 <div>
-                  <label className="text-sm font-medium text-[#023e8a]/80 dark:text-white/80 mb-2 block">
+                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
                     安装组件
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {components.map((component, index) => (
                       <span
                         key={index}
-                        className="px-3 py-1 text-sm font-medium rounded-lg bg-[#0077b6]/10 dark:bg-[#0077b6]/20 text-[#0077b6] dark:text-[#00b4d8]"
+                        className="px-3 py-1 text-sm font-medium rounded-lg bg-brand-muted text-brand"
                       >
                         {component}
                       </span>
@@ -78,21 +78,21 @@ export function InstallOverview({ state }: InstallOverviewProps) {
 
                 {/* 部署路径 */}
                 <div>
-                  <label className="text-sm font-medium text-[#023e8a]/80 dark:text-white/80 mb-2 block">
+                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
                     部署路径
                   </label>
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#023e8a]/5 dark:bg-white/5">
-                    <Icon icon="ph:folder-open" className="w-4 h-4 text-[#023e8a]/50 dark:text-white/50 flex-shrink-0" />
-                    <span className="text-sm text-[#023e8a]/70 dark:text-white/70 font-mono truncate">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
+                    <Icon icon="ph:folder-open" className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm text-muted-foreground font-mono truncate">
                       {deploymentPath}
                     </span>
                   </div>
                 </div>
 
                 {/* 提示信息 */}
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-[#e3f2fd] dark:bg-[#0d47a1]/20">
-                  <Icon icon="ph:info" className="w-5 h-5 text-[#0077b6] flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-[#023e8a]/80 dark:text-white/80">
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-brand-muted">
+                  <Icon icon="ph:info" className="w-5 h-5 text-brand flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-muted-foreground">
                     可在通知中查看安装进度和详细日志
                   </p>
                 </div>

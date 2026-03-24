@@ -43,7 +43,7 @@ export const ConfigItemEditor: React.FC<ConfigEditorProps> = ({
   const hint = path ? getConfigHint(path, currentConfig?.comments || {}) : ''
 
   return (
-    <div key={node.id} className="group relative p-5 bg-white/60 dark:bg-gray-800/40 hover:bg-white/80 dark:hover:bg-gray-800/60 rounded-xl border border-gray-200/50 dark:border-gray-700/50 shadow-sm transition-all duration-200 space-y-3 backdrop-blur-sm">
+    <div key={node.id} className="group relative p-5 bg-white/60 dark:bg-gray-800/40 hover:bg-white/80 dark:hover:bg-gray-800/60 rounded-card border border-gray-200/50 dark:border-gray-700/50 shadow-panel transition-all duration-200 space-y-3 backdrop-blur-sm">
       {/* 配置项标题 */}
       <div className="flex items-start justify-between">
         <div className="flex-1 space-y-1">
@@ -55,7 +55,7 @@ export const ConfigItemEditor: React.FC<ConfigEditorProps> = ({
         {comment && hint && (
           <div className="relative group/info ml-2">
             <Info className="w-4 h-4 text-blue-500/70 dark:text-blue-400/70 cursor-help transition-colors hover:text-blue-600 dark:hover:text-blue-300" />
-            <div className="pointer-events-none absolute z-20 right-0 mt-2 hidden group-hover/info:block text-xs rounded-lg px-4 py-3 max-w-[300px] whitespace-normal break-words bg-white/95 text-gray-700 border border-gray-100 shadow-xl dark:bg-gray-900/95 dark:text-gray-200 dark:border-gray-800 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="pointer-events-none absolute z-20 right-0 mt-2 hidden group-hover/info:block text-xs rounded-lg px-4 py-3 max-w-[300px] whitespace-normal break-words bg-white/95 text-gray-700 border border-gray-100 shadow-overlay dark:bg-gray-900/95 dark:text-gray-200 dark:border-gray-800 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
               {comment.replace(/\r?\n/g, ' ').replace(/\s{2,}/g, ' ')}
             </div>
           </div>

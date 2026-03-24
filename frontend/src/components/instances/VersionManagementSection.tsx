@@ -83,7 +83,7 @@ export const VersionManagementSection: React.FC<VersionManagementSectionProps> =
         {/* Compact Card - Latest Commit Info */}
         <div 
           onClick={() => setIsVisualizerOpen(true)}
-          className="group relative overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-3 cursor-pointer hover:shadow-md transition-all duration-200"
+          className="group relative overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-card border border-gray-200 dark:border-gray-700 p-3 cursor-pointer hover:shadow-panel-hover transition-all duration-200"
         >
           <div className="absolute top-2 right-2 opacity-40 group-hover:opacity-100 transition-opacity">
             <ArrowRight className="w-4 h-4 text-gray-400" />
@@ -162,7 +162,7 @@ export const VersionManagementSection: React.FC<VersionManagementSectionProps> =
   };
 
   return (
-    <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-4 border border-white/40 dark:border-gray-700/40 shadow-sm">
+    <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-panel p-4 border border-white/40 dark:border-gray-700/40 shadow-panel">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as DisplayComponentType)} className="w-full">
         <TabsList className="w-full bg-gray-100/50 dark:bg-gray-800/50 p-0.5 rounded-lg mb-3">
           {renderTabTrigger('MaiBot')}
@@ -194,7 +194,7 @@ const GitVisualizerModal: React.FC<{
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-white/20 dark:border-gray-800 overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-lg bg-white dark:bg-gray-900 rounded-panel shadow-overlay border border-white/20 dark:border-gray-800 overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-800">
           <h3 className="text-lg font-bold flex items-center gap-2">
             <GitBranch className="w-5 h-5 text-blue-500" />
@@ -212,7 +212,7 @@ const GitVisualizerModal: React.FC<{
               <div className="absolute -left-[41px] top-0 w-5 h-5 rounded-full bg-green-500 ring-4 ring-white dark:ring-gray-900 flex items-center justify-center">
                 <div className="w-2 h-2 bg-white rounded-full" />
               </div>
-              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-100 dark:border-green-900/30">
+              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-card border border-green-100 dark:border-green-900/30">
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-xs font-bold text-green-600 dark:text-green-400 px-2 py-1 bg-green-100 dark:bg-green-900/40 rounded-md">
                     LATEST
@@ -250,7 +250,7 @@ const GitVisualizerModal: React.FC<{
                 <div className="absolute -left-[41px] top-0 w-5 h-5 rounded-full bg-blue-500 ring-4 ring-white dark:ring-gray-900 flex items-center justify-center">
                   <div className="w-2 h-2 bg-white rounded-full" />
                 </div>
-                <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-card border border-gray-200 dark:border-gray-700">
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-xs font-bold text-blue-600 dark:text-blue-400 px-2 py-1 bg-blue-100 dark:bg-blue-900/40 rounded-md">
                       CURRENT

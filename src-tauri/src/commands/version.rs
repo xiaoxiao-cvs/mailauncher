@@ -153,13 +153,26 @@ pub async fn restore_backup(
     let base_dir = resolve_instance_base_dir(&state.db, &instance_id).await?;
     let component_dir = base_dir.join(&backup.component);
 
-    // 删除现有目录然后复制备份
+    // 原子恢复：先复制到临时目录，再通过 rename 替换，避免中途失败导致数据丢失
+    let temp_restore_dir = base_dir.join(format!("_restore_temp_{}", &backup.component));
+    if temp_restore_dir.exists() {
+        std::fs::remove_dir_all(&temp_restore_dir)
+            .map_err(|e| AppError::FileSystem(format!("清理临时恢复目录失败: {}", e)))?;
+    }
+
+    crate::services::download_service::copy_dir_recursive(&backup_path, &temp_restore_dir)
+        .map_err(|e| {
+            let _ = std::fs::remove_dir_all(&temp_restore_dir);
+            AppError::FileSystem(format!("恢复备份数据失败: {}", e))
+        })?;
+
+    // 复制成功后，删除旧目录并重命名临时目录
     if component_dir.exists() {
         std::fs::remove_dir_all(&component_dir)
             .map_err(|e| AppError::FileSystem(format!("删除组件目录失败: {}", e)))?;
     }
-    crate::services::download_service::copy_dir_recursive(&backup_path, &component_dir)
-        .map_err(|e| AppError::FileSystem(format!("恢复备份数据失败: {}", e)))?;
+    std::fs::rename(&temp_restore_dir, &component_dir)
+        .map_err(|e| AppError::FileSystem(format!("重命名恢复目录失败: {}", e)))?;
 
     info!(
         "恢复备份完成: {} / {} ← {}",

@@ -10,13 +10,39 @@ use crate::state::AppState;
 
 // ==================== 系统环境 ====================
 
+/// 后端健康检查（轻量，仅验证 Rust 后端存活）
+#[tauri::command]
+pub async fn ping() -> AppResult<String> {
+    Ok("pong".to_string())
+}
+
 /// 检测 Git 环境
 #[tauri::command]
 pub async fn check_git_environment() -> AppResult<system_service::GitInfo> {
     system_service::check_git_environment()
 }
 
-/// 网络连通性检查
+/// 自动发现 Python 环境并保存到数据库
+#[tauri::command]
+pub async fn discover_python(state: State<'_, AppState>) -> AppResult<Vec<system_service::DiscoveredPython>> {
+    tracing::info!("[discover_python] 命令被调用");
+    let found = system_service::discover_python_environments();
+    tracing::info!("[discover_python] 发现 {} 个 Python 环境", found.len());
+
+    // 将发现的环境写入数据库
+    for env in &found {
+        tracing::info!("[discover_python] 写入数据库: {} ({})", env.path, env.version);
+        if let Err(e) = crate::services::config_service::save_python_environment(
+            &state.db, &env.path, &env.version
+        ).await {
+            tracing::error!("[discover_python] 写入数据库失败: {} - {:?}", env.path, e);
+        }
+    }
+
+    Ok(found)
+}
+
+/// 网络连通性检查（GitHub/PyPI，用于下载和更新场景）
 #[tauri::command]
 pub async fn check_connectivity() -> AppResult<system_service::ConnectivityStatus> {
     system_service::check_connectivity().await

@@ -175,9 +175,9 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
   const getIconColor = () => {
     switch (currentNotification.type) {
       case NotificationType.TASK:
-        return 'from-[#0077b6] to-[#00b4d8]'
+        return 'from-brand to-brand/70'
       case NotificationType.MESSAGE:
-        return 'from-[#0077b6] to-[#00b4d8]'
+        return 'from-brand to-brand/70'
       case NotificationType.WARNING:
         return 'from-yellow-500 to-orange-500'
       case NotificationType.ERROR:
@@ -206,8 +206,8 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
           className={cn(
             "relative",
             "w-full max-w-2xl mx-4", // 移除 md:ml-[18rem]，因为容器已经定位
-            "bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl",
-            "rounded-2xl shadow-2xl",
+            "bg-popover backdrop-blur-xl",
+            "rounded-panel shadow-overlay",
             "border border-white/20 dark:border-white/10",
             "flex flex-col overflow-hidden",
             "animate-in zoom-in-95 fade-in slide-in-from-bottom-4 duration-300 ease-out-expo",
@@ -222,13 +222,13 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
               <div className={cn("p-2 rounded-lg bg-white/50 dark:bg-white/10", getIconColor())}>
                 <Icon icon={getIcon()} className="w-5 h-5" />
               </div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h2 className="text-lg font-semibold text-foreground">
                 {getTitle()}
               </h2>
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500"
+              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-muted-foreground"
             >
               <Icon icon="ph:x" className="w-5 h-5" />
             </button>
@@ -248,7 +248,7 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
                 <div className="flex-1 overflow-hidden relative">
                   <TabsContent value="details" className="h-full m-0 p-6 overflow-y-auto space-y-6">
                     {/* 状态卡片 */}
-                    <div className="p-6 rounded-xl bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/5 flex flex-col items-center text-center space-y-4">
+                    <div className="p-6 rounded-card bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/5 flex flex-col items-center text-center space-y-4">
                       <div className={cn("w-16 h-16 rounded-full flex items-center justify-center bg-gradient-to-br shadow-lg", 
                         currentNotification.task?.status === TaskStatus.SUCCESS ? "from-green-400 to-green-600" :
                         currentNotification.task?.status === TaskStatus.FAILED ? "from-red-400 to-red-600" :
@@ -263,12 +263,12 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
                         )} />
                       </div>
                       <div>
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                        <h3 className="text-xl font-bold text-foreground mb-1">
                           {currentNotification.task?.status === TaskStatus.SUCCESS ? "安装完成" :
                            currentNotification.task?.status === TaskStatus.FAILED ? "安装失败" :
                            "正在处理..."}
                         </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <p className="text-sm text-muted-foreground">
                           {currentNotification.message}
                         </p>
                       </div>
@@ -276,11 +276,11 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
                       {/* 进度条 */}
                       {(currentNotification.task?.status === TaskStatus.DOWNLOADING || currentNotification.task?.status === TaskStatus.INSTALLING) && (
                         <div className="w-full max-w-xs space-y-2">
-                          <div className="flex justify-between text-xs text-gray-500">
+                          <div className="flex justify-between text-xs text-muted-foreground">
                             <span>进度</span>
                             <span>{currentNotification.task?.progress?.toFixed(0) || '0'}%</span>
                           </div>
-                          <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
                             <div 
                               className="h-full bg-blue-500 transition-all duration-300 ease-out"
                               style={{ width: `${currentNotification.task?.progress || 0}%` }}
@@ -292,7 +292,7 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
 
                     {/* 详细信息列表 */}
                     <div className="space-y-4">
-                      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">详细信息</h4>
+                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">详细信息</h4>
                       <div className="grid grid-cols-1 gap-3">
                         <InfoItem label="任务 ID" value={currentNotification.task?.taskId || '-'} />
                         <InfoItem label="实例名称" value={currentNotification.task?.instanceName || '-'} />
@@ -305,7 +305,7 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
                   <TabsContent value="logs" className="h-full m-0 flex flex-col">
                     <div className="flex-1 bg-[#1e1e1e] p-4 overflow-y-auto font-mono text-xs space-y-1">
                       {logs.length === 0 ? (
-                        <div className="h-full flex items-center justify-center text-gray-500">
+                        <div className="h-full flex items-center justify-center text-muted-foreground">
                           等待日志连接...
                         </div>
                       ) : (
@@ -340,14 +340,14 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
                   <Icon icon={getIcon()} className="w-10 h-10" />
                 </div>
                 <div className="space-y-2 max-w-md">
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <h3 className="text-2xl font-bold text-foreground">
                     {currentNotification.title}
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  <p className="text-muted-foreground leading-relaxed">
                     {currentNotification.message}
                   </p>
                 </div>
-                <div className="pt-4 text-sm text-gray-400">
+                <div className="pt-4 text-sm text-muted-foreground">
                   {new Date(currentNotification.createdAt).toLocaleString()}
                 </div>
               </div>
@@ -363,8 +363,8 @@ export default function InstallLogModal({ isOpen, notification, onClose }: Insta
 function InfoItem({ label, value }: { label: string, value: string }) {
   return (
     <div className="flex justify-between items-center p-3 rounded-lg bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/5">
-      <span className="text-sm text-gray-500 dark:text-gray-400">{label}</span>
-      <span className="text-sm font-medium text-gray-900 dark:text-white font-mono">{value}</span>
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm font-medium text-foreground font-mono">{value}</span>
     </div>
   )
 }

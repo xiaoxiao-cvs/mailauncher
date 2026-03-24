@@ -3,6 +3,7 @@
 /// 运行时抽象落地后，数据库行结构与前端传输结构不再完全等同：
 /// - `DbInstanceRecord` 对应 SQLite 表结构
 /// - `Instance` 对应前端消费的领域模型
+use std::collections::HashMap;
 use std::path::Path;
 
 use chrono::NaiveDateTime;
@@ -125,7 +126,6 @@ impl ComponentType {
 pub enum RuntimeKind {
     Local,
     Wsl2,
-    Docker,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -192,7 +192,6 @@ pub struct RuntimeProfile {
     pub guest_os: Option<GuestOs>,
     pub workspace_root: String,
     pub guest_workspace_root: Option<String>,
-    pub container_name: Option<String>,
     pub python: PythonRuntimeConfig,
     pub terminal: TerminalCapability,
     pub signal_policy: SignalPolicy,
@@ -215,7 +214,6 @@ impl RuntimeProfile {
             guest_os: None,
             workspace_root: workspace_root.into(),
             guest_workspace_root: None,
-            container_name: None,
             python: PythonRuntimeConfig {
                 mode: python_mode,
                 path: python_path,
@@ -298,6 +296,9 @@ pub struct Instance {
     pub run_time: i64,
     pub qq_account: Option<String>,
     pub runtime_profile: RuntimeProfile,
+    /// 组件级运行时覆盖配置，缺省回退到实例级 runtime_profile
+    #[serde(default)]
+    pub component_runtime_profiles: HashMap<ComponentType, RuntimeProfile>,
     pub last_error: Option<String>,
     pub last_status_reason: Option<String>,
     pub component_states: Vec<InstanceComponentState>,
@@ -323,6 +324,7 @@ pub struct DbInstanceRecord {
     pub run_time: i64,
     pub qq_account: Option<String>,
     pub runtime_profile: Option<String>,
+    pub component_runtime_profiles: Option<String>,
     pub last_error: Option<String>,
     pub last_status_reason: Option<String>,
     pub component_state: Option<String>,
@@ -340,6 +342,12 @@ impl DbInstanceRecord {
             .as_deref()
             .and_then(|raw| serde_json::from_str::<RuntimeProfile>(raw).ok())
             .unwrap_or_else(|| RuntimeProfile::local(workspace_root.clone(), self.python_path.clone()));
+
+        let component_runtime_profiles = self
+            .component_runtime_profiles
+            .as_deref()
+            .and_then(|raw| serde_json::from_str::<HashMap<ComponentType, RuntimeProfile>>(raw).ok())
+            .unwrap_or_default();
 
         let component_states = self
             .component_state
@@ -363,12 +371,22 @@ impl DbInstanceRecord {
             run_time: self.run_time,
             qq_account: self.qq_account,
             runtime_profile,
+            component_runtime_profiles,
             last_error: self.last_error,
             last_status_reason: self.last_status_reason,
             component_states,
             cpu_usage: None,
             memory_usage: None,
         }
+    }
+}
+
+impl Instance {
+    /// 获取组件的运行时配置：组件级优先，实例级兜底
+    pub fn get_component_runtime(&self, component: ComponentType) -> &RuntimeProfile {
+        self.component_runtime_profiles
+            .get(&component)
+            .unwrap_or(&self.runtime_profile)
     }
 }
 

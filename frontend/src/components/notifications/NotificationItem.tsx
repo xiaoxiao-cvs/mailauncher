@@ -28,7 +28,7 @@ export function NotificationItem({ notification, onRemove, onClick, className, s
         case TaskStatus.INSTALLING:
           return <Icon icon="ph:arrow-circle-down-fill" className="w-4 h-4 text-blue-500 animate-pulse" />
         default:
-          return <Icon icon="ph:clock-fill" className="w-4 h-4 text-gray-400" />
+          return <Icon icon="ph:clock-fill" className="w-4 h-4 text-muted-foreground" />
       }
     }
 
@@ -40,7 +40,7 @@ export function NotificationItem({ notification, onRemove, onClick, className, s
       case NotificationType.ERROR:
         return <Icon icon="ph:x-circle-fill" className="w-4 h-4 text-red-500" />
       default:
-        return <Icon icon="ph:bell-fill" className="w-4 h-4 text-gray-400" />
+        return <Icon icon="ph:bell-fill" className="w-4 h-4 text-muted-foreground" />
     }
   }
 
@@ -48,10 +48,10 @@ export function NotificationItem({ notification, onRemove, onClick, className, s
     <div
       className={cn(
       'group relative overflow-hidden',
-      'bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-xl',
+      'bg-popover backdrop-blur-xl',
       'rounded-[14px]',
       'shadow-sm hover:shadow-md transition-all duration-200',
-        'border border-white/40 dark:border-white/10',
+        'border border-border',
         'p-2.5 cursor-pointer',
         className
       )}
@@ -64,7 +64,7 @@ export function NotificationItem({ notification, onRemove, onClick, className, s
           <div className="w-5 h-5 rounded-md flex items-center justify-center bg-white dark:bg-white/10 shadow-sm">
             {getIcon()}
           </div>
-          <span className="text-[12px] font-semibold text-gray-900 dark:text-gray-100 opacity-90 truncate max-w-[200px]">
+          <span className="text-[12px] font-semibold text-foreground opacity-90 truncate max-w-[200px]">
             {title}
           </span>
         </div>
@@ -74,7 +74,7 @@ export function NotificationItem({ notification, onRemove, onClick, className, s
             e.stopPropagation()
             onRemove(notification.id)
           }}
-          className="p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+          className="p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
         >
           <Icon icon="ph:x" className="w-3.5 h-3.5" />
         </button>
@@ -82,18 +82,18 @@ export function NotificationItem({ notification, onRemove, onClick, className, s
 
       {/* 内容区域 */}
       <div className="pl-7">
-        <p className="text-[12px] text-gray-600 dark:text-gray-300 leading-snug line-clamp-2">
+        <p className="text-[12px] text-muted-foreground leading-snug line-clamp-2">
           {message}
         </p>
 
         {/* 任务进度条 */}
         {type === NotificationType.TASK && task && (
           <div className="space-y-1 mt-2">
-            <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400">
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
               <span>{getStatusText(task.status)}</span>
               <span>{task.progress}%</span>
             </div>
-            <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div className="h-1 bg-muted rounded-full overflow-hidden">
               <div
                 className={cn(
                   'h-full rounded-full transition-all duration-300',
@@ -116,10 +116,10 @@ export function NotificationItem({ notification, onRemove, onClick, className, s
           e.stopPropagation()
           onRemove(notification.id)
         }}
-        className="absolute top-2 right-2 p-1 rounded-full bg-gray-200/50 dark:bg-gray-700/50 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-gray-300 dark:hover:bg-gray-600"
+        className="absolute top-2 right-2 p-1 rounded-full bg-muted opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-muted/80"
         aria-label="删除通知"
       >
-        <Icon icon="ph:x" className="w-3 h-3 text-gray-500 dark:text-gray-400" />
+        <Icon icon="ph:x" className="w-3 h-3 text-muted-foreground" />
       </button>
     </div>
   )

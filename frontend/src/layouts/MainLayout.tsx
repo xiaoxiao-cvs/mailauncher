@@ -3,7 +3,7 @@ import { Sidebar } from '@/components/sidebar'
 
 export function MainLayout() {
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#F5F5F7] dark:bg-[#000000] transition-colors duration-500 relative">
+    <div className="flex h-screen w-screen overflow-hidden bg-surface transition-colors duration-500 relative">
       {/* Global Dynamic Background - 液态流动背景 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         {/* 蓝色光斑 */}
