@@ -99,7 +99,8 @@ export function useDownload() {
   const [instanceName, setInstanceName] = useState<string>('')
   const [downloadItems, setDownloadItems] = useState<DownloadItem[]>(initializeDownloadItems())
   const [selectedMaibotVersion, setSelectedMaibotVersion] = useState<MaibotVersion>(MAIBOT_VERSIONS[0])
-  const [maibotVersions] = useState<MaibotVersion[]>(MAIBOT_VERSIONS)
+  const [maibotVersions, setMaibotVersions] = useState<MaibotVersion[]>(MAIBOT_VERSIONS)
+  const [pythonPath, setPythonPath] = useState<string | null>(null)
   const [isLoadingPath, setIsLoadingPath] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
@@ -188,9 +189,20 @@ export function useDownload() {
         const selectedPath = selected as string
         setDeploymentPath(selectedPath)
         downloadLogger.success('用户选择路径', { path: selectedPath })
-        
-        // TODO: 保存到后端
-        // await saveDeploymentPath(selectedPath)
+
+        // 持久化到后端
+        try {
+          await tauriInvoke('set_path', {
+            name: 'instances_dir',
+            path: selectedPath,
+            pathType: 'directory',
+            isVerified: false,
+            description: 'Bot 实例部署目录',
+          })
+          downloadLogger.success('部署路径已保存到后端')
+        } catch (err) {
+          downloadLogger.error('保存部署路径失败', err)
+        }
       }
     } catch (error) {
       downloadLogger.error('选择文件夹失败', error)
@@ -278,7 +290,8 @@ export function useDownload() {
             case 'quick-algo': return 'lpmm'
             default: return item.type
           }
-        })
+        }),
+        python_path: pythonPath,
         // 注意: venv_type 不需要前端传递，后端会从数据库读取用户在引导页配置的值
       }
 
@@ -307,7 +320,7 @@ export function useDownload() {
       
       return null
     }
-  }, [deploymentPath, instanceName, downloadItems, selectedMaibotVersion, selectedItems, updateItemStatus])
+  }, [deploymentPath, instanceName, downloadItems, selectedMaibotVersion, selectedItems, pythonPath, updateItemStatus])
 
   /**
    * 重试下载
@@ -317,10 +330,67 @@ export function useDownload() {
     await downloadItem(itemId)
   }, [downloadItem, updateItemStatus])
 
+  /**
+   * 从后端加载可用版本列表
+   */
+  const loadVersions = useCallback(async () => {
+    try {
+      const response = await tauriInvoke<{ tags: string[]; branches: string[] }>('get_maibot_versions')
+      const versions: MaibotVersion[] = [
+        // 始终保留 latest 选项
+        { source: 'latest', value: 'latest', label: '最新代码 (main)' },
+        // Tags
+        ...response.tags.map(tag => ({
+          source: 'tag' as const,
+          value: tag,
+          label: tag,
+        })),
+        // Branches (排除 main，已在 latest 中)
+        ...response.branches
+          .filter(b => b !== 'main' && b !== 'master')
+          .map(branch => ({
+            source: 'branch' as const,
+            value: branch,
+            label: `${branch} 分支`,
+          })),
+      ]
+      setMaibotVersions(versions)
+      downloadLogger.success('版本列表加载完成', { count: versions.length })
+    } catch (error) {
+      downloadLogger.error('加载版本列表失败，使用默认列表', error)
+      // Keep MAIBOT_VERSIONS as fallback - already set as default
+    }
+  }, [])
+
+  /**
+   * 从后端加载 Python 路径
+   */
+  const loadPythonPath = useCallback(async () => {
+    try {
+      const result = await tauriInvoke<{ path: string } | null>('get_selected_python')
+      if (result) {
+        setPythonPath(result.path)
+        downloadLogger.info('已加载 Python 路径', { path: result.path })
+      }
+    } catch (error) {
+      downloadLogger.error('加载 Python 路径失败', error)
+    }
+  }, [])
+
   // 页面加载时获取部署路径
   useEffect(() => {
     loadDeploymentPath()
   }, [loadDeploymentPath])
+
+  // 页面加载时获取版本列表
+  useEffect(() => {
+    loadVersions()
+  }, [loadVersions])
+
+  // 页面加载时获取 Python 路径
+  useEffect(() => {
+    loadPythonPath()
+  }, [loadPythonPath])
 
   return {
     deploymentPath,
