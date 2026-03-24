@@ -122,7 +122,7 @@ impl DownloadManager {
         // 持久化到数据库
         let items_json = serde_json::to_string(&task.selected_items).unwrap_or_default();
         let status_str = serde_json::to_string(&task.status).unwrap_or_default().trim_matches('"').to_string();
-        let _ = sqlx::query(
+        if let Err(e) = sqlx::query(
             "INSERT INTO download_tasks (id, instance_name, deployment_path, maibot_version_source, maibot_version_value, selected_items, python_path, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         )
             .bind(&task.id)
@@ -134,7 +134,10 @@ impl DownloadManager {
             .bind(&task.python_path)
             .bind(&status_str)
             .execute(&inner.pool)
-            .await;
+            .await
+        {
+            warn!("持久化下载任务失败 ({}): {}", task.id, e);
+        }
 
         task
     }
@@ -159,11 +162,14 @@ impl DownloadManager {
             task.progress.status = status.clone();
         }
         let status_str = serde_json::to_string(&status).unwrap_or_default().trim_matches('"').to_string();
-        let _ = sqlx::query("UPDATE download_tasks SET status = ? WHERE id = ?")
+        if let Err(e) = sqlx::query("UPDATE download_tasks SET status = ? WHERE id = ?")
             .bind(&status_str)
             .bind(task_id)
             .execute(&inner.pool)
-            .await;
+            .await
+        {
+            warn!("持久化任务状态失败 ({}): {}", task_id, e);
+        }
     }
 
     /// 更新任务进度百分比和消息
@@ -173,12 +179,15 @@ impl DownloadManager {
             task.progress.progress = progress;
             task.progress.message = Some(message.clone());
         }
-        let _ = sqlx::query("UPDATE download_tasks SET progress = ?, progress_message = ? WHERE id = ?")
+        if let Err(e) = sqlx::query("UPDATE download_tasks SET progress = ?, progress_message = ? WHERE id = ?")
             .bind(progress)
             .bind(&message)
             .bind(task_id)
             .execute(&inner.pool)
-            .await;
+            .await
+        {
+            warn!("持久化任务进度失败 ({}): {}", task_id, e);
+        }
     }
 
     /// 添加日志
@@ -197,10 +206,13 @@ impl DownloadManager {
             task.started_at = Some(Utc::now().naive_utc());
             task.progress.status = DownloadStatus::Downloading;
         }
-        let _ = sqlx::query("UPDATE download_tasks SET status = 'downloading', started_at = datetime('now', 'localtime') WHERE id = ?")
+        if let Err(e) = sqlx::query("UPDATE download_tasks SET status = 'downloading', started_at = datetime('now', 'localtime') WHERE id = ?")
             .bind(task_id)
             .execute(&inner.pool)
-            .await;
+            .await
+        {
+            warn!("持久化任务启动状态失败 ({}): {}", task_id, e);
+        }
     }
 
     /// 标记任务完成
@@ -213,11 +225,14 @@ impl DownloadManager {
             task.progress.progress = 100.0;
             task.instance_id = instance_id.clone();
         }
-        let _ = sqlx::query("UPDATE download_tasks SET status = 'completed', completed_at = datetime('now', 'localtime'), instance_id = ?, progress = 100.0 WHERE id = ?")
+        if let Err(e) = sqlx::query("UPDATE download_tasks SET status = 'completed', completed_at = datetime('now', 'localtime'), instance_id = ?, progress = 100.0 WHERE id = ?")
             .bind(&instance_id)
             .bind(task_id)
             .execute(&inner.pool)
-            .await;
+            .await
+        {
+            warn!("持久化任务完成状态失败 ({}): {}", task_id, e);
+        }
     }
 
     /// 标记任务失败
@@ -230,11 +245,14 @@ impl DownloadManager {
             task.progress.status = DownloadStatus::Failed;
             task.progress.error = Some(error.clone());
         }
-        let _ = sqlx::query("UPDATE download_tasks SET status = 'failed', completed_at = datetime('now', 'localtime'), error_message = ? WHERE id = ?")
+        if let Err(e) = sqlx::query("UPDATE download_tasks SET status = 'failed', completed_at = datetime('now', 'localtime'), error_message = ? WHERE id = ?")
             .bind(&error)
             .bind(task_id)
             .execute(&inner.pool)
-            .await;
+            .await
+        {
+            warn!("持久化任务失败状态失败 ({}): {}", task_id, e);
+        }
     }
 
     /// 为任务创建取消令牌
