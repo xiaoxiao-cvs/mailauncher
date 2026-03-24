@@ -635,7 +635,7 @@ export function StatsDashboard() {
   }, [selectedInstance, timeRange]);
   
   return (
-    <div className="h-full overflow-auto scrollbar-thin p-6 space-y-6">
+    <div className="p-6 space-y-6">
       {/* 顶部控制栏 */}
       <div className="flex items-center justify-between">
         <div>
