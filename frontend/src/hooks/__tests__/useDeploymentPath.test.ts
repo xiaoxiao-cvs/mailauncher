@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { tauriInvoke } from '@/services/tauriInvoke'
 import { useDeploymentPath } from '../useDeploymentPath'
