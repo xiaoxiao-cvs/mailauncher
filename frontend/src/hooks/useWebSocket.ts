@@ -189,6 +189,65 @@ export function useWebSocket(taskId: string | null, options: UseWebSocketOptions
     }
   }, [taskId])
 
+  // 轮询兜底：每 3 秒通过 invoke 查询任务状态，防止事件丢失
+  useEffect(() => {
+    if (!taskId) return
+
+    let cancelled = false
+
+    const poll = async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const task = await invoke<{
+          status: string
+          progress: { progress: number; message: string | null }
+          error_message: string | null
+        }>('get_download_task', { taskId })
+
+        if (cancelled) return
+
+        const now = new Date().toISOString()
+
+        // 同步进度
+        if (task.progress && task.progress.progress > 0) {
+          optionsRef.current.onProgress?.({
+            type: 'progress',
+            timestamp: now,
+            current: Math.round(task.progress.progress),
+            total: 100,
+            percentage: task.progress.progress,
+            message: task.progress.message || '',
+            status: task.status,
+          })
+        }
+
+        // 同步终态
+        if (task.status === 'completed') {
+          optionsRef.current.onComplete?.({
+            type: 'complete',
+            timestamp: now,
+            message: '安装完成',
+          })
+        } else if (task.status === 'failed') {
+          optionsRef.current.onError?.({
+            type: 'error',
+            timestamp: now,
+            message: task.error_message || '安装失败',
+          })
+        }
+      } catch {
+        // 任务可能不存在（已清理），忽略
+      }
+    }
+
+    const interval = setInterval(poll, 3000)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [taskId])
+
   const disconnect = useCallback(() => {
     unlistenRefs.current.forEach((fn) => fn())
     unlistenRefs.current = []
