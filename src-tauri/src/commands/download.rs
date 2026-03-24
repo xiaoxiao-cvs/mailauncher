@@ -51,6 +51,10 @@ pub async fn create_download_task(
     state: State<'_, AppState>,
     data: DownloadTaskCreate,
 ) -> AppResult<DownloadTask> {
+    // 验证部署路径安全性
+    let deploy_path = data.deployment_path.as_deref().unwrap_or(&data.instance_name);
+    validate_deployment_path(deploy_path)?;
+
     let task = state.download_manager.create_task(data).await;
     let task_id = task.id.clone();
 
@@ -126,6 +130,61 @@ pub async fn cancel_download_task(
 pub async fn get_maibot_versions() -> AppResult<VersionsResponse> {
     let repo = download_service::get_repo_config(&DownloadItemType::Maibot);
     download_service::get_available_versions(repo.url).await
+}
+
+// ==================== 路径验证 ====================
+
+/// 验证部署路径的安全性
+///
+/// 防止路径遍历攻击、Windows保留名冲突和过长路径。
+fn validate_deployment_path(path: &str) -> AppResult<()> {
+    if path.is_empty() {
+        return Err(AppError::InvalidInput("部署路径不能为空".to_string()));
+    }
+
+    // 检查路径遍历
+    if path.contains("..") {
+        return Err(AppError::InvalidInput("部署路径不允许包含 '..'".to_string()));
+    }
+
+    // 检查绝对路径（部署路径应是相对于 instances_dir 的相对路径）
+    if path.starts_with('/') || path.starts_with('\\') || (path.len() >= 2 && path.as_bytes()[1] == b':') {
+        return Err(AppError::InvalidInput("部署路径不允许使用绝对路径".to_string()));
+    }
+
+    // 检查路径长度（Windows MAX_PATH 限制为 260，预留空间给 instances_dir 和子文件）
+    if path.len() > 100 {
+        return Err(AppError::InvalidInput("部署路径过长（最大 100 字符）".to_string()));
+    }
+
+    // 检查 Windows 保留名
+    let reserved_names = [
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    ];
+    let name_upper = path.to_uppercase();
+    for reserved in &reserved_names {
+        if name_upper == *reserved || name_upper.starts_with(&format!("{}.", reserved)) {
+            return Err(AppError::InvalidInput(format!(
+                "部署路径不能使用 Windows 保留名: {}",
+                reserved
+            )));
+        }
+    }
+
+    // 检查非法字符
+    let illegal_chars = ['<', '>', ':', '"', '|', '?', '*'];
+    for ch in &illegal_chars {
+        if path.contains(*ch) {
+            return Err(AppError::InvalidInput(format!(
+                "部署路径包含非法字符: '{}'",
+                ch
+            )));
+        }
+    }
+
+    Ok(())
 }
 
 // ==================== 内部执行逻辑 ====================
@@ -375,4 +434,64 @@ async fn execute_download_task(
 
     info!("下载任务完成: {} → 实例 {}", task_id, instance.id);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_deployment_path_accepts_valid_names() {
+        assert!(validate_deployment_path("my-instance").is_ok());
+        assert!(validate_deployment_path("bot_v2").is_ok());
+        assert!(validate_deployment_path("MaiBot-Production").is_ok());
+    }
+
+    #[test]
+    fn validate_deployment_path_rejects_empty() {
+        assert!(validate_deployment_path("").is_err());
+    }
+
+    #[test]
+    fn validate_deployment_path_rejects_traversal() {
+        assert!(validate_deployment_path("../etc/passwd").is_err());
+        assert!(validate_deployment_path("foo/../../bar").is_err());
+        assert!(validate_deployment_path("..").is_err());
+    }
+
+    #[test]
+    fn validate_deployment_path_rejects_absolute() {
+        assert!(validate_deployment_path("/root/hack").is_err());
+        assert!(validate_deployment_path("\\Windows\\System32").is_err());
+        assert!(validate_deployment_path("C:\\Users").is_err());
+    }
+
+    #[test]
+    fn validate_deployment_path_rejects_too_long() {
+        let long_name = "a".repeat(101);
+        assert!(validate_deployment_path(&long_name).is_err());
+        let ok_name = "a".repeat(100);
+        assert!(validate_deployment_path(&ok_name).is_ok());
+    }
+
+    #[test]
+    fn validate_deployment_path_rejects_windows_reserved_names() {
+        assert!(validate_deployment_path("CON").is_err());
+        assert!(validate_deployment_path("con").is_err());
+        assert!(validate_deployment_path("NUL").is_err());
+        assert!(validate_deployment_path("COM1").is_err());
+        assert!(validate_deployment_path("LPT3").is_err());
+        assert!(validate_deployment_path("AUX.txt").is_err());
+    }
+
+    #[test]
+    fn validate_deployment_path_rejects_illegal_chars() {
+        assert!(validate_deployment_path("foo<bar").is_err());
+        assert!(validate_deployment_path("foo>bar").is_err());
+        assert!(validate_deployment_path("foo:bar").is_err());
+        assert!(validate_deployment_path("foo\"bar").is_err());
+        assert!(validate_deployment_path("foo|bar").is_err());
+        assert!(validate_deployment_path("foo?bar").is_err());
+        assert!(validate_deployment_path("foo*bar").is_err());
+    }
 }
