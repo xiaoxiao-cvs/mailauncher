@@ -115,29 +115,23 @@ function buildRuntimeCapabilityCards(
     'wsl_distribution_missing',
     'wsl_distribution_not_found',
     'wsl_workspace_missing',
-    'docker_container_missing',
-    'docker_workspace_missing',
   )
     ? 'blocked'
     : 'ready';
 
-  const workspaceState: RuntimeCapabilityState = hasIssue('wsl_workspace_not_found', 'docker_workspace_not_found')
+  const workspaceState: RuntimeCapabilityState = hasIssue('wsl_workspace_not_found')
     ? 'blocked'
-    : hasIssue('docker_container_stopped', 'docker_container_not_found')
-      ? 'warning'
-      : 'ready';
+    : 'ready';
 
-  const reconnectState: RuntimeCapabilityState = hasIssue('wsl_tmux_missing', 'docker_tmux_missing')
+  const reconnectState: RuntimeCapabilityState = hasIssue('wsl_tmux_missing')
     ? 'warning'
-    : hasIssue('docker_container_stopped', 'docker_container_not_found', 'wsl_distribution_not_found')
+    : hasIssue('wsl_distribution_not_found')
       ? 'blocked'
       : 'ready';
 
-  const attachState: RuntimeCapabilityState = hasIssue('docker_container_not_found', 'wsl_distribution_not_found')
+  const attachState: RuntimeCapabilityState = hasIssue('wsl_distribution_not_found')
     ? 'blocked'
-    : hasIssue('docker_container_stopped')
-      ? 'warning'
-      : 'ready';
+    : 'ready';
 
   return [
     {
@@ -148,15 +142,11 @@ function buildRuntimeCapabilityCards(
         ? '当前 runtime_profile 仍缺少关键入口字段，保存前需要补全。'
         : runtimeDraft.kind === 'local'
           ? '本地运行时使用宿主机工作区与本地 Python 解析链路。'
-          : runtimeDraft.kind === 'wsl2'
-            ? `WSL2 入口已指向 ${runtimeDraft.distribution || '目标发行版'}。`
-            : `Docker 入口已指向容器 ${runtimeDraft.container_name || '目标容器'}。`,
+          : `WSL2 入口已指向 ${runtimeDraft.distribution || '目标发行版'}。`,
       action: configState === 'blocked'
-        ? runtimeDraft.kind === 'docker'
-          ? '补全容器名与 guest 工作区。'
-          : runtimeDraft.kind === 'wsl2'
-            ? '选择发行版并填写 guest 工作区。'
-            : '补全本地 Python 或工作区设置。'
+        ? runtimeDraft.kind === 'wsl2'
+          ? '选择发行版并填写 guest 工作区。'
+          : '补全本地 Python 或工作区设置。'
         : '当前可以继续保存并执行运行态刷新。',
     },
     {
@@ -165,14 +155,10 @@ function buildRuntimeCapabilityCards(
       state: workspaceState,
       detail: workspaceState === 'blocked'
         ? 'guest 工作区当前不可达，冷启动恢复和命令分发都会失败。'
-        : workspaceState === 'warning'
-          ? '运行时入口存在，但宿主环境尚未完全就绪。'
-          : 'guest 工作区可以被解析，实例命令能够落到正确目录。',
-      action: hasIssue('docker_container_stopped')
-        ? '先启动容器，再重新校验工作区。'
-        : hasIssue('wsl_workspace_not_found', 'docker_workspace_not_found')
-          ? '检查 guest 路径是否与实例目录一致。'
-          : '当前可以执行手动刷新或冷启动恢复。',
+        : 'guest 工作区可以被解析，实例命令能够落到正确目录。',
+      action: hasIssue('wsl_workspace_not_found')
+        ? '检查 guest 路径是否与实例目录一致。'
+        : '当前可以执行手动刷新或冷启动恢复。',
     },
     {
       key: 'reconnect',
@@ -183,11 +169,9 @@ function buildRuntimeCapabilityCards(
         : reconnectState === 'warning'
           ? '实例仍可启动，但缺少 tmux 时无法提供跨应用重连终端。'
           : '当前运行时还不具备稳定的会话重连前提。',
-      action: hasIssue('wsl_tmux_missing', 'docker_tmux_missing')
+      action: hasIssue('wsl_tmux_missing')
         ? '在 guest 环境安装 tmux 后重新校验。'
-        : hasIssue('docker_container_stopped', 'docker_container_not_found')
-          ? '先恢复容器运行，再创建会话。'
-          : '当前可以直接使用可重连终端链路。',
+        : '当前可以直接使用可重连终端链路。',
     },
     {
       key: 'attach',
@@ -195,9 +179,7 @@ function buildRuntimeCapabilityCards(
       state: attachState,
       detail: attachState === 'blocked'
         ? '当前无法稳定探测 guest 进程，外部接管链路不可用。'
-        : attachState === 'warning'
-          ? '外部接管能力已配置，但底层环境未启动，暂时只能保留配置。'
-          : '冷启动后可以重发现 guest 进程，并将其同步进实例运行态。',
+        : '冷启动后可以重发现 guest 进程，并将其同步进实例运行态。',
       action: attachState === 'ready'
         ? '适合配合手动刷新运行态，重建实例状态投影。'
         : '先修复入口环境，再进行冷启动恢复。',
@@ -261,9 +243,7 @@ export const InstanceDetailPage: React.FC = () => {
 
   const runtimeKindLabel = instance?.runtime_profile.kind === 'wsl2'
     ? 'WSL2'
-    : instance?.runtime_profile.kind === 'docker'
-      ? 'Docker'
-      : 'Local';
+    : 'Local';
   const runtimeCapabilityCards = runtimeDraft && runtimeProbe
     ? buildRuntimeCapabilityCards(runtimeDraft, runtimeProbe)
     : [];
@@ -484,7 +464,6 @@ export const InstanceDetailPage: React.FC = () => {
           kind: value,
           guest_os: null,
           guest_workspace_root: null,
-          container_name: null,
           distribution: null,
           user: null,
           path_mapping: 'native',
@@ -496,20 +475,8 @@ export const InstanceDetailPage: React.FC = () => {
           ...current,
           kind: value,
           guest_os: 'linux',
-          container_name: null,
           path_mapping: 'explicit',
           guest_workspace_root: current.guest_workspace_root || `/home/${current.user || 'mai'}/mailauncher-instances/${current.workspace_root}`,
-        };
-      }
-
-      if (key === 'kind' && value === 'docker') {
-        return {
-          ...current,
-          kind: value,
-          guest_os: 'linux',
-          distribution: null,
-          path_mapping: 'explicit',
-          guest_workspace_root: current.guest_workspace_root || `/workspace/${current.workspace_root}`,
         };
       }
 
@@ -690,7 +657,6 @@ export const InstanceDetailPage: React.FC = () => {
                   >
                     <option value="local">Local</option>
                     <option value="wsl2">WSL2</option>
-                    <option value="docker">Docker</option>
                   </select>
                 </label>
 
@@ -750,40 +716,6 @@ export const InstanceDetailPage: React.FC = () => {
                         value={runtimeDraft.guest_workspace_root || ''}
                         onChange={(event) => handleRuntimeFieldChange('guest_workspace_root', event.target.value || null)}
                         placeholder="/home/user/mailauncher-instances/demo"
-                        className="w-full rounded-2xl border border-border bg-white/70 px-3 py-2 dark:bg-gray-900/60"
-                      />
-                    </label>
-                  </>
-                )}
-
-                {runtimeDraft.kind === 'docker' && (
-                  <>
-                    <label className="space-y-1">
-                      <span className="text-muted-foreground">容器名称</span>
-                      <input
-                        value={runtimeDraft.container_name || ''}
-                        onChange={(event) => handleRuntimeFieldChange('container_name', event.target.value || null)}
-                        placeholder="例如 maibot-runtime"
-                        className="w-full rounded-2xl border border-border bg-white/70 px-3 py-2 dark:bg-gray-900/60"
-                      />
-                    </label>
-
-                    <label className="space-y-1">
-                      <span className="text-muted-foreground">容器用户</span>
-                      <input
-                        value={runtimeDraft.user || ''}
-                        onChange={(event) => handleRuntimeFieldChange('user', event.target.value || null)}
-                        placeholder="例如 root"
-                        className="w-full rounded-2xl border border-border bg-white/70 px-3 py-2 dark:bg-gray-900/60"
-                      />
-                    </label>
-
-                    <label className="space-y-1">
-                      <span className="text-muted-foreground">容器工作区</span>
-                      <input
-                        value={runtimeDraft.guest_workspace_root || ''}
-                        onChange={(event) => handleRuntimeFieldChange('guest_workspace_root', event.target.value || null)}
-                        placeholder="/workspace/demo"
                         className="w-full rounded-2xl border border-border bg-white/70 px-3 py-2 dark:bg-gray-900/60"
                       />
                     </label>

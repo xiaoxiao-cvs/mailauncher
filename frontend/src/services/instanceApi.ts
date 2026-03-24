@@ -12,7 +12,7 @@ export type InstanceStatus = 'pending' | 'starting' | 'running' | 'partial' | 's
 export type BotType = 'maibot' | 'napcat' | 'other';
 export type ComponentType = 'MaiBot' | 'NapCat' | 'MaiBot-Napcat-Adapter';
 export type ComponentLifecycleStatus = 'starting' | 'running' | 'stopping' | 'stopped' | 'failed' | 'unknown';
-export type RuntimeKind = 'local' | 'wsl2' | 'docker';
+export type RuntimeKind = 'local' | 'wsl2';
 export type HostOs = 'windows' | 'macos' | 'linux';
 export type GuestOs = 'linux';
 export type PythonMode = 'venv' | 'system' | 'explicit';
@@ -39,7 +39,6 @@ export interface RuntimeProfile {
   guest_os?: GuestOs | null;
   workspace_root: string;
   guest_workspace_root?: string | null;
-  container_name?: string | null;
   python: PythonRuntimeConfig;
   terminal: TerminalCapability;
   signal_policy: SignalPolicy;

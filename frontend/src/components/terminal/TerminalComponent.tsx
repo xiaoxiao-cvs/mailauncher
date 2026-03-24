@@ -199,7 +199,7 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
           cols,
         });
 
-        if (isRunning && (runtimeKind === 'wsl2' || runtimeKind === 'docker')) {
+        if (isRunning && runtimeKind === 'wsl2') {
           pollTimer = window.setInterval(async () => {
             if (cancelled) return;
 
