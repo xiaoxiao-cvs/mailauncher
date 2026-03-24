@@ -41,6 +41,7 @@ pub async fn create_virtual_environment(
     let python = python_path.unwrap_or(default_python);
 
     info!("创建虚拟环境: {:?} (python: {})", venv_dir, python);
+    let venv_start = std::time::Instant::now();
 
     let venv_str = venv_dir
         .to_str()
@@ -62,7 +63,7 @@ pub async fn create_virtual_environment(
         )));
     }
 
-    info!("虚拟环境创建完成: {:?}", venv_dir);
+    info!("虚拟环境创建完成: {:?} (耗时 {:.1}s)", venv_dir, venv_start.elapsed().as_secs_f64());
     Ok(())
 }
 
@@ -125,6 +126,7 @@ pub async fn install_dependencies(
         .ok_or_else(|| AppError::FileSystem("requirements 路径包含非法字符".to_string()))?;
 
     info!("安装依赖: {:?}", requirements);
+    let deps_start = std::time::Instant::now();
 
     let output = run_command_with_output(
         pip_str,
@@ -142,7 +144,7 @@ pub async fn install_dependencies(
         )));
     }
 
-    info!("依赖安装完成: {:?}", project_dir);
+    info!("依赖安装完成: {:?} (耗时 {:.1}s)", project_dir, deps_start.elapsed().as_secs_f64());
     Ok(())
 }
 

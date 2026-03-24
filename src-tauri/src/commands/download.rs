@@ -208,6 +208,7 @@ async fn execute_download_task(
         .await
         .ok_or_else(|| AppError::NotFound("任务不存在".to_string()))?;
 
+    let task_start = std::time::Instant::now();
     let event_name = format!("download-log-{}", task_id);
     let status_event = format!("download-status-{}", task_id);
 
@@ -446,7 +447,9 @@ async fn execute_download_task(
     emit_progress(app_handle, task_id, 100.0, "安装完成", "completed");
     let _ = app_handle.emit(&event_name, format!("安装完成！实例 ID: {}", instance.id));
 
-    info!("下载任务完成: {} → 实例 {}", task_id, instance.id);
+    let elapsed = task_start.elapsed();
+    info!("下载任务完成: {} → 实例 {} (耗时 {:.1}s)", task_id, instance.id, elapsed.as_secs_f64());
+    let _ = app_handle.emit(&event_name, format!("全部安装完成，总耗时 {:.1} 秒", elapsed.as_secs_f64()));
     Ok(())
 }
 

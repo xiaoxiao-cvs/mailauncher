@@ -314,6 +314,7 @@ pub async fn clone_repository(
     );
 
     info!("执行 git clone: {:?}", args);
+    let clone_start = std::time::Instant::now();
 
     let output = run_command_with_output("git", &args, None, app_handle, event_name).await?;
 
@@ -324,7 +325,9 @@ pub async fn clone_repository(
         )));
     }
 
-    info!("Git 克隆完成: {:?}", target_dir);
+    let clone_elapsed = clone_start.elapsed();
+    info!("Git 克隆完成: {:?} (耗时 {:.1}s)", target_dir, clone_elapsed.as_secs_f64());
+    let _ = app_handle.emit(event_name, &format!("克隆完成 (耗时 {:.1}s)", clone_elapsed.as_secs_f64()));
     Ok(())
 }
 
@@ -458,6 +461,9 @@ async fn download_file(
     app_handle: &AppHandle,
     event_name: &str,
 ) -> AppResult<()> {
+    let download_start = std::time::Instant::now();
+    info!("开始下载文件: {} → {:?}", url, dest);
+
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::limited(10))
         .build()
@@ -467,7 +473,7 @@ async fn download_file(
         .get(url)
         .send()
         .await
-        .map_err(|e| AppError::Network(format!("HTTP 请求失败: {}", e)))?;
+        .map_err(|e| AppError::Network(format!("HTTP 请求失败 ({}): {}", url, e)))?;
 
     if !response.status().is_success() {
         return Err(AppError::Network(format!(
@@ -543,8 +549,9 @@ async fn download_file(
     use sha2::{Sha256, Digest};
     let hash = Sha256::digest(&file_bytes);
     let hash_hex = format!("{:x}", hash);
-    info!("文件下载完成: {:?}, SHA256: {}", dest, hash_hex);
-    let _ = app_handle.emit(event_name, &format!("SHA256: {}", hash_hex));
+    let download_elapsed = download_start.elapsed();
+    info!("文件下载完成: {:?}, SHA256: {}, 耗时 {:.1}s", dest, hash_hex, download_elapsed.as_secs_f64());
+    let _ = app_handle.emit(event_name, &format!("下载完成 (耗时 {:.1}s), SHA256: {}", download_elapsed.as_secs_f64(), hash_hex));
 
     Ok(())
 }
