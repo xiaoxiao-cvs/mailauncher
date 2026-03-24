@@ -607,3 +607,627 @@ pub async fn get_channel_versions(
         versions,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::migration::run_migrations;
+    use crate::models::download::DownloadItemType;
+    use sqlx::SqlitePool;
+
+    // ==================== setup ====================
+
+    async fn setup_test_db() -> SqlitePool {
+        let pool = SqlitePool::connect("sqlite::memory:")
+            .await
+            .expect("创建内存数据库失败");
+        run_migrations(&pool).await.expect("迁移失败");
+        pool
+    }
+
+    /// 插入一条实例行，满足外键约束
+    async fn insert_instance_row(pool: &SqlitePool, id: &str) {
+        sqlx::query(
+            "INSERT INTO instances (id, name, instance_path, bot_type, status, run_time, component_state)
+             VALUES (?, ?, ?, 'maibot', 'stopped', 0, '[]')",
+        )
+        .bind(id)
+        .bind(format!("inst-{}", id))
+        .bind(format!("inst-{}", id))
+        .execute(pool)
+        .await
+        .expect("插入实例行失败");
+    }
+
+    // ==================== get_github_repo ====================
+
+    #[test]
+    fn get_github_repo_maibot_returns_correct_owner_and_folder() {
+        let repo = get_github_repo(&DownloadItemType::Maibot);
+        assert_eq!(repo.owner, "MaiM-with-u");
+        assert_eq!(repo.name, "MaiBot");
+        assert_eq!(repo.folder, "MaiBot");
+        assert!(!repo.has_releases);
+    }
+
+    #[test]
+    fn get_github_repo_napcat_uses_releases() {
+        let repo = get_github_repo(&DownloadItemType::Napcat);
+        assert_eq!(repo.owner, "NapNeko");
+        assert_eq!(repo.name, "NapCatQQ");
+        assert_eq!(repo.folder, "NapCat");
+        assert!(repo.has_releases);
+    }
+
+    #[test]
+    fn get_github_repo_napcat_adapter_maps_correctly() {
+        let repo = get_github_repo(&DownloadItemType::NapcatAdapter);
+        assert_eq!(repo.owner, "MaiM-with-u");
+        assert_eq!(repo.name, "MaiBot-Napcat-Adapter");
+        assert_eq!(repo.folder, "MaiBot-Napcat-Adapter");
+        assert!(!repo.has_releases);
+    }
+
+    #[test]
+    fn get_github_repo_lpmm_maps_correctly() {
+        let repo = get_github_repo(&DownloadItemType::Lpmm);
+        assert_eq!(repo.owner, "MaiM-with-u");
+        assert_eq!(repo.name, "MaiMBot-LPMM");
+        assert_eq!(repo.folder, "MaiMBot-LPMM");
+        assert!(!repo.has_releases);
+    }
+
+    // ==================== filter_by_channel ====================
+
+    #[test]
+    fn filter_by_channel_main_accepts_stable_tags() {
+        assert!(filter_by_channel("v1.0.0", "main"));
+        assert!(filter_by_channel("v2.3.1", "main"));
+        assert!(filter_by_channel("1.0.0", "main"));
+    }
+
+    #[test]
+    fn filter_by_channel_main_rejects_prerelease_tags() {
+        assert!(!filter_by_channel("v1.0.0-dev.1", "main"));
+        assert!(!filter_by_channel("v1.0.0-alpha.2", "main"));
+        assert!(!filter_by_channel("v1.0.0-rc.1", "main"));
+        assert!(!filter_by_channel("v1.0.0-beta.3", "main"));
+    }
+
+    #[test]
+    fn filter_by_channel_beta_accepts_only_beta_tags() {
+        assert!(filter_by_channel("v1.0.0-beta.1", "beta"));
+        assert!(filter_by_channel("v2.0.0-beta", "beta"));
+        assert!(!filter_by_channel("v1.0.0", "beta"));
+        assert!(!filter_by_channel("v1.0.0-dev.1", "beta"));
+        assert!(!filter_by_channel("v1.0.0-alpha.1", "beta"));
+        assert!(!filter_by_channel("v1.0.0-rc.1", "beta"));
+    }
+
+    #[test]
+    fn filter_by_channel_develop_accepts_dev_alpha_rc() {
+        assert!(filter_by_channel("v1.0.0-dev.1", "develop"));
+        assert!(filter_by_channel("v1.0.0-alpha.2", "develop"));
+        assert!(filter_by_channel("v1.0.0-rc.1", "develop"));
+        assert!(!filter_by_channel("v1.0.0", "develop"));
+        assert!(!filter_by_channel("v1.0.0-beta.1", "develop"));
+    }
+
+    #[test]
+    fn filter_by_channel_unknown_channel_falls_through_to_main_logic() {
+        assert!(filter_by_channel("v1.0.0", "stable"));
+        assert!(!filter_by_channel("v1.0.0-beta.1", "stable"));
+    }
+
+    // ==================== github_client ====================
+
+    #[test]
+    fn github_client_builds_without_panicking() {
+        let client = github_client();
+        // 验证客户端确实是可用的 reqwest::Client 实例（非 default）
+        // 如果构建失败会 panic，测试自然失败
+        drop(client);
+    }
+
+    #[test]
+    fn github_client_with_token_env_does_not_panic() {
+        // 临时设置 GITHUB_TOKEN 环境变量
+        std::env::set_var("GITHUB_TOKEN", "ghp_test_token_1234567890");
+        let client = github_client();
+        drop(client);
+        std::env::remove_var("GITHUB_TOKEN");
+    }
+
+    #[test]
+    fn github_client_with_empty_token_does_not_panic() {
+        std::env::set_var("GITHUB_TOKEN", "");
+        let client = github_client();
+        drop(client);
+        std::env::remove_var("GITHUB_TOKEN");
+    }
+
+    // ==================== fs_dir_size ====================
+
+    #[test]
+    fn fs_dir_size_returns_zero_for_nonexistent_path() {
+        let size = fs_dir_size(Path::new("/tmp/mailauncher_nonexistent_dir_xyz"));
+        assert_eq!(size, 0);
+    }
+
+    #[test]
+    fn fs_dir_size_calculates_correct_total_for_nested_dirs() {
+        let tmp = std::env::temp_dir().join("mailauncher_test_fs_dir_size");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(tmp.join("sub")).expect("创建测试目录失败");
+
+        // 写入已知大小的文件
+        std::fs::write(tmp.join("a.txt"), "hello").expect("写入失败"); // 5 bytes
+        std::fs::write(tmp.join("sub").join("b.txt"), "world!!").expect("写入失败"); // 7 bytes
+
+        let size = fs_dir_size(&tmp);
+        assert_eq!(size, 12, "5 + 7 = 12 字节");
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn fs_dir_size_returns_zero_for_empty_directory() {
+        let tmp = std::env::temp_dir().join("mailauncher_test_empty_dir");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
+
+        let size = fs_dir_size(&tmp);
+        assert_eq!(size, 0);
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    // ==================== get_local_version_from_file ====================
+
+    #[test]
+    fn get_local_version_from_file_parses_python_version_double_quotes() {
+        let tmp = std::env::temp_dir().join("mailauncher_test_pyver_dq");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
+
+        std::fs::write(
+            tmp.join("__version__.py"),
+            r#"__version__ = "1.2.3""#,
+        )
+        .expect("写入失败");
+
+        let version = get_local_version_from_file(&tmp, "TestComponent");
+        assert_eq!(version, Some("1.2.3".to_string()));
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn get_local_version_from_file_parses_python_version_single_quotes() {
+        let tmp = std::env::temp_dir().join("mailauncher_test_pyver_sq");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
+
+        std::fs::write(
+            tmp.join("__version__.py"),
+            "__version__ = '0.9.1'\n",
+        )
+        .expect("写入失败");
+
+        let version = get_local_version_from_file(&tmp, "TestComponent");
+        assert_eq!(version, Some("0.9.1".to_string()));
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn get_local_version_from_file_parses_package_json() {
+        let tmp = std::env::temp_dir().join("mailauncher_test_pkgjson");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
+
+        std::fs::write(
+            tmp.join("package.json"),
+            r#"{"name": "napcat", "version": "4.5.6"}"#,
+        )
+        .expect("写入失败");
+
+        let version = get_local_version_from_file(&tmp, "napcat");
+        assert_eq!(version, Some("4.5.6".to_string()));
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn get_local_version_from_file_prefers_python_over_package_json() {
+        let tmp = std::env::temp_dir().join("mailauncher_test_pyver_priority");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
+
+        std::fs::write(
+            tmp.join("__version__.py"),
+            r#"__version__ = "1.0.0""#,
+        )
+        .expect("写入失败");
+        std::fs::write(
+            tmp.join("package.json"),
+            r#"{"version": "2.0.0"}"#,
+        )
+        .expect("写入失败");
+
+        let version = get_local_version_from_file(&tmp, "comp");
+        assert_eq!(version, Some("1.0.0".to_string()), "Python __version__.py 应优先于 package.json");
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn get_local_version_from_file_returns_none_for_empty_dir() {
+        let tmp = std::env::temp_dir().join("mailauncher_test_no_version");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
+
+        let version = get_local_version_from_file(&tmp, "unknown");
+        assert_eq!(version, None);
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn get_local_version_from_file_returns_none_for_nonexistent_path() {
+        let version = get_local_version_from_file(
+            Path::new("/tmp/mailauncher_nonexistent_component_xyz"),
+            "ghost",
+        );
+        assert_eq!(version, None);
+    }
+
+    #[test]
+    fn get_local_version_from_file_handles_malformed_package_json() {
+        let tmp = std::env::temp_dir().join("mailauncher_test_bad_json");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
+
+        std::fs::write(tmp.join("package.json"), "not valid json {{{").expect("写入失败");
+
+        let version = get_local_version_from_file(&tmp, "comp");
+        assert_eq!(version, None);
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn get_local_version_from_file_handles_package_json_without_version_field() {
+        let tmp = std::env::temp_dir().join("mailauncher_test_no_ver_field");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
+
+        std::fs::write(tmp.join("package.json"), r#"{"name": "test"}"#).expect("写入失败");
+
+        let version = get_local_version_from_file(&tmp, "comp");
+        assert_eq!(version, None);
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn get_local_version_from_file_handles_python_file_without_version_line() {
+        let tmp = std::env::temp_dir().join("mailauncher_test_py_no_ver");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
+
+        std::fs::write(
+            tmp.join("__version__.py"),
+            "# just a comment\nauthor = 'someone'\n",
+        )
+        .expect("写入失败");
+
+        let version = get_local_version_from_file(&tmp, "comp");
+        assert_eq!(version, None);
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    // ==================== get_local_commit ====================
+
+    #[test]
+    fn get_local_commit_returns_none_for_non_git_directory() {
+        let tmp = std::env::temp_dir().join("mailauncher_test_no_git");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
+
+        let commit = get_local_commit(&tmp);
+        assert_eq!(commit, None);
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn get_local_commit_returns_none_for_nonexistent_path() {
+        let commit = get_local_commit(Path::new("/tmp/mailauncher_nonexistent_repo_xyz"));
+        assert_eq!(commit, None);
+    }
+
+    // ==================== DB: get_instance_components_version ====================
+
+    #[tokio::test]
+    async fn get_instance_components_version_returns_empty_for_no_records() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_ver_empty").await;
+
+        let result = get_instance_components_version(&pool, "inst_ver_empty", Path::new("/tmp"))
+            .await
+            .expect("查询失败");
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_instance_components_version_returns_matching_records_ordered_by_component() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_ver_multi").await;
+
+        sqlx::query(
+            "INSERT INTO component_versions (instance_id, component, version, commit_hash, install_method)
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind("inst_ver_multi")
+        .bind("NapCat")
+        .bind("3.0.0")
+        .bind("abc1234")
+        .bind("release")
+        .execute(&pool)
+        .await
+        .expect("插入失败");
+
+        sqlx::query(
+            "INSERT INTO component_versions (instance_id, component, version, commit_hash, install_method)
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind("inst_ver_multi")
+        .bind("MaiBot")
+        .bind("1.0.0")
+        .bind("def5678")
+        .bind("git")
+        .execute(&pool)
+        .await
+        .expect("插入失败");
+
+        // 另一个实例的记录，不应返回
+        insert_instance_row(&pool, "inst_ver_other").await;
+        sqlx::query(
+            "INSERT INTO component_versions (instance_id, component, version, commit_hash, install_method)
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind("inst_ver_other")
+        .bind("MaiBot")
+        .bind("9.9.9")
+        .bind("zzz0000")
+        .bind("manual")
+        .execute(&pool)
+        .await
+        .expect("插入失败");
+
+        let result = get_instance_components_version(&pool, "inst_ver_multi", Path::new("/tmp"))
+            .await
+            .expect("查询失败");
+
+        assert_eq!(result.len(), 2);
+        // ORDER BY component: MaiBot < NapCat
+        assert_eq!(result[0].component, "MaiBot");
+        assert_eq!(result[0].version, Some("1.0.0".to_string()));
+        assert_eq!(result[0].commit_hash, Some("def5678".to_string()));
+        assert_eq!(result[0].install_method, "git");
+        assert_eq!(result[1].component, "NapCat");
+        assert_eq!(result[1].version, Some("3.0.0".to_string()));
+        assert_eq!(result[1].install_method, "release");
+    }
+
+    // ==================== DB: get_backups ====================
+
+    #[tokio::test]
+    async fn get_backups_returns_empty_for_no_records() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_bk_empty").await;
+
+        let result = get_backups(&pool, "inst_bk_empty", None)
+            .await
+            .expect("查询失败");
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_backups_filters_by_component_when_specified() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_bk_filter").await;
+
+        sqlx::query(
+            "INSERT INTO version_backups (id, instance_id, component, backup_path, backup_size)
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind("bk_maibot_001")
+        .bind("inst_bk_filter")
+        .bind("MaiBot")
+        .bind("/backups/bk_maibot_001")
+        .bind(1024_i64)
+        .execute(&pool)
+        .await
+        .expect("插入失败");
+
+        sqlx::query(
+            "INSERT INTO version_backups (id, instance_id, component, backup_path, backup_size)
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind("bk_napcat_001")
+        .bind("inst_bk_filter")
+        .bind("NapCat")
+        .bind("/backups/bk_napcat_001")
+        .bind(2048_i64)
+        .execute(&pool)
+        .await
+        .expect("插入失败");
+
+        let all = get_backups(&pool, "inst_bk_filter", None)
+            .await
+            .expect("查询失败");
+        assert_eq!(all.len(), 2);
+
+        let maibot_only = get_backups(&pool, "inst_bk_filter", Some("MaiBot"))
+            .await
+            .expect("查询失败");
+        assert_eq!(maibot_only.len(), 1);
+        assert_eq!(maibot_only[0].id, "bk_maibot_001");
+        assert_eq!(maibot_only[0].component, "MaiBot");
+        assert_eq!(maibot_only[0].backup_size, 1024);
+
+        let napcat_only = get_backups(&pool, "inst_bk_filter", Some("NapCat"))
+            .await
+            .expect("查询失败");
+        assert_eq!(napcat_only.len(), 1);
+        assert_eq!(napcat_only[0].id, "bk_napcat_001");
+        assert_eq!(napcat_only[0].backup_size, 2048);
+    }
+
+    #[tokio::test]
+    async fn get_backups_does_not_leak_across_instances() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_bk_a").await;
+        insert_instance_row(&pool, "inst_bk_b").await;
+
+        sqlx::query(
+            "INSERT INTO version_backups (id, instance_id, component, backup_path, backup_size)
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind("bk_a_001")
+        .bind("inst_bk_a")
+        .bind("MaiBot")
+        .bind("/backups/bk_a_001")
+        .bind(512_i64)
+        .execute(&pool)
+        .await
+        .expect("插入失败");
+
+        let result_b = get_backups(&pool, "inst_bk_b", None)
+            .await
+            .expect("查询失败");
+        assert!(result_b.is_empty(), "实例 B 不应看到实例 A 的备份");
+    }
+
+    // ==================== DB: get_update_history ====================
+
+    #[tokio::test]
+    async fn get_update_history_returns_empty_for_no_records() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_uh_empty").await;
+
+        let result = get_update_history(&pool, "inst_uh_empty", None, None)
+            .await
+            .expect("查询失败");
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_update_history_respects_limit_parameter() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_uh_limit").await;
+
+        for i in 0..5 {
+            sqlx::query(
+                "INSERT INTO update_history (instance_id, component, from_version, to_version, status)
+                 VALUES (?, ?, ?, ?, ?)",
+            )
+            .bind("inst_uh_limit")
+            .bind("MaiBot")
+            .bind(format!("0.{}.0", i))
+            .bind(format!("0.{}.0", i + 1))
+            .bind("success")
+            .execute(&pool)
+            .await
+            .expect("插入失败");
+        }
+
+        let limited = get_update_history(&pool, "inst_uh_limit", None, Some(3))
+            .await
+            .expect("查询失败");
+        assert_eq!(limited.len(), 3);
+
+        let all = get_update_history(&pool, "inst_uh_limit", None, None)
+            .await
+            .expect("查询失败");
+        assert_eq!(all.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn get_update_history_filters_by_component() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_uh_comp").await;
+
+        sqlx::query(
+            "INSERT INTO update_history (instance_id, component, from_version, to_version, status)
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind("inst_uh_comp")
+        .bind("MaiBot")
+        .bind("1.0.0")
+        .bind("1.1.0")
+        .bind("success")
+        .execute(&pool)
+        .await
+        .expect("插入失败");
+
+        sqlx::query(
+            "INSERT INTO update_history (instance_id, component, from_version, to_version, status)
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind("inst_uh_comp")
+        .bind("NapCat")
+        .bind("2.0.0")
+        .bind("2.1.0")
+        .bind("failed")
+        .execute(&pool)
+        .await
+        .expect("插入失败");
+
+        let maibot = get_update_history(&pool, "inst_uh_comp", Some("MaiBot"), None)
+            .await
+            .expect("查询失败");
+        assert_eq!(maibot.len(), 1);
+        assert_eq!(maibot[0].component, "MaiBot");
+        assert_eq!(maibot[0].from_version, Some("1.0.0".to_string()));
+        assert_eq!(maibot[0].to_version, Some("1.1.0".to_string()));
+        assert_eq!(maibot[0].status, "success");
+
+        let napcat = get_update_history(&pool, "inst_uh_comp", Some("NapCat"), None)
+            .await
+            .expect("查询失败");
+        assert_eq!(napcat.len(), 1);
+        assert_eq!(napcat[0].status, "failed");
+    }
+
+    #[tokio::test]
+    async fn get_update_history_preserves_commit_and_error_fields() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_uh_fields").await;
+
+        sqlx::query(
+            "INSERT INTO update_history (instance_id, component, from_commit, to_commit, status, error_message)
+             VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind("inst_uh_fields")
+        .bind("MaiBot")
+        .bind("aaa1111")
+        .bind("bbb2222")
+        .bind("failed")
+        .bind("Git pull 超时")
+        .execute(&pool)
+        .await
+        .expect("插入失败");
+
+        let result = get_update_history(&pool, "inst_uh_fields", None, None)
+            .await
+            .expect("查询失败");
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].from_commit, Some("aaa1111".to_string()));
+        assert_eq!(result[0].to_commit, Some("bbb2222".to_string()));
+        assert_eq!(result[0].error_message, Some("Git pull 超时".to_string()));
+    }
+}

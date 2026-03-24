@@ -387,6 +387,276 @@ fn try_add_python(path: &str, found: &mut Vec<DiscoveredPython>, seen: &mut std:
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    // ==================== find_drive_path_start (Windows-only) ====================
+
+    #[cfg(target_os = "windows")]
+    mod find_drive_path_start_tests {
+        use super::super::find_drive_path_start;
+
+        #[test]
+        fn finds_path_in_py_launcher_output() {
+            let line = " -3.12-64       D:\\Python312\\python.exe *";
+            let idx = find_drive_path_start(line).expect("应找到驱动器路径");
+            assert_eq!(&line[idx..idx + 3], "D:\\");
+        }
+
+        #[test]
+        fn finds_path_starting_at_beginning() {
+            let line = "C:\\Users\\test\\python.exe";
+            let idx = find_drive_path_start(line).expect("应找到驱动器路径");
+            assert_eq!(idx, 0);
+        }
+
+        #[test]
+        fn handles_various_drive_letters() {
+            for letter in ['A', 'C', 'D', 'E', 'Z', 'a', 'c', 'z'] {
+                let line = format!("prefix {}:\\some\\path", letter);
+                let idx = find_drive_path_start(&line).expect(&format!("应找到盘符 {}", letter));
+                assert_eq!(line.as_bytes()[idx] as char, letter);
+            }
+        }
+
+        #[test]
+        fn returns_none_for_empty_string() {
+            assert!(find_drive_path_start("").is_none());
+        }
+
+        #[test]
+        fn returns_none_for_no_drive_pattern() {
+            assert!(find_drive_path_start("no drive path here").is_none());
+            assert!(find_drive_path_start("/usr/bin/python3").is_none());
+        }
+
+        #[test]
+        fn returns_none_for_colon_without_backslash() {
+            assert!(find_drive_path_start("C:/forward/slash").is_none());
+            assert!(find_drive_path_start("C:noslash").is_none());
+        }
+
+        #[test]
+        fn returns_none_for_too_short_input() {
+            assert!(find_drive_path_start("C:").is_none());
+            assert!(find_drive_path_start("C").is_none());
+        }
+
+        #[test]
+        fn finds_first_occurrence_with_multiple_drive_paths() {
+            let line = "text D:\\first E:\\second";
+            let idx = find_drive_path_start(line).expect("应找到第一个驱动器路径");
+            assert_eq!(&line[idx..idx + 3], "D:\\");
+        }
+
+        #[test]
+        fn ignores_digit_colon_backslash() {
+            // '1:\' should not match - only alphabetic chars are drive letters
+            assert!(find_drive_path_start("1:\\path").is_none());
+        }
+    }
+
+    // ==================== get_all_command_paths ====================
+
+    #[test]
+    fn get_all_command_paths_returns_nonempty_for_known_command() {
+        // 'git' should be available on any dev/CI machine
+        let paths = get_all_command_paths("git");
+        assert!(!paths.is_empty(), "git 应在 PATH 中");
+        for path in &paths {
+            assert!(
+                path.contains("git"),
+                "返回的路径 '{}' 应包含 'git'",
+                path
+            );
+        }
+    }
+
+    #[test]
+    fn get_all_command_paths_returns_empty_for_nonexistent_command() {
+        let paths = get_all_command_paths("__mai_nonexistent_command_xyz__");
+        assert!(paths.is_empty());
+    }
+
+    // ==================== check_git_environment ====================
+
+    #[test]
+    fn check_git_environment_finds_git() {
+        let info = check_git_environment().expect("check_git_environment 不应返回 Err");
+        assert!(info.is_available, "开发机/CI 应有 Git");
+        assert!(
+            info.version.contains("git version"),
+            "version 应包含 'git version', 实际: '{}'",
+            info.version
+        );
+        assert!(!info.path.is_empty(), "Git 路径不应为空");
+    }
+
+    // ==================== discover_python_environments ====================
+
+    #[test]
+    fn discover_python_environments_finds_at_least_one() {
+        let envs = discover_python_environments();
+        assert!(
+            !envs.is_empty(),
+            "开发机/CI 应至少有一个 Python 环境"
+        );
+        for env in &envs {
+            assert!(!env.path.is_empty(), "Python 路径不应为空");
+            assert!(!env.version.is_empty(), "Python 版本不应为空");
+            // 版本格式: 主版本号.次版本号.补丁号
+            let parts: Vec<&str> = env.version.split('.').collect();
+            assert!(
+                parts.len() >= 2,
+                "版本 '{}' 应至少包含主版本号和次版本号",
+                env.version
+            );
+            let major: u32 = parts[0].parse().expect("主版本号应为数字");
+            assert!(
+                major >= 3,
+                "发现的 Python 主版本号应 >= 3, 实际: {}",
+                major
+            );
+        }
+    }
+
+    #[test]
+    fn discover_python_environments_no_duplicates() {
+        let envs = discover_python_environments();
+        let mut seen = HashSet::new();
+        for env in &envs {
+            let canonical = std::fs::canonicalize(&env.path)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| env.path.clone());
+            assert!(
+                seen.insert(canonical.clone()),
+                "发现重复的 Python 环境: {} (canonical: {})",
+                env.path,
+                canonical
+            );
+        }
+    }
+
+    // ==================== try_add_python ====================
+
+    #[test]
+    fn try_add_python_adds_valid_python() {
+        let mut found = Vec::new();
+        let mut seen = HashSet::new();
+
+        // 找到一个已知的 python 路径
+        let paths = get_all_command_paths(if cfg!(target_os = "windows") {
+            "python"
+        } else {
+            "python3"
+        });
+        assert!(!paths.is_empty(), "应至少有一个 python 路径");
+
+        try_add_python(&paths[0], &mut found, &mut seen);
+
+        assert_eq!(found.len(), 1, "应添加一个 Python 环境");
+        assert_eq!(found[0].path, paths[0]);
+        assert!(!found[0].version.is_empty());
+        let major: u32 = found[0]
+            .version
+            .split('.')
+            .next()
+            .expect("版本应有主版本号")
+            .parse()
+            .expect("主版本号应为数字");
+        assert!(major >= 3);
+    }
+
+    #[test]
+    fn try_add_python_skips_nonexistent_path() {
+        let mut found = Vec::new();
+        let mut seen = HashSet::new();
+
+        try_add_python("/nonexistent/path/to/python", &mut found, &mut seen);
+
+        assert!(found.is_empty(), "不应添加不存在的 Python");
+    }
+
+    #[test]
+    fn try_add_python_deduplicates_same_path() {
+        let mut found = Vec::new();
+        let mut seen = HashSet::new();
+
+        let paths = get_all_command_paths(if cfg!(target_os = "windows") {
+            "python"
+        } else {
+            "python3"
+        });
+        if paths.is_empty() {
+            return; // 无可用 python，跳过
+        }
+
+        try_add_python(&paths[0], &mut found, &mut seen);
+        try_add_python(&paths[0], &mut found, &mut seen);
+
+        assert_eq!(found.len(), 1, "相同路径不应重复添加");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn try_add_python_skips_windowsapps_stub() {
+        let mut found = Vec::new();
+        let mut seen = HashSet::new();
+
+        try_add_python(
+            r"C:\Users\test\AppData\Local\Microsoft\WindowsApps\python.exe",
+            &mut found,
+            &mut seen,
+        );
+
+        assert!(found.is_empty(), "应跳过 WindowsApps 存根");
+    }
+
+    // ==================== GitInfo 结构体字段验证 ====================
+
+    #[test]
+    fn git_info_unavailable_has_empty_fields() {
+        let info = GitInfo {
+            is_available: false,
+            path: String::new(),
+            version: String::new(),
+        };
+        assert!(!info.is_available);
+        assert!(info.path.is_empty());
+        assert!(info.version.is_empty());
+    }
+
+    // ==================== GitInfo / DiscoveredPython 可序列化 ====================
+
+    #[test]
+    fn git_info_serializes_to_json() {
+        let info = GitInfo {
+            is_available: true,
+            path: "/usr/bin/git".to_string(),
+            version: "git version 2.40.0".to_string(),
+        };
+        let json = serde_json::to_string(&info).expect("GitInfo 应可序列化");
+        assert!(json.contains("\"is_available\":true"));
+        assert!(json.contains("\"path\":\"/usr/bin/git\""));
+        assert!(json.contains("\"version\":\"git version 2.40.0\""));
+    }
+
+    #[test]
+    fn discovered_python_serializes_to_json() {
+        let python = DiscoveredPython {
+            path: "C:\\Python312\\python.exe".to_string(),
+            version: "3.12.0".to_string(),
+        };
+        let json = serde_json::to_string(&python).expect("DiscoveredPython 应可序列化");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).expect("JSON 应可反序列化");
+        assert_eq!(parsed["version"], "3.12.0");
+        assert_eq!(parsed["path"], "C:\\Python312\\python.exe");
+    }
+}
+
 /// 网络连通性检查结果
 #[derive(Debug, serde::Serialize)]
 pub struct ConnectivityStatus {
