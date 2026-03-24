@@ -506,6 +506,9 @@ impl ProcessManager {
             cmd.arg(*arg);
         }
         cmd.cwd(cwd);
+        // 强制 Python 子进程使用 UTF-8，避免 Windows GBK 编码导致输出异常
+        cmd.env("PYTHONIOENCODING", "utf-8");
+        cmd.env("PYTHONUTF8", "1");
 
         let child = pair.slave.spawn_command(cmd).map_err(|e| {
             error!("启动进程失败 {}: {}", session_id, e);
