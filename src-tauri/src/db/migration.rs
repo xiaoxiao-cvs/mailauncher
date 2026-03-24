@@ -191,6 +191,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
     ensure_column(pool, "instances", "last_error", "TEXT").await?;
     ensure_column(pool, "instances", "last_status_reason", "TEXT").await?;
     ensure_column(pool, "instances", "component_state", "TEXT").await?;
+    ensure_column(pool, "instances", "component_runtime_profiles", "TEXT").await?;
 
     sqlx::query("CREATE INDEX IF NOT EXISTS ix_instances_name ON instances (name)")
         .execute(pool)
