@@ -258,7 +258,7 @@ pub async fn clone_repository(
             .map_err(|e| AppError::FileSystem(format!("清理目标目录失败: {}", e)))?;
     }
 
-    let mut args = vec!["clone", "--progress"];
+    let mut args = vec!["clone", "--progress", "--depth", "1"];
     if let Some(b) = branch {
         args.push("-b");
         args.push(b);
