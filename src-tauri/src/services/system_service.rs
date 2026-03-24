@@ -319,6 +319,15 @@ fn discover_from_registry(found: &mut Vec<DiscoveredPython>, seen: &mut std::col
 /// 尝试运行 python --version 并加入结果
 fn try_add_python(path: &str, found: &mut Vec<DiscoveredPython>, seen: &mut std::collections::HashSet<String>) {
     info!("[discover] try_add_python: {}", path);
+    // 过滤 Microsoft Store 重定向存根（WindowsApps 下的 python.exe 无法创建虚拟环境）
+    #[cfg(target_os = "windows")]
+    {
+        let path_lower = path.to_lowercase();
+        if path_lower.contains("windowsapps") {
+            info!("[discover]   跳过 Microsoft Store 存根: {}", path);
+            return;
+        }
+    }
     // 规范化路径
     let canonical = match std::fs::canonicalize(path) {
         Ok(p) => p.to_string_lossy().to_string(),
@@ -347,7 +356,18 @@ fn try_add_python(path: &str, found: &mut Vec<DiscoveredPython>, seen: &mut std:
                 .to_string();
 
             if !version.is_empty() {
-                info!("[discover]   ✓ 发现 Python {} at {}", version, path);
+                // 验证 venv 模块可用（某些 Linux 发行版拆包后缺少 ensurepip）
+                let venv_check = Command::new(path)
+                    .args(["-c", "import venv"])
+                    .output();
+                let has_venv = matches!(&venv_check, Ok(o) if o.status.success());
+
+                if has_venv {
+                    info!("[discover]   ✓ 发现 Python {} at {} (venv 可用)", version, path);
+                } else {
+                    info!("[discover]   ⚠ 发现 Python {} at {} (venv 不可用)", version, path);
+                }
+
                 seen.insert(canonical);
                 found.push(DiscoveredPython {
                     path: path.to_string(),
