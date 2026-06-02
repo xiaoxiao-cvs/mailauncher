@@ -36,10 +36,11 @@ pub fn get_github_repo(item_type: &crate::models::download::DownloadItemType) ->
             folder: "MaiBot",
             has_releases: false,
         },
+        // 适配器为 MaiBot 插件，本地检出位于 MaiBot/plugins 下。
         DownloadItemType::NapcatAdapter => GitHubRepo {
             owner: "Mai-with-u",
             name: "MaiBot-Napcat-Adapter",
-            folder: "MaiBot-Napcat-Adapter",
+            folder: "MaiBot/plugins/MaiBot-Napcat-Adapter",
             has_releases: false,
         },
         DownloadItemType::Napcat => GitHubRepo {
@@ -664,7 +665,8 @@ mod tests {
         let repo = get_github_repo(&DownloadItemType::NapcatAdapter);
         assert_eq!(repo.owner, "Mai-with-u");
         assert_eq!(repo.name, "MaiBot-Napcat-Adapter");
-        assert_eq!(repo.folder, "MaiBot-Napcat-Adapter");
+        // 适配器作为插件，本地检出位于 MaiBot/plugins 下。
+        assert_eq!(repo.folder, "MaiBot/plugins/MaiBot-Napcat-Adapter");
         assert!(!repo.has_releases);
     }
 

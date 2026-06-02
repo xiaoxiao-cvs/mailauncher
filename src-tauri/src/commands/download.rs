@@ -335,11 +335,27 @@ async fn execute_download_task(
                     .await;
                 let _ = app_handle.emit(&status_event, "configuring");
                 emit_progress(app_handle, task_id, progress + 10.0, "正在配置 MaiBot...", "configuring");
-                install_service::setup_maibot_config(&component_dir, app_handle, &event_name)
+                // qq_account 在安装阶段尚不可知（实例记录稍后创建），写空占位，
+                // 由 MaiBot 首启自生成完整配置后，用户在配置面板填写。
+                install_service::setup_maibot_config(&component_dir, None, app_handle, &event_name)
                     .await?;
             }
 
             DownloadItemType::NapcatAdapter => {
+                // 适配器为插件，安装到 MaiBot/plugins 下，依赖 MaiBot 已先安装。
+                let maibot_dir = instance_dir.join("MaiBot");
+                if !maibot_dir.exists() {
+                    return Err(AppError::InvalidInput(
+                        "安装 NapCat 适配器前必须先安装 MaiBot（未找到 MaiBot 目录）".to_string(),
+                    ));
+                }
+                // git clone 需要 plugins 父目录已存在。
+                if let Some(parent) = component_dir.parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| {
+                        AppError::FileSystem(format!("创建插件目录失败 ({:?}): {}", parent, e))
+                    })?;
+                }
+
                 dm.update_task_progress(
                     task_id,
                     progress,

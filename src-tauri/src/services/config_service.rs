@@ -206,7 +206,12 @@ pub async fn resolve_config_dir(
             let instances_dir = platform::get_instances_dir();
             let config_dir = match config_type {
                 "bot" | "model" => instances_dir.join(&instance_path).join("MaiBot").join("config"),
-                "adapter" => instances_dir.join(&instance_path).join("MaiBot-Napcat-Adapter"),
+                // 适配器作为 MaiBot 插件，其 config.toml 位于 MaiBot/plugins 下。
+                "adapter" => instances_dir
+                    .join(&instance_path)
+                    .join("MaiBot")
+                    .join("plugins")
+                    .join("MaiBot-Napcat-Adapter"),
                 _ => {
                     return Err(AppError::InvalidInput(format!(
                         "未知配置类型: {}",

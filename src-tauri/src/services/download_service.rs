@@ -33,9 +33,11 @@ pub fn get_repo_config(item_type: &DownloadItemType) -> RepoConfig {
             url: "https://github.com/Mai-with-u/MaiBot.git",
             folder: "MaiBot",
         },
+        // 适配器自 MaiBot 1.0.0 起为插件形态，安装到 MaiBot/plugins 下，
+        // 由 MaiBot 的插件运行时加载（依赖 MaiBot 已先安装）。
         DownloadItemType::NapcatAdapter => RepoConfig {
             url: "https://github.com/Mai-with-u/MaiBot-Napcat-Adapter.git",
-            folder: "MaiBot-Napcat-Adapter",
+            folder: "MaiBot/plugins/MaiBot-Napcat-Adapter",
         },
         DownloadItemType::Lpmm => RepoConfig {
             url: "https://github.com/Mai-with-u/MaiMBot-LPMM.git",
@@ -1014,7 +1016,8 @@ mod tests {
         assert!(napcat.url.contains("NapCat.Shell.zip"), "NapCat URL 应指向 Shell.zip");
 
         let adapter = get_repo_config(&DownloadItemType::NapcatAdapter);
-        assert_eq!(adapter.folder, "MaiBot-Napcat-Adapter");
+        // 适配器作为插件安装到 MaiBot/plugins 下。
+        assert_eq!(adapter.folder, "MaiBot/plugins/MaiBot-Napcat-Adapter");
         assert!(adapter.url.contains("MaiBot-Napcat-Adapter.git"));
 
         let lpmm = get_repo_config(&DownloadItemType::Lpmm);

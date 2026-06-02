@@ -1,14 +1,30 @@
 /// 安装管理服务
 ///
 /// 对应 Python 的 install_service.py。
-/// 负责虚拟环境创建、pip 升级、依赖安装、组件配置模板复制等。
+/// 负责虚拟环境创建、pip 升级、依赖安装、组件配置生成等。
 use std::path::Path;
 
 use tauri::{AppHandle, Emitter};
+use toml_edit::{value, DocumentMut};
 use tracing::{info, warn};
 
 use crate::errors::{AppError, AppResult};
 use crate::services::download_service::run_command_with_output;
+
+/// NapCat 内置适配器的 SUPPORTED_CONFIG_VERSION。
+///
+/// 来源：maibot-ref/MaiBot-Napcat-Adapter/constants.py:4
+/// `SUPPORTED_CONFIG_VERSION = "0.1.0"`。适配器 `config.py` 的
+/// `validate_runtime_config` 会要求 `plugin.config_version` 与之严格相等，
+/// 因此生成 config.toml 时必须写入该值。
+const ADAPTER_SUPPORTED_CONFIG_VERSION: &str = "0.1.0";
+
+/// NapCat 适配器默认连接参数。
+///
+/// 来源：maibot-ref/MaiBot-Napcat-Adapter/constants.py:5-6
+/// `DEFAULT_NAPCAT_HOST = "127.0.0.1"`、`DEFAULT_NAPCAT_PORT = 3001`。
+const ADAPTER_DEFAULT_NAPCAT_HOST: &str = "127.0.0.1";
+const ADAPTER_DEFAULT_NAPCAT_PORT: i64 = 3001;
 
 // ==================== 虚拟环境 ====================
 
@@ -162,68 +178,171 @@ pub async fn install_dependencies(
     Ok(())
 }
 
-// ==================== 配置模板 ====================
+// ==================== 配置生成 ====================
 
-/// 配置 MaiBot（复制模板配置文件）
+/// 从 MaiBot 源码读取 CONFIG_VERSION 并将末位修订号减一。
 ///
-/// 对应 Python `InstallService.setup_maibot_config`。
-/// 复制 .env.template → .env, template_bot_config.toml → bot_config.toml 等。
+/// MaiBot 上游已删除配置模板，改由首启自生成。官方一键包
+/// MaiBotOneKey 的做法是预写一个比当前 CONFIG_VERSION 末位小 1 的
+/// `[inner].version`，触发 MaiBot 下次启动执行配置升级流程，从而
+/// 生成完整的默认配置（详见 maibot-ref/MaiBot/src/config/config.py
+/// 第 62 行 `CONFIG_VERSION` 与 legacy_upgrade_confirmation.py 的版本判定）。
+///
+/// 例如 CONFIG_VERSION = "8.12.26" -> stub 版本 "8.12.25"。
+fn read_stub_bot_config_version(maibot_dir: &Path) -> AppResult<String> {
+    let config_py = maibot_dir.join("src").join("config").join("config.py");
+    let source = std::fs::read_to_string(&config_py).map_err(|e| {
+        AppError::FileSystem(format!("读取 MaiBot config.py 失败 ({:?}): {}", config_py, e))
+    })?;
+
+    let version = extract_config_version(&source).ok_or_else(|| {
+        AppError::Config(format!(
+            "未能在 {:?} 解析到 CONFIG_VERSION 常量",
+            config_py
+        ))
+    })?;
+
+    decrement_patch_version(&version).ok_or_else(|| {
+        AppError::Config(format!("CONFIG_VERSION 格式非法，无法生成 stub 版本: {}", version))
+    })
+}
+
+/// 从 config.py 源码中提取 `CONFIG_VERSION: str = "x.y.z"` 的值。
+///
+/// 仅匹配以 `CONFIG_VERSION` 起始的赋值行，借助其后紧跟 `:` 或 `=` 排除
+/// `MODEL_CONFIG_VERSION` 等其它常量（后者以 `MODEL_` 开头，trim 后不会命中）。
+fn extract_config_version(source: &str) -> Option<String> {
+    for line in source.lines() {
+        let trimmed = line.trim_start();
+        let Some(rest) = trimmed.strip_prefix("CONFIG_VERSION") else {
+            continue;
+        };
+        // rest 形如 `: str = "8.12.26"`，下一字符须是 `:` 或 `=`（或空白），
+        // 避免误匹配假想的 `CONFIG_VERSIONX` 标识符。
+        if !rest.starts_with([':', '=', ' ', '\t']) {
+            continue;
+        }
+        let Some((_, after_eq)) = rest.split_once('=') else {
+            continue;
+        };
+        let after_eq = after_eq.trim();
+        if let Some(inner) = after_eq.strip_prefix('"') {
+            if let Some(version) = inner.split('"').next() {
+                if !version.is_empty() {
+                    return Some(version.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// 将三段式语义版本的末位修订号减一（如 "8.12.26" -> "8.12.25"）。
+///
+/// 末位为 0 时不再下溢，保持为 0（极端边界，正常 CONFIG_VERSION 不会出现）。
+fn decrement_patch_version(version: &str) -> Option<String> {
+    let parts: Vec<&str> = version.trim().split('.').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let major: u64 = parts[0].parse().ok()?;
+    let minor: u64 = parts[1].parse().ok()?;
+    let patch: u64 = parts[2].parse().ok()?;
+    let stub_patch = patch.saturating_sub(1);
+    Some(format!("{}.{}.{}", major, minor, stub_patch))
+}
+
+/// 写入 MaiBot 最小 stub 配置（纯文件操作，便于测试）。
+///
+/// 返回写入的 stub 版本号；若 `config/bot_config.toml` 已存在则跳过并返回 None。
+fn write_maibot_config_stub(maibot_dir: &Path, qq_account: Option<&str>) -> AppResult<Option<String>> {
+    let config_dir = maibot_dir.join("config");
+    std::fs::create_dir_all(&config_dir)
+        .map_err(|e| AppError::FileSystem(format!("创建 MaiBot config 目录失败: {}", e)))?;
+
+    let bot_config_path = config_dir.join("bot_config.toml");
+    if bot_config_path.exists() {
+        info!("bot_config.toml 已存在，跳过 stub 写入: {:?}", bot_config_path);
+        return Ok(None);
+    }
+
+    let stub_version = read_stub_bot_config_version(maibot_dir)?;
+
+    let mut doc = DocumentMut::new();
+    doc["inner"]["version"] = value(&stub_version);
+    doc["bot"]["platform"] = value("qq");
+    doc["bot"]["qq_account"] = value(qq_account.unwrap_or(""));
+
+    std::fs::write(&bot_config_path, doc.to_string())
+        .map_err(|e| AppError::FileSystem(format!("写入 bot_config.toml 失败: {}", e)))?;
+
+    Ok(Some(stub_version))
+}
+
+/// 配置 MaiBot：写入最小 stub 触发首启自生成完整配置。
+///
+/// 替换原先的模板复制逻辑（上游模板已删除）。仅写 `config/bot_config.toml`，
+/// `model_config.toml` 交给 MaiBot 首启生成默认（DeepSeek 占位），不预写 .env。
 pub async fn setup_maibot_config(
     maibot_dir: &Path,
+    qq_account: Option<&str>,
     app_handle: &AppHandle,
     event_name: &str,
 ) -> AppResult<()> {
-    info!("配置 MaiBot: {:?}", maibot_dir);
+    info!("配置 MaiBot（写最小 stub）: {:?}", maibot_dir);
 
-    // .env 配置
-    let env_template = maibot_dir.join(".env.template");
-    let env_target = maibot_dir.join(".env");
-    if env_template.exists() && !env_target.exists() {
-        std::fs::copy(&env_template, &env_target)
-            .map_err(|e| AppError::FileSystem(format!("复制 .env 模板失败: {}", e)))?;
-        let _ = app_handle.emit(event_name, "已复制 .env 配置");
+    if let Some(stub_version) = write_maibot_config_stub(maibot_dir, qq_account)? {
+        let _ = app_handle.emit(
+            event_name,
+            format!("已写入 MaiBot 配置 stub（version={}），首启将自生成完整配置", stub_version),
+        );
     }
-
-    // bot_config.toml
-    let bot_template = maibot_dir.join("template_bot_config.toml");
-    let bot_target = maibot_dir.join("bot_config.toml");
-    if bot_template.exists() && !bot_target.exists() {
-        std::fs::copy(&bot_template, &bot_target)
-            .map_err(|e| AppError::FileSystem(format!("复制 bot_config 模板失败: {}", e)))?;
-        let _ = app_handle.emit(event_name, "已复制 bot_config.toml 配置");
-    }
-
-    // model_config.toml
-    let model_template = maibot_dir.join("template_model_config.toml");
-    let model_target = maibot_dir.join("model_config.toml");
-    if model_template.exists() && !model_target.exists() {
-        std::fs::copy(&model_template, &model_target).map_err(|e| {
-            AppError::FileSystem(format!("复制 model_config 模板失败: {}", e))
-        })?;
-        let _ = app_handle.emit(event_name, "已复制 model_config.toml 配置");
-    }
-
     Ok(())
 }
 
-/// 配置 Napcat Adapter（复制模板配置文件）
+/// 写入 NapCat 适配器插件 config.toml（纯文件操作，便于测试）。
 ///
-/// 对应 Python `InstallService.setup_adapter_config`。
+/// 返回是否实际写入；若文件已存在则跳过并返回 false。
+fn write_adapter_plugin_config(adapter_dir: &Path) -> AppResult<bool> {
+    let target = adapter_dir.join("config.toml");
+    if target.exists() {
+        info!("适配器 config.toml 已存在，跳过生成: {:?}", target);
+        return Ok(false);
+    }
+
+    std::fs::create_dir_all(adapter_dir)
+        .map_err(|e| AppError::FileSystem(format!("创建适配器目录失败: {}", e)))?;
+
+    let mut doc = DocumentMut::new();
+    doc["plugin"]["enabled"] = value(true);
+    doc["plugin"]["config_version"] = value(ADAPTER_SUPPORTED_CONFIG_VERSION);
+    doc["napcat_server"]["host"] = value(ADAPTER_DEFAULT_NAPCAT_HOST);
+    doc["napcat_server"]["port"] = value(ADAPTER_DEFAULT_NAPCAT_PORT);
+    doc["napcat_server"]["token"] = value("");
+
+    std::fs::write(&target, doc.to_string())
+        .map_err(|e| AppError::FileSystem(format!("写入适配器 config.toml 失败: {}", e)))?;
+
+    Ok(true)
+}
+
+/// 配置 NapCat 适配器插件：生成 config.toml。
+///
+/// 按 maibot-ref/MaiBot-Napcat-Adapter/config.py 的 NapCatPluginSettings 结构写：
+/// - [plugin] enabled=true、config_version=SUPPORTED_CONFIG_VERSION
+/// - [napcat_server] host/port/token
+/// - [chat] 采用其默认（whitelist 模式 + 空 group_list 默认不放行群消息，
+///   由配置面板后续调整）。
 pub async fn setup_adapter_config(
     adapter_dir: &Path,
     app_handle: &AppHandle,
     event_name: &str,
 ) -> AppResult<()> {
-    info!("配置 NapCat Adapter: {:?}", adapter_dir);
+    info!("配置 NapCat 适配器插件: {:?}", adapter_dir);
 
-    let template = adapter_dir.join("template_config.toml");
-    let target = adapter_dir.join("config.toml");
-    if template.exists() && !target.exists() {
-        std::fs::copy(&template, &target)
-            .map_err(|e| AppError::FileSystem(format!("复制 adapter config 模板失败: {}", e)))?;
-        let _ = app_handle.emit(event_name, "已复制 adapter config.toml 配置");
+    if write_adapter_plugin_config(adapter_dir)? {
+        let _ = app_handle.emit(event_name, "已生成 NapCat 适配器 config.toml");
     }
-
     Ok(())
 }
 
@@ -316,147 +435,153 @@ mod tests {
         }
     }
 
-    // ==================== setup_maibot_config (模板复制) ====================
+    // ==================== CONFIG_VERSION 解析与减一 ====================
 
     #[test]
-    fn setup_maibot_config_copies_env_template() {
+    fn extract_config_version_parses_constant() {
+        let source = "MMC_VERSION: str = \"1.0.0-rc.4\"\nCONFIG_VERSION: str = \"8.12.26\"\nMODEL_CONFIG_VERSION: str = \"1.17.3\"\n";
+        assert_eq!(extract_config_version(source), Some("8.12.26".to_string()));
+    }
+
+    #[test]
+    fn extract_config_version_ignores_model_config_version() {
+        // 仅有 MODEL_CONFIG_VERSION 时不得误匹配。
+        let source = "MODEL_CONFIG_VERSION: str = \"1.17.3\"\n";
+        assert_eq!(extract_config_version(source), None);
+    }
+
+    #[test]
+    fn extract_config_version_returns_none_when_absent() {
+        let source = "SOME_OTHER: str = \"x\"\n";
+        assert_eq!(extract_config_version(source), None);
+    }
+
+    #[test]
+    fn decrement_patch_version_subtracts_one() {
+        assert_eq!(decrement_patch_version("8.12.26"), Some("8.12.25".to_string()));
+        assert_eq!(decrement_patch_version("1.0.1"), Some("1.0.0".to_string()));
+    }
+
+    #[test]
+    fn decrement_patch_version_does_not_underflow() {
+        // 末位为 0 时保持为 0，不下溢。
+        assert_eq!(decrement_patch_version("8.12.0"), Some("8.12.0".to_string()));
+    }
+
+    #[test]
+    fn decrement_patch_version_rejects_non_three_segment() {
+        assert_eq!(decrement_patch_version("8.12"), None);
+        assert_eq!(decrement_patch_version("8.12.26.1"), None);
+        assert_eq!(decrement_patch_version("8.12.x"), None);
+    }
+
+    // ==================== setup_maibot_config (写 stub) ====================
+
+    /// 在临时目录中伪造一个含 CONFIG_VERSION 的 MaiBot 源码骨架。
+    fn fake_maibot_dir(root: &Path, config_version: &str) {
+        let config_src = root.join("src").join("config");
+        fs::create_dir_all(&config_src).expect("创建 config 源码目录失败");
+        fs::write(
+            config_src.join("config.py"),
+            format!("CONFIG_VERSION: str = \"{}\"\nMODEL_CONFIG_VERSION: str = \"1.17.3\"\n", config_version),
+        )
+        .expect("写 config.py 失败");
+    }
+
+    #[test]
+    fn write_maibot_config_stub_writes_decremented_version_and_bot_section() {
         let dir = tempdir().expect("创建临时目录失败");
         let maibot_dir = dir.path();
+        fake_maibot_dir(maibot_dir, "8.12.26");
 
-        fs::write(maibot_dir.join(".env.template"), "DB_HOST=localhost\nDB_PORT=5432")
-            .expect("写模板失败");
+        let written = write_maibot_config_stub(maibot_dir, Some("123456"))
+            .expect("写 stub 失败");
+        assert_eq!(written, Some("8.12.25".to_string()));
 
-        // 没有 AppHandle，无法调用 async 版本；直接测试底层文件复制逻辑
-        let env_template = maibot_dir.join(".env.template");
-        let env_target = maibot_dir.join(".env");
-        assert!(env_template.exists());
-        assert!(!env_target.exists());
+        let bot_config_path = maibot_dir.join("config").join("bot_config.toml");
+        let content = fs::read_to_string(&bot_config_path).expect("读取 bot_config.toml 失败");
+        let doc: toml::Value = toml::from_str(&content).expect("解析 bot_config.toml 失败");
 
-        fs::copy(&env_template, &env_target).expect("复制失败");
-
-        let content = fs::read_to_string(&env_target).expect("读取失败");
-        assert_eq!(content, "DB_HOST=localhost\nDB_PORT=5432");
+        // 末位减一的 stub 版本触发 MaiBot 首启自升级生成完整配置。
+        assert_eq!(doc["inner"]["version"].as_str(), Some("8.12.25"));
+        assert_eq!(doc["bot"]["platform"].as_str(), Some("qq"));
+        assert_eq!(doc["bot"]["qq_account"].as_str(), Some("123456"));
     }
 
     #[test]
-    fn setup_maibot_config_skips_when_target_already_exists() {
+    fn write_maibot_config_stub_defaults_empty_qq_account() {
         let dir = tempdir().expect("创建临时目录失败");
         let maibot_dir = dir.path();
+        fake_maibot_dir(maibot_dir, "8.12.26");
 
-        fs::write(maibot_dir.join(".env.template"), "TEMPLATE_VALUE=original")
-            .expect("写模板失败");
-        fs::write(maibot_dir.join(".env"), "USER_VALUE=customized")
-            .expect("写目标文件失败");
+        write_maibot_config_stub(maibot_dir, None).expect("写 stub 失败");
 
-        let env_template = maibot_dir.join(".env.template");
-        let env_target = maibot_dir.join(".env");
-
-        // 模拟 setup_maibot_config 的条件逻辑：仅在 target 不存在时复制
-        if env_template.exists() && !env_target.exists() {
-            fs::copy(&env_template, &env_target).expect("复制失败");
-        }
-
-        let content = fs::read_to_string(&env_target).expect("读取失败");
-        assert_eq!(content, "USER_VALUE=customized");
+        let content = fs::read_to_string(maibot_dir.join("config").join("bot_config.toml"))
+            .expect("读取失败");
+        let doc: toml::Value = toml::from_str(&content).expect("解析失败");
+        assert_eq!(doc["bot"]["qq_account"].as_str(), Some(""));
     }
 
     #[test]
-    fn setup_maibot_config_copies_bot_config_toml_template() {
+    fn write_maibot_config_stub_skips_existing_config() {
         let dir = tempdir().expect("创建临时目录失败");
         let maibot_dir = dir.path();
+        fake_maibot_dir(maibot_dir, "8.12.26");
 
-        let toml_content = "[bot]\nname = \"MaiBot\"\nversion = \"1.0.0\"\n";
-        fs::write(maibot_dir.join("template_bot_config.toml"), toml_content)
-            .expect("写模板失败");
-
-        let template = maibot_dir.join("template_bot_config.toml");
-        let target = maibot_dir.join("bot_config.toml");
-        assert!(!target.exists());
-
-        if template.exists() && !target.exists() {
-            fs::copy(&template, &target).expect("复制失败");
-        }
-
-        let result = fs::read_to_string(&target).expect("读取失败");
-        assert_eq!(result, toml_content);
-    }
-
-    #[test]
-    fn setup_maibot_config_copies_model_config_toml_template() {
-        let dir = tempdir().expect("创建临时目录失败");
-        let maibot_dir = dir.path();
-
-        let toml_content = "[model]\nprovider = \"openai\"\napi_key = \"sk-xxx\"\n";
-        fs::write(maibot_dir.join("template_model_config.toml"), toml_content)
-            .expect("写模板失败");
-
-        let template = maibot_dir.join("template_model_config.toml");
-        let target = maibot_dir.join("model_config.toml");
-
-        if template.exists() && !target.exists() {
-            fs::copy(&template, &target).expect("复制失败");
-        }
-
-        let result = fs::read_to_string(&target).expect("读取失败");
-        assert_eq!(result, toml_content);
-    }
-
-    #[test]
-    fn setup_maibot_config_no_op_when_no_templates_exist() {
-        let dir = tempdir().expect("创建临时目录失败");
-        let maibot_dir = dir.path();
-
-        // 空目录，无任何模板文件
-        let env_target = maibot_dir.join(".env");
-        let bot_target = maibot_dir.join("bot_config.toml");
-        let model_target = maibot_dir.join("model_config.toml");
-
-        assert!(!env_target.exists());
-        assert!(!bot_target.exists());
-        assert!(!model_target.exists());
-    }
-
-    // ==================== setup_adapter_config (模板复制) ====================
-
-    #[test]
-    fn setup_adapter_config_copies_template() {
-        let dir = tempdir().expect("创建临时目录失败");
-        let adapter_dir = dir.path();
-
-        let toml_content = "[adapter]\nhost = \"127.0.0.1\"\nport = 8080\n";
-        fs::write(adapter_dir.join("template_config.toml"), toml_content)
-            .expect("写模板失败");
-
-        let template = adapter_dir.join("template_config.toml");
-        let target = adapter_dir.join("config.toml");
-
-        if template.exists() && !target.exists() {
-            fs::copy(&template, &target).expect("复制失败");
-        }
-
-        let result = fs::read_to_string(&target).expect("读取失败");
-        assert_eq!(result, toml_content);
-    }
-
-    #[test]
-    fn setup_adapter_config_skips_when_config_exists() {
-        let dir = tempdir().expect("创建临时目录失败");
-        let adapter_dir = dir.path();
-
-        fs::write(adapter_dir.join("template_config.toml"), "[adapter]\nhost = \"0.0.0.0\"")
-            .expect("写模板失败");
-        fs::write(adapter_dir.join("config.toml"), "[adapter]\nhost = \"192.168.1.1\"")
+        let config_dir = maibot_dir.join("config");
+        fs::create_dir_all(&config_dir).expect("创建 config 目录失败");
+        fs::write(config_dir.join("bot_config.toml"), "[inner]\nversion = \"9.9.9\"\n")
             .expect("写已有配置失败");
 
-        let template = adapter_dir.join("template_config.toml");
-        let target = adapter_dir.join("config.toml");
+        let written = write_maibot_config_stub(maibot_dir, Some("123")).expect("调用失败");
+        assert_eq!(written, None, "已存在配置时应跳过");
 
-        if template.exists() && !target.exists() {
-            fs::copy(&template, &target).expect("复制失败");
-        }
+        // 已有用户配置不得被覆盖。
+        let content = fs::read_to_string(config_dir.join("bot_config.toml")).expect("读取失败");
+        assert!(content.contains("9.9.9"));
+    }
 
-        let result = fs::read_to_string(&target).expect("读取失败");
-        assert_eq!(result, "[adapter]\nhost = \"192.168.1.1\"");
+    #[test]
+    fn write_maibot_config_stub_errors_without_config_py() {
+        let dir = tempdir().expect("创建临时目录失败");
+        // 不创建 src/config/config.py，读取版本应报错。
+        let result = write_maibot_config_stub(dir.path(), None);
+        assert!(result.is_err(), "缺少 config.py 时必须报错而非静默写错版本");
+    }
+
+    // ==================== setup_adapter_config (写插件 config.toml) ====================
+
+    #[test]
+    fn write_adapter_plugin_config_writes_expected_fields() {
+        let dir = tempdir().expect("创建临时目录失败");
+        let adapter_dir = dir.path().join("MaiBot").join("plugins").join("MaiBot-Napcat-Adapter");
+
+        let written = write_adapter_plugin_config(&adapter_dir).expect("写适配器配置失败");
+        assert!(written);
+
+        let content = fs::read_to_string(adapter_dir.join("config.toml")).expect("读取失败");
+        let doc: toml::Value = toml::from_str(&content).expect("解析失败");
+
+        // 字段来源：maibot-ref/MaiBot-Napcat-Adapter/constants.py 与 config.py。
+        assert_eq!(doc["plugin"]["enabled"].as_bool(), Some(true));
+        assert_eq!(doc["plugin"]["config_version"].as_str(), Some("0.1.0"));
+        assert_eq!(doc["napcat_server"]["host"].as_str(), Some("127.0.0.1"));
+        assert_eq!(doc["napcat_server"]["port"].as_integer(), Some(3001));
+        assert_eq!(doc["napcat_server"]["token"].as_str(), Some(""));
+    }
+
+    #[test]
+    fn write_adapter_plugin_config_skips_when_exists() {
+        let dir = tempdir().expect("创建临时目录失败");
+        let adapter_dir = dir.path();
+        fs::write(adapter_dir.join("config.toml"), "[plugin]\nenabled = false\n")
+            .expect("写已有配置失败");
+
+        let written = write_adapter_plugin_config(adapter_dir).expect("调用失败");
+        assert!(!written, "已存在配置时应跳过");
+
+        let content = fs::read_to_string(adapter_dir.join("config.toml")).expect("读取失败");
+        assert!(content.contains("enabled = false"), "已有配置不得被覆盖");
     }
 
     // ==================== venv 路径解析 ====================
@@ -515,42 +640,6 @@ mod tests {
         assert!(!requirements.exists());
     }
 
-    // ==================== 多模板文件完整性 ====================
-
-    #[test]
-    fn all_three_maibot_templates_copy_correctly() {
-        let dir = tempdir().expect("创建临时目录失败");
-        let maibot_dir = dir.path();
-
-        let templates = [
-            (".env.template", ".env", "SECRET_KEY=abc123"),
-            (
-                "template_bot_config.toml",
-                "bot_config.toml",
-                "[bot]\ntoken = \"xxx\"",
-            ),
-            (
-                "template_model_config.toml",
-                "model_config.toml",
-                "[model]\nendpoint = \"https://api.example.com\"",
-            ),
-        ];
-
-        for (template_name, _, content) in &templates {
-            fs::write(maibot_dir.join(template_name), content).expect("写模板失败");
-        }
-
-        for (template_name, target_name, expected_content) in &templates {
-            let template = maibot_dir.join(template_name);
-            let target = maibot_dir.join(target_name);
-            if template.exists() && !target.exists() {
-                fs::copy(&template, &target).expect("复制失败");
-            }
-            let actual = fs::read_to_string(&target).expect("读取失败");
-            assert_eq!(&actual, expected_content);
-        }
-    }
-
     // ==================== 边界情况 ====================
 
     #[test]
@@ -573,39 +662,6 @@ mod tests {
         } else {
             assert_eq!(python, PathBuf::from("bin/python"));
         }
-    }
-
-    #[test]
-    fn template_with_unicode_content_copies_correctly() {
-        let dir = tempdir().expect("创建临时目录失败");
-        let maibot_dir = dir.path();
-
-        let unicode_content = "[bot]\nname = \"麦麦机器人\"\ndescription = \"これはテストです\"\n";
-        fs::write(maibot_dir.join("template_bot_config.toml"), unicode_content)
-            .expect("写模板失败");
-
-        let template = maibot_dir.join("template_bot_config.toml");
-        let target = maibot_dir.join("bot_config.toml");
-        fs::copy(&template, &target).expect("复制失败");
-
-        let result = fs::read_to_string(&target).expect("读取失败");
-        assert_eq!(result, unicode_content);
-        assert!(result.contains("麦麦机器人"));
-        assert!(result.contains("これはテストです"));
-    }
-
-    #[test]
-    fn template_with_empty_content_copies_correctly() {
-        let dir = tempdir().expect("创建临时目录失败");
-        let path = dir.path();
-
-        fs::write(path.join(".env.template"), "").expect("写空模板失败");
-        let template = path.join(".env.template");
-        let target = path.join(".env");
-        fs::copy(&template, &target).expect("复制失败");
-
-        let result = fs::read_to_string(&target).expect("读取失败");
-        assert_eq!(result, "");
     }
 
     #[test]
