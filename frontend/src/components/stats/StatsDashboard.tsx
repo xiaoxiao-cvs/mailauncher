@@ -1,24 +1,26 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from "react";
 import {
   useStatsOverviewQuery,
   useInstanceStatsQuery,
   type TimeRange,
   type StatsSummary,
   type ModelStats,
-} from '@/hooks/queries/useStatsQueries';
-import { useInstancesQuery } from '@/hooks/queries/useInstanceQueries';
-import { MessageQueuePanel } from '@/components/message-queue/MessageQueuePanel';
-import { StatsControlBar } from './StatsControlBar';
-import { StatsOverviewCards } from './StatsOverviewCards';
-import { ModelDistributionChart } from './ModelDistributionChart';
+} from "@/hooks/queries/useStatsQueries";
+import { useInstancesQuery } from "@/hooks/queries/useInstanceQueries";
+import { MessageQueuePanel } from "@/components/message-queue/MessageQueuePanel";
+import { StatsControlBar } from "./StatsControlBar";
+import { StatsOverviewCards } from "./StatsOverviewCards";
+import { ModelDistributionChart } from "./ModelDistributionChart";
 
 const HISTORY_MAX_POINTS = 12;
 
 export function StatsDashboard() {
-  const [timeRange, setTimeRange] = useState<TimeRange>('24h');
+  const [timeRange, setTimeRange] = useState<TimeRange>("24h");
   const [refreshInterval, setRefreshInterval] = useState(30000);
   const [selectedInstance, setSelectedInstance] = useState<string | null>(null);
-  const [chartType, setChartType] = useState<'cost' | 'requests' | 'tokens'>('cost');
+  const [chartType, setChartType] = useState<"cost" | "requests" | "tokens">(
+    "cost",
+  );
 
   const [statsHistory, setStatsHistory] = useState<{
     requests: number[];
@@ -64,28 +66,28 @@ export function StatsDashboard() {
     isLoading: overviewLoading,
     dataUpdatedAt: lastUpdated,
   } = useStatsOverviewQuery(timeRange, {
-    refetchInterval: refreshInterval
+    refetchInterval: refreshInterval,
   });
 
-  const {
-    data: instanceData,
-    isLoading: instanceLoading
-  } = useInstanceStatsQuery(
-    selectedInstance || undefined,
-    timeRange,
-    { refetchInterval: selectedInstance ? refreshInterval : false }
-  );
+  const { data: instanceData, isLoading: instanceLoading } =
+    useInstanceStatsQuery(selectedInstance || undefined, timeRange, {
+      refetchInterval: selectedInstance ? refreshInterval : false,
+    });
 
   const currentData = selectedInstance ? instanceData : overviewData;
   const isLoading = selectedInstance ? instanceLoading : overviewLoading;
   const summary: StatsSummary | undefined = currentData?.summary;
   const modelStats: ModelStats[] = selectedInstance
-    ? (instanceData?.model_stats || [])
-    : (overviewData?.top_models || []);
+    ? instanceData?.model_stats || []
+    : overviewData?.top_models || [];
 
   const lastUpdatedText = lastUpdated
-    ? new Date(lastUpdated).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-    : '--:--:--';
+    ? new Date(lastUpdated).toLocaleTimeString("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : "--:--:--";
 
   useEffect(() => {
     if (!summary) return;
@@ -101,14 +103,18 @@ export function StatsDashboard() {
     };
 
     const hasChanges = Object.keys(newValues).some(
-      key => newValues[key as keyof typeof newValues] !== lastValuesRef.current[key as keyof typeof newValues]
+      (key) =>
+        newValues[key as keyof typeof newValues] !==
+        lastValuesRef.current[key as keyof typeof newValues],
     );
 
     if (hasChanges || statsHistory.requests.length === 0) {
-      setStatsHistory(prev => {
+      setStatsHistory((prev) => {
         const addPoint = (arr: number[], val: number) => {
           const newArr = [...arr, val];
-          return newArr.length > HISTORY_MAX_POINTS ? newArr.slice(-HISTORY_MAX_POINTS) : newArr;
+          return newArr.length > HISTORY_MAX_POINTS
+            ? newArr.slice(-HISTORY_MAX_POINTS)
+            : newArr;
         };
 
         return {
@@ -124,7 +130,7 @@ export function StatsDashboard() {
 
       lastValuesRef.current = newValues;
     }
-  }, [summary, statsHistory.requests.length, HISTORY_MAX_POINTS]);
+  }, [summary, statsHistory.requests.length]);
 
   useEffect(() => {
     setStatsHistory({

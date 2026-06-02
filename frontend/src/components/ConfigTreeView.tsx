@@ -2,7 +2,7 @@
  * 配置树视图组件
  * 用于显示和选择配置项的树形结构
  */
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect } from "react";
 import {
   hotkeysCoreFeature,
   searchFeature,
@@ -10,24 +10,24 @@ import {
   syncDataLoaderFeature,
   TreeState,
   expandAllFeature,
-} from '@headless-tree/core'
-import { useTree } from '@headless-tree/react'
-import { FolderIcon, FolderOpenIcon, SearchIcon } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Tree, TreeItem, TreeItemLabel } from '@/components/tree'
+} from "@headless-tree/core";
+import { useTree } from "@headless-tree/react";
+import { FolderIcon, FolderOpenIcon, SearchIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Tree, TreeItem, TreeItemLabel } from "@/components/tree";
 
 export interface TreeNode {
-  id: string
-  name: string
-  children?: TreeNode[]
-  isLeaf?: boolean
-  data?: any
+  id: string;
+  name: string;
+  children?: TreeNode[];
+  isLeaf?: boolean;
+  data?: any;
 }
 
 interface ConfigTreeViewProps {
-  data: TreeNode[]
-  onSelect?: (node: TreeNode | null) => void
-  selectedId?: string | null
+  data: TreeNode[];
+  onSelect?: (node: TreeNode | null) => void;
+  selectedId?: string | null;
 }
 
 const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({
@@ -37,53 +37,60 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({
 }) => {
   // 将树节点转换为Record格式，并添加到root
   const itemsRecord = useMemo(() => {
-    const record: Record<string, TreeNode> = {}
-    const rootId = 'root'
+    const record: Record<string, TreeNode> = {};
+    const rootId = "root";
 
     const processNode = (node: TreeNode) => {
-      record[node.id] = node
+      record[node.id] = node;
       if (node.children) {
-        node.children.forEach(processNode)
+        node.children.forEach(processNode);
       }
-    }
+    };
 
     // 处理所有数据节点
-    data.forEach(processNode)
-    
+    data.forEach(processNode);
+
     // 创建根节点
     const root: TreeNode = {
       id: rootId,
-      name: 'Configuration',
+      name: "Configuration",
       children: data,
-    }
-    
-    // 也将根节点添加到record中
-    record[rootId] = root
+    };
 
-    return record
-  }, [data])
-  
-  const initialExpandedItems = useMemo(() => data.map((node) => node.id), [data])
-  
-  const [state, setState] = useState<Partial<TreeState<TreeNode>>>({})
-  
+    // 也将根节点添加到record中
+    record[rootId] = root;
+
+    return record;
+  }, [data]);
+
+  const initialExpandedItems = useMemo(
+    () => data.map((node) => node.id),
+    [data],
+  );
+
+  const [state, setState] = useState<Partial<TreeState<TreeNode>>>({});
+
   // 当数据改变时，清理不存在的展开项，并添加新的顶层项
   useEffect(() => {
-    setState(prevState => {
-      const currentExpanded = prevState.expandedItems || []
+    setState((prevState) => {
+      const currentExpanded = prevState.expandedItems || [];
       // 过滤出仍然存在的项
-      const validExpanded = currentExpanded.filter(id => itemsRecord[id] !== undefined)
+      const validExpanded = currentExpanded.filter(
+        (id) => itemsRecord[id] !== undefined,
+      );
       // 合并新的顶层项
-      const newExpanded = [...new Set([...validExpanded, ...initialExpandedItems])]
-      
+      const newExpanded = [
+        ...new Set([...validExpanded, ...initialExpandedItems]),
+      ];
+
       return {
         ...prevState,
         expandedItems: newExpanded,
-      }
-    })
-  }, [itemsRecord, initialExpandedItems])
+      };
+    });
+  }, [itemsRecord, initialExpandedItems]);
 
-  const rootId = 'root'
+  const rootId = "root";
 
   const tree = useTree<TreeNode>({
     state,
@@ -94,34 +101,34 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({
     indent: 20,
     rootItemId: rootId,
     getItemName: (item) => {
-      const data = item.getItemData()
-      return data?.name ?? 'Unknown'
+      const data = item.getItemData();
+      return data?.name ?? "Unknown";
     },
     isItemFolder: (item) => {
-      const data = item.getItemData()
-      if (!data) return false
-      return !!data.children && data.children.length > 0
+      const data = item.getItemData();
+      if (!data) return false;
+      return !!data.children && data.children.length > 0;
     },
     dataLoader: {
       getItem: (itemId) => {
-        const node = itemsRecord[itemId]
+        const node = itemsRecord[itemId];
         if (!node) {
           // 静默处理不存在的节点，返回一个虚拟节点
           // 这通常发生在数据切换的瞬间
-          return { id: itemId, name: '', isLeaf: true }
+          return { id: itemId, name: "", isLeaf: true };
         }
-        return node
+        return node;
       },
       getChildren: (itemId) => {
-        const node = itemsRecord[itemId]
-        if (!node) return []
-        return node.children?.map((child) => child.id) ?? []
+        const node = itemsRecord[itemId];
+        if (!node) return [];
+        return node.children?.map((child) => child.id) ?? [];
       },
     },
     onPrimaryAction: (itemInstance) => {
-      const node = itemInstance.getItemData()
+      const node = itemInstance.getItemData();
       if (node?.isLeaf && onSelect) {
-        onSelect(node)
+        onSelect(node);
       }
     },
     features: [
@@ -131,7 +138,7 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({
       searchFeature,
       expandAllFeature,
     ],
-  })
+  });
 
   return (
     <div className="w-full h-full flex flex-col gap-2">
@@ -140,26 +147,27 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({
         <Input
           className="peer ps-9"
           {...(() => {
-            const { ref, ...restProps } = tree.getSearchInputElementProps()
+            const { ref: _ref, ...restProps } =
+              tree.getSearchInputElementProps();
             return {
               ...restProps,
               onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-                const originalProps = tree.getSearchInputElementProps()
+                const originalProps = tree.getSearchInputElementProps();
                 if (originalProps.onChange) {
-                  originalProps.onChange(e as any)
+                  originalProps.onChange(e as any);
                 }
 
-                const value = e.target.value
+                const value = e.target.value;
                 if (value.length > 0) {
-                  tree.expandAll()
+                  tree.expandAll();
                 } else {
                   setState((prevState) => ({
                     ...prevState,
                     expandedItems: initialExpandedItems,
-                  }))
+                  }));
                 }
               },
-            }
+            };
           })()}
           type="search"
           placeholder="搜索配置..."
@@ -172,15 +180,15 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({
       {/* 树形视图 */}
       <Tree indent={20} tree={tree}>
         {tree.getItems().map((item) => {
-          const isSelected = selectedId === item.getId()
-          
+          const isSelected = selectedId === item.getId();
+
           return (
-            <TreeItem 
-              key={item.getId()} 
+            <TreeItem
+              key={item.getId()}
               item={item}
               className={`
                 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700
-                ${isSelected ? 'bg-blue-50 dark:bg-blue-900/30' : ''}
+                ${isSelected ? "bg-blue-50 dark:bg-blue-900/30" : ""}
               `}
             >
               <TreeItemLabel>
@@ -195,11 +203,11 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({
                 </span>
               </TreeItemLabel>
             </TreeItem>
-          )
+          );
         })}
       </Tree>
     </div>
-  )
-}
+  );
+};
 
-export default ConfigTreeView
+export default ConfigTreeView;

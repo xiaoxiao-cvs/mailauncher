@@ -4,9 +4,9 @@
  * 支持从点到线的入场动画效果
  */
 
-import { useMemo } from 'react';
-import { LineChart, Line, YAxis } from 'recharts';
-import { cn } from '@/lib/utils';
+import { useMemo } from "react";
+import { LineChart, Line, YAxis } from "recharts";
+import { cn } from "@/lib/utils";
 
 // ==================== 类型定义 ====================
 
@@ -33,13 +33,15 @@ interface SparklineProps {
 
 // ==================== 颜色预设 ====================
 
+// 同文件导出的颜色常量，供调用方复用，不影响 Fast Refresh 实际表现
+// eslint-disable-next-line react-refresh/only-export-components
 export const SPARKLINE_COLORS = {
-  blue: '#3b82f6',
-  green: '#22c55e',
-  purple: '#a855f7',
-  pink: '#ec4899',
-  orange: '#f97316',
-  cyan: '#06b6d4',
+  blue: "#3b82f6",
+  green: "#22c55e",
+  purple: "#a855f7",
+  pink: "#ec4899",
+  orange: "#f97316",
+  cyan: "#06b6d4",
 } as const;
 
 // ==================== 组件 ====================
@@ -47,7 +49,7 @@ export const SPARKLINE_COLORS = {
 export function Sparkline({
   data,
   color = SPARKLINE_COLORS.cyan,
-  width = '100%',
+  width = "100%",
   height = 32,
   animate = true,
   animationDuration = 1000,
@@ -77,48 +79,54 @@ export function Sparkline({
   }, [data]);
 
   // 生成唯一的渐变 ID
-  const gradientId = useMemo(() => `sparkline-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
+  const gradientId = useMemo(
+    () => `sparkline-gradient-${Math.random().toString(36).substr(2, 9)}`,
+    [],
+  );
 
   // 计算实际宽度
-  const actualWidth = typeof width === 'number' ? width : 60;
-  const actualHeight = typeof height === 'number' ? height : 32;
+  const actualWidth = typeof width === "number" ? width : 60;
+  const actualHeight = typeof height === "number" ? height : 32;
 
   return (
-    <div className={cn("relative", className)} style={{ width: actualWidth, height: actualHeight }}>
-      <LineChart 
-        data={chartData} 
+    <div
+      className={cn("relative", className)}
+      style={{ width: actualWidth, height: actualHeight }}
+    >
+      <LineChart
+        data={chartData}
         width={actualWidth}
         height={actualHeight}
         margin={{ top: 2, right: 0, bottom: 0, left: 0 }}
       >
-          {/* 渐变定义 */}
-          {showGradient && (
-            <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor={color} stopOpacity={0.4} />
-                <stop offset="50%" stopColor={color} stopOpacity={0.7} />
-                <stop offset="100%" stopColor={color} stopOpacity={1} />
-              </linearGradient>
-            </defs>
-          )}
-          
-          {/* 隐藏的 Y 轴，从 0 开始确保折线从底部向上延伸 */}
-          <YAxis domain={[0, 'dataMax']} hide />
-          
-          {/* 折线 */}
-          <Line
-            type="monotone"
-            dataKey="value"
-            stroke={showGradient ? `url(#${gradientId})` : color}
-            strokeWidth={strokeWidth}
-            dot={false}
-            activeDot={false}
-            isAnimationActive={animate}
-            animationBegin={0}
-            animationDuration={animationDuration}
-            animationEasing="ease-out"
-          />
-        </LineChart>
+        {/* 渐变定义 */}
+        {showGradient && (
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={color} stopOpacity={0.4} />
+              <stop offset="50%" stopColor={color} stopOpacity={0.7} />
+              <stop offset="100%" stopColor={color} stopOpacity={1} />
+            </linearGradient>
+          </defs>
+        )}
+
+        {/* 隐藏的 Y 轴，从 0 开始确保折线从底部向上延伸 */}
+        <YAxis domain={[0, "dataMax"]} hide />
+
+        {/* 折线 */}
+        <Line
+          type="monotone"
+          dataKey="value"
+          stroke={showGradient ? `url(#${gradientId})` : color}
+          strokeWidth={strokeWidth}
+          dot={false}
+          activeDot={false}
+          isAnimationActive={animate}
+          animationBegin={0}
+          animationDuration={animationDuration}
+          animationEasing="ease-out"
+        />
+      </LineChart>
     </div>
   );
 }
@@ -149,7 +157,8 @@ export function LabeledSparkline({
       )}
       {value !== undefined && (
         <span className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-          {value}{unit}
+          {value}
+          {unit}
         </span>
       )}
       <Sparkline {...sparklineProps} />

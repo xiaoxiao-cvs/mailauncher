@@ -29,7 +29,22 @@ export default tseslint.config(
       ],
       // 关闭或降级其他规则
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'warn',
+      // 下划线前缀为"故意不用"约定（解构占位、接口对齐用形参），统一放行
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
+  {
+    // 配置文件（如 tailwind.config.ts）使用 require 加载插件属正常用法
+    files: ['**/*.config.{ts,js,cjs,mjs}'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
 )

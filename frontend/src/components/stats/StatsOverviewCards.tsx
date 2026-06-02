@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
   Activity,
   Zap,
@@ -7,28 +7,28 @@ import {
   MessageSquare,
   Reply,
   TrendingUp,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { StatsSummary } from '@/hooks/queries/useStatsQueries';
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { StatsSummary } from "@/hooks/queries/useStatsQueries";
 
 function formatNumber(num: number, decimals: number = 0): string {
   if (num >= 1000000) {
-    return (num / 1000000).toFixed(1) + 'M';
+    return (num / 1000000).toFixed(1) + "M";
   }
   if (num >= 1000) {
-    return (num / 1000).toFixed(1) + 'K';
+    return (num / 1000).toFixed(1) + "K";
   }
   return num.toFixed(decimals);
 }
 
 function formatCurrency(num: number): string {
   if (num >= 100) {
-    return '¥' + num.toFixed(0);
+    return "¥" + num.toFixed(0);
   }
   if (num >= 10) {
-    return '¥' + num.toFixed(1);
+    return "¥" + num.toFixed(1);
   }
-  return '¥' + num.toFixed(2);
+  return "¥" + num.toFixed(2);
 }
 
 function formatDuration(seconds: number): string {
@@ -48,7 +48,7 @@ function formatDuration(seconds: number): string {
 function AnimatedNumber({
   value,
   formatter = (n: number) => n.toString(),
-  duration = 800
+  duration = 800,
 }: {
   value: number;
   formatter?: (n: number) => string;
@@ -73,6 +73,8 @@ function AnimatedNumber({
     };
 
     requestAnimationFrame(animate);
+    // displayValue 仅作动画起始值读取，加入依赖会在每帧更新时重启动画导致无法收敛
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, duration]);
 
   return <span>{formatter(displayValue)}</span>;
@@ -87,7 +89,14 @@ interface StatCardProps {
   delay?: number;
 }
 
-function StatCard({ title, value, formatter, icon, trend, delay = 0 }: StatCardProps) {
+function StatCard({
+  title,
+  value,
+  formatter,
+  icon,
+  trend,
+  delay = 0,
+}: StatCardProps) {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -101,7 +110,7 @@ function StatCard({ title, value, formatter, icon, trend, delay = 0 }: StatCardP
         "rounded-card p-5 transition-all duration-500",
         "bg-card border border-border shadow-panel",
         "hover:shadow-panel-hover hover:-translate-y-0.5",
-        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4",
       )}
     >
       <div className="flex items-center gap-3">
@@ -114,11 +123,15 @@ function StatCard({ title, value, formatter, icon, trend, delay = 0 }: StatCardP
             <AnimatedNumber value={value} formatter={formatter} />
           </p>
           {trend !== undefined && (
-            <div className={cn(
-              "flex items-center gap-1 text-xs font-medium",
-              trend >= 0 ? "text-success" : "text-destructive"
-            )}>
-              <TrendingUp className={cn("w-3 h-3", trend < 0 && "rotate-180")} />
+            <div
+              className={cn(
+                "flex items-center gap-1 text-xs font-medium",
+                trend >= 0 ? "text-success" : "text-destructive",
+              )}
+            >
+              <TrendingUp
+                className={cn("w-3 h-3", trend < 0 && "rotate-180")}
+              />
               <span>{Math.abs(trend).toFixed(1)}%</span>
             </div>
           )}

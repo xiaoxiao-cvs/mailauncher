@@ -1,5 +1,9 @@
-import { useState, useCallback, useEffect } from 'react'
-import { Notification, NotificationType, TaskStatus } from '@/types/notification'
+import { useState, useCallback, useEffect } from "react";
+import {
+  Notification,
+  NotificationType,
+  TaskStatus,
+} from "@/types/notification";
 
 /**
  * 通知管理 Hook
@@ -10,80 +14,99 @@ import { Notification, NotificationType, TaskStatus } from '@/types/notification
  * - WebSocket 消息转换为通知
  */
 export function useNotifications() {
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
   // 计算未读通知数量（只计算进行中的任务）
   const unreadCount = notifications.filter(
-    n => !n.read && n.type === NotificationType.TASK && 
-    n.task && [TaskStatus.PENDING, TaskStatus.DOWNLOADING, TaskStatus.INSTALLING].includes(n.task.status)
-  ).length
+    (n) =>
+      !n.read &&
+      n.type === NotificationType.TASK &&
+      n.task &&
+      [
+        TaskStatus.PENDING,
+        TaskStatus.DOWNLOADING,
+        TaskStatus.INSTALLING,
+      ].includes(n.task.status),
+  ).length;
 
   // 添加任务通知
-  const addTaskNotification = useCallback((data: {
-    taskId: string
-    instanceName: string
-    version: string
-    components: string[]
-    deploymentPath: string
-  }) => {
-    console.log('[useNotifications] 添加任务通知', data)
-    
-    const notification: Notification = {
-      id: `task_${data.taskId}`,
-      type: NotificationType.TASK,
-      title: `正在安装 ${data.instanceName}`,
-      message: `版本 ${data.version}`,
-      createdAt: new Date(),
-      read: false,
-      task: {
-        taskId: data.taskId,
-        status: TaskStatus.PENDING,
-        progress: 0,
-        instanceName: data.instanceName,
-        version: data.version,
-        components: data.components,
-        deploymentPath: data.deploymentPath,
-      },
-    }
+  const addTaskNotification = useCallback(
+    (data: {
+      taskId: string;
+      instanceName: string;
+      version: string;
+      components: string[];
+      deploymentPath: string;
+    }) => {
+      console.log("[useNotifications] 添加任务通知", data);
 
-    console.log('[useNotifications] 创建的通知对象:', notification)
-    setNotifications(prev => {
-      const newNotifications = [notification, ...prev]
-      console.log('[useNotifications] 更新后的通知列表:', newNotifications)
-      return newNotifications
-    })
-  }, [])
+      const notification: Notification = {
+        id: `task_${data.taskId}`,
+        type: NotificationType.TASK,
+        title: `正在安装 ${data.instanceName}`,
+        message: `版本 ${data.version}`,
+        createdAt: new Date(),
+        read: false,
+        task: {
+          taskId: data.taskId,
+          status: TaskStatus.PENDING,
+          progress: 0,
+          instanceName: data.instanceName,
+          version: data.version,
+          components: data.components,
+          deploymentPath: data.deploymentPath,
+        },
+      };
+
+      console.log("[useNotifications] 创建的通知对象:", notification);
+      setNotifications((prev) => {
+        const newNotifications = [notification, ...prev];
+        console.log("[useNotifications] 更新后的通知列表:", newNotifications);
+        return newNotifications;
+      });
+    },
+    [],
+  );
 
   // 更新任务进度
-  const updateTaskProgress = useCallback((taskId: string, progress: number, status: TaskStatus, message?: string) => {
-    setNotifications(prev =>
-      prev.map(n => {
-        if (n.id === `task_${taskId}` && n.task) {
-          return {
-            ...n,
-            task: {
-              ...n.task,
-              progress,
-              status,
-            },
-            title: status === TaskStatus.SUCCESS 
-              ? `安装成功 ${n.task.instanceName}`
-              : status === TaskStatus.FAILED
-              ? `安装失败 ${n.task.instanceName}`
-              : `正在安装 ${n.task.instanceName}`,
-            message: message || n.message, // 更新进度消息
+  const updateTaskProgress = useCallback(
+    (
+      taskId: string,
+      progress: number,
+      status: TaskStatus,
+      message?: string,
+    ) => {
+      setNotifications((prev) =>
+        prev.map((n) => {
+          if (n.id === `task_${taskId}` && n.task) {
+            return {
+              ...n,
+              task: {
+                ...n.task,
+                progress,
+                status,
+              },
+              title:
+                status === TaskStatus.SUCCESS
+                  ? `安装成功 ${n.task.instanceName}`
+                  : status === TaskStatus.FAILED
+                    ? `安装失败 ${n.task.instanceName}`
+                    : `正在安装 ${n.task.instanceName}`,
+              message: message || n.message, // 更新进度消息
+            };
           }
-        }
-        return n
-      })
-    )
-  }, [])
+          return n;
+        }),
+      );
+    },
+    [],
+  );
 
   // 更新任务 ID（用于从临时 ID 切换到真实 ID）
   const updateTaskId = useCallback((oldTaskId: string, newTaskId: string) => {
-    setNotifications(prev =>
-      prev.map(n => {
+    setNotifications((prev) =>
+      prev.map((n) => {
         if (n.id === `task_${oldTaskId}` && n.task) {
           return {
             ...n,
@@ -92,40 +115,46 @@ export function useNotifications() {
               ...n.task,
               taskId: newTaskId,
             },
-          }
+          };
         }
-        return n
-      })
-    )
-  }, [])
+        return n;
+      }),
+    );
+  }, []);
 
   // 添加消息通知
-  const addMessageNotification = useCallback((title: string, message: string) => {
-    const notification: Notification = {
-      id: `msg_${Date.now()}`,
-      type: NotificationType.MESSAGE,
-      title,
-      message,
-      createdAt: new Date(),
-      read: false,
-    }
+  const addMessageNotification = useCallback(
+    (title: string, message: string) => {
+      const notification: Notification = {
+        id: `msg_${Date.now()}`,
+        type: NotificationType.MESSAGE,
+        title,
+        message,
+        createdAt: new Date(),
+        read: false,
+      };
 
-    setNotifications(prev => [notification, ...prev])
-  }, [])
+      setNotifications((prev) => [notification, ...prev]);
+    },
+    [],
+  );
 
   // 添加警告通知
-  const addWarningNotification = useCallback((title: string, message: string) => {
-    const notification: Notification = {
-      id: `warn_${Date.now()}`,
-      type: NotificationType.WARNING,
-      title,
-      message,
-      createdAt: new Date(),
-      read: false,
-    }
+  const addWarningNotification = useCallback(
+    (title: string, message: string) => {
+      const notification: Notification = {
+        id: `warn_${Date.now()}`,
+        type: NotificationType.WARNING,
+        title,
+        message,
+        createdAt: new Date(),
+        read: false,
+      };
 
-    setNotifications(prev => [notification, ...prev])
-  }, [])
+      setNotifications((prev) => [notification, ...prev]);
+    },
+    [],
+  );
 
   // 添加错误通知
   const addErrorNotification = useCallback((title: string, message: string) => {
@@ -136,72 +165,78 @@ export function useNotifications() {
       message,
       createdAt: new Date(),
       read: false,
-    }
+    };
 
-    setNotifications(prev => [notification, ...prev])
-  }, [])
+    setNotifications((prev) => [notification, ...prev]);
+  }, []);
 
   // 标记通知为已读
   const markAsRead = useCallback((id: string) => {
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, read: true } : n))
-    )
-  }, [])
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
+  }, []);
 
   // 删除单个通知
   const removeNotification = useCallback((id: string) => {
     // 如果删除的是欢迎消息，记录状态防止再次显示
-    if (id === 'welcome_msg') {
-      localStorage.setItem('welcome_notification_dismissed', 'true')
+    if (id === "welcome_msg") {
+      localStorage.setItem("welcome_notification_dismissed", "true");
     }
-    setNotifications(prev => prev.filter(n => n.id !== id))
-  }, [])
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
 
   // 清空所有通知
   const clearAllNotifications = useCallback(() => {
-    setNotifications([])
-  }, [])
+    setNotifications([]);
+  }, []);
 
   // 切换气泡显示状态
   const togglePopover = useCallback(() => {
-    setIsPopoverOpen(prev => !prev)
-  }, [])
+    setIsPopoverOpen((prev) => !prev);
+  }, []);
 
   // 关闭气泡
   const closePopover = useCallback(() => {
-    setIsPopoverOpen(false)
-  }, [])
+    setIsPopoverOpen(false);
+  }, []);
 
   // 打开气泡
   const openPopover = useCallback(() => {
-    setIsPopoverOpen(true)
-  }, [])
+    setIsPopoverOpen(true);
+  }, []);
 
   // 初始化时添加欢迎消息（用户删除后不再显示）
   useEffect(() => {
     const timer = setTimeout(() => {
       // 检查用户是否已经删除过欢迎消息
-      const welcomeDismissed = localStorage.getItem('welcome_notification_dismissed')
-      if (welcomeDismissed === 'true') {
-        return // 用户已删除，不再显示
+      const welcomeDismissed = localStorage.getItem(
+        "welcome_notification_dismissed",
+      );
+      if (welcomeDismissed === "true") {
+        return; // 用户已删除，不再显示
       }
 
-      const hasWelcomeMessage = notifications.some(n => n.id === 'welcome_msg')
+      const hasWelcomeMessage = notifications.some(
+        (n) => n.id === "welcome_msg",
+      );
       if (!hasWelcomeMessage && notifications.length === 0) {
         const welcomeNotification: Notification = {
-          id: 'welcome_msg',
+          id: "welcome_msg",
           type: NotificationType.MESSAGE,
-          title: '提示',
-          message: '点击任务可查看详细日志',
+          title: "提示",
+          message: "点击任务可查看详细日志",
           createdAt: new Date(),
           read: false,
-        }
-        setNotifications([welcomeNotification])
+        };
+        setNotifications([welcomeNotification]);
       }
-    }, 100)
+    }, 100);
 
-    return () => clearTimeout(timer)
-  }, []) // 只在组件挂载时执行一次
+    return () => clearTimeout(timer);
+    // 仅挂载时检查一次是否需展示欢迎通知；加入 notifications 依赖会在通知变化时反复触发
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 只在组件挂载时执行一次
 
   return {
     notifications,
@@ -219,5 +254,5 @@ export function useNotifications() {
     togglePopover,
     closePopover,
     openPopover,
-  }
+  };
 }

@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react';
-import { EditorView, basicSetup } from 'codemirror';
-import { EditorState } from '@codemirror/state';
-import { oneDark } from '@codemirror/theme-one-dark';
-import { linter, Diagnostic } from '@codemirror/lint';
-import { StreamLanguage } from '@codemirror/language';
-import { toml } from '@codemirror/legacy-modes/mode/toml';
+import { useEffect, useRef } from "react";
+import { EditorView, basicSetup } from "codemirror";
+import { EditorState } from "@codemirror/state";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { linter, Diagnostic } from "@codemirror/lint";
+import { StreamLanguage } from "@codemirror/language";
+import { toml } from "@codemirror/legacy-modes/mode/toml";
 
 interface TomlEditorProps {
   value: string;
@@ -16,7 +16,7 @@ interface TomlEditorProps {
 const tomlLinter = linter((view) => {
   const diagnostics: Diagnostic[] = [];
   const text = view.state.doc.toString();
-  const lines = text.split('\n');
+  const lines = text.split("\n");
 
   // 简单的 TOML 语法检查
   for (let i = 0; i < lines.length; i++) {
@@ -26,7 +26,7 @@ const tomlLinter = linter((view) => {
     const to = view.state.doc.line(lineNumber + 1).to;
 
     // 跳过空行和注释
-    if (!line || line.startsWith('#')) continue;
+    if (!line || line.startsWith("#")) continue;
 
     // 检查未闭合的引号
     const singleQuotes = (line.match(/'/g) || []).length;
@@ -37,8 +37,8 @@ const tomlLinter = linter((view) => {
       diagnostics.push({
         from,
         to,
-        severity: 'error',
-        message: '未闭合的单引号',
+        severity: "error",
+        message: "未闭合的单引号",
       });
     }
 
@@ -47,8 +47,8 @@ const tomlLinter = linter((view) => {
       diagnostics.push({
         from,
         to,
-        severity: 'error',
-        message: '未闭合的双引号',
+        severity: "error",
+        message: "未闭合的双引号",
       });
     }
 
@@ -59,8 +59,8 @@ const tomlLinter = linter((view) => {
       diagnostics.push({
         from,
         to,
-        severity: 'error',
-        message: '方括号不匹配',
+        severity: "error",
+        message: "方括号不匹配",
       });
     }
 
@@ -71,23 +71,23 @@ const tomlLinter = linter((view) => {
       diagnostics.push({
         from,
         to,
-        severity: 'error',
-        message: '大括号不匹配',
+        severity: "error",
+        message: "大括号不匹配",
       });
     }
 
     // 检查键值对格式
-    if (line.includes('=') && !line.startsWith('[')) {
-      const parts = line.split('=');
+    if (line.includes("=") && !line.startsWith("[")) {
+      const parts = line.split("=");
       const key = parts[0].trim();
-      
+
       // 检查键名是否为空
       if (!key) {
         diagnostics.push({
           from,
           to,
-          severity: 'error',
-          message: '键名不能为空',
+          severity: "error",
+          message: "键名不能为空",
         });
       }
 
@@ -97,8 +97,8 @@ const tomlLinter = linter((view) => {
           diagnostics.push({
             from,
             to,
-            severity: 'warning',
-            message: '键名包含特殊字符,建议使用引号包围',
+            severity: "warning",
+            message: "键名包含特殊字符,建议使用引号包围",
           });
         }
       }
@@ -129,8 +129,8 @@ const tomlLinter = linter((view) => {
     diagnostics.push({
       from,
       to,
-      severity: 'error',
-      message: '未闭合的多行字符串',
+      severity: "error",
+      message: "未闭合的多行字符串",
     });
   }
 
@@ -157,24 +157,24 @@ export function TomlEditor({ value, onChange, className }: TomlEditorProps) {
           }
         }),
         EditorView.theme({
-          '&': {
-            height: '100%',
-            fontSize: '14px',
+          "&": {
+            height: "100%",
+            fontSize: "14px",
           },
-          '.cm-scroller': {
-            overflow: 'auto',
-            fontFamily: 'JetBrains Mono, Monaco, Consolas, monospace',
+          ".cm-scroller": {
+            overflow: "auto",
+            fontFamily: "JetBrains Mono, Monaco, Consolas, monospace",
           },
-          '.cm-gutters': {
-            backgroundColor: '#282c34',
-            color: '#5c6370',
-            border: 'none',
+          ".cm-gutters": {
+            backgroundColor: "#282c34",
+            color: "#5c6370",
+            border: "none",
           },
-          '.cm-activeLineGutter': {
-            backgroundColor: '#2c313c',
+          ".cm-activeLineGutter": {
+            backgroundColor: "#2c313c",
           },
-          '.cm-activeLine': {
-            backgroundColor: '#2c313c',
+          ".cm-activeLine": {
+            backgroundColor: "#2c313c",
           },
         }),
       ],
@@ -191,6 +191,8 @@ export function TomlEditor({ value, onChange, className }: TomlEditorProps) {
       view.destroy();
       viewRef.current = null;
     };
+    // 编辑器仅在挂载时构建一次，value/onChange 加入依赖会每次变更重建编辑器；value 同步由下方独立 effect 处理
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 当外部 value 改变时更新编辑器内容
