@@ -30,15 +30,15 @@ pub struct RepoConfig {
 pub fn get_repo_config(item_type: &DownloadItemType) -> RepoConfig {
     match item_type {
         DownloadItemType::Maibot => RepoConfig {
-            url: "https://github.com/MaiM-with-u/MaiBot.git",
+            url: "https://github.com/Mai-with-u/MaiBot.git",
             folder: "MaiBot",
         },
         DownloadItemType::NapcatAdapter => RepoConfig {
-            url: "https://github.com/MaiM-with-u/MaiBot-Napcat-Adapter.git",
+            url: "https://github.com/Mai-with-u/MaiBot-Napcat-Adapter.git",
             folder: "MaiBot-Napcat-Adapter",
         },
         DownloadItemType::Lpmm => RepoConfig {
-            url: "https://github.com/MaiM-with-u/MaiMBot-LPMM.git",
+            url: "https://github.com/Mai-with-u/MaiMBot-LPMM.git",
             folder: "MaiMBot-LPMM",
         },
         DownloadItemType::Napcat => RepoConfig {

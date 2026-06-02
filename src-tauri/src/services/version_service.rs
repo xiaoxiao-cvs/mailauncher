@@ -31,13 +31,13 @@ pub fn get_github_repo(item_type: &crate::models::download::DownloadItemType) ->
     use crate::models::download::DownloadItemType;
     match item_type {
         DownloadItemType::Maibot => GitHubRepo {
-            owner: "MaiM-with-u",
+            owner: "Mai-with-u",
             name: "MaiBot",
             folder: "MaiBot",
             has_releases: false,
         },
         DownloadItemType::NapcatAdapter => GitHubRepo {
-            owner: "MaiM-with-u",
+            owner: "Mai-with-u",
             name: "MaiBot-Napcat-Adapter",
             folder: "MaiBot-Napcat-Adapter",
             has_releases: false,
@@ -49,7 +49,7 @@ pub fn get_github_repo(item_type: &crate::models::download::DownloadItemType) ->
             has_releases: true,
         },
         DownloadItemType::Lpmm => GitHubRepo {
-            owner: "MaiM-with-u",
+            owner: "Mai-with-u",
             name: "MaiMBot-LPMM",
             folder: "MaiMBot-LPMM",
             has_releases: false,
@@ -644,7 +644,7 @@ mod tests {
     #[test]
     fn get_github_repo_maibot_returns_correct_owner_and_folder() {
         let repo = get_github_repo(&DownloadItemType::Maibot);
-        assert_eq!(repo.owner, "MaiM-with-u");
+        assert_eq!(repo.owner, "Mai-with-u");
         assert_eq!(repo.name, "MaiBot");
         assert_eq!(repo.folder, "MaiBot");
         assert!(!repo.has_releases);
@@ -662,7 +662,7 @@ mod tests {
     #[test]
     fn get_github_repo_napcat_adapter_maps_correctly() {
         let repo = get_github_repo(&DownloadItemType::NapcatAdapter);
-        assert_eq!(repo.owner, "MaiM-with-u");
+        assert_eq!(repo.owner, "Mai-with-u");
         assert_eq!(repo.name, "MaiBot-Napcat-Adapter");
         assert_eq!(repo.folder, "MaiBot-Napcat-Adapter");
         assert!(!repo.has_releases);
@@ -671,7 +671,7 @@ mod tests {
     #[test]
     fn get_github_repo_lpmm_maps_correctly() {
         let repo = get_github_repo(&DownloadItemType::Lpmm);
-        assert_eq!(repo.owner, "MaiM-with-u");
+        assert_eq!(repo.owner, "Mai-with-u");
         assert_eq!(repo.name, "MaiMBot-LPMM");
         assert_eq!(repo.folder, "MaiMBot-LPMM");
         assert!(!repo.has_releases);
