@@ -258,7 +258,7 @@ async fn execute_download_task(
         }
         if !checked {
             warn!("无法确定实例目录所在磁盘，跳过磁盘空间检查: {:?}", instance_dir);
-            let _ = app_handle.emit(&event_name, "⚠️ 无法检测磁盘空间，跳过检查");
+            let _ = app_handle.emit(&event_name, "[警告] 无法检测磁盘空间，跳过检查");
         }
     }
 

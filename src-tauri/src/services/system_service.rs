@@ -363,9 +363,9 @@ fn try_add_python(path: &str, found: &mut Vec<DiscoveredPython>, seen: &mut std:
                 let has_venv = matches!(&venv_check, Ok(o) if o.status.success());
 
                 if has_venv {
-                    info!("[discover]   ✓ 发现 Python {} at {} (venv 可用)", version, path);
+                    info!("[discover]   发现 Python {} at {} (venv 可用)", version, path);
                 } else {
-                    info!("[discover]   ⚠ 发现 Python {} at {} (venv 不可用)", version, path);
+                    info!("[discover]   [警告] 发现 Python {} at {} (venv 不可用)", version, path);
                 }
 
                 seen.insert(canonical);

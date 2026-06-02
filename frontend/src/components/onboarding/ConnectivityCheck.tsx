@@ -1,19 +1,28 @@
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { LoaderIcon, AlertCircleIcon, ServerIcon, CheckIcon } from 'lucide-react'
-import { useConnectivityCheck } from '@/hooks/useConnectivityCheck'
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  LoaderIcon,
+  AlertCircleIcon,
+  ServerIcon,
+  CheckIcon,
+} from "lucide-react";
+import { useConnectivityCheck } from "@/hooks/useConnectivityCheck";
 
 interface ConnectivityCheckProps {
-  stepColor: string
-  onStatusChange?: (isBackendConnected: boolean) => void
-  onRecheckRequest?: (checkFn: () => void) => void
+  stepColor: string;
+  onStatusChange?: (isBackendConnected: boolean) => void;
+  onRecheckRequest?: (checkFn: () => void) => void;
 }
 
 /**
  * 联通性检查组件
  * 检查后端连接、GitHub 和 Gitee 的延迟
  */
-export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest }: ConnectivityCheckProps) {
+export function ConnectivityCheck({
+  stepColor,
+  onStatusChange,
+  onRecheckRequest,
+}: ConnectivityCheckProps) {
   // 使用原有的 hook 管理连接检查
   const {
     tempUrl,
@@ -22,14 +31,14 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
     handleBlur,
     handleSave,
     backendStatus,
-  } = useConnectivityCheck({ onStatusChange, onRecheckRequest })
+  } = useConnectivityCheck({ onStatusChange, onRecheckRequest });
 
   return (
     <div className="space-y-2">
       {/* 后端服务配置和状态 - 合并为一个卡片 */}
       <div className="relative p-3 rounded-card bg-card border border-border">
         <div className="flex items-start gap-2 mb-2.5">
-          <div 
+          <div
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0"
             style={{ backgroundColor: stepColor }}
           >
@@ -59,7 +68,7 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
               )}
             </div>
             <p className="text-xs text-muted-foreground leading-tight mt-1.5">
-              默认端口: 11111 | 修改后点击 ✓ 或失焦自动保存
+              默认端口: 11111 | 修改后点击保存按钮或失焦自动保存
             </p>
           </div>
         </div>
@@ -68,44 +77,61 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
         <div className="pl-11 flex items-center justify-between">
           <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-1.5">
-              {backendStatus.status === 'checking' ? (
+              {backendStatus.status === "checking" ? (
                 <LoaderIcon className="w-3 h-3 animate-spin text-blue-500" />
-              ) : backendStatus.status === 'success' ? (
+              ) : backendStatus.status === "success" ? (
                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              ) : backendStatus.status === 'error' ? (
+              ) : backendStatus.status === "error" ? (
                 <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
               ) : (
                 <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
               )}
-              <span className={`text-xs font-medium ${
-                backendStatus.status === 'success' ? 'text-green-600 dark:text-green-400' :
-                backendStatus.status === 'error' ? 'text-red-600 dark:text-red-400' :
-                backendStatus.status === 'checking' ? 'text-blue-600 dark:text-blue-400' :
-                'text-muted-foreground'
-              }`}>
-                {backendStatus.status === 'checking' ? '检查中...' :
-                 backendStatus.status === 'success' ? '服务运行正常' :
-                 backendStatus.status === 'error' ? '服务连接失败' :
-                 '等待检查'}
+              <span
+                className={`text-xs font-medium ${
+                  backendStatus.status === "success"
+                    ? "text-green-600 dark:text-green-400"
+                    : backendStatus.status === "error"
+                      ? "text-red-600 dark:text-red-400"
+                      : backendStatus.status === "checking"
+                        ? "text-blue-600 dark:text-blue-400"
+                        : "text-muted-foreground"
+                }`}
+              >
+                {backendStatus.status === "checking"
+                  ? "检查中..."
+                  : backendStatus.status === "success"
+                    ? "服务运行正常"
+                    : backendStatus.status === "error"
+                      ? "服务连接失败"
+                      : "等待检查"}
               </span>
             </div>
-            {backendStatus.status === 'success' && backendStatus.latency && (
+            {backendStatus.status === "success" && backendStatus.latency && (
               <span className="text-xs text-muted-foreground pl-5">
-                {backendStatus.latency < 100 ? '响应极快' : 
-                 backendStatus.latency < 300 ? '响应良好' : 
-                 backendStatus.latency < 500 ? '响应正常' : '响应较慢'}
+                {backendStatus.latency < 100
+                  ? "响应极快"
+                  : backendStatus.latency < 300
+                    ? "响应良好"
+                    : backendStatus.latency < 500
+                      ? "响应正常"
+                      : "响应较慢"}
               </span>
             )}
           </div>
-          
+
           {backendStatus.latency && (
             <div className="flex flex-col items-end">
-              <span className={`text-lg font-bold leading-tight ${
-                backendStatus.latency < 500 ? 'text-green-600 dark:text-green-400' :
-                backendStatus.latency < 1000 ? 'text-yellow-600 dark:text-yellow-400' :
-                'text-red-600 dark:text-red-400'
-              }`}>
-                {backendStatus.latency}<span className="text-xs ml-0.5">ms</span>
+              <span
+                className={`text-lg font-bold leading-tight ${
+                  backendStatus.latency < 500
+                    ? "text-green-600 dark:text-green-400"
+                    : backendStatus.latency < 1000
+                      ? "text-yellow-600 dark:text-yellow-400"
+                      : "text-red-600 dark:text-red-400"
+                }`}
+              >
+                {backendStatus.latency}
+                <span className="text-xs ml-0.5">ms</span>
               </span>
             </div>
           )}
@@ -122,5 +148,5 @@ export function ConnectivityCheck({ stepColor, onStatusChange, onRecheckRequest 
 
       {/* GitHub/Gitee 检查已移除，仅保留后端连接检查 */}
     </div>
-  )
+  );
 }

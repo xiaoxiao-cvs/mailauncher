@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 自定义滚动条样式 - 现代优雅设计 ⭐ */
+/* 自定义滚动条样式 - 现代优雅设计 */
 @layer utilities {
   /* Webkit 浏览器（Chrome, Safari, Edge）滚动条样式 - 优雅细窄 */
   .scrollbar-thin::-webkit-scrollbar {
@@ -47,8 +47,6 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-
-
 }
 
 @layer base {
@@ -77,22 +75,22 @@
     --ring: 240 5.9% 10%;
 
     /* ===== 品牌色 ===== */
-    --brand: 211 100% 50%;            /* #007AFF */
+    --brand: 211 100% 50%; /* #007AFF */
     --brand-foreground: 0 0% 100%;
-    --brand-hover: 211 100% 45%;      /* #0071E3 */
-    --brand-muted: 211 100% 96%;      /* 淡蓝底色 */
+    --brand-hover: 211 100% 45%; /* #0071E3 */
+    --brand-muted: 211 100% 96%; /* 淡蓝底色 */
 
     /* ===== 状态色 ===== */
-    --success: 142 69% 50%;           /* #34C759 */
+    --success: 142 69% 50%; /* #34C759 */
     --success-foreground: 0 0% 100%;
-    --warning: 35 100% 50%;           /* #FF9500 */
+    --warning: 35 100% 50%; /* #FF9500 */
     --warning-foreground: 0 0% 100%;
-    --info: 211 100% 50%;             /* #007AFF */
+    --info: 211 100% 50%; /* #007AFF */
     --info-foreground: 0 0% 100%;
 
     /* ===== 表面层级 ===== */
-    --surface: 0 0% 96%;              /* #F5F5F7 页面底色 */
-    --elevated: 0 0% 100%;            /* 浮层/弹窗 */
+    --surface: 0 0% 96%; /* #F5F5F7 页面底色 */
+    --elevated: 0 0% 100%; /* 浮层/弹窗 */
 
     /* ===== 侧边栏 ===== */
     --sidebar: 0 0% 100%;
@@ -111,46 +109,46 @@
 
   .dark {
     /* ===== 基础色 ===== */
-    --background: 0 0% 6%;            /* #0f0f0f */
+    --background: 0 0% 6%; /* #0f0f0f */
     --foreground: 0 0% 100%;
-    --card: 0 0% 12%;                 /* #1f1f1f */
+    --card: 0 0% 12%; /* #1f1f1f */
     --card-foreground: 0 0% 100%;
-    --popover: 0 0% 18%;              /* #2e2e2e */
+    --popover: 0 0% 18%; /* #2e2e2e */
     --popover-foreground: 0 0% 100%;
-    --primary: 0 0% 35%;              /* #595959 */
+    --primary: 0 0% 35%; /* #595959 */
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 55%;            /* #8c8c8c */
+    --secondary: 0 0% 55%; /* #8c8c8c */
     --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 18%;                /* #2e2e2e */
-    --muted-foreground: 0 0% 55%;     /* #8c8c8c */
-    --accent: 0 0% 35%;               /* #595959 */
+    --muted: 0 0% 18%; /* #2e2e2e */
+    --muted-foreground: 0 0% 55%; /* #8c8c8c */
+    --accent: 0 0% 35%; /* #595959 */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 15%;               /* #262626 */
-    --input: 0 0% 18%;                /* #2e2e2e */
-    --ring: 0 0% 55%;                 /* #8c8c8c */
+    --border: 0 0% 15%; /* #262626 */
+    --input: 0 0% 18%; /* #2e2e2e */
+    --ring: 0 0% 55%; /* #8c8c8c */
 
     /* ===== 品牌色 ===== */
-    --brand: 211 100% 52%;            /* #0A84FF */
+    --brand: 211 100% 52%; /* #0A84FF */
     --brand-foreground: 0 0% 100%;
-    --brand-hover: 211 100% 47%;      /* #0077ED */
-    --brand-muted: 211 60% 15%;       /* 深蓝底色 */
+    --brand-hover: 211 100% 47%; /* #0077ED */
+    --brand-muted: 211 60% 15%; /* 深蓝底色 */
 
     /* ===== 状态色 ===== */
-    --success: 142 64% 51%;           /* #30D158 */
+    --success: 142 64% 51%; /* #30D158 */
     --success-foreground: 0 0% 100%;
-    --warning: 37 100% 52%;           /* #FF9F0A */
+    --warning: 37 100% 52%; /* #FF9F0A */
     --warning-foreground: 0 0% 100%;
-    --info: 211 100% 52%;             /* #0A84FF */
+    --info: 211 100% 52%; /* #0A84FF */
     --info-foreground: 0 0% 100%;
 
     /* ===== 表面层级 ===== */
-    --surface: 0 0% 6%;               /* #0f0f0f */
-    --elevated: 0 0% 18%;             /* #2e2e2e */
+    --surface: 0 0% 6%; /* #0f0f0f */
+    --elevated: 0 0% 18%; /* #2e2e2e */
 
     /* ===== 侧边栏 ===== */
-    --sidebar: 0 0% 9%;               /* #171717 */
+    --sidebar: 0 0% 9%; /* #171717 */
     --sidebar-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 15%;
     --sidebar-accent-foreground: 0 0% 100%;
@@ -228,11 +226,11 @@
     display: grid;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  
+
   .instance-card-item {
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  
+
   /* FLIP 动画技术支持 */
   @keyframes slideIn {
     from {
@@ -244,7 +242,7 @@
       opacity: 1;
     }
   }
-  
+
   .instance-card-enter {
     animation: slideIn 0.8s cubic-bezier(0.4, 0, 0.2, 1) both;
     opacity: 0;

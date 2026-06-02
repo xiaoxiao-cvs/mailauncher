@@ -1,24 +1,30 @@
-import { LoaderIcon, AlertCircleIcon, ChevronDownIcon, CheckCircle2Icon } from 'lucide-react'
-import { 
+import {
+  LoaderIcon,
+  AlertCircleIcon,
+  ChevronDownIcon,
+  CheckCircle2Icon,
+} from "lucide-react";
+import {
   usePythonVersionsQuery,
   usePythonDefaultQuery,
   useSetPythonDefaultMutation,
   useVenvTypeQuery,
-  useSetVenvTypeMutation
-} from '@/hooks/queries/useEnvironmentQueries'
-import { useState, useEffect } from 'react'
+  useSetVenvTypeMutation,
+} from "@/hooks/queries/useEnvironmentQueries";
+import { useState, useEffect } from "react";
 
-export const VENV_TYPES = [
-  { value: 'venv', label: 'venv', desc: 'Python 内置虚拟环境' },
-  { value: 'uv', label: 'uv', desc: '快速的 Python 包管理器' },
-  { value: 'conda', label: 'conda', desc: 'Conda 环境管理' },
-]
+// 仅本组件内部使用；规范的导出版本在 hooks/usePythonEnvironment.ts
+const VENV_TYPES = [
+  { value: "venv", label: "venv", desc: "Python 内置虚拟环境" },
+  { value: "uv", label: "uv", desc: "快速的 Python 包管理器" },
+  { value: "conda", label: "conda", desc: "Conda 环境管理" },
+];
 
 interface PythonEnvironmentProps {
-  stepColor: string
+  stepColor: string;
 }
 
-const iconStyle = (color: string) => ({ backgroundColor: color })
+const iconStyle = (color: string) => ({ backgroundColor: color });
 
 /**
  * Python 环境配置组件
@@ -26,40 +32,47 @@ const iconStyle = (color: string) => ({ backgroundColor: color })
  */
 export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
   // Python 版本管理
-  const { data: pythonVersions = [], isLoading: isLoadingPython, error: pythonErrorObj } = usePythonVersionsQuery()
-  const { data: selectedPython } = usePythonDefaultQuery()
-  const savePythonMutation = useSetPythonDefaultMutation()
-  const pythonError = pythonErrorObj ? String(pythonErrorObj) : null
-  
+  const {
+    data: pythonVersions = [],
+    isLoading: isLoadingPython,
+    error: pythonErrorObj,
+  } = usePythonVersionsQuery();
+  const { data: selectedPython } = usePythonDefaultQuery();
+  const savePythonMutation = useSetPythonDefaultMutation();
+  const pythonError = pythonErrorObj ? String(pythonErrorObj) : null;
+
   // Venv 类型管理
-  const { data: venvType = 'venv', isLoading: isLoadingVenv } = useVenvTypeQuery()
-  const saveVenvMutation = useSetVenvTypeMutation()
-  
+  const { data: venvType = "venv", isLoading: isLoadingVenv } =
+    useVenvTypeQuery();
+  const saveVenvMutation = useSetVenvTypeMutation();
+
   // 本地状态
-  const [showPythonDropdown, setShowPythonDropdown] = useState(false)
-  const [localSelectedPython, setLocalSelectedPython] = useState(selectedPython || '')
-  const [localVenvType, setLocalVenvType] = useState(venvType)
-  
+  const [showPythonDropdown, setShowPythonDropdown] = useState(false);
+  const [localSelectedPython, setLocalSelectedPython] = useState(
+    selectedPython || "",
+  );
+  const [localVenvType, setLocalVenvType] = useState(venvType);
+
   // 同步 selectedPython
   useEffect(() => {
-    if (selectedPython && typeof selectedPython === 'string') {
-      setLocalSelectedPython(selectedPython)
+    if (selectedPython && typeof selectedPython === "string") {
+      setLocalSelectedPython(selectedPython);
     }
-  }, [selectedPython])
-  
+  }, [selectedPython]);
+
   // 同步 venvType
   useEffect(() => {
-    if (typeof venvType === 'string') {
-      setLocalVenvType(venvType)
+    if (typeof venvType === "string") {
+      setLocalVenvType(venvType);
     }
-  }, [venvType])
+  }, [venvType]);
 
   return (
     <div className="space-y-4 h-full flex flex-col">
       {/* Python 版本选择 - 优化布局，不超出区域 */}
       <div className="p-3.5 rounded-card bg-card border border-border">
         <div className="flex items-center gap-2.5 mb-3">
-          <div 
+          <div
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"
             style={iconStyle(stepColor)}
           >
@@ -82,7 +95,9 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
         {pythonError ? (
           <div className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
             <AlertCircleIcon className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-red-700 dark:text-red-300">{pythonError}</p>
+            <p className="text-xs text-red-700 dark:text-red-300">
+              {pythonError}
+            </p>
           </div>
         ) : isLoadingPython ? (
           <div className="py-6 text-center">
@@ -102,10 +117,14 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
                   {localSelectedPython ? (
                     <div>
                       <div className="text-sm font-medium text-foreground">
-                        {pythonVersions.find(v => v.path === localSelectedPython)?.version || '未选择'}
+                        {pythonVersions.find(
+                          (v) => v.path === localSelectedPython,
+                        )?.version || "未选择"}
                       </div>
                       <div className="text-xs text-muted-foreground font-mono truncate max-w-md">
-                        {typeof localSelectedPython === 'string' ? localSelectedPython : ''}
+                        {typeof localSelectedPython === "string"
+                          ? localSelectedPython
+                          : ""}
                       </div>
                     </div>
                   ) : (
@@ -114,7 +133,9 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
                     </div>
                   )}
                 </div>
-                <ChevronDownIcon className={`w-4 h-4 text-foreground transition-transform ml-2 flex-shrink-0 ${showPythonDropdown ? 'rotate-180' : ''}`} />
+                <ChevronDownIcon
+                  className={`w-4 h-4 text-foreground transition-transform ml-2 flex-shrink-0 ${showPythonDropdown ? "rotate-180" : ""}`}
+                />
               </button>
 
               {/* 下拉列表 - 优化高度，限制在 200px 内 */}
@@ -124,12 +145,12 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
                     <button
                       key={version.path}
                       onClick={() => {
-                        setLocalSelectedPython(version.path)
-                        setShowPythonDropdown(false)
-                        savePythonMutation.mutate(version.path)
+                        setLocalSelectedPython(version.path);
+                        setShowPythonDropdown(false);
+                        savePythonMutation.mutate(version.path);
                       }}
                       className={`w-full text-left px-3 py-1.5 hover:bg-muted transition-colors ${
-                        version.path === localSelectedPython ? 'bg-muted' : ''
+                        version.path === localSelectedPython ? "bg-muted" : ""
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -159,7 +180,9 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
             {/* 提示信息 - 简化 */}
             <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
               <p className="text-xs text-blue-700 dark:text-blue-300">
-                💡 共 <span className="font-semibold">{pythonVersions.length}</span> 个版本可用
+                共{" "}
+                <span className="font-semibold">{pythonVersions.length}</span>{" "}
+                个版本可用
               </p>
             </div>
           </div>
@@ -175,7 +198,7 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
       {/* 虚拟环境类型选择 */}
       <div className="p-3.5 rounded-card bg-card border border-border">
         <div className="flex items-center gap-2.5 mb-3">
-          <div 
+          <div
             className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"
             style={iconStyle(stepColor)}
           >
@@ -201,14 +224,14 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
               <button
                 key={type.value}
                 onClick={() => {
-                  setLocalVenvType(type.value)
-                  saveVenvMutation.mutate(type.value)
+                  setLocalVenvType(type.value);
+                  saveVenvMutation.mutate(type.value);
                 }}
                 disabled={saveVenvMutation.isPending}
                 className={`p-2 rounded-lg border transition-all text-center ${
                   localVenvType === type.value
-                    ? 'bg-brand/10 border-brand'
-                    : 'bg-muted border-border hover:bg-muted/80'
+                    ? "bg-brand/10 border-brand"
+                    : "bg-muted border-border hover:bg-muted/80"
                 } disabled:opacity-60`}
               >
                 <div className="flex flex-col items-center gap-1">
@@ -228,5 +251,5 @@ export function PythonEnvironment({ stepColor }: PythonEnvironmentProps) {
         )}
       </div>
     </div>
-  )
+  );
 }

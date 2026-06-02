@@ -5,100 +5,105 @@
  * 通过 Tauri invoke 直接调用 Rust 命令。
  */
 
-import { useState, useEffect } from 'react'
-import { tauriInvoke } from '@/services/tauriInvoke'
-import { environmentLogger } from '@/utils/logger'
+import { useState, useEffect } from "react";
+import { tauriInvoke } from "@/services/tauriInvoke";
+import { environmentLogger } from "@/utils/logger";
 
 export function useDeploymentPath() {
-  const [deploymentPath, setDeploymentPath] = useState<string>('')
-  const [pathError, setPathError] = useState<string>('')
-  const [pathSuccess, setPathSuccess] = useState<string>('')
-  const [isSavingPath, setIsSavingPath] = useState(false)
+  const [deploymentPath, setDeploymentPath] = useState<string>("");
+  const [pathError, setPathError] = useState<string>("");
+  const [pathSuccess, setPathSuccess] = useState<string>("");
+  const [isSavingPath, setIsSavingPath] = useState(false);
 
   // 加载部署路径配置
   const loadDeploymentPath = async () => {
-    environmentLogger.info('加载部署路径配置')
+    environmentLogger.info("加载部署路径配置");
     try {
-      const pathConfig = await tauriInvoke<{ path: string } | null>('get_path', { name: 'instances_dir' })
+      const pathConfig = await tauriInvoke<{ path: string } | null>(
+        "get_path",
+        { name: "instances_dir" },
+      );
       if (pathConfig) {
-        setDeploymentPath(pathConfig.path)
-        environmentLogger.success('部署路径加载成功', { path: pathConfig.path })
+        setDeploymentPath(pathConfig.path);
+        environmentLogger.success("部署路径加载成功", {
+          path: pathConfig.path,
+        });
       }
     } catch (error) {
-      environmentLogger.error('加载部署路径失败', error)
+      environmentLogger.error("加载部署路径失败", error);
     }
-  }
+  };
 
   // 打开文件夹选择器
   const handleSelectFolder = async () => {
-    environmentLogger.info('打开文件夹选择器')
+    environmentLogger.info("打开文件夹选择器");
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog')
-      environmentLogger.debug('Tauri dialog 插件加载成功')
-      
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      environmentLogger.debug("Tauri dialog 插件加载成功");
+
       const selected = await open({
         directory: true,
         multiple: false,
-        title: '选择 Bot 实例部署目录'
-      })
-      
-      environmentLogger.info('用户选择的路径', { path: selected })
-      
+        title: "选择 Bot 实例部署目录",
+      });
+
+      environmentLogger.info("用户选择的路径", { path: selected });
+
       if (selected) {
-        const selectedPath = selected as string
-        setDeploymentPath(selectedPath)
-        setPathError('')
-        await saveDeploymentPath(selectedPath)
+        const selectedPath = selected as string;
+        setDeploymentPath(selectedPath);
+        setPathError("");
+        await saveDeploymentPath(selectedPath);
       }
     } catch (error) {
-      environmentLogger.error('文件选择器错误', error)
-      alert('文件夹选择器仅在桌面应用中可用。\n请直接在输入框中粘贴路径。')
+      environmentLogger.error("文件选择器错误", error);
+      alert("文件夹选择器仅在桌面应用中可用。\n请直接在输入框中粘贴路径。");
     }
-  }
+  };
 
   // 保存部署路径
   const saveDeploymentPath = async (path: string) => {
-    setIsSavingPath(true)
-    setPathError('')
-    setPathSuccess('')
-    environmentLogger.info('保存部署路径', { path })
-    
+    setIsSavingPath(true);
+    setPathError("");
+    setPathSuccess("");
+    environmentLogger.info("保存部署路径", { path });
+
     try {
-      await tauriInvoke('set_path', {
-        name: 'instances_dir',
+      await tauriInvoke("set_path", {
+        name: "instances_dir",
         path,
-        pathType: 'directory',
+        pathType: "directory",
         isVerified: false,
-        description: 'Bot 实例部署目录',
-      })
-      setPathSuccess('✓ 路径已保存')
-      environmentLogger.success('部署路径保存成功')
-      setTimeout(() => setPathSuccess(''), 3000)
+        description: "Bot 实例部署目录",
+      });
+      setPathSuccess("[成功] 路径已保存");
+      environmentLogger.success("部署路径保存成功");
+      setTimeout(() => setPathSuccess(""), 3000);
     } catch (error) {
-      environmentLogger.error('保存路径异常', error)
-      setPathError('保存路径失败')
+      environmentLogger.error("保存路径异常", error);
+      setPathError("保存路径失败");
     } finally {
-      setIsSavingPath(false)
+      setIsSavingPath(false);
     }
-  }
+  };
 
   // 处理路径变化
   const handlePathChange = (value: string) => {
-    setDeploymentPath(value)
-    setPathError('')
-    setPathSuccess('')
-    
-    if (value && !value.startsWith('/') && !value.match(/^[A-Z]:\\/i)) {
-      setPathError('请输入有效的绝对路径')
+    setDeploymentPath(value);
+    setPathError("");
+    setPathSuccess("");
+
+    if (value && !value.startsWith("/") && !value.match(/^[A-Z]:\\/i)) {
+      setPathError("请输入有效的绝对路径");
     } else if (value) {
-      saveDeploymentPath(value)
+      saveDeploymentPath(value);
     }
-  }
+  };
 
   // 初始化加载
   useEffect(() => {
-    loadDeploymentPath()
-  }, [])
+    loadDeploymentPath();
+  }, []);
 
   return {
     deploymentPath,
@@ -109,6 +114,6 @@ export function useDeploymentPath() {
     loadDeploymentPath,
     handleSelectFolder,
     saveDeploymentPath,
-    handlePathChange
-  }
+    handlePathChange,
+  };
 }

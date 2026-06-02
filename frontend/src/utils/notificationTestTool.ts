@@ -1,7 +1,7 @@
 /**
  * 通知系统测试工具
  * 在浏览器控制台中使用以下命令测试通知系统：
- * 
+ *
  * testNotification.info('标题', '这是一条信息')
  * testNotification.warning('警告', '这是一条警告')
  * testNotification.error('错误', '这是一条错误')
@@ -10,34 +10,38 @@
  * testNotification.clearAll()
  */
 
-import { TaskStatus } from '@/types/notification'
+import { TaskStatus } from "@/types/notification";
 
 interface NotificationHandlers {
-  addMessageNotification: (title: string, message: string) => void
-  addWarningNotification: (title: string, message: string) => void
-  addErrorNotification: (title: string, message: string) => void
+  addMessageNotification: (title: string, message: string) => void;
+  addWarningNotification: (title: string, message: string) => void;
+  addErrorNotification: (title: string, message: string) => void;
   addTaskNotification: (data: {
-    taskId: string
-    instanceName: string
-    version: string
-    components: string[]
-    deploymentPath: string
-  }) => void
-  updateTaskProgress: (taskId: string, progress: number, status: TaskStatus) => void
-  clearAllNotifications: () => void
+    taskId: string;
+    instanceName: string;
+    version: string;
+    components: string[];
+    deploymentPath: string;
+  }) => void;
+  updateTaskProgress: (
+    taskId: string,
+    progress: number,
+    status: TaskStatus,
+  ) => void;
+  clearAllNotifications: () => void;
 }
 
-let notificationHandlers: NotificationHandlers | null = null
-let lastTaskId = ''
+let notificationHandlers: NotificationHandlers | null = null;
+let lastTaskId = "";
 
 export function registerNotificationHandlers(handlers: NotificationHandlers) {
-  notificationHandlers = handlers
-  console.log('[Notification Test] 通知测试工具已注册')
+  notificationHandlers = handlers;
+  console.log("[Notification Test] 通知测试工具已注册");
 }
 
 // 创建全局测试接口
 export function setupNotificationTestCommands() {
-  if (typeof window === 'undefined') return
+  if (typeof window === "undefined") return;
 
   const testNotification = {
     /**
@@ -46,11 +50,11 @@ export function setupNotificationTestCommands() {
      */
     info: (title: string, message: string) => {
       if (!notificationHandlers) {
-        console.error('[Test] 通知系统未初始化')
-        return
+        console.error("[Test] 通知系统未初始化");
+        return;
       }
-      console.log(`[Test] 发送消息通知: ${title} - ${message}`)
-      notificationHandlers.addMessageNotification(title, message)
+      console.log(`[Test] 发送消息通知: ${title} - ${message}`);
+      notificationHandlers.addMessageNotification(title, message);
     },
 
     /**
@@ -59,11 +63,11 @@ export function setupNotificationTestCommands() {
      */
     warning: (title: string, message: string) => {
       if (!notificationHandlers) {
-        console.error('[Test] 通知系统未初始化')
-        return
+        console.error("[Test] 通知系统未初始化");
+        return;
       }
-      console.log(`[Test] 发送警告通知: ${title} - ${message}`)
-      notificationHandlers.addWarningNotification(title, message)
+      console.log(`[Test] 发送警告通知: ${title} - ${message}`);
+      notificationHandlers.addWarningNotification(title, message);
     },
 
     /**
@@ -72,11 +76,11 @@ export function setupNotificationTestCommands() {
      */
     error: (title: string, message: string) => {
       if (!notificationHandlers) {
-        console.error('[Test] 通知系统未初始化')
-        return
+        console.error("[Test] 通知系统未初始化");
+        return;
       }
-      console.log(`[Test] 发送错误通知: ${title} - ${message}`)
-      notificationHandlers.addErrorNotification(title, message)
+      console.log(`[Test] 发送错误通知: ${title} - ${message}`);
+      notificationHandlers.addErrorNotification(title, message);
     },
 
     /**
@@ -85,21 +89,25 @@ export function setupNotificationTestCommands() {
      */
     task: (instanceName: string, version: string, components: string[]) => {
       if (!notificationHandlers) {
-        console.error('[Test] 通知系统未初始化')
-        return
+        console.error("[Test] 通知系统未初始化");
+        return;
       }
-      const taskId = `test_task_${Date.now()}`
-      lastTaskId = taskId
-      console.log(`[Notification Test] 创建任务通知: ${instanceName} (${taskId})`)
+      const taskId = `test_task_${Date.now()}`;
+      lastTaskId = taskId;
+      console.log(
+        `[Notification Test] 创建任务通知: ${instanceName} (${taskId})`,
+      );
       notificationHandlers.addTaskNotification({
         taskId,
         instanceName,
         version,
         components,
-        deploymentPath: '/test/path',
-      })
-      console.log(`[Test] 提示: 使用 testNotification.updateTask('${taskId}', 进度, '状态') 更新进度`)
-      return taskId
+        deploymentPath: "/test/path",
+      });
+      console.log(
+        `[Test] 提示: 使用 testNotification.updateTask('${taskId}', 进度, '状态') 更新进度`,
+      );
+      return taskId;
     },
 
     /**
@@ -107,28 +115,32 @@ export function setupNotificationTestCommands() {
      * @example testNotification.updateTask('task_123', 50, 'installing')
      * 状态: 'pending' | 'downloading' | 'installing' | 'success' | 'failed'
      */
-    updateTask: (taskId: string | undefined, progress: number, status: string) => {
+    updateTask: (
+      taskId: string | undefined,
+      progress: number,
+      status: string,
+    ) => {
       if (!notificationHandlers) {
-        console.error('[Test] 通知系统未初始化')
-        return
+        console.error("[Test] 通知系统未初始化");
+        return;
       }
-      const id = taskId || lastTaskId
+      const id = taskId || lastTaskId;
       if (!id) {
-        console.error('[Test] 没有任务 ID，请先创建任务或提供任务 ID')
-        return
+        console.error("[Test] 没有任务 ID，请先创建任务或提供任务 ID");
+        return;
       }
-      
+
       const statusMap: Record<string, TaskStatus> = {
-        'pending': TaskStatus.PENDING,
-        'downloading': TaskStatus.DOWNLOADING,
-        'installing': TaskStatus.INSTALLING,
-        'success': TaskStatus.SUCCESS,
-        'failed': TaskStatus.FAILED,
-      }
-      
-      const taskStatus = statusMap[status.toLowerCase()] || TaskStatus.PENDING
-      console.log(`[Test] 更新任务进度: ${id} - ${progress}% (${status})`)
-      notificationHandlers.updateTaskProgress(id, progress, taskStatus)
+        pending: TaskStatus.PENDING,
+        downloading: TaskStatus.DOWNLOADING,
+        installing: TaskStatus.INSTALLING,
+        success: TaskStatus.SUCCESS,
+        failed: TaskStatus.FAILED,
+      };
+
+      const taskStatus = statusMap[status.toLowerCase()] || TaskStatus.PENDING;
+      console.log(`[Test] 更新任务进度: ${id} - ${progress}% (${status})`);
+      notificationHandlers.updateTaskProgress(id, progress, taskStatus);
     },
 
     /**
@@ -137,11 +149,11 @@ export function setupNotificationTestCommands() {
      */
     clearAll: () => {
       if (!notificationHandlers) {
-        console.error('[Test] 通知系统未初始化')
-        return
+        console.error("[Test] 通知系统未初始化");
+        return;
       }
-      console.log('[Test] 清空所有通知')
-      notificationHandlers.clearAllNotifications()
+      console.log("[Test] 清空所有通知");
+      notificationHandlers.clearAllNotifications();
     },
 
     /**
@@ -150,33 +162,37 @@ export function setupNotificationTestCommands() {
      */
     demo: () => {
       if (!notificationHandlers) {
-        console.error('[Test] 通知系统未初始化')
-        return
+        console.error("[Test] 通知系统未初始化");
+        return;
       }
-      console.log('[Test] 开始演示完整安装流程...')
-      
-      const taskId = testNotification.task('演示机器人', 'v2.0.0', ['Maibot', 'Napcat', 'Adapter'])
-      
+      console.log("[Test] 开始演示完整安装流程...");
+
+      const taskId = testNotification.task("演示机器人", "v2.0.0", [
+        "Maibot",
+        "Napcat",
+        "Adapter",
+      ]);
+
       setTimeout(() => {
-        testNotification.updateTask(taskId, 20, 'downloading')
-      }, 1000)
-      
+        testNotification.updateTask(taskId, 20, "downloading");
+      }, 1000);
+
       setTimeout(() => {
-        testNotification.updateTask(taskId, 50, 'downloading')
-      }, 2000)
-      
+        testNotification.updateTask(taskId, 50, "downloading");
+      }, 2000);
+
       setTimeout(() => {
-        testNotification.updateTask(taskId, 70, 'installing')
-      }, 3000)
-      
+        testNotification.updateTask(taskId, 70, "installing");
+      }, 3000);
+
       setTimeout(() => {
-        testNotification.updateTask(taskId, 90, 'installing')
-      }, 4000)
-      
+        testNotification.updateTask(taskId, 90, "installing");
+      }, 4000);
+
       setTimeout(() => {
-        testNotification.updateTask(taskId, 100, 'success')
-        console.log('[Notification Test] 演示完成！')
-      }, 5000)
+        testNotification.updateTask(taskId, 100, "success");
+        console.log("[Notification Test] 演示完成！");
+      }, 5000);
     },
 
     /**
@@ -184,7 +200,7 @@ export function setupNotificationTestCommands() {
      */
     help: () => {
       console.log(`
-📚 通知系统测试命令帮助
+通知系统测试命令帮助
 
 基础通知:
   testNotification.info('标题', '消息内容')     - 发送消息通知（浅蓝色）
@@ -208,12 +224,12 @@ export function setupNotificationTestCommands() {
   const taskId = testNotification.task('我的机器人', 'v2.0.0', ['Maibot'])
   testNotification.updateTask(taskId, 50, 'installing')
   testNotification.updateTask(taskId, 100, 'success')
-      `)
-    }
-  }
+      `);
+    },
+  };
 
   // 注册到全局
-  ;(window as any).testNotification = testNotification
-  
-  console.log('🧪 通知测试工具已加载！输入 testNotification.help() 查看帮助')
+  (window as any).testNotification = testNotification;
+
+  console.log("通知测试工具已加载！输入 testNotification.help() 查看帮助");
 }
