@@ -26,11 +26,11 @@
   },
   "lint-staged": {
     "frontend/src/**/*.{ts,tsx}": [
-      "prettier --write",
-      "eslint --fix --max-warnings 0"
+      "pnpm --dir frontend exec prettier --write",
+      "pnpm --dir frontend exec eslint --fix --max-warnings 0"
     ],
     "frontend/src/**/*.css": [
-      "prettier --write"
+      "pnpm --dir frontend exec prettier --write"
     ]
   }
 }
