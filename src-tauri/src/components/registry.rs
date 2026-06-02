@@ -5,18 +5,11 @@ use crate::components::spec::{ComponentSpec, StartupKind, StopStrategy};
 use crate::errors::{AppError, AppResult};
 use crate::models::{component_exists, ComponentType};
 
-const MAIN_DEPS: &[ComponentType] = &[];
 const NAPCAT_DEPS: &[ComponentType] = &[];
-const ADAPTER_DEPS: &[ComponentType] = &[ComponentType::Main, ComponentType::NapCat];
+// MaiBot 依赖 NapCat 先就绪，便于内置的 NapCat 适配器插件连上 NapCat 的 WebSocket。
+const MAIN_DEPS: &[ComponentType] = &[ComponentType::NapCat];
 
-const COMPONENT_SPECS: [ComponentSpec; 3] = [
-    ComponentSpec {
-        component: ComponentType::Main,
-        startup_kind: StartupKind::PythonScript,
-        stop_strategy: StopStrategy::CtrlCThenKill,
-        startup_target: "bot.py",
-        depends_on: MAIN_DEPS,
-    },
+const COMPONENT_SPECS: [ComponentSpec; 2] = [
     ComponentSpec {
         component: ComponentType::NapCat,
         startup_kind: StartupKind::Shell,
@@ -25,11 +18,11 @@ const COMPONENT_SPECS: [ComponentSpec; 3] = [
         depends_on: NAPCAT_DEPS,
     },
     ComponentSpec {
-        component: ComponentType::NapCatAdapter,
+        component: ComponentType::Main,
         startup_kind: StartupKind::PythonScript,
         stop_strategy: StopStrategy::CtrlCThenKill,
-        startup_target: "main.py",
-        depends_on: ADAPTER_DEPS,
+        startup_target: "bot.py",
+        depends_on: MAIN_DEPS,
     },
 ];
 
@@ -218,7 +211,7 @@ mod tests {
         let _ = fs::remove_dir_all(&temp_root);
         create_component_dirs(
             &temp_root,
-            &[ComponentType::NapCatAdapter, ComponentType::Main, ComponentType::NapCat],
+            &[ComponentType::Main, ComponentType::NapCat],
         );
 
         let ordered = registry
@@ -226,7 +219,8 @@ mod tests {
             .expect("生成启动顺序失败");
         let display = ordered.iter().map(|spec| spec.component).collect::<Vec<_>>();
 
-        assert_eq!(display, vec![ComponentType::Main, ComponentType::NapCat, ComponentType::NapCatAdapter]);
+        // NapCat 必须先于 MaiBot 启动，便于内置适配器插件连上 NapCat。
+        assert_eq!(display, vec![ComponentType::NapCat, ComponentType::Main]);
 
         let _ = fs::remove_dir_all(&temp_root);
     }
@@ -238,15 +232,16 @@ mod tests {
         let _ = fs::remove_dir_all(&temp_root);
         create_component_dirs(
             &temp_root,
-            &[ComponentType::NapCatAdapter, ComponentType::Main, ComponentType::NapCat],
+            &[ComponentType::Main, ComponentType::NapCat],
         );
 
+        // 停止 NapCat 前必须先停止依赖它的 MaiBot。
         let ordered = registry
-            .shutdown_chain_for_component(&temp_root, ComponentType::Main)
+            .shutdown_chain_for_component(&temp_root, ComponentType::NapCat)
             .expect("生成停止链路失败");
         let display = ordered.iter().map(|spec| spec.component).collect::<Vec<_>>();
 
-        assert_eq!(display, vec![ComponentType::NapCatAdapter, ComponentType::Main]);
+        assert_eq!(display, vec![ComponentType::Main, ComponentType::NapCat]);
 
         let _ = fs::remove_dir_all(&temp_root);
     }

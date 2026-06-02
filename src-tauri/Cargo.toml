@@ -43,6 +43,8 @@ sysinfo = "0.33"
 zip = "2"
 futures-util = "0.3"
 sha2 = "0.10.9"
+# MaiBot bot.py check_eula 用 MD5(EULA.md/PRIVACY.md 内容) 作为 EULA_AGREE/PRIVACY_AGREE 的确认值
+md-5 = "0.10"
 
 [dev-dependencies]
 tempfile = "3"

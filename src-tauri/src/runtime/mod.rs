@@ -1,5 +1,6 @@
 pub mod adapter;
 pub mod local;
+pub mod maibot_env;
 pub mod path_mapper;
 pub mod resolver;
 pub mod wsl;

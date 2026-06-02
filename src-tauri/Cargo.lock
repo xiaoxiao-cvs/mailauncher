@@ -100,6 +100,7 @@ dependencies = [
  "dirs",
  "futures-util",
  "log",
+ "md-5",
  "portable-pty",
  "reqwest 0.12.28",
  "serde",

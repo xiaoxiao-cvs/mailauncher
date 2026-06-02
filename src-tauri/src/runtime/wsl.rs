@@ -50,21 +50,17 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
                     .path
                     .clone()
                     .unwrap_or_else(|| "python3".to_string());
-                format!("cd '{guest_cwd}' && echo {marker}=$$; exec {python} {}", component.startup_target)
+                // 注入 EULA / 0.x 升级确认环境变量，绕过 bot.py 的 input() 阻塞。
+                // EULA_AGREE/PRIVACY_AGREE 取宿主侧 MaiBot 目录下协议文件的 MD5；
+                // guest 与 host 通过 \\wsl$ 共享同一文件，内容一致，哈希通用。
+                let env_prefix = wsl_env_prefix(instance_root, component);
+                format!("cd '{guest_cwd}' && echo {marker}=$$; exec {env_prefix}{python} {}", component.startup_target)
             }
             ComponentType::NapCat => {
                 let account_suffix = qq_account
                     .map(|account| format!(" {}", shell_escape(account)))
                     .unwrap_or_default();
                 format!("cd '{guest_cwd}' && echo {marker}=$$; exec bash start.sh{account_suffix}")
-            }
-            ComponentType::NapCatAdapter => {
-                let python = profile
-                    .python
-                    .path
-                    .clone()
-                    .unwrap_or_else(|| "python3".to_string());
-                format!("cd '{guest_cwd}' && echo {marker}=$$; exec {python} {}", component.startup_target)
             }
         };
         let session_name = terminal_session_name(instance_id, component.component.internal_key());
@@ -76,6 +72,8 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
             command: "wsl.exe".to_string(),
             args,
             cwd: instance_root.to_path_buf(),
+            // WSL 场景的环境变量已直接写入上面的 bash -lc 脚本，无需经 PTY env 注入。
+            env: Vec::new(),
         })
     }
 
@@ -105,7 +103,7 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
         args.push("bash".to_string());
         args.push("-lc".to_string());
         args.push(
-            "for pid in $(pgrep -f 'bot.py|main.py|start.sh' 2>/dev/null || true); do cmd=$(tr '\0' ' ' < /proc/$pid/cmdline 2>/dev/null || true); cwd=$(readlink -f /proc/$pid/cwd 2>/dev/null || true); printf '%s\t%s\t%s\n' \"$pid\" \"$cwd\" \"$cmd\"; done".to_string(),
+            "for pid in $(pgrep -f 'bot.py|start.sh' 2>/dev/null || true); do cmd=$(tr '\0' ' ' < /proc/$pid/cmdline 2>/dev/null || true); cwd=$(readlink -f /proc/$pid/cwd 2>/dev/null || true); printf '%s\t%s\t%s\n' \"$pid\" \"$cwd\" \"$cmd\"; done".to_string(),
         );
 
         let output = StdCommand::new("wsl.exe")
@@ -152,10 +150,10 @@ mod tests {
         let registry = ComponentRegistry::new();
         let components = vec![
             registry.get(ComponentType::Main).expect("缺少 main spec"),
-            registry.get(ComponentType::NapCatAdapter).expect("缺少 adapter spec"),
+            registry.get(ComponentType::NapCat).expect("缺少 napcat spec"),
         ];
 
-        let stdout = "123\t/home/mai/demo/MaiBot\tpython3 bot.py\n456\t/home/mai/demo/MaiBot-Napcat-Adapter\tpython3 main.py\n";
+        let stdout = "123\t/home/mai/demo/MaiBot\tpython3 bot.py\n456\t/home/mai/demo/NapCat\tbash start.sh\n";
         let mut profile = crate::models::RuntimeProfile::local("demo", None);
         profile.kind = crate::models::RuntimeKind::Wsl2;
         let discovered = parse_wsl_discovered_processes_with_verifier(
@@ -169,11 +167,18 @@ mod tests {
         .expect("解析 WSL 进程失败");
 
         assert_eq!(discovered.len(), 2);
-        assert_eq!(discovered[0].component, ComponentType::Main);
-        assert_eq!(discovered[0].guest_pid, Some(123));
-        assert_eq!(discovered[1].component, ComponentType::NapCatAdapter);
-        assert_eq!(discovered[0].terminal_session.as_ref().map(|session| session.name.as_str()), Some("mailauncher-inst-1-main"));
-        assert_eq!(discovered[0].terminal_session.as_ref().map(|session| session.verified), Some(true));
+        let main = discovered
+            .iter()
+            .find(|process| process.component == ComponentType::Main)
+            .expect("缺少 main 进程");
+        let napcat = discovered
+            .iter()
+            .find(|process| process.component == ComponentType::NapCat)
+            .expect("缺少 napcat 进程");
+        assert_eq!(main.guest_pid, Some(123));
+        assert_eq!(napcat.guest_pid, Some(456));
+        assert_eq!(main.terminal_session.as_ref().map(|session| session.name.as_str()), Some("mailauncher-inst-1-main"));
+        assert_eq!(main.terminal_session.as_ref().map(|session| session.verified), Some(true));
     }
 
     #[test]
@@ -237,7 +242,6 @@ where
             let matches_target = match component.component {
                 ComponentType::Main => cmd.contains("bot.py"),
                 ComponentType::NapCat => cmd.contains("start.sh"),
-                ComponentType::NapCatAdapter => cmd.contains("main.py"),
             };
 
             if matches_target {
@@ -423,6 +427,18 @@ fn sanitize_session_token(value: &str) -> String {
 
 fn shell_escape(value: &str) -> String {
     value.replace('\'', r#"'\''"#)
+}
+
+/// 构造 MaiBot(Main) 启动前注入环境变量的 shell 前缀（形如 `K1='v1' K2='v2' `）。
+///
+/// 宿主与 WSL guest 通过 `\\wsl$` / drvfs 共享同一份 MaiBot 目录文件，
+/// EULA.md / PRIVACY.md 内容一致，故在宿主侧计算的 MD5 同样适用于 guest。
+fn wsl_env_prefix(instance_root: &Path, component: &ComponentSpec) -> String {
+    let maibot_dir = instance_root.join(component.relative_dir());
+    crate::runtime::maibot_env::maibot_startup_env(&maibot_dir)
+        .into_iter()
+        .map(|(key, value)| format!("{}='{}' ", key, shell_escape(&value)))
+        .collect()
 }
 
 fn tmux_key_tokens(data: &str) -> Vec<String> {

@@ -132,6 +132,7 @@ async fn start_component_inner(
     let cmd = resolved.command;
     let args = resolved.args;
     let cwd = resolved.cwd;
+    let env = resolved.env;
 
     let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
 
@@ -144,6 +145,7 @@ async fn start_component_inner(
             &cmd,
             &arg_refs,
             &cwd,
+            &env,
         )
         .await?;
 
@@ -169,8 +171,8 @@ async fn start_component_inner(
 
 /// 启动实例（启动所有可用组件）
 ///
-/// 与 Python `InstanceService.start_instance` 逻辑一致：
-/// 依次启动 main → napcat → napcat-ada 组件。
+/// 按依赖拓扑顺序启动可用组件：napcat 先于 main，
+/// 便于 MaiBot 内置的 NapCat 适配器插件连上 NapCat。
 #[tauri::command]
 pub async fn start_instance(
     app_handle: AppHandle,

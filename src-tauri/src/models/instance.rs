@@ -71,27 +71,28 @@ impl ComponentLifecycleStatus {
     }
 }
 
+/// 运行时可启动组件类型
+///
+/// 适配器自 MaiBot 1.0.0 起降级为 MaiBot 插件，不再作为独立进程组件，
+/// 因此运行时组件收敛为 MaiBot(Main) 与 NapCat 两个。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ComponentType {
     #[serde(rename = "MaiBot")]
     Main,
     #[serde(rename = "NapCat")]
     NapCat,
-    #[serde(rename = "MaiBot-Napcat-Adapter")]
-    NapCatAdapter,
 }
 
 impl ComponentType {
     #[allow(dead_code)]
-    pub const fn all() -> [Self; 3] {
-        [Self::Main, Self::NapCat, Self::NapCatAdapter]
+    pub const fn all() -> [Self; 2] {
+        [Self::Main, Self::NapCat]
     }
 
     pub fn display_name(&self) -> &'static str {
         match self {
             Self::Main => "MaiBot",
             Self::NapCat => "NapCat",
-            Self::NapCatAdapter => "MaiBot-Napcat-Adapter",
         }
     }
 
@@ -99,7 +100,6 @@ impl ComponentType {
         match self {
             Self::Main => "main",
             Self::NapCat => "napcat",
-            Self::NapCatAdapter => "napcat-ada",
         }
     }
 
@@ -107,7 +107,6 @@ impl ComponentType {
         match self {
             Self::Main => "MaiBot",
             Self::NapCat => "NapCat",
-            Self::NapCatAdapter => "MaiBot-Napcat-Adapter",
         }
     }
 
@@ -115,7 +114,6 @@ impl ComponentType {
         match value {
             "MaiBot" | "main" => Some(Self::Main),
             "NapCat" | "napcat" => Some(Self::NapCat),
-            "MaiBot-Napcat-Adapter" | "napcat-ada" => Some(Self::NapCatAdapter),
             _ => None,
         }
     }

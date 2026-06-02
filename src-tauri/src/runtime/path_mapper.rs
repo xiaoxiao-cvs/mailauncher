@@ -75,9 +75,9 @@ mod tests {
         profile.kind = RuntimeKind::Wsl2;
         profile.guest_workspace_root = Some("/home/mai/demo".to_string());
         let registry = ComponentRegistry::new();
-        let component = registry.get(crate::models::ComponentType::NapCatAdapter).expect("缺少 adapter spec");
+        let component = registry.get(crate::models::ComponentType::NapCat).expect("缺少 napcat spec");
         let mapper = PathMapper::for_runtime(&profile, None).expect("创建 guest PathMapper 失败");
 
-        assert_eq!(mapper.component_dir_string(component), "/home/mai/demo/MaiBot-Napcat-Adapter");
+        assert_eq!(mapper.component_dir_string(component), "/home/mai/demo/NapCat");
     }
 }

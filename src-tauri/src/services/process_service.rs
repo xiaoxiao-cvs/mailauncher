@@ -43,7 +43,7 @@ struct ExternalProcessHandle {
 pub struct ProcessInfo {
     /// 实例 ID
     pub instance_id: String,
-    /// 组件类型（main / napcat / napcat-ada）
+    /// 组件类型（main / napcat）
     pub component: String,
     /// 会话 ID（{instance_id}::{component}）
     pub session_id: String,
@@ -433,6 +433,7 @@ impl ProcessManager {
         command: &str,
         args: &[&str],
         cwd: &Path,
+        env: &[(String, String)],
     ) -> AppResult<Option<Box<dyn Read + Send>>> {
         let session_id = Self::session_id(instance_id, component);
 
@@ -475,6 +476,10 @@ impl ProcessManager {
         // 强制 Python 子进程使用 UTF-8，避免 Windows GBK 编码导致输出异常
         cmd.env("PYTHONIOENCODING", "utf-8");
         cmd.env("PYTHONUTF8", "1");
+        // 组件特定环境变量（如 MaiBot 的 EULA/升级确认），覆盖在通用变量之后注入
+        for (key, value) in env {
+            cmd.env(key, value);
+        }
 
         let child = pair.slave.spawn_command(cmd).map_err(|e| {
             error!("启动进程失败 {}: {}", session_id, e);

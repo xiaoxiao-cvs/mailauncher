@@ -209,6 +209,7 @@ mod tests {
                     &["-c", "sleep 2"]
                 },
                 &temp_root,
+                &[],
             )
             .await
             .expect("启动托管测试进程失败");

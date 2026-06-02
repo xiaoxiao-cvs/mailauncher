@@ -4,11 +4,13 @@ use crate::components::ComponentSpec;
 use crate::errors::AppResult;
 use crate::models::{ComponentLifecycleStatus, ComponentType, RuntimeKind, RuntimeProfile};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ResolvedCommand {
     pub command: String,
     pub args: Vec<String>,
     pub cwd: PathBuf,
+    /// 启动该组件时需要额外注入的环境变量（键值对）。
+    pub env: Vec<(String, String)>,
 }
 
 #[derive(Debug, Clone)]

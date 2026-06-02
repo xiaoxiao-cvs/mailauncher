@@ -10,7 +10,7 @@ pub struct ComponentVersion {
     pub id: i64,
     /// 关联的实例 ID
     pub instance_id: String,
-    /// 组件名称（main / napcat / napcat-ada）
+    /// 组件名称（main / napcat）
     pub component: String,
     /// 版本号或标签
     pub version: Option<String>,

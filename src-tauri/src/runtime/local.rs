@@ -71,6 +71,7 @@ impl LocalRuntimeAdapter {
                     command: "cmd".to_string(),
                     args,
                     cwd,
+                    env: Vec::new(),
                 })
             }
             _ => {
@@ -91,6 +92,7 @@ impl LocalRuntimeAdapter {
                     command: "bash".to_string(),
                     args,
                     cwd,
+                    env: Vec::new(),
                 })
             }
         }
@@ -123,29 +125,17 @@ impl RuntimeAdapter for LocalRuntimeAdapter {
                     )));
                 }
 
-                Ok(ResolvedCommand {
-                    command: self.resolve_python(instance_root, profile),
-                    args: vec![component.startup_target.to_string()],
-                    cwd,
-                })
-            }
-            ComponentType::NapCat => self.build_napcat_command(&mapper, qq_account),
-            ComponentType::NapCatAdapter => {
-                let cwd = mapper.component_dir(component);
-                let script = cwd.join(component.startup_target);
-                if !script.exists() {
-                    return Err(AppError::NotFound(format!(
-                        "NapCat 适配器启动脚本不存在: {}",
-                        script.display()
-                    )));
-                }
+                // 注入 EULA / 0.x 升级确认环境变量，绕过 bot.py 的 input() 阻塞。
+                let env = crate::runtime::maibot_env::maibot_startup_env(&cwd);
 
                 Ok(ResolvedCommand {
                     command: self.resolve_python(instance_root, profile),
                     args: vec![component.startup_target.to_string()],
                     cwd,
+                    env,
                 })
             }
+            ComponentType::NapCat => self.build_napcat_command(&mapper, qq_account),
         }
     }
 }
