@@ -3,7 +3,7 @@
 /// 通过读取 MaiBot 实例的 SQLite 数据库（MaiBot.db）获取 LLM 使用统计。
 /// 使用 sqlx 动态连接到各实例的数据库进行只读查询。
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use chrono::{Local, NaiveDateTime};
 use sqlx::sqlite::SqliteConnectOptions;
@@ -94,9 +94,13 @@ async fn count_messages(pool: &SqlitePool, start_time: &str, end_time: &str) -> 
     (msg_count.0, reply_count.0)
 }
 
+/// query_llm_usage 按模型聚合的累加值:
+/// (展示名, 请求数, 总 token, 输入 token, 输出 token, 累计花费, 累计耗时)
+type ModelAccumulator = (Option<String>, i64, i64, i64, i64, f64, f64);
+
 /// 查询 MaiBot 数据库的 LLM 使用统计
 async fn query_llm_usage(
-    db_path: &PathBuf,
+    db_path: &Path,
     start_time: &str,
     end_time: &str,
 ) -> AppResult<(StatsSummary, Vec<ModelStats>, Vec<RequestTypeStats>)> {
@@ -132,8 +136,7 @@ async fn query_llm_usage(
     .await?;
 
     let mut summary = StatsSummary::default();
-    let mut model_map: HashMap<String, (Option<String>, i64, i64, i64, i64, f64, f64)> =
-        HashMap::new();
+    let mut model_map: HashMap<String, ModelAccumulator> = HashMap::new();
     let mut type_map: HashMap<String, (i64, i64, f64)> = HashMap::new();
     let mut total_time = 0.0f64;
 
@@ -206,7 +209,7 @@ async fn query_llm_usage(
             },
         })
         .collect();
-    model_stats.sort_by(|a, b| b.request_count.cmp(&a.request_count));
+    model_stats.sort_by_key(|b| std::cmp::Reverse(b.request_count));
 
     let mut request_type_stats: Vec<RequestTypeStats> = type_map
         .into_iter()
@@ -217,7 +220,7 @@ async fn query_llm_usage(
             total_cost: (cost * 10000.0).round() / 10000.0,
         })
         .collect();
-    request_type_stats.sort_by(|a, b| b.request_count.cmp(&a.request_count));
+    request_type_stats.sort_by_key(|b| std::cmp::Reverse(b.request_count));
 
     Ok((summary, model_stats, request_type_stats))
 }
@@ -370,7 +373,7 @@ pub async fn get_stats_overview(pool: &SqlitePool, time_range: &str) -> AppResul
     agg_summary.tokens_per_hour = (agg_summary.tokens_per_hour * 10.0).round() / 10.0;
 
     let mut top_models: Vec<ModelStats> = all_models.into_values().collect();
-    top_models.sort_by(|a, b| b.request_count.cmp(&a.request_count));
+    top_models.sort_by_key(|b| std::cmp::Reverse(b.request_count));
     top_models.truncate(5);
 
     let now_str = Local::now()
@@ -446,7 +449,7 @@ pub async fn get_aggregated_stats(
     agg_summary.total_cost = (agg_summary.total_cost * 10000.0).round() / 10000.0;
 
     let mut model_stats: Vec<ModelStats> = all_models.into_values().collect();
-    model_stats.sort_by(|a, b| b.request_count.cmp(&a.request_count));
+    model_stats.sort_by_key(|b| std::cmp::Reverse(b.request_count));
 
     let now_str = Local::now()
         .naive_local()

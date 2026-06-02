@@ -202,12 +202,8 @@ fn discover_from_py_launcher(
 #[cfg(target_os = "windows")]
 fn find_drive_path_start(s: &str) -> Option<usize> {
     let bytes = s.as_bytes();
-    for i in 0..bytes.len().saturating_sub(2) {
-        if bytes[i].is_ascii_alphabetic() && bytes[i + 1] == b':' && bytes[i + 2] == b'\\' {
-            return Some(i);
-        }
-    }
-    None
+    (0..bytes.len().saturating_sub(2))
+        .find(|&i| bytes[i].is_ascii_alphabetic() && bytes[i + 1] == b':' && bytes[i + 2] == b'\\')
 }
 
 /// 获取某个命令的所有路径（where 返回多行）
@@ -492,7 +488,8 @@ mod tests {
         fn handles_various_drive_letters() {
             for letter in ['A', 'C', 'D', 'E', 'Z', 'a', 'c', 'z'] {
                 let line = format!("prefix {}:\\some\\path", letter);
-                let idx = find_drive_path_start(&line).expect(&format!("应找到盘符 {}", letter));
+                let idx =
+                    find_drive_path_start(&line).unwrap_or_else(|| panic!("应找到盘符 {}", letter));
                 assert_eq!(line.as_bytes()[idx] as char, letter);
             }
         }

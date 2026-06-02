@@ -148,85 +148,6 @@ fn parse_wsl_discovered_processes(
     )
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::components::ComponentRegistry;
-    use crate::models::ComponentType;
-
-    use super::parse_wsl_discovered_processes_with_verifier;
-
-    #[test]
-    fn parse_wsl_processes_matches_component_by_cwd_and_cmdline() {
-        let registry = ComponentRegistry::new();
-        let components = vec![
-            registry.get(ComponentType::Main).expect("缺少 main spec"),
-            registry
-                .get(ComponentType::NapCat)
-                .expect("缺少 napcat spec"),
-        ];
-
-        let stdout = "123\t/home/mai/demo/MaiBot\tpython3 bot.py\n456\t/home/mai/demo/NapCat\tbash start.sh\n";
-        let mut profile = crate::models::RuntimeProfile::local("demo", None);
-        profile.kind = crate::models::RuntimeKind::Wsl2;
-        let discovered = parse_wsl_discovered_processes_with_verifier(
-            &profile,
-            stdout,
-            "/home/mai/demo",
-            "inst-1",
-            &components,
-            |_| true,
-        )
-        .expect("解析 WSL 进程失败");
-
-        assert_eq!(discovered.len(), 2);
-        let main = discovered
-            .iter()
-            .find(|process| process.component == ComponentType::Main)
-            .expect("缺少 main 进程");
-        let napcat = discovered
-            .iter()
-            .find(|process| process.component == ComponentType::NapCat)
-            .expect("缺少 napcat 进程");
-        assert_eq!(main.guest_pid, Some(123));
-        assert_eq!(napcat.guest_pid, Some(456));
-        assert_eq!(
-            main.terminal_session
-                .as_ref()
-                .map(|session| session.name.as_str()),
-            Some("mailauncher-inst-1-main")
-        );
-        assert_eq!(
-            main.terminal_session
-                .as_ref()
-                .map(|session| session.verified),
-            Some(true)
-        );
-    }
-
-    #[test]
-    fn parse_wsl_processes_without_verified_session_keeps_process_only() {
-        let registry = ComponentRegistry::new();
-        let components = vec![registry.get(ComponentType::Main).expect("缺少 main spec")];
-
-        let stdout = "123\t/home/mai/demo/MaiBot\tpython3 bot.py\n";
-        let mut profile = crate::models::RuntimeProfile::local("demo", None);
-        profile.kind = crate::models::RuntimeKind::Wsl2;
-        let discovered = parse_wsl_discovered_processes_with_verifier(
-            &profile,
-            stdout,
-            "/home/mai/demo",
-            "inst-1",
-            &components,
-            |_| false,
-        )
-        .expect("解析 WSL 进程失败");
-
-        assert_eq!(discovered.len(), 1);
-        assert_eq!(discovered[0].guest_pid, Some(123));
-        assert!(discovered[0].terminal_session.is_none());
-    }
-}
-
 fn parse_wsl_discovered_processes_with_verifier<F>(
     profile: &RuntimeProfile,
     stdout: &str,
@@ -526,4 +447,83 @@ fn tmux_key_tokens(data: &str) -> Vec<String> {
     }
 
     tokens
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::components::ComponentRegistry;
+    use crate::models::ComponentType;
+
+    use super::parse_wsl_discovered_processes_with_verifier;
+
+    #[test]
+    fn parse_wsl_processes_matches_component_by_cwd_and_cmdline() {
+        let registry = ComponentRegistry::new();
+        let components = vec![
+            registry.get(ComponentType::Main).expect("缺少 main spec"),
+            registry
+                .get(ComponentType::NapCat)
+                .expect("缺少 napcat spec"),
+        ];
+
+        let stdout = "123\t/home/mai/demo/MaiBot\tpython3 bot.py\n456\t/home/mai/demo/NapCat\tbash start.sh\n";
+        let mut profile = crate::models::RuntimeProfile::local("demo", None);
+        profile.kind = crate::models::RuntimeKind::Wsl2;
+        let discovered = parse_wsl_discovered_processes_with_verifier(
+            &profile,
+            stdout,
+            "/home/mai/demo",
+            "inst-1",
+            &components,
+            |_| true,
+        )
+        .expect("解析 WSL 进程失败");
+
+        assert_eq!(discovered.len(), 2);
+        let main = discovered
+            .iter()
+            .find(|process| process.component == ComponentType::Main)
+            .expect("缺少 main 进程");
+        let napcat = discovered
+            .iter()
+            .find(|process| process.component == ComponentType::NapCat)
+            .expect("缺少 napcat 进程");
+        assert_eq!(main.guest_pid, Some(123));
+        assert_eq!(napcat.guest_pid, Some(456));
+        assert_eq!(
+            main.terminal_session
+                .as_ref()
+                .map(|session| session.name.as_str()),
+            Some("mailauncher-inst-1-main")
+        );
+        assert_eq!(
+            main.terminal_session
+                .as_ref()
+                .map(|session| session.verified),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn parse_wsl_processes_without_verified_session_keeps_process_only() {
+        let registry = ComponentRegistry::new();
+        let components = vec![registry.get(ComponentType::Main).expect("缺少 main spec")];
+
+        let stdout = "123\t/home/mai/demo/MaiBot\tpython3 bot.py\n";
+        let mut profile = crate::models::RuntimeProfile::local("demo", None);
+        profile.kind = crate::models::RuntimeKind::Wsl2;
+        let discovered = parse_wsl_discovered_processes_with_verifier(
+            &profile,
+            stdout,
+            "/home/mai/demo",
+            "inst-1",
+            &components,
+            |_| false,
+        )
+        .expect("解析 WSL 进程失败");
+
+        assert_eq!(discovered.len(), 1);
+        assert_eq!(discovered[0].guest_pid, Some(123));
+        assert!(discovered[0].terminal_session.is_none());
+    }
 }

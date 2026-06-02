@@ -339,6 +339,9 @@ fn hydrate_discovered_component_states(
         .collect()
 }
 
+// 参数为状态同步所需的依赖与上下文(连接池/进程管理器/组件注册表/实例标识/根路径/运行时配置/
+// 错误与状态原因)，分属不同关注点，无单一内聚结构可收拢;此为参数个数启发式而非缺陷，定向放行。
+#[allow(clippy::too_many_arguments)]
 pub async fn sync_instance_state(
     pool: &SqlitePool,
     process_manager: &ProcessManager,

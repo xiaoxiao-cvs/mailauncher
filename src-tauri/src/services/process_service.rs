@@ -463,6 +463,10 @@ impl ProcessManager {
     ///
     /// 使用 portable-pty 创建跨平台 PTY，启动指定命令。
     /// 成功后将进程信息存入管理器，并返回 PTY 读取端用于输出监听。
+    // 参数同时承载会话身份(instance_id/component/runtime_kind)与命令规格
+    // (command/args/cwd/env)两类语义，且均为借用切片；收拢为结构体会改变借用契约并牵动调用点，
+    // 此处仅为参数个数启发式而非缺陷，故定向放行。
+    #[allow(clippy::too_many_arguments)]
     pub async fn start_process(
         &self,
         instance_id: &str,
@@ -1055,6 +1059,36 @@ impl Default for ProcessManager {
     }
 }
 
+// ==================== 命令构建辅助 ====================
+
+/// 根据组件类型构建启动命令和工作目录
+///
+/// 对应 Python `ProcessManager._get_command_and_cwd`
+#[allow(dead_code)]
+pub fn build_component_command(
+    instance_path: &Path,
+    component: &str,
+    runtime_profile: &RuntimeProfile,
+    qq_account: Option<&str>,
+) -> AppResult<(String, Vec<String>, std::path::PathBuf)> {
+    let component = ComponentType::from_value(component)
+        .ok_or_else(|| AppError::InvalidInput(format!("不支持的组件类型: {}", component)))?;
+    let spec = crate::components::ComponentRegistry::new()
+        .get(component)
+        .ok_or_else(|| {
+            AppError::InvalidInput(format!("组件未注册: {}", component.display_name()))
+        })?;
+    let adapter = LocalRuntimeAdapter;
+    let resolved = adapter.resolve_component_command(
+        "manual",
+        instance_path,
+        spec,
+        runtime_profile,
+        qq_account,
+    )?;
+    Ok((resolved.command, resolved.args, resolved.cwd))
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
@@ -1224,34 +1258,4 @@ mod tests {
             .await
             .is_empty());
     }
-}
-
-// ==================== 命令构建辅助 ====================
-
-/// 根据组件类型构建启动命令和工作目录
-///
-/// 对应 Python `ProcessManager._get_command_and_cwd`
-#[allow(dead_code)]
-pub fn build_component_command(
-    instance_path: &Path,
-    component: &str,
-    runtime_profile: &RuntimeProfile,
-    qq_account: Option<&str>,
-) -> AppResult<(String, Vec<String>, std::path::PathBuf)> {
-    let component = ComponentType::from_value(component)
-        .ok_or_else(|| AppError::InvalidInput(format!("不支持的组件类型: {}", component)))?;
-    let spec = crate::components::ComponentRegistry::new()
-        .get(component)
-        .ok_or_else(|| {
-            AppError::InvalidInput(format!("组件未注册: {}", component.display_name()))
-        })?;
-    let adapter = LocalRuntimeAdapter;
-    let resolved = adapter.resolve_component_command(
-        "manual",
-        instance_path,
-        spec,
-        runtime_profile,
-        qq_account,
-    )?;
-    Ok((resolved.command, resolved.args, resolved.cwd))
 }

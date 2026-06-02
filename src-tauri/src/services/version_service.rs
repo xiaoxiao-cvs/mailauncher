@@ -296,7 +296,7 @@ pub async fn check_component_update(
         current_version: local_version,
         current_commit: local_commit,
         latest_version: None,
-        latest_commit: latest_commit,
+        latest_commit,
         has_update,
         update_notes: None,
         commits_behind,
@@ -398,7 +398,7 @@ pub async fn create_backup(
     let repo = get_github_repo(item_type);
     let backup_id = format!(
         "backup_{}",
-        Uuid::new_v4().to_string().replace('-', "")[..12].to_string()
+        &Uuid::new_v4().to_string().replace('-', "")[..12]
     );
 
     // 备份目录

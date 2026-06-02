@@ -690,15 +690,20 @@ mod tests {
         }
     }
 
-    #[test]
-    fn python_path_defaults_to_platform_specific_when_none() {
-        let python_path: Option<&str> = None;
+    /// 复刻 create_virtual_environment 中 `python_path.unwrap_or(default_python)`
+    /// 的解析逻辑：参数化 Option 输入，断言选出的解释器路径与预期一致。
+    fn resolve_python(python_path: Option<&str>) -> &str {
         let default_python = if cfg!(target_os = "windows") {
             "python"
         } else {
             "python3"
         };
-        let python = python_path.unwrap_or(default_python);
+        python_path.unwrap_or(default_python)
+    }
+
+    #[test]
+    fn python_path_defaults_to_platform_specific_when_none() {
+        let python = resolve_python(None);
         if cfg!(target_os = "windows") {
             assert_eq!(python, "python");
         } else {
@@ -708,13 +713,7 @@ mod tests {
 
     #[test]
     fn python_path_uses_custom_when_provided() {
-        let python_path: Option<&str> = Some("/usr/local/bin/python3.11");
-        let default_python = if cfg!(target_os = "windows") {
-            "python"
-        } else {
-            "python3"
-        };
-        let python = python_path.unwrap_or(default_python);
+        let python = resolve_python(Some("/usr/local/bin/python3.11"));
         assert_eq!(python, "/usr/local/bin/python3.11");
     }
 

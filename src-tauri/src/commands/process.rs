@@ -4,7 +4,7 @@
 /// 实例级别的操作会协调 instance_service（更新 DB 状态）和
 /// process_service（管理实际进程），与 Python 行为一致。
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::Path;
 
 use tauri::{AppHandle, State};
 use tokio::runtime::Handle;
@@ -24,8 +24,8 @@ use crate::utils::platform;
 
 // ==================== 组件名称映射 ====================
 
-fn resolve_component_spec<'a>(
-    state: &'a AppState,
+fn resolve_component_spec(
+    state: &AppState,
     component_name: &str,
 ) -> AppResult<&'static ComponentSpec> {
     state
@@ -121,12 +121,15 @@ async fn stop_components_in_order(
 // ==================== 启动组件的共用逻辑 ====================
 
 /// 启动单个组件进程（内部实现）
+// 参数为编排所需的上下文集合(应用句柄/状态/进程管理器/实例标识/路径/组件规格/运行时配置/QQ 账号)，
+// 彼此无单一内聚语义，强行收拢为结构体反而割裂调用方;此为参数个数启发式而非缺陷，定向放行。
+#[allow(clippy::too_many_arguments)]
 async fn start_component_inner(
     app_handle: &AppHandle,
     state: &AppState,
     process_manager: &ProcessManager,
     instance_id: &str,
-    instance_path: &PathBuf,
+    instance_path: &Path,
     component_spec: &ComponentSpec,
     runtime_profile: &RuntimeProfile,
     qq_account: Option<&str>,
