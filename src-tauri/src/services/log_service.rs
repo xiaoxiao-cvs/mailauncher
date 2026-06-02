@@ -67,7 +67,8 @@ pub fn list_log_files() -> AppResult<Vec<LogFile>> {
             continue;
         }
 
-        let name = path.file_name()
+        let name = path
+            .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("")
             .to_string();
@@ -78,7 +79,8 @@ pub fn list_log_files() -> AppResult<Vec<LogFile>> {
         }
 
         let metadata = fs::metadata(&path)?;
-        let modified = metadata.modified()
+        let modified = metadata
+            .modified()
             .map(|t| {
                 let dt: chrono::DateTime<Local> = t.into();
                 dt.format("%Y-%m-%d %H:%M:%S").to_string()
@@ -105,7 +107,9 @@ pub fn get_log_content(file_path: &str) -> AppResult<String> {
     // 安全检查：确保路径在日志目录下
     let log_dir = get_frontend_log_dir();
     if !path.starts_with(&log_dir) {
-        return Err(AppError::InvalidInput("不允许访问日志目录之外的文件".into()));
+        return Err(AppError::InvalidInput(
+            "不允许访问日志目录之外的文件".into(),
+        ));
     }
 
     if !path.exists() {
@@ -130,7 +134,8 @@ pub fn export_logs() -> AppResult<Vec<u8>> {
                 let entry = entry?;
                 let path = entry.path();
                 if path.is_file() {
-                    let name = path.file_name()
+                    let name = path
+                        .file_name()
                         .and_then(|n| n.to_str())
                         .unwrap_or("unknown")
                         .to_string();

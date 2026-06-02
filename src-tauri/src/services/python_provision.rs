@@ -64,7 +64,10 @@ fn emit_progress(app: &AppHandle, stage: &str, percentage: f64, message: &str) {
             message: message.to_string(),
         },
     );
-    info!("[python-provision][{}] {:.0}% {}", stage, percentage, message);
+    info!(
+        "[python-provision][{}] {:.0}% {}",
+        stage, percentage, message
+    );
 }
 
 /// 推送一行日志事件
@@ -233,7 +236,12 @@ pub async fn download_and_extract_uv(app: &AppHandle) -> AppResult<PathBuf> {
         return Ok(existing);
     }
 
-    emit_progress(app, "download_uv", 15.0, &format!("正在下载 uv ({})...", asset));
+    emit_progress(
+        app,
+        "download_uv",
+        15.0,
+        &format!("正在下载 uv ({})...", asset),
+    );
     let archive_path = target_dir.join(asset);
     download_file(&url, &archive_path, app).await?;
 
@@ -583,9 +591,11 @@ mod tests {
     #[test]
     fn default_python_version_meets_maibot_requirement() {
         // 默认目标版本必须满足 MaiBot 的 >= 3.12 要求
-        assert!(crate::services::system_service::version_meets_maibot_requirement(
-            DEFAULT_PYTHON_VERSION
-        ));
+        assert!(
+            crate::services::system_service::version_meets_maibot_requirement(
+                DEFAULT_PYTHON_VERSION
+            )
+        );
     }
 
     #[test]

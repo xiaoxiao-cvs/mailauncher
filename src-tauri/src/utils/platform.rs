@@ -27,9 +27,12 @@ pub fn get_data_root() -> PathBuf {
                 // /path/to/MAILauncher.app/Contents/MacOS/mailauncher
                 // → /path/to/mailauncher-data
                 let app_bundle = exe_path
-                    .parent().unwrap()  // MacOS/
-                    .parent().unwrap()  // Contents/
-                    .parent().unwrap(); // MAILauncher.app
+                    .parent()
+                    .unwrap() // MacOS/
+                    .parent()
+                    .unwrap() // Contents/
+                    .parent()
+                    .unwrap(); // MAILauncher.app
                 app_bundle.parent().unwrap().join("mailauncher-data")
             } else {
                 exe_path.parent().unwrap().join("mailauncher-data")

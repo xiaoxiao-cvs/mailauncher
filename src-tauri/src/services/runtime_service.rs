@@ -4,8 +4,8 @@ use sqlx::SqlitePool;
 
 use crate::errors::{AppError, AppResult};
 use crate::models::{
-    ComponentType, InstanceLifecycleStatus, RuntimeKind, RuntimeProfile, RuntimeProbeIssue,
-    RuntimeProbeResult, RuntimeProbeSeverity, WslDistributionInfo,
+    ComponentType, InstanceLifecycleStatus, RuntimeKind, RuntimeProbeIssue, RuntimeProbeResult,
+    RuntimeProbeSeverity, RuntimeProfile, WslDistributionInfo,
 };
 use crate::runtime::PathMapper;
 
@@ -97,7 +97,9 @@ pub async fn list_wsl_distributions() -> AppResult<Vec<WslDistributionInfo>> {
         .map_err(|error| AppError::Process(format!("执行 wsl.exe 失败: {}", error)))?;
 
     if !output.status.success() {
-        return Err(AppError::Process(String::from_utf8_lossy(&output.stderr).trim().to_string()));
+        return Err(AppError::Process(
+            String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        ));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -195,7 +197,9 @@ pub async fn validate_runtime_profile(profile: &RuntimeProfile) -> AppResult<Run
         RuntimeKind::Wsl2 => validate_wsl_runtime_profile(profile, &mut issues).await?,
     }
 
-    let ok = issues.iter().all(|issue| issue.severity != RuntimeProbeSeverity::Error);
+    let ok = issues
+        .iter()
+        .all(|issue| issue.severity != RuntimeProbeSeverity::Error);
     Ok(RuntimeProbeResult { ok, issues })
 }
 
@@ -212,7 +216,11 @@ async fn validate_wsl_runtime_profile(
         return Ok(());
     }
 
-    let Some(distribution) = profile.distribution.as_deref().filter(|value| !value.trim().is_empty()) else {
+    let Some(distribution) = profile
+        .distribution
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    else {
         issues.push(RuntimeProbeIssue {
             severity: RuntimeProbeSeverity::Error,
             code: "wsl_distribution_missing".to_string(),
@@ -243,7 +251,13 @@ async fn validate_wsl_runtime_profile(
         return Ok(());
     }
 
-    if profile.user.as_deref().unwrap_or_default().trim().is_empty() {
+    if profile
+        .user
+        .as_deref()
+        .unwrap_or_default()
+        .trim()
+        .is_empty()
+    {
         issues.push(RuntimeProbeIssue {
             severity: RuntimeProbeSeverity::Warning,
             code: "wsl_user_missing".to_string(),
@@ -300,22 +314,24 @@ async fn validate_wsl_runtime_profile(
     Ok(())
 }
 
-async fn probe_wsl_directory(profile: &RuntimeProfile, guest_workspace_root: &str) -> AppResult<bool> {
+async fn probe_wsl_directory(
+    profile: &RuntimeProfile,
+    guest_workspace_root: &str,
+) -> AppResult<bool> {
     let distribution = profile.distribution.as_deref().unwrap_or_default();
     let escaped = guest_workspace_root.replace('\'', r#"'\''"#);
     let mut command = tokio::process::Command::new("wsl.exe");
     command.args(["--distribution", distribution]);
 
-    if let Some(user) = profile.user.as_deref().filter(|value| !value.trim().is_empty()) {
+    if let Some(user) = profile
+        .user
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
         command.args(["--user", user]);
     }
 
-    command.args([
-        "--exec",
-        "bash",
-        "-lc",
-        &format!("test -d '{}'", escaped),
-    ]);
+    command.args(["--exec", "bash", "-lc", &format!("test -d '{}'", escaped)]);
 
     let output = command
         .output()

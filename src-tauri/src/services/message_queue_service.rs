@@ -21,12 +21,11 @@ pub async fn get_instance_queue(
         status: String,
     }
 
-    let instance = sqlx::query_as::<_, InstanceInfo>(
-        "SELECT name, status FROM instances WHERE id = ?"
-    )
-    .bind(instance_id)
-    .fetch_optional(pool)
-    .await?;
+    let instance =
+        sqlx::query_as::<_, InstanceInfo>("SELECT name, status FROM instances WHERE id = ?")
+            .bind(instance_id)
+            .fetch_optional(pool)
+            .await?;
 
     match instance {
         Some(info) => Ok(MessageQueueResponse {
@@ -53,9 +52,7 @@ pub async fn get_instance_queue(
 }
 
 /// 获取所有实例的消息队列
-pub async fn get_all_queues(
-    pool: &SqlitePool,
-) -> AppResult<Vec<MessageQueueResponse>> {
+pub async fn get_all_queues(pool: &SqlitePool) -> AppResult<Vec<MessageQueueResponse>> {
     let instance_ids: Vec<(String,)> = sqlx::query_as("SELECT id FROM instances")
         .fetch_all(pool)
         .await?;

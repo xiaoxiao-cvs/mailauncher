@@ -17,9 +17,7 @@ pub struct GitInfo {
 /// 检测系统 Git 环境
 pub fn check_git_environment() -> AppResult<GitInfo> {
     // 尝试运行 git --version
-    let output = Command::new("git")
-        .arg("--version")
-        .output();
+    let output = Command::new("git").arg("--version").output();
 
     match output {
         Ok(out) if out.status.success() => {
@@ -33,13 +31,11 @@ pub fn check_git_environment() -> AppResult<GitInfo> {
                 version: version_str,
             })
         }
-        _ => {
-            Ok(GitInfo {
-                is_available: false,
-                path: String::new(),
-                version: String::new(),
-            })
-        }
+        _ => Ok(GitInfo {
+            is_available: false,
+            path: String::new(),
+            version: String::new(),
+        }),
     }
 }
 
@@ -52,7 +48,14 @@ fn get_git_path() -> Option<String> {
             .output()
             .ok()
             .filter(|o| o.status.success())
-            .map(|o| String::from_utf8_lossy(&o.stdout).lines().next().unwrap_or("").trim().to_string())
+            .map(|o| {
+                String::from_utf8_lossy(&o.stdout)
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string()
+            })
             .filter(|s| !s.is_empty())
     }
     #[cfg(not(target_os = "windows"))]
@@ -86,8 +89,14 @@ pub struct DiscoveredPython {
 /// 接受如 "3.12.1"、"3.13"、"3" 等形式，无法解析的段视为 0。
 fn parse_major_minor(version: &str) -> (u32, u32) {
     let mut parts = version.split('.');
-    let major = parts.next().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
-    let minor = parts.next().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+    let major = parts
+        .next()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0);
+    let minor = parts
+        .next()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0);
     (major, minor)
 }
 
@@ -128,7 +137,10 @@ pub fn discover_python_environments() -> Vec<DiscoveredPython> {
 }
 
 /// 通过 where/which 从 PATH 中查找 Python
-fn discover_from_path(found: &mut Vec<DiscoveredPython>, seen: &mut std::collections::HashSet<String>) {
+fn discover_from_path(
+    found: &mut Vec<DiscoveredPython>,
+    seen: &mut std::collections::HashSet<String>,
+) {
     let candidates = if cfg!(target_os = "windows") {
         vec!["python", "python3"]
     } else {
@@ -138,7 +150,12 @@ fn discover_from_path(found: &mut Vec<DiscoveredPython>, seen: &mut std::collect
     for cmd in candidates {
         info!("[discover] where/which {} ...", cmd);
         let paths = get_all_command_paths(cmd);
-        info!("[discover] where/which {} 返回 {} 条路径: {:?}", cmd, paths.len(), paths);
+        info!(
+            "[discover] where/which {} 返回 {} 条路径: {:?}",
+            cmd,
+            paths.len(),
+            paths
+        );
         for path in paths {
             try_add_python(&path, found, seen);
         }
@@ -154,7 +171,10 @@ fn discover_from_path(found: &mut Vec<DiscoveredPython>, seen: &mut std::collect
 
 /// 通过 Windows py launcher 发现 Python（py -0p 列出所有已注册的 Python）
 #[cfg(target_os = "windows")]
-fn discover_from_py_launcher(found: &mut Vec<DiscoveredPython>, seen: &mut std::collections::HashSet<String>) {
+fn discover_from_py_launcher(
+    found: &mut Vec<DiscoveredPython>,
+    seen: &mut std::collections::HashSet<String>,
+) {
     let output = Command::new("py").args(["-0p"]).output();
     if let Ok(o) = output {
         if o.status.success() {
@@ -163,7 +183,9 @@ fn discover_from_py_launcher(found: &mut Vec<DiscoveredPython>, seen: &mut std::
             // 路径从盘符开始（X:\），用正则或简单查找 "X:\" 模式
             for line in stdout.lines() {
                 let line = line.trim();
-                if line.is_empty() { continue; }
+                if line.is_empty() {
+                    continue;
+                }
                 // 找到路径起始位置：第一个 "X:\" 模式
                 if let Some(idx) = find_drive_path_start(line) {
                     let path = line[idx..].trim_end_matches('*').trim();
@@ -196,19 +218,20 @@ fn get_all_command_paths(cmd: &str) -> Vec<String> {
     let output = Command::new("which").arg("-a").arg(cmd).output();
 
     match output {
-        Ok(o) if o.status.success() => {
-            String::from_utf8_lossy(&o.stdout)
-                .lines()
-                .map(|l| l.trim().to_string())
-                .filter(|l| !l.is_empty())
-                .collect()
-        }
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout)
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect(),
         _ => vec![],
     }
 }
 
 /// 扫描常见 Python 安装目录
-fn discover_from_common_paths(found: &mut Vec<DiscoveredPython>, seen: &mut std::collections::HashSet<String>) {
+fn discover_from_common_paths(
+    found: &mut Vec<DiscoveredPython>,
+    seen: &mut std::collections::HashSet<String>,
+) {
     let mut dirs: Vec<std::path::PathBuf> = Vec::new();
 
     #[cfg(target_os = "windows")]
@@ -220,7 +243,9 @@ fn discover_from_common_paths(found: &mut Vec<DiscoveredPython>, seen: &mut std:
             // 扫描驱动器根目录一级子目录：匹配包含 "python" 的目录名
             if let Ok(entries) = std::fs::read_dir(format!("{}\\", drive)) {
                 for entry in entries.flatten() {
-                    if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) { continue; }
+                    if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                        continue;
+                    }
                     let name = entry.file_name().to_string_lossy().to_lowercase();
                     if name.contains("python") {
                         dirs.push(entry.path());
@@ -241,7 +266,9 @@ fn discover_from_common_paths(found: &mut Vec<DiscoveredPython>, seen: &mut std:
 
         // %LOCALAPPDATA%\Programs\Python\PythonXXX
         if let Ok(local) = std::env::var("LOCALAPPDATA") {
-            let python_dir = std::path::PathBuf::from(&local).join("Programs").join("Python");
+            let python_dir = std::path::PathBuf::from(&local)
+                .join("Programs")
+                .join("Python");
             if let Ok(entries) = std::fs::read_dir(&python_dir) {
                 for entry in entries.flatten() {
                     dirs.push(entry.path());
@@ -252,7 +279,10 @@ fn discover_from_common_paths(found: &mut Vec<DiscoveredPython>, seen: &mut std:
         // %USERPROFILE%\AppData\Local\Programs\Python
         if let Ok(profile) = std::env::var("USERPROFILE") {
             let python_dir = std::path::PathBuf::from(&profile)
-                .join("AppData").join("Local").join("Programs").join("Python");
+                .join("AppData")
+                .join("Local")
+                .join("Programs")
+                .join("Python");
             if let Ok(entries) = std::fs::read_dir(&python_dir) {
                 for entry in entries.flatten() {
                     dirs.push(entry.path());
@@ -282,7 +312,9 @@ fn discover_from_common_paths(found: &mut Vec<DiscoveredPython>, seen: &mut std:
         }
         // pyenv
         if let Ok(home) = std::env::var("HOME") {
-            let pyenv_root = std::path::PathBuf::from(&home).join(".pyenv").join("versions");
+            let pyenv_root = std::path::PathBuf::from(&home)
+                .join(".pyenv")
+                .join("versions");
             if let Ok(entries) = std::fs::read_dir(&pyenv_root) {
                 for entry in entries.flatten() {
                     let exe = entry.path().join("bin").join("python3");
@@ -297,7 +329,10 @@ fn discover_from_common_paths(found: &mut Vec<DiscoveredPython>, seen: &mut std:
 
 /// 从 Windows 注册表发现 Python
 #[cfg(target_os = "windows")]
-fn discover_from_registry(found: &mut Vec<DiscoveredPython>, seen: &mut std::collections::HashSet<String>) {
+fn discover_from_registry(
+    found: &mut Vec<DiscoveredPython>,
+    seen: &mut std::collections::HashSet<String>,
+) {
     // 通过 reg query 查询注册表，避免引入 winreg 依赖
     let hives = [
         r"HKLM\SOFTWARE\Python\PythonCore",
@@ -307,9 +342,7 @@ fn discover_from_registry(found: &mut Vec<DiscoveredPython>, seen: &mut std::col
 
     for hive in &hives {
         // 列出子键（版本号）
-        let output = Command::new("reg")
-            .args(["query", hive])
-            .output();
+        let output = Command::new("reg").args(["query", hive]).output();
 
         if let Ok(o) = output {
             if o.status.success() {
@@ -330,7 +363,8 @@ fn discover_from_registry(found: &mut Vec<DiscoveredPython>, seen: &mut std::col
                                     if val_line.contains("REG_SZ") {
                                         if let Some(path) = val_line.split("REG_SZ").nth(1) {
                                             let install_dir = path.trim();
-                                            let exe = std::path::PathBuf::from(install_dir).join("python.exe");
+                                            let exe = std::path::PathBuf::from(install_dir)
+                                                .join("python.exe");
                                             if exe.exists() {
                                                 try_add_python(&exe.to_string_lossy(), found, seen);
                                             }
@@ -347,7 +381,11 @@ fn discover_from_registry(found: &mut Vec<DiscoveredPython>, seen: &mut std::col
 }
 
 /// 尝试运行 python --version 并加入结果
-fn try_add_python(path: &str, found: &mut Vec<DiscoveredPython>, seen: &mut std::collections::HashSet<String>) {
+fn try_add_python(
+    path: &str,
+    found: &mut Vec<DiscoveredPython>,
+    seen: &mut std::collections::HashSet<String>,
+) {
     info!("[discover] try_add_python: {}", path);
     // 过滤 Microsoft Store 重定向存根（WindowsApps 下的 python.exe 无法创建虚拟环境）
     #[cfg(target_os = "windows")]
@@ -372,9 +410,7 @@ fn try_add_python(path: &str, found: &mut Vec<DiscoveredPython>, seen: &mut std:
         return;
     }
 
-    let output = Command::new(path)
-        .arg("--version")
-        .output();
+    let output = Command::new(path).arg("--version").output();
 
     match &output {
         Ok(o) if o.status.success() => {
@@ -387,15 +423,19 @@ fn try_add_python(path: &str, found: &mut Vec<DiscoveredPython>, seen: &mut std:
 
             if !version.is_empty() {
                 // 验证 venv 模块可用（某些 Linux 发行版拆包后缺少 ensurepip）
-                let venv_check = Command::new(path)
-                    .args(["-c", "import venv"])
-                    .output();
+                let venv_check = Command::new(path).args(["-c", "import venv"]).output();
                 let has_venv = matches!(&venv_check, Ok(o) if o.status.success());
 
                 if has_venv {
-                    info!("[discover]   发现 Python {} at {} (venv 可用)", version, path);
+                    info!(
+                        "[discover]   发现 Python {} at {} (venv 可用)",
+                        version, path
+                    );
                 } else {
-                    info!("[discover]   [警告] 发现 Python {} at {} (venv 不可用)", version, path);
+                    info!(
+                        "[discover]   [警告] 发现 Python {} at {} (venv 不可用)",
+                        version, path
+                    );
                 }
 
                 seen.insert(canonical);
@@ -411,7 +451,11 @@ fn try_add_python(path: &str, found: &mut Vec<DiscoveredPython>, seen: &mut std:
         }
         Ok(o) => {
             let stderr = String::from_utf8_lossy(&o.stderr);
-            info!("[discover]   执行失败 (exit={}): {}", o.status, stderr.trim());
+            info!(
+                "[discover]   执行失败 (exit={}): {}",
+                o.status,
+                stderr.trim()
+            );
         }
         Err(e) => {
             info!("[discover]   无法执行: {}", e);
@@ -498,11 +542,7 @@ mod tests {
         let paths = get_all_command_paths("git");
         assert!(!paths.is_empty(), "git 应在 PATH 中");
         for path in &paths {
-            assert!(
-                path.contains("git"),
-                "返回的路径 '{}' 应包含 'git'",
-                path
-            );
+            assert!(path.contains("git"), "返回的路径 '{}' 应包含 'git'", path);
         }
     }
 
@@ -531,10 +571,7 @@ mod tests {
     #[test]
     fn discover_python_environments_finds_at_least_one() {
         let envs = discover_python_environments();
-        assert!(
-            !envs.is_empty(),
-            "开发机/CI 应至少有一个 Python 环境"
-        );
+        assert!(!envs.is_empty(), "开发机/CI 应至少有一个 Python 环境");
         for env in &envs {
             assert!(!env.path.is_empty(), "Python 路径不应为空");
             assert!(!env.version.is_empty(), "Python 版本不应为空");
@@ -546,11 +583,7 @@ mod tests {
                 env.version
             );
             let major: u32 = parts[0].parse().expect("主版本号应为数字");
-            assert!(
-                major >= 3,
-                "发现的 Python 主版本号应 >= 3, 实际: {}",
-                major
-            );
+            assert!(major >= 3, "发现的 Python 主版本号应 >= 3, 实际: {}", major);
         }
     }
 
@@ -683,8 +716,7 @@ mod tests {
             meets_maibot_requirement: true,
         };
         let json = serde_json::to_string(&python).expect("DiscoveredPython 应可序列化");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&json).expect("JSON 应可反序列化");
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("JSON 应可反序列化");
         assert_eq!(parsed["version"], "3.12.0");
         assert_eq!(parsed["path"], "C:\\Python312\\python.exe");
         assert_eq!(parsed["meets_maibot_requirement"], true);
@@ -710,12 +742,18 @@ mod tests {
 
     #[test]
     fn version_meets_maibot_requirement_parses_string() {
-        assert!(!version_meets_maibot_requirement("3.11.9"), "3.11.9 应不满足");
+        assert!(
+            !version_meets_maibot_requirement("3.11.9"),
+            "3.11.9 应不满足"
+        );
         assert!(version_meets_maibot_requirement("3.12.0"), "3.12.0 应满足");
         assert!(version_meets_maibot_requirement("3.12"), "3.12 应满足");
         assert!(version_meets_maibot_requirement("3.13.1"), "3.13.1 应满足");
         // 仅主版本号、缺次版本号 → minor 视为 0 → 3.0 不满足
-        assert!(!version_meets_maibot_requirement("3"), "仅 '3' 视为 3.0，不满足");
+        assert!(
+            !version_meets_maibot_requirement("3"),
+            "仅 '3' 视为 3.0，不满足"
+        );
         // 无法解析 → (0,0) 不满足
         assert!(!version_meets_maibot_requirement(""), "空串不满足");
         assert!(!version_meets_maibot_requirement("abc"), "非法串不满足");

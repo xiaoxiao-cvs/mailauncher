@@ -7,11 +7,15 @@ use tracing::info;
 
 use crate::errors::AppError;
 
-async fn ensure_column(pool: &SqlitePool, table: &str, column: &str, definition: &str) -> Result<(), AppError> {
+async fn ensure_column(
+    pool: &SqlitePool,
+    table: &str,
+    column: &str,
+    definition: &str,
+) -> Result<(), AppError> {
     let query = format!("PRAGMA table_info({})", table);
-    let columns: Vec<(i64, String, String, i64, Option<String>, i64)> = sqlx::query_as(&query)
-        .fetch_all(pool)
-        .await?;
+    let columns: Vec<(i64, String, String, i64, Option<String>, i64)> =
+        sqlx::query_as(&query).fetch_all(pool).await?;
 
     let exists = columns.iter().any(|(_, name, _, _, _, _)| name == column);
     if !exists {
@@ -43,7 +47,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             value TEXT,
             description TEXT,
             updated_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime'))
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -66,14 +70,16 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             is_selected BOOLEAN NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
             updated_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime'))
-        )"
+        )",
     )
     .execute(pool)
     .await?;
 
-    sqlx::query("CREATE INDEX IF NOT EXISTS ix_python_environments_path ON python_environments (path)")
-        .execute(pool)
-        .await?;
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS ix_python_environments_path ON python_environments (path)",
+    )
+    .execute(pool)
+    .await?;
 
     // MAIBot 配置
     sqlx::query(
@@ -86,7 +92,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             is_installed BOOLEAN NOT NULL DEFAULT 0,
             version VARCHAR(50),
             updated_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime'))
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -102,7 +108,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             description TEXT,
             created_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
             updated_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime'))
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -125,7 +131,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             models_updated_at DATETIME,
             created_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
             updated_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime'))
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -150,7 +156,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             input_price VARCHAR(50),
             output_price VARCHAR(50),
             updated_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime'))
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -182,7 +188,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             last_error TEXT,
             last_status_reason TEXT,
             component_state TEXT
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -210,14 +216,16 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             started_at DATETIME,
             completed_at DATETIME,
             error_message TEXT
-        )"
+        )",
     )
     .execute(pool)
     .await?;
 
-    sqlx::query("CREATE INDEX IF NOT EXISTS ix_deployments_instance_id ON deployments (instance_id)")
-        .execute(pool)
-        .await?;
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS ix_deployments_instance_id ON deployments (instance_id)",
+    )
+    .execute(pool)
+    .await?;
 
     // 部署日志
     sqlx::query(
@@ -227,7 +235,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             timestamp DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
             level VARCHAR(20) NOT NULL,
             message TEXT NOT NULL
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -250,14 +258,16 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             next_run DATETIME,
             created_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
             updated_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime'))
-        )"
+        )",
     )
     .execute(pool)
     .await?;
 
-    sqlx::query("CREATE INDEX IF NOT EXISTS ix_schedule_tasks_instance_id ON schedule_tasks (instance_id)")
-        .execute(pool)
-        .await?;
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS ix_schedule_tasks_instance_id ON schedule_tasks (instance_id)",
+    )
+    .execute(pool)
+    .await?;
 
     // 组件版本记录
     sqlx::query(
@@ -269,7 +279,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             commit_hash VARCHAR(40),
             install_method VARCHAR(20) NOT NULL,
             installed_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime'))
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -290,7 +300,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             backup_size INTEGER NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
             description TEXT
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -313,14 +323,16 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             backup_id VARCHAR(50) REFERENCES version_backups(id),
             error_message TEXT,
             updated_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime'))
-        )"
+        )",
     )
     .execute(pool)
     .await?;
 
-    sqlx::query("CREATE INDEX IF NOT EXISTS ix_update_history_instance_id ON update_history (instance_id)")
-        .execute(pool)
-        .await?;
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS ix_update_history_instance_id ON update_history (instance_id)",
+    )
+    .execute(pool)
+    .await?;
 
     // 下载任务记录（用于崩溃恢复）
     sqlx::query(
@@ -340,7 +352,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
             created_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
             started_at DATETIME,
             completed_at DATETIME
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -369,7 +381,11 @@ pub async fn init_default_providers(pool: &SqlitePool) -> Result<(), AppError> {
 
     let providers = [
         ("硅基流动", "https://api.siliconflow.cn/v1", 1),
-        ("阿里百炼", "https://dashscope.aliyuncs.com/compatible-mode/v1", 2),
+        (
+            "阿里百炼",
+            "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            2,
+        ),
         ("DeepSeek", "https://api.deepseek.com/v1", 3),
     ];
 

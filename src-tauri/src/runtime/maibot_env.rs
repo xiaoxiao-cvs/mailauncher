@@ -119,10 +119,16 @@ mod tests {
         let env = maibot_startup_env(maibot_dir);
         let map: std::collections::HashMap<_, _> = env.into_iter().collect();
 
-        assert_eq!(map.get(LEGACY_UPGRADE_CONFIRM_ENV).map(String::as_str), Some("1"));
+        assert_eq!(
+            map.get(LEGACY_UPGRADE_CONFIRM_ENV).map(String::as_str),
+            Some("1")
+        );
         assert_eq!(map.get("MAIBOT_LOCALE").map(String::as_str), Some("zh-CN"));
         // hashlib.md5("eula\n".encode("utf-8")).hexdigest()
-        assert_eq!(map.get("EULA_AGREE").map(String::as_str), Some("f508f35531f12c51b62fbe3284d1a475"));
+        assert_eq!(
+            map.get("EULA_AGREE").map(String::as_str),
+            Some("f508f35531f12c51b62fbe3284d1a475")
+        );
         assert!(map.contains_key("PRIVACY_AGREE"));
     }
 

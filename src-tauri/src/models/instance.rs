@@ -50,7 +50,10 @@ impl InstanceLifecycleStatus {
     }
 
     pub fn is_active(&self) -> bool {
-        matches!(self, Self::Pending | Self::Starting | Self::Running | Self::Partial | Self::Stopping)
+        matches!(
+            self,
+            Self::Pending | Self::Starting | Self::Running | Self::Partial | Self::Stopping
+        )
     }
 }
 
@@ -339,12 +342,16 @@ impl DbInstanceRecord {
             .runtime_profile
             .as_deref()
             .and_then(|raw| serde_json::from_str::<RuntimeProfile>(raw).ok())
-            .unwrap_or_else(|| RuntimeProfile::local(workspace_root.clone(), self.python_path.clone()));
+            .unwrap_or_else(|| {
+                RuntimeProfile::local(workspace_root.clone(), self.python_path.clone())
+            });
 
         let component_runtime_profiles = self
             .component_runtime_profiles
             .as_deref()
-            .and_then(|raw| serde_json::from_str::<HashMap<ComponentType, RuntimeProfile>>(raw).ok())
+            .and_then(|raw| {
+                serde_json::from_str::<HashMap<ComponentType, RuntimeProfile>>(raw).ok()
+            })
             .unwrap_or_default();
 
         let component_states = self
@@ -388,7 +395,10 @@ impl Instance {
     }
 }
 
-pub fn default_runtime_profile_json(instance_path: Option<&str>, python_path: Option<String>) -> String {
+pub fn default_runtime_profile_json(
+    instance_path: Option<&str>,
+    python_path: Option<String>,
+) -> String {
     let workspace_root = instance_path.unwrap_or_default();
     serde_json::to_string(&RuntimeProfile::local(workspace_root, python_path))
         .unwrap_or_else(|_| "{}".to_string())

@@ -17,20 +17,21 @@ fn generate_task_id() -> String {
 }
 
 /// 获取计划任务列表（可按实例过滤）
-pub async fn get_schedules(pool: &SqlitePool, instance_id: Option<&str>) -> AppResult<Vec<ScheduleTask>> {
+pub async fn get_schedules(
+    pool: &SqlitePool,
+    instance_id: Option<&str>,
+) -> AppResult<Vec<ScheduleTask>> {
     let tasks = if let Some(iid) = instance_id {
         sqlx::query_as::<_, ScheduleTask>(
-            "SELECT * FROM schedule_tasks WHERE instance_id = ? ORDER BY created_at DESC"
+            "SELECT * FROM schedule_tasks WHERE instance_id = ? ORDER BY created_at DESC",
         )
         .bind(iid)
         .fetch_all(pool)
         .await?
     } else {
-        sqlx::query_as::<_, ScheduleTask>(
-            "SELECT * FROM schedule_tasks ORDER BY created_at DESC"
-        )
-        .fetch_all(pool)
-        .await?
+        sqlx::query_as::<_, ScheduleTask>("SELECT * FROM schedule_tasks ORDER BY created_at DESC")
+            .fetch_all(pool)
+            .await?
     };
     Ok(tasks)
 }
@@ -146,7 +147,10 @@ pub async fn delete_schedule(pool: &SqlitePool, schedule_id: &str) -> AppResult<
         .await?;
 
     if result.rows_affected() == 0 {
-        return Err(AppError::NotFound(format!("计划任务不存在: {}", schedule_id)));
+        return Err(AppError::NotFound(format!(
+            "计划任务不存在: {}",
+            schedule_id
+        )));
     }
 
     info!("[计划任务] 已删除: {}", schedule_id);
@@ -154,22 +158,31 @@ pub async fn delete_schedule(pool: &SqlitePool, schedule_id: &str) -> AppResult<
 }
 
 /// 切换计划任务启用状态
-pub async fn toggle_schedule(pool: &SqlitePool, schedule_id: &str, enabled: bool) -> AppResult<ScheduleTask> {
+pub async fn toggle_schedule(
+    pool: &SqlitePool,
+    schedule_id: &str,
+    enabled: bool,
+) -> AppResult<ScheduleTask> {
     let now = Local::now().naive_local();
 
-    let result = sqlx::query(
-        "UPDATE schedule_tasks SET enabled = ?, updated_at = ? WHERE id = ?"
-    )
-    .bind(enabled)
-    .bind(now)
-    .bind(schedule_id)
-    .execute(pool)
-    .await?;
+    let result = sqlx::query("UPDATE schedule_tasks SET enabled = ?, updated_at = ? WHERE id = ?")
+        .bind(enabled)
+        .bind(now)
+        .bind(schedule_id)
+        .execute(pool)
+        .await?;
 
     if result.rows_affected() == 0 {
-        return Err(AppError::NotFound(format!("计划任务不存在: {}", schedule_id)));
+        return Err(AppError::NotFound(format!(
+            "计划任务不存在: {}",
+            schedule_id
+        )));
     }
 
-    info!("[计划任务] {} 已{}", schedule_id, if enabled { "启用" } else { "禁用" });
+    info!(
+        "[计划任务] {} 已{}",
+        schedule_id,
+        if enabled { "启用" } else { "禁用" }
+    );
     get_schedule(pool, schedule_id).await
 }

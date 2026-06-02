@@ -54,11 +54,17 @@ impl ComponentRegistry {
             .collect()
     }
 
-    pub fn startup_order_for_path(&self, instance_root: &Path) -> AppResult<Vec<&'static ComponentSpec>> {
+    pub fn startup_order_for_path(
+        &self,
+        instance_root: &Path,
+    ) -> AppResult<Vec<&'static ComponentSpec>> {
         self.topological_order(self.available_for_path(instance_root))
     }
 
-    pub fn shutdown_order_for_path(&self, instance_root: &Path) -> AppResult<Vec<&'static ComponentSpec>> {
+    pub fn shutdown_order_for_path(
+        &self,
+        instance_root: &Path,
+    ) -> AppResult<Vec<&'static ComponentSpec>> {
         let mut ordered = self.startup_order_for_path(instance_root)?;
         ordered.reverse();
         Ok(ordered)
@@ -94,7 +100,10 @@ impl ComponentRegistry {
         loop {
             let mut changed = false;
             for spec in &available {
-                if spec.depends_on.iter().any(|dependency| selected.contains(dependency))
+                if spec
+                    .depends_on
+                    .iter()
+                    .any(|dependency| selected.contains(dependency))
                     && selected.insert(spec.component)
                 {
                     changed = true;
@@ -207,17 +216,18 @@ mod tests {
     #[test]
     fn startup_order_respects_dependencies() {
         let registry = ComponentRegistry::new();
-        let temp_root = std::env::temp_dir().join(format!("mailauncher-registry-test-{}", std::process::id()));
+        let temp_root =
+            std::env::temp_dir().join(format!("mailauncher-registry-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&temp_root);
-        create_component_dirs(
-            &temp_root,
-            &[ComponentType::Main, ComponentType::NapCat],
-        );
+        create_component_dirs(&temp_root, &[ComponentType::Main, ComponentType::NapCat]);
 
         let ordered = registry
             .startup_order_for_path(&temp_root)
             .expect("生成启动顺序失败");
-        let display = ordered.iter().map(|spec| spec.component).collect::<Vec<_>>();
+        let display = ordered
+            .iter()
+            .map(|spec| spec.component)
+            .collect::<Vec<_>>();
 
         // NapCat 必须先于 MaiBot 启动，便于内置适配器插件连上 NapCat。
         assert_eq!(display, vec![ComponentType::NapCat, ComponentType::Main]);
@@ -228,18 +238,21 @@ mod tests {
     #[test]
     fn shutdown_chain_stops_dependents_before_dependency() {
         let registry = ComponentRegistry::new();
-        let temp_root = std::env::temp_dir().join(format!("mailauncher-registry-stop-test-{}", std::process::id()));
+        let temp_root = std::env::temp_dir().join(format!(
+            "mailauncher-registry-stop-test-{}",
+            std::process::id()
+        ));
         let _ = fs::remove_dir_all(&temp_root);
-        create_component_dirs(
-            &temp_root,
-            &[ComponentType::Main, ComponentType::NapCat],
-        );
+        create_component_dirs(&temp_root, &[ComponentType::Main, ComponentType::NapCat]);
 
         // 停止 NapCat 前必须先停止依赖它的 MaiBot。
         let ordered = registry
             .shutdown_chain_for_component(&temp_root, ComponentType::NapCat)
             .expect("生成停止链路失败");
-        let display = ordered.iter().map(|spec| spec.component).collect::<Vec<_>>();
+        let display = ordered
+            .iter()
+            .map(|spec| spec.component)
+            .collect::<Vec<_>>();
 
         assert_eq!(display, vec![ComponentType::Main, ComponentType::NapCat]);
 

@@ -52,7 +52,10 @@ pub async fn create_download_task(
     data: DownloadTaskCreate,
 ) -> AppResult<DownloadTask> {
     // 验证部署路径安全性
-    let deploy_path = data.deployment_path.as_deref().unwrap_or(&data.instance_name);
+    let deploy_path = data
+        .deployment_path
+        .as_deref()
+        .unwrap_or(&data.instance_name);
     validate_deployment_path(deploy_path)?;
 
     let task = state.download_manager.create_task(data).await;
@@ -87,10 +90,7 @@ pub async fn create_download_task(
 
             dm.mark_failed(&task_id, e.to_string()).await;
             emit_progress(&app, &task_id, 0.0, &e.to_string(), "failed");
-            let _ = app.emit(
-                &format!("download-status-{}", task_id),
-                "failed",
-            );
+            let _ = app.emit(&format!("download-status-{}", task_id), "failed");
         }
     });
 
@@ -112,21 +112,19 @@ pub async fn get_download_task(
 
 /// 获取所有下载任务
 #[tauri::command]
-pub async fn get_all_download_tasks(
-    state: State<'_, AppState>,
-) -> AppResult<Vec<DownloadTask>> {
+pub async fn get_all_download_tasks(state: State<'_, AppState>) -> AppResult<Vec<DownloadTask>> {
     Ok(state.download_manager.get_all_tasks().await)
 }
 
 /// 取消下载任务
 #[tauri::command]
-pub async fn cancel_download_task(
-    state: State<'_, AppState>,
-    task_id: String,
-) -> AppResult<()> {
+pub async fn cancel_download_task(state: State<'_, AppState>, task_id: String) -> AppResult<()> {
     // 触发取消信号，后台任务会在下一个检查点中止
     state.download_manager.cancel_task(&task_id).await;
-    state.download_manager.mark_failed(&task_id, "用户取消".to_string()).await;
+    state
+        .download_manager
+        .mark_failed(&task_id, "用户取消".to_string())
+        .await;
     info!("下载任务已取消: {}", task_id);
     Ok(())
 }
@@ -152,24 +150,32 @@ fn validate_deployment_path(path: &str) -> AppResult<()> {
 
     // 检查路径遍历
     if path.contains("..") {
-        return Err(AppError::InvalidInput("部署路径不允许包含 '..'".to_string()));
+        return Err(AppError::InvalidInput(
+            "部署路径不允许包含 '..'".to_string(),
+        ));
     }
 
     // 检查绝对路径（部署路径应是相对于 instances_dir 的相对路径）
-    if path.starts_with('/') || path.starts_with('\\') || (path.len() >= 2 && path.as_bytes()[1] == b':') {
-        return Err(AppError::InvalidInput("部署路径不允许使用绝对路径".to_string()));
+    if path.starts_with('/')
+        || path.starts_with('\\')
+        || (path.len() >= 2 && path.as_bytes()[1] == b':')
+    {
+        return Err(AppError::InvalidInput(
+            "部署路径不允许使用绝对路径".to_string(),
+        ));
     }
 
     // 检查路径长度（Windows MAX_PATH 限制为 260，预留空间给 instances_dir 和子文件）
     if path.len() > 100 {
-        return Err(AppError::InvalidInput("部署路径过长（最大 100 字符）".to_string()));
+        return Err(AppError::InvalidInput(
+            "部署路径过长（最大 100 字符）".to_string(),
+        ));
     }
 
     // 检查 Windows 保留名
     let reserved_names = [
-        "CON", "PRN", "AUX", "NUL",
-        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+        "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+        "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
     ];
     let name_upper = path.to_uppercase();
     for reserved in &reserved_names {
@@ -227,8 +233,9 @@ async fn execute_download_task(
         _ => platform::get_instances_dir(),
     };
     let instance_dir = instances_dir.join(&task.deployment_path);
-    std::fs::create_dir_all(&instance_dir)
-        .map_err(|e| AppError::FileSystem(format!("创建实例目录失败 ({:?}): {}", instance_dir, e)))?;
+    std::fs::create_dir_all(&instance_dir).map_err(|e| {
+        AppError::FileSystem(format!("创建实例目录失败 ({:?}): {}", instance_dir, e))
+    })?;
 
     dm.add_log(task_id, format!("创建实例目录: {:?}", instance_dir))
         .await;
@@ -257,7 +264,10 @@ async fn execute_download_task(
             }
         }
         if !checked {
-            warn!("无法确定实例目录所在磁盘，跳过磁盘空间检查: {:?}", instance_dir);
+            warn!(
+                "无法确定实例目录所在磁盘，跳过磁盘空间检查: {:?}",
+                instance_dir
+            );
             let _ = app_handle.emit(&event_name, "[警告] 无法检测磁盘空间，跳过检查");
         }
     }
@@ -283,7 +293,13 @@ async fn execute_download_task(
             DownloadItemType::Maibot => {
                 dm.update_task_progress(task_id, progress, "正在下载 MaiBot...".to_string())
                     .await;
-                emit_progress(app_handle, task_id, progress, "正在下载 MaiBot...", "downloading");
+                emit_progress(
+                    app_handle,
+                    task_id,
+                    progress,
+                    "正在下载 MaiBot...",
+                    "downloading",
+                );
                 let _ = app_handle.emit(&event_name, "正在克隆 MaiBot 仓库...");
 
                 // 确定分支
@@ -307,7 +323,13 @@ async fn execute_download_task(
                 dm.update_task_status(task_id, DownloadStatus::Installing)
                     .await;
                 let _ = app_handle.emit(&status_event, "installing");
-                emit_progress(app_handle, task_id, progress + 5.0, "正在安装 MaiBot 依赖...", "installing");
+                emit_progress(
+                    app_handle,
+                    task_id,
+                    progress + 5.0,
+                    "正在安装 MaiBot 依赖...",
+                    "installing",
+                );
 
                 let venv_dir = instance_dir.join(".venv");
                 if !venv_dir.exists() {
@@ -334,7 +356,13 @@ async fn execute_download_task(
                 dm.update_task_status(task_id, DownloadStatus::Configuring)
                     .await;
                 let _ = app_handle.emit(&status_event, "configuring");
-                emit_progress(app_handle, task_id, progress + 10.0, "正在配置 MaiBot...", "configuring");
+                emit_progress(
+                    app_handle,
+                    task_id,
+                    progress + 10.0,
+                    "正在配置 MaiBot...",
+                    "configuring",
+                );
                 // qq_account 在安装阶段尚不可知（实例记录稍后创建），写空占位，
                 // 由 MaiBot 首启自生成完整配置后，用户在配置面板填写。
                 install_service::setup_maibot_config(&component_dir, None, app_handle, &event_name)
@@ -362,7 +390,13 @@ async fn execute_download_task(
                     "正在下载 NapCat Adapter...".to_string(),
                 )
                 .await;
-                emit_progress(app_handle, task_id, progress, "正在下载 NapCat Adapter...", "downloading");
+                emit_progress(
+                    app_handle,
+                    task_id,
+                    progress,
+                    "正在下载 NapCat Adapter...",
+                    "downloading",
+                );
                 let _ = app_handle.emit(&event_name, "正在克隆 NapCat Adapter 仓库...");
 
                 download_service::clone_repository(
@@ -378,7 +412,13 @@ async fn execute_download_task(
                 dm.update_task_status(task_id, DownloadStatus::Installing)
                     .await;
                 let _ = app_handle.emit(&status_event, "installing");
-                emit_progress(app_handle, task_id, progress + 5.0, "正在安装 NapCat Adapter 依赖...", "installing");
+                emit_progress(
+                    app_handle,
+                    task_id,
+                    progress + 5.0,
+                    "正在安装 NapCat Adapter 依赖...",
+                    "installing",
+                );
                 let venv_dir = instance_dir.join(".venv");
                 install_service::install_dependencies(
                     &component_dir,
@@ -392,7 +432,13 @@ async fn execute_download_task(
                 dm.update_task_status(task_id, DownloadStatus::Configuring)
                     .await;
                 let _ = app_handle.emit(&status_event, "configuring");
-                emit_progress(app_handle, task_id, progress + 10.0, "正在配置 NapCat Adapter...", "configuring");
+                emit_progress(
+                    app_handle,
+                    task_id,
+                    progress + 10.0,
+                    "正在配置 NapCat Adapter...",
+                    "configuring",
+                );
                 install_service::setup_adapter_config(&component_dir, app_handle, &event_name)
                     .await?;
             }
@@ -403,7 +449,13 @@ async fn execute_download_task(
                 dm.update_task_status(task_id, DownloadStatus::Installing)
                     .await;
                 let _ = app_handle.emit(&status_event, "installing");
-                emit_progress(app_handle, task_id, progress, "正在安装 NapCat...", "installing");
+                emit_progress(
+                    app_handle,
+                    task_id,
+                    progress,
+                    "正在安装 NapCat...",
+                    "installing",
+                );
                 let _ = app_handle.emit(&event_name, "正在下载安装 NapCat...");
 
                 download_service::download_napcat(&instance_dir, app_handle, &event_name).await?;
@@ -414,7 +466,13 @@ async fn execute_download_task(
                 if cfg!(target_os = "macos") {
                     dm.update_task_progress(task_id, progress, "正在下载 LPMM...".to_string())
                         .await;
-                    emit_progress(app_handle, task_id, progress, "正在下载 LPMM...", "downloading");
+                    emit_progress(
+                        app_handle,
+                        task_id,
+                        progress,
+                        "正在下载 LPMM...",
+                        "downloading",
+                    );
                     let _ = app_handle.emit(&event_name, "正在克隆 LPMM 仓库...");
 
                     download_service::clone_repository(
@@ -430,7 +488,13 @@ async fn execute_download_task(
                     dm.update_task_status(task_id, DownloadStatus::Installing)
                         .await;
                     let _ = app_handle.emit(&status_event, "installing");
-                    emit_progress(app_handle, task_id, progress + 5.0, "正在安装 LPMM 依赖...", "installing");
+                    emit_progress(
+                        app_handle,
+                        task_id,
+                        progress + 5.0,
+                        "正在安装 LPMM 依赖...",
+                        "installing",
+                    );
                     let venv_dir = instance_dir.join(".venv");
                     install_service::install_dependencies(
                         &component_dir,
@@ -452,7 +516,13 @@ async fn execute_download_task(
     // 4. 创建实例 DB 记录
     dm.update_task_progress(task_id, 95.0, "正在创建实例记录...".to_string())
         .await;
-    emit_progress(app_handle, task_id, 95.0, "正在创建实例记录...", "configuring");
+    emit_progress(
+        app_handle,
+        task_id,
+        95.0,
+        "正在创建实例记录...",
+        "configuring",
+    );
 
     let instance = instance_service::create_instance(
         pool,
@@ -482,8 +552,16 @@ async fn execute_download_task(
     let _ = app_handle.emit(&event_name, format!("安装完成！实例 ID: {}", instance.id));
 
     let elapsed = task_start.elapsed();
-    info!("下载任务完成: {} → 实例 {} (耗时 {:.1}s)", task_id, instance.id, elapsed.as_secs_f64());
-    let _ = app_handle.emit(&event_name, format!("全部安装完成，总耗时 {:.1} 秒", elapsed.as_secs_f64()));
+    info!(
+        "下载任务完成: {} → 实例 {} (耗时 {:.1}s)",
+        task_id,
+        instance.id,
+        elapsed.as_secs_f64()
+    );
+    let _ = app_handle.emit(
+        &event_name,
+        format!("全部安装完成，总耗时 {:.1} 秒", elapsed.as_secs_f64()),
+    );
     Ok(())
 }
 

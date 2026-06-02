@@ -32,14 +32,23 @@ pub async fn recover_instance_states_on_startup(
     runtime_resolver: &RuntimeResolver,
     process_manager: &ProcessManager,
 ) -> AppResult<u64> {
-    let rows = sqlx::query_as::<_, DbInstanceRecord>("SELECT * FROM instances ORDER BY created_at DESC")
-        .fetch_all(pool)
-        .await?;
+    let rows =
+        sqlx::query_as::<_, DbInstanceRecord>("SELECT * FROM instances ORDER BY created_at DESC")
+            .fetch_all(pool)
+            .await?;
 
     let mut recovered = 0;
 
     for row in rows {
-        if recover_single_instance_state(pool, registry, runtime_resolver, process_manager, row.into_instance()).await? {
+        if recover_single_instance_state(
+            pool,
+            registry,
+            runtime_resolver,
+            process_manager,
+            row.into_instance(),
+        )
+        .await?
+        {
             recovered += 1;
         }
     }
@@ -89,10 +98,16 @@ fn evaluate_recovered_instance_state(
     runtime_resolver: &RuntimeResolver,
     instance: &crate::models::Instance,
 ) -> RecoveredInstanceState {
-    let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
+    let instance_path_str = instance
+        .instance_path
+        .clone()
+        .unwrap_or_else(|| instance.name.clone());
     let instance_root = platform::get_instances_dir().join(&instance_path_str);
     let available = registry.available_for_path(&instance_root);
-    let available_components = available.iter().map(|component| component.component).collect::<Vec<_>>();
+    let available_components = available
+        .iter()
+        .map(|component| component.component)
+        .collect::<Vec<_>>();
 
     let mut last_error = instance.last_error.clone();
     let mut last_status_reason = instance.last_status_reason.clone();
@@ -155,11 +170,13 @@ fn evaluate_recovered_instance_state(
                 Err(error) => {
                     last_error = Some(error.to_string());
                     if last_status_reason.is_none() {
-                        last_status_reason = Some("WSL2 冷启动探测失败，保留 unknown 状态".to_string());
+                        last_status_reason =
+                            Some("WSL2 冷启动探测失败，保留 unknown 状态".to_string());
                     }
-                    all_component_states.extend(
-                        hydrate_unknown_component_states(&wsl_components, RuntimeKind::Wsl2),
-                    );
+                    all_component_states.extend(hydrate_unknown_component_states(
+                        &wsl_components,
+                        RuntimeKind::Wsl2,
+                    ));
                     discovery_failed = true;
                 }
             }
@@ -282,7 +299,10 @@ fn hydrate_discovered_component_states(
     available
         .iter()
         .map(|component| {
-            if let Some(process) = discovered.iter().find(|process| process.component == component.component) {
+            if let Some(process) = discovered
+                .iter()
+                .find(|process| process.component == component.component)
+            {
                 InstanceComponentState {
                     component: component.component,
                     runtime_kind: process.runtime_kind,
@@ -329,7 +349,8 @@ pub async fn sync_instance_state(
     last_error: Option<String>,
     last_status_reason: Option<String>,
 ) -> AppResult<InstanceLifecycleStatus> {
-    let component_states = collect_component_states(process_manager, instance_id, registry, instance_root).await;
+    let component_states =
+        collect_component_states(process_manager, instance_id, registry, instance_root).await;
     let status = aggregate_instance_status(&component_states, last_error.as_deref());
     let component_state_json = serde_json::to_string(&component_states)?;
     let runtime_profile_json = serde_json::to_string(runtime_profile)?;
@@ -384,7 +405,9 @@ mod tests {
 
     #[tokio::test]
     async fn reconcile_marks_active_instances_unknown() {
-        let pool = SqlitePool::connect("sqlite::memory:").await.expect("创建内存数据库失败");
+        let pool = SqlitePool::connect("sqlite::memory:")
+            .await
+            .expect("创建内存数据库失败");
 
         sqlx::query(
             r#"CREATE TABLE instances (
@@ -422,9 +445,18 @@ mod tests {
         .await
         .expect("查询失败");
 
-        let partial = rows.iter().find(|row| row.0 == "inst_partial").expect("缺少 partial 实例");
-        let running = rows.iter().find(|row| row.0 == "inst_running").expect("缺少 running 实例");
-        let stopped = rows.iter().find(|row| row.0 == "inst_stopped").expect("缺少 stopped 实例");
+        let partial = rows
+            .iter()
+            .find(|row| row.0 == "inst_partial")
+            .expect("缺少 partial 实例");
+        let running = rows
+            .iter()
+            .find(|row| row.0 == "inst_running")
+            .expect("缺少 running 实例");
+        let stopped = rows
+            .iter()
+            .find(|row| row.0 == "inst_stopped")
+            .expect("缺少 stopped 实例");
 
         assert_eq!(partial.1, "unknown");
         assert_eq!(partial.2.as_deref(), Some("应用重启后需要重新探测运行态"));
@@ -438,7 +470,9 @@ mod tests {
         let registry = ComponentRegistry::new();
         let available = vec![
             registry.get(ComponentType::Main).expect("缺少 main spec"),
-            registry.get(ComponentType::NapCat).expect("缺少 napcat spec"),
+            registry
+                .get(ComponentType::NapCat)
+                .expect("缺少 napcat spec"),
         ];
         let discovered = vec![DiscoveredRuntimeProcess {
             component: ComponentType::Main,
@@ -452,7 +486,8 @@ mod tests {
             }),
         }];
 
-        let states = hydrate_discovered_component_states(&available, &discovered, RuntimeKind::Wsl2);
+        let states =
+            hydrate_discovered_component_states(&available, &discovered, RuntimeKind::Wsl2);
         assert_eq!(states.len(), 2);
         assert!(states[0].running);
         assert!(states[0].externally_managed);
@@ -479,7 +514,8 @@ mod tests {
             }),
         }];
 
-        let states = hydrate_discovered_component_states(&available, &discovered, RuntimeKind::Wsl2);
+        let states =
+            hydrate_discovered_component_states(&available, &discovered, RuntimeKind::Wsl2);
 
         assert_eq!(states.len(), 1);
         assert!(states[0].running);
@@ -493,13 +529,19 @@ mod tests {
         let registry = ComponentRegistry::new();
         let available = vec![
             registry.get(ComponentType::Main).expect("缺少 main spec"),
-            registry.get(ComponentType::NapCat).expect("缺少 napcat spec"),
+            registry
+                .get(ComponentType::NapCat)
+                .expect("缺少 napcat spec"),
         ];
 
         let states = hydrate_unknown_component_states(&available, RuntimeKind::Wsl2);
         assert_eq!(states.len(), 2);
-        assert!(states.iter().all(|state| state.status == ComponentLifecycleStatus::Unknown));
-        assert!(states.iter().all(|state| state.runtime_kind == RuntimeKind::Wsl2));
+        assert!(states
+            .iter()
+            .all(|state| state.status == ComponentLifecycleStatus::Unknown));
+        assert!(states
+            .iter()
+            .all(|state| state.runtime_kind == RuntimeKind::Wsl2));
     }
 
     #[test]

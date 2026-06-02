@@ -10,8 +10,8 @@ use uuid::Uuid;
 use crate::components::ComponentRegistry;
 use crate::errors::{AppError, AppResult};
 use crate::models::{
-    default_runtime_profile_json, CreateInstanceRequest, DbInstanceRecord, Instance,
-    InstanceList, InstanceStatusResponse, UpdateInstanceRequest,
+    default_runtime_profile_json, CreateInstanceRequest, DbInstanceRecord, Instance, InstanceList,
+    InstanceStatusResponse, UpdateInstanceRequest,
 };
 use crate::services::lifecycle_service;
 use crate::utils::platform;
@@ -24,13 +24,15 @@ fn generate_instance_id() -> String {
 
 /// 获取所有实例列表
 pub async fn get_all_instances(pool: &SqlitePool) -> AppResult<InstanceList> {
-    let rows = sqlx::query_as::<_, DbInstanceRecord>(
-        "SELECT * FROM instances ORDER BY created_at DESC",
-    )
-    .fetch_all(pool)
-    .await?;
+    let rows =
+        sqlx::query_as::<_, DbInstanceRecord>("SELECT * FROM instances ORDER BY created_at DESC")
+            .fetch_all(pool)
+            .await?;
 
-    let instances = rows.into_iter().map(DbInstanceRecord::into_instance).collect::<Vec<_>>();
+    let instances = rows
+        .into_iter()
+        .map(DbInstanceRecord::into_instance)
+        .collect::<Vec<_>>();
 
     let total = instances.len();
     Ok(InstanceList { total, instances })
@@ -77,11 +79,11 @@ pub async fn create_instance(
     // 3. 创建实例目录
     let instances_dir = platform::get_instances_dir();
     let instance_dir = instances_dir.join(&data.name);
-    std::fs::create_dir_all(&instance_dir).map_err(|e| {
-        AppError::FileSystem(format!("创建实例目录失败: {}", e))
-    })?;
+    std::fs::create_dir_all(&instance_dir)
+        .map_err(|e| AppError::FileSystem(format!("创建实例目录失败: {}", e)))?;
 
-    let runtime_profile_json = default_runtime_profile_json(Some(&data.name), data.python_path.clone());
+    let runtime_profile_json =
+        default_runtime_profile_json(Some(&data.name), data.python_path.clone());
 
     // 4. 写入数据库
     sqlx::query(
@@ -136,10 +138,8 @@ pub async fn update_instance(
     let config_path = data.config_path.or(existing.config_path);
     let qq_account = data.qq_account.or(existing.qq_account);
     let now = Utc::now().naive_utc();
-    let runtime_profile_json = default_runtime_profile_json(
-        existing.instance_path.as_deref(),
-        python_path.clone(),
-    );
+    let runtime_profile_json =
+        default_runtime_profile_json(existing.instance_path.as_deref(), python_path.clone());
 
     sqlx::query(
         r#"UPDATE instances
@@ -214,8 +214,7 @@ async fn insert_instance_row(
     bot_type: &str,
 ) -> AppResult<()> {
     let now = Utc::now().naive_utc();
-    let runtime_profile_json =
-        crate::models::default_runtime_profile_json(Some(name), None);
+    let runtime_profile_json = crate::models::default_runtime_profile_json(Some(name), None);
     sqlx::query(
         r#"INSERT INTO instances
            (id, name, instance_path, bot_type, status, created_at, updated_at, run_time,
@@ -250,7 +249,10 @@ pub async fn get_instance_status(
         None => return Ok(None),
     };
 
-    let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
+    let instance_path_str = instance
+        .instance_path
+        .clone()
+        .unwrap_or_else(|| instance.name.clone());
     let instance_root = platform::get_instances_dir().join(&instance_path_str);
 
     let status = lifecycle_service::sync_instance_state(
@@ -287,11 +289,13 @@ pub async fn get_instance_status(
 
 #[cfg(test)]
 mod tests {
-    use sqlx::SqlitePool;
     use super::*;
+    use sqlx::SqlitePool;
 
     async fn setup_test_db() -> SqlitePool {
-        let pool = SqlitePool::connect("sqlite::memory:").await.expect("创建内存数据库失败");
+        let pool = SqlitePool::connect("sqlite::memory:")
+            .await
+            .expect("创建内存数据库失败");
         sqlx::query(
             "CREATE TABLE instances (
                 id VARCHAR(50) PRIMARY KEY,
@@ -313,8 +317,11 @@ mod tests {
                 last_error TEXT,
                 last_status_reason TEXT,
                 component_state TEXT
-            )"
-        ).execute(&pool).await.expect("建表失败");
+            )",
+        )
+        .execute(&pool)
+        .await
+        .expect("建表失败");
         pool
     }
 
@@ -330,7 +337,11 @@ mod tests {
             config_path: None,
         };
         let instance = create_instance(&pool, req).await.expect("创建实例失败");
-        assert!(instance.id.starts_with("inst_"), "ID 应以 inst_ 开头, 实际: {}", instance.id);
+        assert!(
+            instance.id.starts_with("inst_"),
+            "ID 应以 inst_ 开头, 实际: {}",
+            instance.id
+        );
         assert_eq!(instance.name, "test-bot");
         assert_eq!(instance.bot_type, "maibot");
 
@@ -377,7 +388,9 @@ mod tests {
     #[tokio::test]
     async fn get_instance_returns_none_for_missing_id() {
         let pool = setup_test_db().await;
-        let result = get_instance(&pool, "inst_nonexistent").await.expect("查询失败");
+        let result = get_instance(&pool, "inst_nonexistent")
+            .await
+            .expect("查询失败");
         assert!(result.is_none());
     }
 
@@ -388,17 +401,23 @@ mod tests {
             .await
             .unwrap();
 
-        let deleted = delete_instance(&pool, "inst_to_delete_01").await.expect("删除失败");
+        let deleted = delete_instance(&pool, "inst_to_delete_01")
+            .await
+            .expect("删除失败");
         assert!(deleted);
 
-        let after = get_instance(&pool, "inst_to_delete_01").await.expect("查询失败");
+        let after = get_instance(&pool, "inst_to_delete_01")
+            .await
+            .expect("查询失败");
         assert!(after.is_none(), "删除后应查不到实例");
     }
 
     #[tokio::test]
     async fn delete_instance_returns_false_for_missing_id() {
         let pool = setup_test_db().await;
-        let deleted = delete_instance(&pool, "inst_nonexistent").await.expect("删除失败");
+        let deleted = delete_instance(&pool, "inst_nonexistent")
+            .await
+            .expect("删除失败");
         assert!(!deleted);
     }
 }

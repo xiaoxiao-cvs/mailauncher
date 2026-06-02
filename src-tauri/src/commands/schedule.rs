@@ -53,8 +53,8 @@ pub async fn create_schedule(
     state: State<'_, AppState>,
     data: ScheduleCreateRequest,
 ) -> AppResult<ScheduleTask> {
-    let config_str = serde_json::to_string(&data.schedule_config)
-        .unwrap_or_else(|_| "{}".to_string());
+    let config_str =
+        serde_json::to_string(&data.schedule_config).unwrap_or_else(|_| "{}".to_string());
     schedule_service::create_schedule(
         &state.db,
         &data.instance_id,
@@ -73,9 +73,10 @@ pub async fn update_schedule(
     schedule_id: String,
     data: ScheduleUpdateRequest,
 ) -> AppResult<ScheduleTask> {
-    let config_str = data.schedule_config.as_ref().map(|v| {
-        serde_json::to_string(v).unwrap_or_else(|_| "{}".to_string())
-    });
+    let config_str = data
+        .schedule_config
+        .as_ref()
+        .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "{}".to_string()));
     schedule_service::update_schedule(
         &state.db,
         &schedule_id,

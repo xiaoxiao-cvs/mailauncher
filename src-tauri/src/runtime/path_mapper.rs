@@ -5,20 +5,23 @@ use crate::errors::{AppError, AppResult};
 use crate::models::{RuntimeKind, RuntimeProfile};
 
 pub enum PathMapper<'a> {
-    Local {
-        instance_root: &'a Path,
-    },
-    Guest {
-        guest_workspace_root: &'a str,
-    },
+    Local { instance_root: &'a Path },
+    Guest { guest_workspace_root: &'a str },
 }
 
 impl<'a> PathMapper<'a> {
-    pub fn for_runtime(profile: &'a RuntimeProfile, instance_root: Option<&'a Path>) -> AppResult<Self> {
+    pub fn for_runtime(
+        profile: &'a RuntimeProfile,
+        instance_root: Option<&'a Path>,
+    ) -> AppResult<Self> {
         match profile.kind {
             RuntimeKind::Local => instance_root
                 .map(|instance_root| Self::Local { instance_root })
-                .ok_or_else(|| AppError::InvalidInput("Local 运行时缺少实例根目录，无法建立路径映射".to_string())),
+                .ok_or_else(|| {
+                    AppError::InvalidInput(
+                        "Local 运行时缺少实例根目录，无法建立路径映射".to_string(),
+                    )
+                }),
             RuntimeKind::Wsl2 => profile
                 .guest_workspace_root
                 .as_deref()
@@ -26,7 +29,12 @@ impl<'a> PathMapper<'a> {
                 .map(|guest_workspace_root| Self::Guest {
                     guest_workspace_root,
                 })
-                .ok_or_else(|| AppError::InvalidInput(format!("{:?} 运行时缺少 guest_workspace_root 配置", profile.kind))),
+                .ok_or_else(|| {
+                    AppError::InvalidInput(format!(
+                        "{:?} 运行时缺少 guest_workspace_root 配置",
+                        profile.kind
+                    ))
+                }),
         }
     }
 
@@ -45,7 +53,9 @@ impl<'a> PathMapper<'a> {
     }
 
     pub fn component_dir_string(&self, component: &ComponentSpec) -> String {
-        self.component_dir(component).to_string_lossy().replace('\\', "/")
+        self.component_dir(component)
+            .to_string_lossy()
+            .replace('\\', "/")
     }
 }
 
@@ -62,7 +72,9 @@ mod tests {
     fn local_mapper_resolves_component_dir_from_instance_root() {
         let profile = RuntimeProfile::local("demo", None);
         let registry = ComponentRegistry::new();
-        let component = registry.get(crate::models::ComponentType::Main).expect("缺少 main spec");
+        let component = registry
+            .get(crate::models::ComponentType::Main)
+            .expect("缺少 main spec");
         let mapper = PathMapper::for_runtime(&profile, Some(Path::new("E:/Repo/mailauncher/demo")))
             .expect("创建本地 PathMapper 失败");
 
@@ -75,9 +87,14 @@ mod tests {
         profile.kind = RuntimeKind::Wsl2;
         profile.guest_workspace_root = Some("/home/mai/demo".to_string());
         let registry = ComponentRegistry::new();
-        let component = registry.get(crate::models::ComponentType::NapCat).expect("缺少 napcat spec");
+        let component = registry
+            .get(crate::models::ComponentType::NapCat)
+            .expect("缺少 napcat spec");
         let mapper = PathMapper::for_runtime(&profile, None).expect("创建 guest PathMapper 失败");
 
-        assert_eq!(mapper.component_dir_string(component), "/home/mai/demo/NapCat");
+        assert_eq!(
+            mapper.component_dir_string(component),
+            "/home/mai/demo/NapCat"
+        );
     }
 }

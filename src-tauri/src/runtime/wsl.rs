@@ -4,7 +4,9 @@ use std::process::Command as StdCommand;
 use crate::components::ComponentSpec;
 use crate::errors::{AppError, AppResult};
 use crate::models::{ComponentLifecycleStatus, ComponentType, RuntimeKind, RuntimeProfile};
-use crate::runtime::{DiscoveredRuntimeProcess, PathMapper, ResolvedCommand, RuntimeAdapter, TerminalSessionInfo};
+use crate::runtime::{
+    DiscoveredRuntimeProcess, PathMapper, ResolvedCommand, RuntimeAdapter, TerminalSessionInfo,
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct Wsl2RuntimeAdapter;
@@ -25,7 +27,6 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
         let distribution = profile.distribution.as_deref().ok_or_else(|| {
             AppError::InvalidInput("WSL2 运行时缺少 distribution 配置".to_string())
         })?;
-
 
         let mapper = PathMapper::for_runtime(profile, None)?;
         let guest_cwd = mapper.component_dir_string(component);
@@ -54,7 +55,10 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
                 // EULA_AGREE/PRIVACY_AGREE 取宿主侧 MaiBot 目录下协议文件的 MD5；
                 // guest 与 host 通过 \\wsl$ 共享同一文件，内容一致，哈希通用。
                 let env_prefix = wsl_env_prefix(instance_root, component);
-                format!("cd '{guest_cwd}' && echo {marker}=$$; exec {env_prefix}{python} {}", component.startup_target)
+                format!(
+                    "cd '{guest_cwd}' && echo {marker}=$$; exec {env_prefix}{python} {}",
+                    component.startup_target
+                )
             }
             ComponentType::NapCat => {
                 let account_suffix = qq_account
@@ -117,7 +121,13 @@ impl RuntimeAdapter for Wsl2RuntimeAdapter {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        parse_wsl_discovered_processes(profile, &stdout, &guest_workspace_root, instance_id, components)
+        parse_wsl_discovered_processes(
+            profile,
+            &stdout,
+            &guest_workspace_root,
+            instance_id,
+            components,
+        )
     }
 }
 
@@ -150,7 +160,9 @@ mod tests {
         let registry = ComponentRegistry::new();
         let components = vec![
             registry.get(ComponentType::Main).expect("缺少 main spec"),
-            registry.get(ComponentType::NapCat).expect("缺少 napcat spec"),
+            registry
+                .get(ComponentType::NapCat)
+                .expect("缺少 napcat spec"),
         ];
 
         let stdout = "123\t/home/mai/demo/MaiBot\tpython3 bot.py\n456\t/home/mai/demo/NapCat\tbash start.sh\n";
@@ -177,8 +189,18 @@ mod tests {
             .expect("缺少 napcat 进程");
         assert_eq!(main.guest_pid, Some(123));
         assert_eq!(napcat.guest_pid, Some(456));
-        assert_eq!(main.terminal_session.as_ref().map(|session| session.name.as_str()), Some("mailauncher-inst-1-main"));
-        assert_eq!(main.terminal_session.as_ref().map(|session| session.verified), Some(true));
+        assert_eq!(
+            main.terminal_session
+                .as_ref()
+                .map(|session| session.name.as_str()),
+            Some("mailauncher-inst-1-main")
+        );
+        assert_eq!(
+            main.terminal_session
+                .as_ref()
+                .map(|session| session.verified),
+            Some(true)
+        );
     }
 
     #[test]
@@ -225,7 +247,9 @@ where
         }
 
         let mut parts = line.splitn(3, '\t');
-        let pid = parts.next().and_then(|value| value.trim().parse::<u32>().ok());
+        let pid = parts
+            .next()
+            .and_then(|value| value.trim().parse::<u32>().ok());
         let cwd = parts.next().unwrap_or("").trim().trim_end_matches('/');
         let cmd = parts.next().unwrap_or("").trim();
 
@@ -245,7 +269,8 @@ where
             };
 
             if matches_target {
-                let session_name = terminal_session_name(instance_id, component.component.internal_key());
+                let session_name =
+                    terminal_session_name(instance_id, component.component.internal_key());
                 let terminal_session = if session_exists(&session_name) {
                     Some(TerminalSessionInfo {
                         name: session_name,
@@ -276,19 +301,26 @@ fn tmux_session_exists(profile: &RuntimeProfile, session_name: &str) -> AppResul
     let mut command = StdCommand::new("wsl.exe");
     command.args(["--distribution", distribution]);
 
-    if let Some(user) = profile.user.as_deref().filter(|value| !value.trim().is_empty()) {
+    if let Some(user) = profile
+        .user
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
         command.args(["--user", user]);
     }
 
     let output = command
-    .args([
-        "--exec",
-        "bash",
-        "-lc",
-        &format!("tmux has-session -t '{}' >/dev/null 2>&1", shell_escape(session_name)),
-    ])
-    .output()
-    .map_err(|error| AppError::Process(format!("执行 WSL tmux 会话探测失败: {}", error)))?;
+        .args([
+            "--exec",
+            "bash",
+            "-lc",
+            &format!(
+                "tmux has-session -t '{}' >/dev/null 2>&1",
+                shell_escape(session_name)
+            ),
+        ])
+        .output()
+        .map_err(|error| AppError::Process(format!("执行 WSL tmux 会话探测失败: {}", error)))?;
 
     Ok(output.status.success())
 }
@@ -303,7 +335,11 @@ pub async fn probe_guest_process_alive(profile: &RuntimeProfile, pid: u32) -> Ap
     Ok(output.status.success())
 }
 
-pub async fn signal_guest_process(profile: &RuntimeProfile, pid: u32, signal: &str) -> AppResult<()> {
+pub async fn signal_guest_process(
+    profile: &RuntimeProfile,
+    pid: u32,
+    signal: &str,
+) -> AppResult<()> {
     let script = format!("kill -{signal} {pid} >/dev/null 2>&1");
     let output = build_wsl_command(profile, &script)
         .output()
@@ -344,7 +380,9 @@ pub async fn capture_tmux_history(
         .map_err(|error| AppError::Process(format!("读取 tmux 历史失败: {}", error)))?;
 
     if !output.status.success() {
-        return Err(AppError::Process(String::from_utf8_lossy(&output.stderr).trim().to_string()));
+        return Err(AppError::Process(
+            String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        ));
     }
 
     Ok(String::from_utf8_lossy(&output.stdout)
@@ -353,7 +391,11 @@ pub async fn capture_tmux_history(
         .collect())
 }
 
-pub async fn send_tmux_input(profile: &RuntimeProfile, session_name: &str, data: &str) -> AppResult<()> {
+pub async fn send_tmux_input(
+    profile: &RuntimeProfile,
+    session_name: &str,
+    data: &str,
+) -> AppResult<()> {
     for token in tmux_key_tokens(data) {
         let script = format!(
             "tmux send-keys -t '{}' {}",
@@ -366,7 +408,9 @@ pub async fn send_tmux_input(profile: &RuntimeProfile, session_name: &str, data:
             .map_err(|error| AppError::Process(format!("发送 tmux 输入失败: {}", error)))?;
 
         if !output.status.success() {
-            return Err(AppError::Process(String::from_utf8_lossy(&output.stderr).trim().to_string()));
+            return Err(AppError::Process(
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ));
         }
     }
 
@@ -393,7 +437,9 @@ pub async fn resize_tmux_session(
     if output.status.success() {
         Ok(())
     } else {
-        Err(AppError::Process(String::from_utf8_lossy(&output.stderr).trim().to_string()))
+        Err(AppError::Process(
+            String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        ))
     }
 }
 
@@ -410,7 +456,11 @@ fn build_wsl_command(profile: &RuntimeProfile, script: &str) -> tokio::process::
     let mut command = tokio::process::Command::new("wsl.exe");
     command.args(["--distribution", distribution]);
 
-    if let Some(user) = profile.user.as_deref().filter(|value| !value.trim().is_empty()) {
+    if let Some(user) = profile
+        .user
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
         command.args(["--user", user]);
     }
 

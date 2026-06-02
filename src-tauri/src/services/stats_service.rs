@@ -31,10 +31,24 @@ fn time_range_to_hours(time_range: &str) -> f64 {
 fn find_maibot_db(instance_path: &str) -> Option<PathBuf> {
     let instances_dir = platform::get_instances_dir();
     let possible_paths = [
-        instances_dir.join(instance_path).join("MaiBot").join("data").join("MaiBot.db"),
-        instances_dir.join(instance_path).join("MaiBot").join("data").join("maibot.db"),
-        instances_dir.join(instance_path).join("data").join("MaiBot.db"),
-        instances_dir.join(instance_path).join("data").join("maibot.db"),
+        instances_dir
+            .join(instance_path)
+            .join("MaiBot")
+            .join("data")
+            .join("MaiBot.db"),
+        instances_dir
+            .join(instance_path)
+            .join("MaiBot")
+            .join("data")
+            .join("maibot.db"),
+        instances_dir
+            .join(instance_path)
+            .join("data")
+            .join("MaiBot.db"),
+        instances_dir
+            .join(instance_path)
+            .join("data")
+            .join("maibot.db"),
     ];
     for p in &possible_paths {
         if p.exists() {
@@ -50,25 +64,23 @@ fn find_maibot_db(instance_path: &str) -> Option<PathBuf> {
 /// 字符串形如 'YYYY-MM-DD HH:MM:SS'），与 llm_usage 一致按字符串边界比较。
 /// 当表不存在时返回 (0, 0)，以兼容尚未产生消息记录的实例数据库。
 async fn count_messages(pool: &SqlitePool, start_time: &str, end_time: &str) -> (i64, i64) {
-    let msg_table: Option<(String,)> = sqlx::query_as(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='mai_messages'"
-    )
-    .fetch_optional(pool)
-    .await
-    .unwrap_or(None);
+    let msg_table: Option<(String,)> =
+        sqlx::query_as("SELECT name FROM sqlite_master WHERE type='table' AND name='mai_messages'")
+            .fetch_optional(pool)
+            .await
+            .unwrap_or(None);
 
     if msg_table.is_none() {
         return (0, 0);
     }
 
-    let msg_count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM mai_messages WHERE timestamp >= ? AND timestamp <= ?"
-    )
-    .bind(start_time)
-    .bind(end_time)
-    .fetch_one(pool)
-    .await
-    .unwrap_or((0,));
+    let msg_count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM mai_messages WHERE timestamp >= ? AND timestamp <= ?")
+            .bind(start_time)
+            .bind(end_time)
+            .fetch_one(pool)
+            .await
+            .unwrap_or((0,));
 
     let reply_count: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM mai_messages WHERE timestamp >= ? AND timestamp <= ? AND reply_to IS NOT NULL"
@@ -89,7 +101,8 @@ async fn query_llm_usage(
     end_time: &str,
 ) -> AppResult<(StatsSummary, Vec<ModelStats>, Vec<RequestTypeStats>)> {
     let db_url = format!("sqlite:{}?mode=ro", db_path.display());
-    let options: SqliteConnectOptions = db_url.parse()
+    let options: SqliteConnectOptions = db_url
+        .parse()
         .map_err(|e| AppError::Database(format!("无法解析 MaiBot 数据库路径: {}", e)))?;
 
     let pool = sqlx::SqlitePool::connect_with(options)
@@ -97,11 +110,10 @@ async fn query_llm_usage(
         .map_err(|e| AppError::Database(format!("无法连接 MaiBot 数据库: {}", e)))?;
 
     // 检查 llm_usage 表是否存在
-    let table_check: Option<(String,)> = sqlx::query_as(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='llm_usage'"
-    )
-    .fetch_optional(&pool)
-    .await?;
+    let table_check: Option<(String,)> =
+        sqlx::query_as("SELECT name FROM sqlite_master WHERE type='table' AND name='llm_usage'")
+            .fetch_optional(&pool)
+            .await?;
 
     if table_check.is_none() {
         pool.close().await;
@@ -112,7 +124,7 @@ async fn query_llm_usage(
     let rows = sqlx::query(
         "SELECT model_name, model_assign_name, request_type, prompt_tokens, \
          completion_tokens, total_tokens, cost, time_cost, timestamp \
-         FROM llm_usage WHERE timestamp >= ? AND timestamp <= ?"
+         FROM llm_usage WHERE timestamp >= ? AND timestamp <= ?",
     )
     .bind(start_time)
     .bind(end_time)
@@ -120,14 +132,17 @@ async fn query_llm_usage(
     .await?;
 
     let mut summary = StatsSummary::default();
-    let mut model_map: HashMap<String, (Option<String>, i64, i64, i64, i64, f64, f64)> = HashMap::new();
+    let mut model_map: HashMap<String, (Option<String>, i64, i64, i64, i64, f64, f64)> =
+        HashMap::new();
     let mut type_map: HashMap<String, (i64, i64, f64)> = HashMap::new();
     let mut total_time = 0.0f64;
 
     for row in &rows {
         let model_name: String = row.try_get("model_name").unwrap_or_default();
         let display_name: Option<String> = row.try_get("model_assign_name").ok();
-        let request_type: String = row.try_get("request_type").unwrap_or_else(|_| "unknown".into());
+        let request_type: String = row
+            .try_get("request_type")
+            .unwrap_or_else(|_| "unknown".into());
         let prompt_tokens: i64 = row.try_get("prompt_tokens").unwrap_or(0);
         let completion_tokens: i64 = row.try_get("completion_tokens").unwrap_or(0);
         let total_tokens: i64 = row.try_get("total_tokens").unwrap_or(0);
@@ -141,7 +156,10 @@ async fn query_llm_usage(
         summary.output_tokens += completion_tokens;
         total_time += time_cost;
 
-        let entry = model_map.entry(model_name).or_insert((display_name.clone(), 0, 0, 0, 0, 0.0, 0.0));
+        let entry =
+            model_map
+                .entry(model_name)
+                .or_insert((display_name.clone(), 0, 0, 0, 0, 0.0, 0.0));
         if entry.0.is_none() && display_name.is_some() {
             entry.0 = display_name;
         }
@@ -159,7 +177,8 @@ async fn query_llm_usage(
     }
 
     if summary.total_requests > 0 {
-        summary.avg_response_time = (total_time / summary.total_requests as f64 * 1000.0).round() / 1000.0;
+        summary.avg_response_time =
+            (total_time / summary.total_requests as f64 * 1000.0).round() / 1000.0;
     }
     summary.total_cost = (summary.total_cost * 10000.0).round() / 10000.0;
 
@@ -170,8 +189,9 @@ async fn query_llm_usage(
 
     pool.close().await;
 
-    let mut model_stats: Vec<ModelStats> = model_map.into_iter().map(|(name, (dn, cnt, tok, inp, out, cost, time))| {
-        ModelStats {
+    let mut model_stats: Vec<ModelStats> = model_map
+        .into_iter()
+        .map(|(name, (dn, cnt, tok, inp, out, cost, time))| ModelStats {
             model_name: name,
             display_name: dn,
             request_count: cnt,
@@ -179,19 +199,24 @@ async fn query_llm_usage(
             input_tokens: inp,
             output_tokens: out,
             total_cost: (cost * 10000.0).round() / 10000.0,
-            avg_response_time: if cnt > 0 { (time / cnt as f64 * 1000.0).round() / 1000.0 } else { 0.0 },
-        }
-    }).collect();
+            avg_response_time: if cnt > 0 {
+                (time / cnt as f64 * 1000.0).round() / 1000.0
+            } else {
+                0.0
+            },
+        })
+        .collect();
     model_stats.sort_by(|a, b| b.request_count.cmp(&a.request_count));
 
-    let mut request_type_stats: Vec<RequestTypeStats> = type_map.into_iter().map(|(rt, (cnt, tok, cost))| {
-        RequestTypeStats {
+    let mut request_type_stats: Vec<RequestTypeStats> = type_map
+        .into_iter()
+        .map(|(rt, (cnt, tok, cost))| RequestTypeStats {
             request_type: rt,
             request_count: cnt,
             total_tokens: tok,
             total_cost: (cost * 10000.0).round() / 10000.0,
-        }
-    }).collect();
+        })
+        .collect();
     request_type_stats.sort_by(|a, b| b.request_count.cmp(&a.request_count));
 
     Ok((summary, model_stats, request_type_stats))
@@ -227,7 +252,7 @@ pub async fn get_instance_stats(
     }
 
     let instance = sqlx::query_as::<_, InstanceRow>(
-        "SELECT id, name, instance_path, status, run_time, last_run FROM instances WHERE id = ?"
+        "SELECT id, name, instance_path, status, run_time, last_run FROM instances WHERE id = ?",
     )
     .bind(instance_id)
     .fetch_optional(pool)
@@ -238,7 +263,8 @@ pub async fn get_instance_stats(
         None => return Ok(None),
     };
 
-    let online_time = get_instance_online_time(&instance.status, instance.run_time, instance.last_run);
+    let online_time =
+        get_instance_online_time(&instance.status, instance.run_time, instance.last_run);
     let hours = time_range_to_hours(time_range);
     let end = Local::now().naive_local();
     let start = end - chrono::Duration::seconds((hours * 3600.0) as i64);
@@ -271,7 +297,8 @@ pub async fn get_instance_stats(
     };
     if effective_hours > 0.0 {
         summary.cost_per_hour = (summary.total_cost / effective_hours * 10000.0).round() / 10000.0;
-        summary.tokens_per_hour = (summary.total_tokens as f64 / effective_hours * 10.0).round() / 10.0;
+        summary.tokens_per_hour =
+            (summary.total_tokens as f64 / effective_hours * 10.0).round() / 10.0;
     }
 
     Ok(Some(InstanceStats {
@@ -317,16 +344,18 @@ pub async fn get_stats_overview(pool: &SqlitePool, time_range: &str) -> AppResul
             agg_summary.tokens_per_hour += stats.summary.tokens_per_hour;
 
             for ms in stats.model_stats {
-                let entry = all_models.entry(ms.model_name.clone()).or_insert(ModelStats {
-                    model_name: ms.model_name.clone(),
-                    display_name: ms.display_name.clone(),
-                    request_count: 0,
-                    total_tokens: 0,
-                    input_tokens: 0,
-                    output_tokens: 0,
-                    total_cost: 0.0,
-                    avg_response_time: 0.0,
-                });
+                let entry = all_models
+                    .entry(ms.model_name.clone())
+                    .or_insert(ModelStats {
+                        model_name: ms.model_name.clone(),
+                        display_name: ms.display_name.clone(),
+                        request_count: 0,
+                        total_tokens: 0,
+                        input_tokens: 0,
+                        output_tokens: 0,
+                        total_cost: 0.0,
+                        avg_response_time: 0.0,
+                    });
                 entry.request_count += ms.request_count;
                 entry.total_tokens += ms.total_tokens;
                 entry.input_tokens += ms.input_tokens;
@@ -344,7 +373,10 @@ pub async fn get_stats_overview(pool: &SqlitePool, time_range: &str) -> AppResul
     top_models.sort_by(|a, b| b.request_count.cmp(&a.request_count));
     top_models.truncate(5);
 
-    let now_str = Local::now().naive_local().format("%Y-%m-%dT%H:%M:%S").to_string();
+    let now_str = Local::now()
+        .naive_local()
+        .format("%Y-%m-%dT%H:%M:%S")
+        .to_string();
 
     Ok(StatsOverview {
         total_instances: total.0,
@@ -388,16 +420,18 @@ pub async fn get_aggregated_stats(
             agg_summary.tokens_per_hour += stats.summary.tokens_per_hour;
 
             for ms in &stats.model_stats {
-                let entry = all_models.entry(ms.model_name.clone()).or_insert(ModelStats {
-                    model_name: ms.model_name.clone(),
-                    display_name: ms.display_name.clone(),
-                    request_count: 0,
-                    total_tokens: 0,
-                    input_tokens: 0,
-                    output_tokens: 0,
-                    total_cost: 0.0,
-                    avg_response_time: 0.0,
-                });
+                let entry = all_models
+                    .entry(ms.model_name.clone())
+                    .or_insert(ModelStats {
+                        model_name: ms.model_name.clone(),
+                        display_name: ms.display_name.clone(),
+                        request_count: 0,
+                        total_tokens: 0,
+                        input_tokens: 0,
+                        output_tokens: 0,
+                        total_cost: 0.0,
+                        avg_response_time: 0.0,
+                    });
                 entry.request_count += ms.request_count;
                 entry.total_tokens += ms.total_tokens;
                 entry.input_tokens += ms.input_tokens;
@@ -414,7 +448,10 @@ pub async fn get_aggregated_stats(
     let mut model_stats: Vec<ModelStats> = all_models.into_values().collect();
     model_stats.sort_by(|a, b| b.request_count.cmp(&a.request_count));
 
-    let now_str = Local::now().naive_local().format("%Y-%m-%dT%H:%M:%S").to_string();
+    let now_str = Local::now()
+        .naive_local()
+        .format("%Y-%m-%dT%H:%M:%S")
+        .to_string();
 
     Ok(AggregatedStats {
         instance_count: by_instance.len() as i64,
@@ -463,7 +500,7 @@ mod tests {
                 timestamp DATETIME NOT NULL,
                 user_id VARCHAR(255) NOT NULL,
                 reply_to VARCHAR(255)
-            )"
+            )",
         )
         .execute(&pool)
         .await
@@ -471,7 +508,12 @@ mod tests {
         pool
     }
 
-    async fn insert_message(pool: &SqlitePool, message_id: &str, timestamp: &str, reply_to: Option<&str>) {
+    async fn insert_message(
+        pool: &SqlitePool,
+        message_id: &str,
+        timestamp: &str,
+        reply_to: Option<&str>,
+    ) {
         sqlx::query(
             "INSERT INTO mai_messages (message_id, timestamp, user_id, reply_to) VALUES (?, ?, ?, ?)"
         )

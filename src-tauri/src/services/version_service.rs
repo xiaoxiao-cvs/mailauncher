@@ -66,8 +66,7 @@ const LAUNCHER_REPO: &str = "mailauncher";
 
 /// 创建 HTTP 客户端（带 User-Agent）
 pub(crate) fn github_client() -> reqwest::Client {
-    let mut builder = reqwest::Client::builder()
-        .user_agent("mailauncher/1.0");
+    let mut builder = reqwest::Client::builder().user_agent("mailauncher/1.0");
 
     // 支持可选 GitHub token，提升速率限制 (60 → 5000 req/hour)
     if let Ok(token) = std::env::var("GITHUB_TOKEN") {
@@ -163,10 +162,7 @@ pub async fn get_releases(
                                 .unwrap_or("")
                                 .to_string(),
                             size: a["size"].as_i64().unwrap_or(0),
-                            content_type: a["content_type"]
-                                .as_str()
-                                .unwrap_or("")
-                                .to_string(),
+                            content_type: a["content_type"].as_str().unwrap_or("").to_string(),
                         })
                         .collect()
                 })
@@ -219,11 +215,7 @@ pub fn get_local_commit(component_path: &Path) -> Option<String> {
         .ok()?;
 
     if output.status.success() {
-        Some(
-            String::from_utf8_lossy(&output.stdout)
-                .trim()
-                .to_string(),
-        )
+        Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
     } else {
         None
     }
@@ -317,13 +309,12 @@ pub async fn get_instance_components_version(
     instance_id: &str,
     _base_dir: &Path,
 ) -> AppResult<Vec<ComponentVersionInfo>> {
-    let rows: Vec<ComponentVersion> = sqlx::query_as(
-        "SELECT * FROM component_versions WHERE instance_id = ? ORDER BY component",
-    )
-    .bind(instance_id)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| AppError::Database(format!("查询组件版本失败: {}", e)))?;
+    let rows: Vec<ComponentVersion> =
+        sqlx::query_as("SELECT * FROM component_versions WHERE instance_id = ? ORDER BY component")
+            .bind(instance_id)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| AppError::Database(format!("查询组件版本失败: {}", e)))?;
 
     Ok(rows
         .into_iter()
@@ -405,7 +396,10 @@ pub async fn create_backup(
     use uuid::Uuid;
 
     let repo = get_github_repo(item_type);
-    let backup_id = format!("backup_{}", Uuid::new_v4().to_string().replace('-', "")[..12].to_string());
+    let backup_id = format!(
+        "backup_{}",
+        Uuid::new_v4().to_string().replace('-', "")[..12].to_string()
+    );
 
     // 备份目录
     let backups_dir = crate::utils::platform::get_data_root().join("backups");
@@ -524,9 +518,7 @@ pub async fn get_update_history(
 ///
 /// 对应 Python `UpdateService.check_update`。
 /// 从 GitHub Releases 获取最新版本，与当前版本对比。
-pub async fn check_launcher_update(
-    channel: &str,
-) -> AppResult<UpdateCheckResponse> {
+pub async fn check_launcher_update(channel: &str) -> AppResult<UpdateCheckResponse> {
     let current_version = env!("CARGO_PKG_VERSION");
     let releases = get_releases(LAUNCHER_OWNER, LAUNCHER_REPO, None).await?;
 
@@ -792,11 +784,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&tmp);
         std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
 
-        std::fs::write(
-            tmp.join("__version__.py"),
-            r#"__version__ = "1.2.3""#,
-        )
-        .expect("写入失败");
+        std::fs::write(tmp.join("__version__.py"), r#"__version__ = "1.2.3""#).expect("写入失败");
 
         let version = get_local_version_from_file(&tmp, "TestComponent");
         assert_eq!(version, Some("1.2.3".to_string()));
@@ -810,11 +798,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&tmp);
         std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
 
-        std::fs::write(
-            tmp.join("__version__.py"),
-            "__version__ = '0.9.1'\n",
-        )
-        .expect("写入失败");
+        std::fs::write(tmp.join("__version__.py"), "__version__ = '0.9.1'\n").expect("写入失败");
 
         let version = get_local_version_from_file(&tmp, "TestComponent");
         assert_eq!(version, Some("0.9.1".to_string()));
@@ -846,19 +830,15 @@ mod tests {
         let _ = std::fs::remove_dir_all(&tmp);
         std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
 
-        std::fs::write(
-            tmp.join("__version__.py"),
-            r#"__version__ = "1.0.0""#,
-        )
-        .expect("写入失败");
-        std::fs::write(
-            tmp.join("package.json"),
-            r#"{"version": "2.0.0"}"#,
-        )
-        .expect("写入失败");
+        std::fs::write(tmp.join("__version__.py"), r#"__version__ = "1.0.0""#).expect("写入失败");
+        std::fs::write(tmp.join("package.json"), r#"{"version": "2.0.0"}"#).expect("写入失败");
 
         let version = get_local_version_from_file(&tmp, "comp");
-        assert_eq!(version, Some("1.0.0".to_string()), "Python __version__.py 应优先于 package.json");
+        assert_eq!(
+            version,
+            Some("1.0.0".to_string()),
+            "Python __version__.py 应优先于 package.json"
+        );
 
         let _ = std::fs::remove_dir_all(&tmp);
     }

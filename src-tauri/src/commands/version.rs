@@ -78,8 +78,7 @@ pub async fn update_component(
     // 可选备份
     if create_backup.unwrap_or(false) {
         let _ = app_handle.emit(&event_name, "正在创建备份...");
-        version_service::create_backup(&state.db, &instance_id, &item_type, &component_dir)
-            .await?;
+        version_service::create_backup(&state.db, &instance_id, &item_type, &component_dir).await?;
         let _ = app_handle.emit(&event_name, "备份创建完成");
     }
 
@@ -94,8 +93,7 @@ pub async fn update_component(
     .await?;
 
     // 记录更新历史
-    let current_version =
-        version_service::get_local_commit(&component_dir).unwrap_or_default();
+    let current_version = version_service::get_local_commit(&component_dir).unwrap_or_default();
     sqlx::query(
         "INSERT INTO update_history (instance_id, component, from_version, to_version, update_method, status, created_at)
          VALUES (?, ?, ?, ?, 'git', 'completed', datetime('now'))",
@@ -212,9 +210,7 @@ pub async fn get_component_releases(
 ///
 /// 对应 Python GET `/updates/check`
 #[tauri::command]
-pub async fn check_launcher_update(
-    channel: Option<String>,
-) -> AppResult<UpdateCheckResponse> {
+pub async fn check_launcher_update(channel: Option<String>) -> AppResult<UpdateCheckResponse> {
     let ch = channel.unwrap_or_else(|| "main".to_string());
     version_service::check_launcher_update(&ch).await
 }

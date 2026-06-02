@@ -9,8 +9,8 @@ use tauri::{AppHandle, Emitter, State};
 use tracing::{error, info};
 
 use crate::errors::AppResult;
-use crate::services::{config_service, python_provision};
 use crate::services::python_provision::ProvisionResult;
+use crate::services::{config_service, python_provision};
 use crate::state::AppState;
 
 /// 一键供给 Python

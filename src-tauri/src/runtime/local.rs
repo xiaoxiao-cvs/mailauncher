@@ -14,7 +14,10 @@ impl LocalRuntimeAdapter {
     fn resolve_python(&self, instance_root: &Path, profile: &RuntimeProfile) -> String {
         // 优先使用虚拟环境 Python（依赖安装在 venv 中，显式路径仅用于创建 venv）
         let venv_python = match HostOs::current() {
-            HostOs::Windows => instance_root.join(".venv").join("Scripts").join("python.exe"),
+            HostOs::Windows => instance_root
+                .join(".venv")
+                .join("Scripts")
+                .join("python.exe"),
             _ => instance_root.join(".venv").join("bin").join("python"),
         };
 
@@ -29,7 +32,8 @@ impl LocalRuntimeAdapter {
         }
 
         match profile.python.mode {
-            PythonMode::System | PythonMode::Explicit | PythonMode::Venv => match HostOs::current() {
+            PythonMode::System | PythonMode::Explicit | PythonMode::Venv => match HostOs::current()
+            {
                 HostOs::Windows => "python".to_string(),
                 _ => "python3".to_string(),
             },

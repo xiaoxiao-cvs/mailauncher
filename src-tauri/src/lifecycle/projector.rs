@@ -72,7 +72,10 @@ pub fn aggregate_instance_status(
         };
     }
 
-    let running = states.iter().filter(|state| state.status.is_running()).count();
+    let running = states
+        .iter()
+        .filter(|state| state.status.is_running())
+        .count();
     let failed = states
         .iter()
         .filter(|state| matches!(state.status, ComponentLifecycleStatus::Failed))
@@ -172,7 +175,10 @@ mod tests {
 
     #[test]
     fn stopped_with_error_projects_failed_status() {
-        let states = vec![component_state(ComponentType::Main, ComponentLifecycleStatus::Stopped)];
+        let states = vec![component_state(
+            ComponentType::Main,
+            ComponentLifecycleStatus::Stopped,
+        )];
 
         assert_eq!(
             aggregate_instance_status(&states, Some("boom")),
@@ -190,10 +196,8 @@ mod tests {
     async fn collect_component_states_projects_managed_runtime_capabilities() {
         let registry = ComponentRegistry::new();
         let manager = ProcessManager::new();
-        let temp_root = std::env::temp_dir().join(format!(
-            "mailauncher-projector-test-{}",
-            std::process::id()
-        ));
+        let temp_root =
+            std::env::temp_dir().join(format!("mailauncher-projector-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&temp_root);
         create_component_dirs(&temp_root, &[ComponentType::Main, ComponentType::NapCat]);
 

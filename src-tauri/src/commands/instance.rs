@@ -21,10 +21,7 @@ pub async fn get_all_instances(state: State<'_, AppState>) -> AppResult<Instance
 
 /// 获取单个实例详情
 #[tauri::command]
-pub async fn get_instance(
-    state: State<'_, AppState>,
-    instance_id: String,
-) -> AppResult<Instance> {
+pub async fn get_instance(state: State<'_, AppState>, instance_id: String) -> AppResult<Instance> {
     instance_service::get_instance(&state.db, &instance_id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))
@@ -42,8 +39,8 @@ pub async fn get_instance_status(
         &state.process_manager,
         &state.component_registry,
     )
-        .await?
-        .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))
 }
 
 /// 创建新实例
@@ -110,8 +107,13 @@ pub async fn get_napcat_accounts(
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
 
     let instances_dir = crate::utils::platform::get_instances_dir();
-    let instance_path = instance.instance_path.unwrap_or_else(|| instance.name.clone());
-    let napcat_config_dir = instances_dir.join(&instance_path).join("NapCat").join("config");
+    let instance_path = instance
+        .instance_path
+        .unwrap_or_else(|| instance.name.clone());
+    let napcat_config_dir = instances_dir
+        .join(&instance_path)
+        .join("NapCat")
+        .join("config");
 
     let mut accounts = Vec::new();
 

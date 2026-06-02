@@ -39,10 +39,7 @@ pub async fn create_virtual_environment(
     event_name: &str,
 ) -> AppResult<()> {
     // 虚拟环境位于实例根目录（project_dir 的父目录）
-    let venv_dir = project_dir
-        .parent()
-        .unwrap_or(project_dir)
-        .join(".venv");
+    let venv_dir = project_dir.parent().unwrap_or(project_dir).join(".venv");
 
     if venv_dir.exists() {
         info!("虚拟环境已存在: {:?}", venv_dir);
@@ -80,13 +77,14 @@ pub async fn create_virtual_environment(
         } else {
             format!("[stdout] {}\n[stderr] {}", output.stdout, output.stderr)
         };
-        return Err(AppError::Process(format!(
-            "创建虚拟环境失败: {}",
-            combined
-        )));
+        return Err(AppError::Process(format!("创建虚拟环境失败: {}", combined)));
     }
 
-    info!("虚拟环境创建完成: {:?} (耗时 {:.1}s)", venv_dir, venv_start.elapsed().as_secs_f64());
+    info!(
+        "虚拟环境创建完成: {:?} (耗时 {:.1}s)",
+        venv_dir,
+        venv_start.elapsed().as_secs_f64()
+    );
     Ok(())
 }
 
@@ -174,7 +172,11 @@ pub async fn install_dependencies(
         )));
     }
 
-    info!("依赖安装完成: {:?} (耗时 {:.1}s)", project_dir, deps_start.elapsed().as_secs_f64());
+    info!(
+        "依赖安装完成: {:?} (耗时 {:.1}s)",
+        project_dir,
+        deps_start.elapsed().as_secs_f64()
+    );
     Ok(())
 }
 
@@ -192,18 +194,21 @@ pub async fn install_dependencies(
 fn read_stub_bot_config_version(maibot_dir: &Path) -> AppResult<String> {
     let config_py = maibot_dir.join("src").join("config").join("config.py");
     let source = std::fs::read_to_string(&config_py).map_err(|e| {
-        AppError::FileSystem(format!("读取 MaiBot config.py 失败 ({:?}): {}", config_py, e))
-    })?;
-
-    let version = extract_config_version(&source).ok_or_else(|| {
-        AppError::Config(format!(
-            "未能在 {:?} 解析到 CONFIG_VERSION 常量",
-            config_py
+        AppError::FileSystem(format!(
+            "读取 MaiBot config.py 失败 ({:?}): {}",
+            config_py, e
         ))
     })?;
 
+    let version = extract_config_version(&source).ok_or_else(|| {
+        AppError::Config(format!("未能在 {:?} 解析到 CONFIG_VERSION 常量", config_py))
+    })?;
+
     decrement_patch_version(&version).ok_or_else(|| {
-        AppError::Config(format!("CONFIG_VERSION 格式非法，无法生成 stub 版本: {}", version))
+        AppError::Config(format!(
+            "CONFIG_VERSION 格式非法，无法生成 stub 版本: {}",
+            version
+        ))
     })
 }
 
@@ -255,14 +260,20 @@ fn decrement_patch_version(version: &str) -> Option<String> {
 /// 写入 MaiBot 最小 stub 配置（纯文件操作，便于测试）。
 ///
 /// 返回写入的 stub 版本号；若 `config/bot_config.toml` 已存在则跳过并返回 None。
-fn write_maibot_config_stub(maibot_dir: &Path, qq_account: Option<&str>) -> AppResult<Option<String>> {
+fn write_maibot_config_stub(
+    maibot_dir: &Path,
+    qq_account: Option<&str>,
+) -> AppResult<Option<String>> {
     let config_dir = maibot_dir.join("config");
     std::fs::create_dir_all(&config_dir)
         .map_err(|e| AppError::FileSystem(format!("创建 MaiBot config 目录失败: {}", e)))?;
 
     let bot_config_path = config_dir.join("bot_config.toml");
     if bot_config_path.exists() {
-        info!("bot_config.toml 已存在，跳过 stub 写入: {:?}", bot_config_path);
+        info!(
+            "bot_config.toml 已存在，跳过 stub 写入: {:?}",
+            bot_config_path
+        );
         return Ok(None);
     }
 
@@ -294,7 +305,10 @@ pub async fn setup_maibot_config(
     if let Some(stub_version) = write_maibot_config_stub(maibot_dir, qq_account)? {
         let _ = app_handle.emit(
             event_name,
-            format!("已写入 MaiBot 配置 stub（version={}），首启将自生成完整配置", stub_version),
+            format!(
+                "已写入 MaiBot 配置 stub（version={}），首启将自生成完整配置",
+                stub_version
+            ),
         );
     }
     Ok(())
@@ -428,10 +442,7 @@ mod tests {
                 PathBuf::from("/path with spaces/.venv/Scripts/python.exe")
             );
         } else {
-            assert_eq!(
-                python,
-                PathBuf::from("/path with spaces/.venv/bin/python")
-            );
+            assert_eq!(python, PathBuf::from("/path with spaces/.venv/bin/python"));
         }
     }
 
@@ -458,14 +469,20 @@ mod tests {
 
     #[test]
     fn decrement_patch_version_subtracts_one() {
-        assert_eq!(decrement_patch_version("8.12.26"), Some("8.12.25".to_string()));
+        assert_eq!(
+            decrement_patch_version("8.12.26"),
+            Some("8.12.25".to_string())
+        );
         assert_eq!(decrement_patch_version("1.0.1"), Some("1.0.0".to_string()));
     }
 
     #[test]
     fn decrement_patch_version_does_not_underflow() {
         // 末位为 0 时保持为 0，不下溢。
-        assert_eq!(decrement_patch_version("8.12.0"), Some("8.12.0".to_string()));
+        assert_eq!(
+            decrement_patch_version("8.12.0"),
+            Some("8.12.0".to_string())
+        );
     }
 
     #[test]
@@ -483,7 +500,10 @@ mod tests {
         fs::create_dir_all(&config_src).expect("创建 config 源码目录失败");
         fs::write(
             config_src.join("config.py"),
-            format!("CONFIG_VERSION: str = \"{}\"\nMODEL_CONFIG_VERSION: str = \"1.17.3\"\n", config_version),
+            format!(
+                "CONFIG_VERSION: str = \"{}\"\nMODEL_CONFIG_VERSION: str = \"1.17.3\"\n",
+                config_version
+            ),
         )
         .expect("写 config.py 失败");
     }
@@ -494,8 +514,7 @@ mod tests {
         let maibot_dir = dir.path();
         fake_maibot_dir(maibot_dir, "8.12.26");
 
-        let written = write_maibot_config_stub(maibot_dir, Some("123456"))
-            .expect("写 stub 失败");
+        let written = write_maibot_config_stub(maibot_dir, Some("123456")).expect("写 stub 失败");
         assert_eq!(written, Some("8.12.25".to_string()));
 
         let bot_config_path = maibot_dir.join("config").join("bot_config.toml");
@@ -530,8 +549,11 @@ mod tests {
 
         let config_dir = maibot_dir.join("config");
         fs::create_dir_all(&config_dir).expect("创建 config 目录失败");
-        fs::write(config_dir.join("bot_config.toml"), "[inner]\nversion = \"9.9.9\"\n")
-            .expect("写已有配置失败");
+        fs::write(
+            config_dir.join("bot_config.toml"),
+            "[inner]\nversion = \"9.9.9\"\n",
+        )
+        .expect("写已有配置失败");
 
         let written = write_maibot_config_stub(maibot_dir, Some("123")).expect("调用失败");
         assert_eq!(written, None, "已存在配置时应跳过");
@@ -554,7 +576,11 @@ mod tests {
     #[test]
     fn write_adapter_plugin_config_writes_expected_fields() {
         let dir = tempdir().expect("创建临时目录失败");
-        let adapter_dir = dir.path().join("MaiBot").join("plugins").join("MaiBot-Napcat-Adapter");
+        let adapter_dir = dir
+            .path()
+            .join("MaiBot")
+            .join("plugins")
+            .join("MaiBot-Napcat-Adapter");
 
         let written = write_adapter_plugin_config(&adapter_dir).expect("写适配器配置失败");
         assert!(written);
@@ -574,8 +600,11 @@ mod tests {
     fn write_adapter_plugin_config_skips_when_exists() {
         let dir = tempdir().expect("创建临时目录失败");
         let adapter_dir = dir.path();
-        fs::write(adapter_dir.join("config.toml"), "[plugin]\nenabled = false\n")
-            .expect("写已有配置失败");
+        fs::write(
+            adapter_dir.join("config.toml"),
+            "[plugin]\nenabled = false\n",
+        )
+        .expect("写已有配置失败");
 
         let written = write_adapter_plugin_config(adapter_dir).expect("调用失败");
         assert!(!written, "已存在配置时应跳过");
@@ -589,10 +618,7 @@ mod tests {
     #[test]
     fn venv_dir_resolves_to_parent_of_project_dir() {
         let project_dir = PathBuf::from("/instances/my_instance/MaiBot");
-        let venv_dir = project_dir
-            .parent()
-            .unwrap_or(&project_dir)
-            .join(".venv");
+        let venv_dir = project_dir.parent().unwrap_or(&project_dir).join(".venv");
 
         assert_eq!(venv_dir, PathBuf::from("/instances/my_instance/.venv"));
     }
@@ -700,10 +726,7 @@ mod tests {
         let project_dir = instance_dir.join("MaiBot");
         fs::create_dir_all(&project_dir).expect("创建项目目录失败");
 
-        let venv_dir = project_dir
-            .parent()
-            .unwrap_or(&project_dir)
-            .join(".venv");
+        let venv_dir = project_dir.parent().unwrap_or(&project_dir).join(".venv");
 
         assert_eq!(venv_dir, instance_dir.join(".venv"));
         assert!(!venv_dir.exists());

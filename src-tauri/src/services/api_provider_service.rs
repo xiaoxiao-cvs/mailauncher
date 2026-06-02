@@ -24,13 +24,11 @@ pub async fn get_all_providers(pool: &SqlitePool) -> AppResult<Vec<ApiProvider>>
 
 /// 获取单个 API 供应商
 pub async fn get_provider(pool: &SqlitePool, id: i64) -> AppResult<Option<ApiProvider>> {
-    let row = sqlx::query_as::<_, ApiProvider>(
-        "SELECT * FROM api_providers WHERE id = ?",
-    )
-    .bind(id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| AppError::Database(format!("查询 API 供应商失败: {}", e)))?;
+    let row = sqlx::query_as::<_, ApiProvider>("SELECT * FROM api_providers WHERE id = ?")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| AppError::Database(format!("查询 API 供应商失败: {}", e)))?;
     Ok(row)
 }
 
@@ -157,7 +155,9 @@ pub async fn save_all_providers(
         .bind(i as i32 + 1)
         .execute(&mut *tx)
         .await
-        .map_err(|e: sqlx::Error| AppError::Database(format!("插入供应商 {} 失败: {}", p.name, e)))?;
+        .map_err(|e: sqlx::Error| {
+            AppError::Database(format!("插入供应商 {} 失败: {}", p.name, e))
+        })?;
     }
 
     tx.commit()

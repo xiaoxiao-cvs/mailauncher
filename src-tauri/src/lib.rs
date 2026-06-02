@@ -1,15 +1,15 @@
-use tracing::info;
 use tauri::Manager;
+use tracing::info;
 
 // 模块声明
 mod commands;
 mod components;
-mod services;
-mod runtime;
-mod models;
 mod db;
 mod errors;
 mod lifecycle;
+mod models;
+mod runtime;
+mod services;
 mod state;
 mod utils;
 
@@ -21,9 +21,7 @@ async fn init_rust_services() -> AppState {
     utils::platform::init_data_directories();
 
     // 创建数据库连接池
-    let pool = db::create_pool()
-        .await
-        .expect("数据库连接池创建失败");
+    let pool = db::create_pool().await.expect("数据库连接池创建失败");
 
     // 运行建表迁移
     db::migration::run_migrations(&pool)
@@ -60,14 +58,18 @@ async fn init_rust_services() -> AppState {
     let component_registry = components::ComponentRegistry::new();
     let runtime_resolver = runtime::RuntimeResolver::new();
     let process_manager = services::process_service::ProcessManager::new();
-    let terminal_stream_publisher = services::terminal_stream_service::ChannelTerminalStreamPublisher::new();
+    let terminal_stream_publisher =
+        services::terminal_stream_service::ChannelTerminalStreamPublisher::new();
 
     let reconciled = services::lifecycle_service::reconcile_instance_states_on_startup(&pool)
         .await
         .expect("冷启动状态收敛失败");
 
     if reconciled > 0 {
-        info!("[初始化] 已将 {} 个遗留活动实例状态收敛为 unknown", reconciled);
+        info!(
+            "[初始化] 已将 {} 个遗留活动实例状态收敛为 unknown",
+            reconciled
+        );
     }
 
     let recovered = services::lifecycle_service::recover_instance_states_on_startup(
@@ -111,7 +113,9 @@ pub fn run() {
         )
         .setup(|app| {
             let state = app.state::<AppState>();
-            state.terminal_stream_publisher.start_forwarder(app.handle().clone());
+            state
+                .terminal_stream_publisher
+                .start_forwarder(app.handle().clone());
             Ok(())
         })
         .manage(app_state)

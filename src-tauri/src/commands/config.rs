@@ -14,18 +14,13 @@ use crate::state::AppState;
 
 /// 获取所有启动器配置
 #[tauri::command]
-pub async fn get_all_configs(
-    state: State<'_, AppState>,
-) -> AppResult<Vec<LauncherConfig>> {
+pub async fn get_all_configs(state: State<'_, AppState>) -> AppResult<Vec<LauncherConfig>> {
     config_service::get_all_configs(&state.db).await
 }
 
 /// 获取指定配置值
 #[tauri::command]
-pub async fn get_config(
-    state: State<'_, AppState>,
-    key: String,
-) -> AppResult<Option<String>> {
+pub async fn get_config(state: State<'_, AppState>, key: String) -> AppResult<Option<String>> {
     config_service::get_config(&state.db, &key).await
 }
 
@@ -61,10 +56,7 @@ pub async fn get_selected_python(
 
 /// 选择 Python 环境
 #[tauri::command]
-pub async fn select_python(
-    state: State<'_, AppState>,
-    path: String,
-) -> AppResult<SuccessResponse> {
+pub async fn select_python(state: State<'_, AppState>, path: String) -> AppResult<SuccessResponse> {
     config_service::select_python(&state.db, &path).await?;
     Ok(SuccessResponse::ok("Python 环境已选择"))
 }
@@ -84,18 +76,13 @@ pub async fn save_python_environment(
 
 /// 获取所有路径配置
 #[tauri::command]
-pub async fn get_all_paths(
-    state: State<'_, AppState>,
-) -> AppResult<Vec<PathConfig>> {
+pub async fn get_all_paths(state: State<'_, AppState>) -> AppResult<Vec<PathConfig>> {
     config_service::get_all_paths(&state.db).await
 }
 
 /// 获取指定路径配置
 #[tauri::command]
-pub async fn get_path(
-    state: State<'_, AppState>,
-    name: String,
-) -> AppResult<Option<PathConfig>> {
+pub async fn get_path(state: State<'_, AppState>, name: String) -> AppResult<Option<PathConfig>> {
     config_service::get_path(&state.db, &name).await
 }
 
@@ -109,7 +96,15 @@ pub async fn set_path(
     is_verified: bool,
     description: Option<String>,
 ) -> AppResult<SuccessResponse> {
-    config_service::set_path(&state.db, &name, &path, &path_type, is_verified, description.as_deref()).await?;
+    config_service::set_path(
+        &state.db,
+        &name,
+        &path,
+        &path_type,
+        is_verified,
+        description.as_deref(),
+    )
+    .await?;
     Ok(SuccessResponse::ok("路径配置已保存"))
 }
 
@@ -123,12 +118,8 @@ pub async fn get_toml_config(
     config_type: String,
     filename: String,
 ) -> AppResult<serde_json::Value> {
-    let config_dir = config_service::resolve_config_dir(
-        &state.db,
-        instance_id.as_deref(),
-        &config_type,
-    )
-    .await?;
+    let config_dir =
+        config_service::resolve_config_dir(&state.db, instance_id.as_deref(), &config_type).await?;
     let config_path = config_dir.join(&filename);
     config_service::read_toml_as_json(&config_path)
 }
@@ -141,12 +132,8 @@ pub async fn get_toml_config_raw(
     config_type: String,
     filename: String,
 ) -> AppResult<String> {
-    let config_dir = config_service::resolve_config_dir(
-        &state.db,
-        instance_id.as_deref(),
-        &config_type,
-    )
-    .await?;
+    let config_dir =
+        config_service::resolve_config_dir(&state.db, instance_id.as_deref(), &config_type).await?;
     let config_path = config_dir.join(&filename);
     config_service::read_toml_raw(&config_path)
 }
@@ -160,12 +147,8 @@ pub async fn save_toml_config_raw(
     filename: String,
     content: String,
 ) -> AppResult<SuccessResponse> {
-    let config_dir = config_service::resolve_config_dir(
-        &state.db,
-        instance_id.as_deref(),
-        &config_type,
-    )
-    .await?;
+    let config_dir =
+        config_service::resolve_config_dir(&state.db, instance_id.as_deref(), &config_type).await?;
     let config_path = config_dir.join(&filename);
     config_service::save_toml_raw(&config_path, &content)?;
     Ok(SuccessResponse::ok("配置已保存"))
@@ -181,12 +164,8 @@ pub async fn update_toml_config_value(
     key_path: String,
     value: serde_json::Value,
 ) -> AppResult<serde_json::Value> {
-    let config_dir = config_service::resolve_config_dir(
-        &state.db,
-        instance_id.as_deref(),
-        &config_type,
-    )
-    .await?;
+    let config_dir =
+        config_service::resolve_config_dir(&state.db, instance_id.as_deref(), &config_type).await?;
     let config_path = config_dir.join(&filename);
     config_service::update_toml_value(&config_path, &key_path, value)
 }
@@ -200,12 +179,8 @@ pub async fn delete_toml_config_key(
     filename: String,
     key_path: String,
 ) -> AppResult<serde_json::Value> {
-    let config_dir = config_service::resolve_config_dir(
-        &state.db,
-        instance_id.as_deref(),
-        &config_type,
-    )
-    .await?;
+    let config_dir =
+        config_service::resolve_config_dir(&state.db, instance_id.as_deref(), &config_type).await?;
     let config_path = config_dir.join(&filename);
     config_service::delete_toml_key(&config_path, &key_path)
 }
@@ -221,12 +196,8 @@ pub async fn add_toml_config_key(
     key: String,
     value: serde_json::Value,
 ) -> AppResult<serde_json::Value> {
-    let config_dir = config_service::resolve_config_dir(
-        &state.db,
-        instance_id.as_deref(),
-        &config_type,
-    )
-    .await?;
+    let config_dir =
+        config_service::resolve_config_dir(&state.db, instance_id.as_deref(), &config_type).await?;
     let config_path = config_dir.join(&filename);
     config_service::add_toml_key(&config_path, section.as_deref(), &key, value)
 }
@@ -239,12 +210,8 @@ pub async fn get_toml_config_sections(
     config_type: String,
     filename: String,
 ) -> AppResult<Vec<String>> {
-    let config_dir = config_service::resolve_config_dir(
-        &state.db,
-        instance_id.as_deref(),
-        &config_type,
-    )
-    .await?;
+    let config_dir =
+        config_service::resolve_config_dir(&state.db, instance_id.as_deref(), &config_type).await?;
     let config_path = config_dir.join(&filename);
     config_service::get_toml_sections(&config_path)
 }
@@ -261,12 +228,8 @@ pub async fn add_toml_array_item(
     array_path: String,
     item: serde_json::Value,
 ) -> AppResult<serde_json::Value> {
-    let config_dir = config_service::resolve_config_dir(
-        &state.db,
-        instance_id.as_deref(),
-        &config_type,
-    )
-    .await?;
+    let config_dir =
+        config_service::resolve_config_dir(&state.db, instance_id.as_deref(), &config_type).await?;
     let config_path = config_dir.join(&filename);
     config_service::add_toml_array_item(&config_path, &array_path, item)
 }
@@ -282,12 +245,8 @@ pub async fn update_toml_array_item(
     index: usize,
     updates: serde_json::Value,
 ) -> AppResult<serde_json::Value> {
-    let config_dir = config_service::resolve_config_dir(
-        &state.db,
-        instance_id.as_deref(),
-        &config_type,
-    )
-    .await?;
+    let config_dir =
+        config_service::resolve_config_dir(&state.db, instance_id.as_deref(), &config_type).await?;
     let config_path = config_dir.join(&filename);
     config_service::update_toml_array_item(&config_path, &array_path, index, updates)
 }
@@ -302,12 +261,8 @@ pub async fn delete_toml_array_item(
     array_path: String,
     index: usize,
 ) -> AppResult<serde_json::Value> {
-    let config_dir = config_service::resolve_config_dir(
-        &state.db,
-        instance_id.as_deref(),
-        &config_type,
-    )
-    .await?;
+    let config_dir =
+        config_service::resolve_config_dir(&state.db, instance_id.as_deref(), &config_type).await?;
     let config_path = config_dir.join(&filename);
     config_service::delete_toml_array_item(&config_path, &array_path, index)
 }

@@ -26,7 +26,9 @@ pub async fn get_aggregated_stats(
 ) -> AppResult<AggregatedStats> {
     let tr = time_range.as_deref().unwrap_or("24h");
     let ids = instance_ids.map(|s| {
-        s.split(',').map(|id| id.trim().to_string()).collect::<Vec<_>>()
+        s.split(',')
+            .map(|id| id.trim().to_string())
+            .collect::<Vec<_>>()
     });
     stats_service::get_aggregated_stats(&state.db, tr, ids).await
 }

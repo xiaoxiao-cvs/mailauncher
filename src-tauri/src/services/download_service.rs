@@ -123,7 +123,10 @@ impl DownloadManager {
 
         // 持久化到数据库
         let items_json = serde_json::to_string(&task.selected_items).unwrap_or_default();
-        let status_str = serde_json::to_string(&task.status).unwrap_or_default().trim_matches('"').to_string();
+        let status_str = serde_json::to_string(&task.status)
+            .unwrap_or_default()
+            .trim_matches('"')
+            .to_string();
         if let Err(e) = sqlx::query(
             "INSERT INTO download_tasks (id, instance_name, deployment_path, maibot_version_source, maibot_version_value, selected_items, python_path, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         )
@@ -163,7 +166,10 @@ impl DownloadManager {
             task.status = status.clone();
             task.progress.status = status.clone();
         }
-        let status_str = serde_json::to_string(&status).unwrap_or_default().trim_matches('"').to_string();
+        let status_str = serde_json::to_string(&status)
+            .unwrap_or_default()
+            .trim_matches('"')
+            .to_string();
         if let Err(e) = sqlx::query("UPDATE download_tasks SET status = ? WHERE id = ?")
             .bind(&status_str)
             .bind(task_id)
@@ -181,12 +187,13 @@ impl DownloadManager {
             task.progress.progress = progress;
             task.progress.message = Some(message.clone());
         }
-        if let Err(e) = sqlx::query("UPDATE download_tasks SET progress = ?, progress_message = ? WHERE id = ?")
-            .bind(progress)
-            .bind(&message)
-            .bind(task_id)
-            .execute(&inner.pool)
-            .await
+        if let Err(e) =
+            sqlx::query("UPDATE download_tasks SET progress = ?, progress_message = ? WHERE id = ?")
+                .bind(progress)
+                .bind(&message)
+                .bind(task_id)
+                .execute(&inner.pool)
+                .await
         {
             warn!("持久化任务进度失败 ({}): {}", task_id, e);
         }
@@ -261,7 +268,9 @@ impl DownloadManager {
     pub async fn create_cancel_token(&self, task_id: &str) -> Arc<AtomicBool> {
         let token = Arc::new(AtomicBool::new(false));
         let mut inner = self.inner.lock().await;
-        inner.cancel_tokens.insert(task_id.to_string(), token.clone());
+        inner
+            .cancel_tokens
+            .insert(task_id.to_string(), token.clone());
         token
     }
 
@@ -328,8 +337,15 @@ pub async fn clone_repository(
     }
 
     let clone_elapsed = clone_start.elapsed();
-    info!("Git 克隆完成: {:?} (耗时 {:.1}s)", target_dir, clone_elapsed.as_secs_f64());
-    let _ = app_handle.emit(event_name, &format!("克隆完成 (耗时 {:.1}s)", clone_elapsed.as_secs_f64()));
+    info!(
+        "Git 克隆完成: {:?} (耗时 {:.1}s)",
+        target_dir,
+        clone_elapsed.as_secs_f64()
+    );
+    let _ = app_handle.emit(
+        event_name,
+        &format!("克隆完成 (耗时 {:.1}s)", clone_elapsed.as_secs_f64()),
+    );
     Ok(())
 }
 
@@ -480,7 +496,8 @@ async fn download_file(
     if !response.status().is_success() {
         return Err(AppError::Network(format!(
             "HTTP 下载失败 ({}): 状态码 {}",
-            url, response.status()
+            url,
+            response.status()
         )));
     }
 
@@ -507,8 +524,7 @@ async fn download_file(
     let mut stream = response.bytes_stream();
     use futures_util::StreamExt;
     while let Some(chunk) = stream.next().await {
-        let chunk =
-            chunk.map_err(|e| AppError::Network(format!("下载数据块失败: {}", e)))?;
+        let chunk = chunk.map_err(|e| AppError::Network(format!("下载数据块失败: {}", e)))?;
         file.write_all(&chunk)
             .await
             .map_err(|e| AppError::FileSystem(format!("写入文件失败: {}", e)))?;
@@ -549,14 +565,27 @@ async fn download_file(
         .map_err(|e| AppError::FileSystem(format!("刷新文件失败: {}", e)))?;
 
     // 计算文件 SHA256 校验和
-    let file_bytes = tokio::fs::read(dest).await
+    let file_bytes = tokio::fs::read(dest)
+        .await
         .map_err(|e| AppError::FileSystem(format!("读取文件计算校验和失败: {}", e)))?;
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let hash = Sha256::digest(&file_bytes);
     let hash_hex = format!("{:x}", hash);
     let download_elapsed = download_start.elapsed();
-    info!("文件下载完成: {:?}, SHA256: {}, 耗时 {:.1}s", dest, hash_hex, download_elapsed.as_secs_f64());
-    let _ = app_handle.emit(event_name, &format!("下载完成 (耗时 {:.1}s), SHA256: {}", download_elapsed.as_secs_f64(), hash_hex));
+    info!(
+        "文件下载完成: {:?}, SHA256: {}, 耗时 {:.1}s",
+        dest,
+        hash_hex,
+        download_elapsed.as_secs_f64()
+    );
+    let _ = app_handle.emit(
+        event_name,
+        &format!(
+            "下载完成 (耗时 {:.1}s), SHA256: {}",
+            download_elapsed.as_secs_f64(),
+            hash_hex
+        ),
+    );
 
     Ok(())
 }
@@ -729,13 +758,20 @@ mod tests {
 
         let task = mgr.create_task(data).await;
 
-        assert!(task.id.starts_with("download_"), "任务 ID 应以 download_ 开头，实际: {}", task.id);
+        assert!(
+            task.id.starts_with("download_"),
+            "任务 ID 应以 download_ 开头，实际: {}",
+            task.id
+        );
         assert_eq!(task.id.len(), "download_".len() + 12);
         assert_eq!(task.instance_name, "my-bot-alpha");
         assert_eq!(task.deployment_path, "/opt/deploy/alpha");
         assert_eq!(task.maibot_version_source, Some(MaibotVersionSource::Tag));
         assert_eq!(task.maibot_version_value, Some("v1.2.3".to_string()));
-        assert_eq!(task.selected_items, vec![DownloadItemType::Maibot, DownloadItemType::Napcat]);
+        assert_eq!(
+            task.selected_items,
+            vec![DownloadItemType::Maibot, DownloadItemType::Napcat]
+        );
         assert_eq!(task.python_path, Some("/usr/bin/python3".to_string()));
         assert_eq!(task.status, DownloadStatus::Pending);
         assert_eq!(task.progress.progress, 0.0);
@@ -767,9 +803,18 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
 
-        let t1 = mgr.create_task(make_task_create("inst-1", vec![DownloadItemType::Maibot])).await;
-        let t2 = mgr.create_task(make_task_create("inst-2", vec![DownloadItemType::Napcat])).await;
-        let t3 = mgr.create_task(make_task_create("inst-3", vec![DownloadItemType::NapcatAdapter])).await;
+        let t1 = mgr
+            .create_task(make_task_create("inst-1", vec![DownloadItemType::Maibot]))
+            .await;
+        let t2 = mgr
+            .create_task(make_task_create("inst-2", vec![DownloadItemType::Napcat]))
+            .await;
+        let t3 = mgr
+            .create_task(make_task_create(
+                "inst-3",
+                vec![DownloadItemType::NapcatAdapter],
+            ))
+            .await;
 
         assert_ne!(t1.id, t2.id);
         assert_ne!(t2.id, t3.id);
@@ -783,7 +828,9 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
 
-        let created = mgr.create_task(make_task_create("get-test", vec![DownloadItemType::Maibot])).await;
+        let created = mgr
+            .create_task(make_task_create("get-test", vec![DownloadItemType::Maibot]))
+            .await;
         let fetched = mgr.get_task(&created.id).await;
 
         assert!(fetched.is_some());
@@ -809,8 +856,12 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
 
-        let t1 = mgr.create_task(make_task_create("bot-a", vec![DownloadItemType::Maibot])).await;
-        let t2 = mgr.create_task(make_task_create("bot-b", vec![DownloadItemType::Napcat])).await;
+        let t1 = mgr
+            .create_task(make_task_create("bot-a", vec![DownloadItemType::Maibot]))
+            .await;
+        let t2 = mgr
+            .create_task(make_task_create("bot-b", vec![DownloadItemType::Napcat]))
+            .await;
 
         let all = mgr.get_all_tasks().await;
         assert_eq!(all.len(), 2);
@@ -827,7 +878,12 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
 
-        let task = mgr.create_task(make_task_create("start-test", vec![DownloadItemType::Maibot])).await;
+        let task = mgr
+            .create_task(make_task_create(
+                "start-test",
+                vec![DownloadItemType::Maibot],
+            ))
+            .await;
         mgr.mark_started(&task.id).await;
 
         let updated = mgr.get_task(&task.id).await.unwrap();
@@ -850,9 +906,15 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
 
-        let task = mgr.create_task(make_task_create("complete-test", vec![DownloadItemType::Napcat])).await;
+        let task = mgr
+            .create_task(make_task_create(
+                "complete-test",
+                vec![DownloadItemType::Napcat],
+            ))
+            .await;
         mgr.mark_started(&task.id).await;
-        mgr.mark_completed(&task.id, Some("inst_abc123".to_string())).await;
+        mgr.mark_completed(&task.id, Some("inst_abc123".to_string()))
+            .await;
 
         let updated = mgr.get_task(&task.id).await.unwrap();
         assert_eq!(updated.status, DownloadStatus::Completed);
@@ -867,7 +929,12 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
 
-        let task = mgr.create_task(make_task_create("complete-no-inst", vec![DownloadItemType::Lpmm])).await;
+        let task = mgr
+            .create_task(make_task_create(
+                "complete-no-inst",
+                vec![DownloadItemType::Lpmm],
+            ))
+            .await;
         mgr.mark_completed(&task.id, None).await;
 
         let updated = mgr.get_task(&task.id).await.unwrap();
@@ -882,7 +949,12 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
 
-        let task = mgr.create_task(make_task_create("fail-test", vec![DownloadItemType::Maibot])).await;
+        let task = mgr
+            .create_task(make_task_create(
+                "fail-test",
+                vec![DownloadItemType::Maibot],
+            ))
+            .await;
         mgr.mark_started(&task.id).await;
         mgr.mark_failed(&task.id, "网络连接超时".to_string()).await;
 
@@ -891,14 +963,18 @@ mod tests {
         assert_eq!(updated.progress.status, DownloadStatus::Failed);
         assert_eq!(updated.error_message, Some("网络连接超时".to_string()));
         assert_eq!(updated.progress.error, Some("网络连接超时".to_string()));
-        assert!(updated.completed_at.is_some(), "失败时 completed_at 应被设置");
+        assert!(
+            updated.completed_at.is_some(),
+            "失败时 completed_at 应被设置"
+        );
     }
 
     #[tokio::test]
     async fn mark_failed_on_nonexistent_task_does_not_panic() {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
-        mgr.mark_failed("download_no_such_id", "some error".to_string()).await;
+        mgr.mark_failed("download_no_such_id", "some error".to_string())
+            .await;
     }
 
     // ==================== update_task_progress ====================
@@ -908,12 +984,21 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
 
-        let task = mgr.create_task(make_task_create("progress-test", vec![DownloadItemType::Maibot])).await;
-        mgr.update_task_progress(&task.id, 42.5, "正在克隆仓库...".to_string()).await;
+        let task = mgr
+            .create_task(make_task_create(
+                "progress-test",
+                vec![DownloadItemType::Maibot],
+            ))
+            .await;
+        mgr.update_task_progress(&task.id, 42.5, "正在克隆仓库...".to_string())
+            .await;
 
         let updated = mgr.get_task(&task.id).await.unwrap();
         assert_eq!(updated.progress.progress, 42.5);
-        assert_eq!(updated.progress.message, Some("正在克隆仓库...".to_string()));
+        assert_eq!(
+            updated.progress.message,
+            Some("正在克隆仓库...".to_string())
+        );
     }
 
     #[tokio::test]
@@ -921,18 +1006,23 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
 
-        let task = mgr.create_task(make_task_create("boundary", vec![DownloadItemType::Napcat])).await;
+        let task = mgr
+            .create_task(make_task_create("boundary", vec![DownloadItemType::Napcat]))
+            .await;
 
-        mgr.update_task_progress(&task.id, 0.0, "刚开始".to_string()).await;
+        mgr.update_task_progress(&task.id, 0.0, "刚开始".to_string())
+            .await;
         let t = mgr.get_task(&task.id).await.unwrap();
         assert_eq!(t.progress.progress, 0.0);
 
-        mgr.update_task_progress(&task.id, 100.0, "完成".to_string()).await;
+        mgr.update_task_progress(&task.id, 100.0, "完成".to_string())
+            .await;
         let t = mgr.get_task(&task.id).await.unwrap();
         assert_eq!(t.progress.progress, 100.0);
         assert_eq!(t.progress.message, Some("完成".to_string()));
 
-        mgr.update_task_progress(&task.id, 99.999, "接近完成".to_string()).await;
+        mgr.update_task_progress(&task.id, 99.999, "接近完成".to_string())
+            .await;
         let t = mgr.get_task(&task.id).await.unwrap();
         assert!((t.progress.progress - 99.999).abs() < f64::EPSILON);
     }
@@ -941,7 +1031,8 @@ mod tests {
     async fn update_task_progress_on_nonexistent_task_does_not_panic() {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
-        mgr.update_task_progress("download_nope_12345", 50.0, "msg".to_string()).await;
+        mgr.update_task_progress("download_nope_12345", 50.0, "msg".to_string())
+            .await;
     }
 
     // ==================== update_task_status ====================
@@ -951,14 +1042,21 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
 
-        let task = mgr.create_task(make_task_create("status-test", vec![DownloadItemType::NapcatAdapter])).await;
+        let task = mgr
+            .create_task(make_task_create(
+                "status-test",
+                vec![DownloadItemType::NapcatAdapter],
+            ))
+            .await;
 
-        mgr.update_task_status(&task.id, DownloadStatus::Installing).await;
+        mgr.update_task_status(&task.id, DownloadStatus::Installing)
+            .await;
         let updated = mgr.get_task(&task.id).await.unwrap();
         assert_eq!(updated.status, DownloadStatus::Installing);
         assert_eq!(updated.progress.status, DownloadStatus::Installing);
 
-        mgr.update_task_status(&task.id, DownloadStatus::Configuring).await;
+        mgr.update_task_status(&task.id, DownloadStatus::Configuring)
+            .await;
         let updated = mgr.get_task(&task.id).await.unwrap();
         assert_eq!(updated.status, DownloadStatus::Configuring);
         assert_eq!(updated.progress.status, DownloadStatus::Configuring);
@@ -969,8 +1067,14 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
 
-        let task = mgr.create_task(make_task_create("cancel-test", vec![DownloadItemType::Maibot])).await;
-        mgr.update_task_status(&task.id, DownloadStatus::Cancelled).await;
+        let task = mgr
+            .create_task(make_task_create(
+                "cancel-test",
+                vec![DownloadItemType::Maibot],
+            ))
+            .await;
+        mgr.update_task_status(&task.id, DownloadStatus::Cancelled)
+            .await;
 
         let updated = mgr.get_task(&task.id).await.unwrap();
         assert_eq!(updated.status, DownloadStatus::Cancelled);
@@ -983,9 +1087,12 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
 
-        let task = mgr.create_task(make_task_create("log-test", vec![DownloadItemType::Maibot])).await;
+        let task = mgr
+            .create_task(make_task_create("log-test", vec![DownloadItemType::Maibot]))
+            .await;
 
-        mgr.add_log(&task.id, "开始克隆 MaiBot 仓库".to_string()).await;
+        mgr.add_log(&task.id, "开始克隆 MaiBot 仓库".to_string())
+            .await;
         mgr.add_log(&task.id, "克隆进度 50%".to_string()).await;
         mgr.add_log(&task.id, "克隆完成".to_string()).await;
 
@@ -1000,7 +1107,8 @@ mod tests {
     async fn add_log_on_nonexistent_task_does_not_panic() {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
-        mgr.add_log("download_nonexistent", "无效日志".to_string()).await;
+        mgr.add_log("download_nonexistent", "无效日志".to_string())
+            .await;
     }
 
     // ==================== get_repo_config ====================
@@ -1009,11 +1117,17 @@ mod tests {
     fn get_repo_config_returns_correct_urls_and_folders() {
         let maibot = get_repo_config(&DownloadItemType::Maibot);
         assert_eq!(maibot.folder, "MaiBot");
-        assert!(maibot.url.contains("MaiBot.git"), "MaiBot URL 应包含仓库地址");
+        assert!(
+            maibot.url.contains("MaiBot.git"),
+            "MaiBot URL 应包含仓库地址"
+        );
 
         let napcat = get_repo_config(&DownloadItemType::Napcat);
         assert_eq!(napcat.folder, "NapCat");
-        assert!(napcat.url.contains("NapCat.Shell.zip"), "NapCat URL 应指向 Shell.zip");
+        assert!(
+            napcat.url.contains("NapCat.Shell.zip"),
+            "NapCat URL 应指向 Shell.zip"
+        );
 
         let adapter = get_repo_config(&DownloadItemType::NapcatAdapter);
         // 适配器作为插件安装到 MaiBot/plugins 下。
@@ -1032,33 +1146,47 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
 
-        let task = mgr.create_task(make_task_create("lifecycle-ok", vec![
-            DownloadItemType::Maibot,
-            DownloadItemType::Napcat,
-            DownloadItemType::NapcatAdapter,
-        ])).await;
+        let task = mgr
+            .create_task(make_task_create(
+                "lifecycle-ok",
+                vec![
+                    DownloadItemType::Maibot,
+                    DownloadItemType::Napcat,
+                    DownloadItemType::NapcatAdapter,
+                ],
+            ))
+            .await;
         assert_eq!(task.status, DownloadStatus::Pending);
 
         mgr.mark_started(&task.id).await;
         let t = mgr.get_task(&task.id).await.unwrap();
         assert_eq!(t.status, DownloadStatus::Downloading);
 
-        mgr.update_task_progress(&task.id, 30.0, "克隆 MaiBot".to_string()).await;
+        mgr.update_task_progress(&task.id, 30.0, "克隆 MaiBot".to_string())
+            .await;
         mgr.add_log(&task.id, "MaiBot 克隆完成".to_string()).await;
 
-        mgr.update_task_status(&task.id, DownloadStatus::Installing).await;
-        mgr.update_task_progress(&task.id, 60.0, "安装 Python 依赖".to_string()).await;
+        mgr.update_task_status(&task.id, DownloadStatus::Installing)
+            .await;
+        mgr.update_task_progress(&task.id, 60.0, "安装 Python 依赖".to_string())
+            .await;
         mgr.add_log(&task.id, "pip install 完成".to_string()).await;
 
-        mgr.update_task_status(&task.id, DownloadStatus::Configuring).await;
-        mgr.update_task_progress(&task.id, 90.0, "写入配置文件".to_string()).await;
+        mgr.update_task_status(&task.id, DownloadStatus::Configuring)
+            .await;
+        mgr.update_task_progress(&task.id, 90.0, "写入配置文件".to_string())
+            .await;
 
-        mgr.mark_completed(&task.id, Some("inst_lifecycle_ok".to_string())).await;
+        mgr.mark_completed(&task.id, Some("inst_lifecycle_ok".to_string()))
+            .await;
 
         let final_task = mgr.get_task(&task.id).await.unwrap();
         assert_eq!(final_task.status, DownloadStatus::Completed);
         assert_eq!(final_task.progress.progress, 100.0);
-        assert_eq!(final_task.instance_id, Some("inst_lifecycle_ok".to_string()));
+        assert_eq!(
+            final_task.instance_id,
+            Some("inst_lifecycle_ok".to_string())
+        );
         assert!(final_task.started_at.is_some());
         assert!(final_task.completed_at.is_some());
         assert_eq!(final_task.logs.len(), 2);
@@ -1070,16 +1198,26 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool);
 
-        let task = mgr.create_task(make_task_create("lifecycle-fail", vec![DownloadItemType::Maibot])).await;
+        let task = mgr
+            .create_task(make_task_create(
+                "lifecycle-fail",
+                vec![DownloadItemType::Maibot],
+            ))
+            .await;
 
         mgr.mark_started(&task.id).await;
-        mgr.update_task_progress(&task.id, 15.0, "克隆中".to_string()).await;
+        mgr.update_task_progress(&task.id, 15.0, "克隆中".to_string())
+            .await;
         mgr.add_log(&task.id, "git clone 开始".to_string()).await;
-        mgr.mark_failed(&task.id, "fatal: repository not found".to_string()).await;
+        mgr.mark_failed(&task.id, "fatal: repository not found".to_string())
+            .await;
 
         let final_task = mgr.get_task(&task.id).await.unwrap();
         assert_eq!(final_task.status, DownloadStatus::Failed);
-        assert_eq!(final_task.error_message, Some("fatal: repository not found".to_string()));
+        assert_eq!(
+            final_task.error_message,
+            Some("fatal: repository not found".to_string())
+        );
         assert!(final_task.started_at.is_some());
         assert!(final_task.completed_at.is_some());
         assert_eq!(final_task.logs.len(), 1);
@@ -1093,17 +1231,19 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool.clone());
 
-        let task = mgr.create_task(DownloadTaskCreate {
-            instance_name: "db-persist".to_string(),
-            deployment_path: Some("/data/persist".to_string()),
-            maibot_version_source: Some(MaibotVersionSource::Branch),
-            maibot_version_value: Some("develop".to_string()),
-            selected_items: vec![DownloadItemType::Maibot],
-            python_path: Some("C:\\Python311\\python.exe".to_string()),
-        }).await;
+        let task = mgr
+            .create_task(DownloadTaskCreate {
+                instance_name: "db-persist".to_string(),
+                deployment_path: Some("/data/persist".to_string()),
+                maibot_version_source: Some(MaibotVersionSource::Branch),
+                maibot_version_value: Some("develop".to_string()),
+                selected_items: vec![DownloadItemType::Maibot],
+                python_path: Some("C:\\Python311\\python.exe".to_string()),
+            })
+            .await;
 
         let row: (String, String, String, String) = sqlx::query_as(
-            "SELECT id, instance_name, deployment_path, status FROM download_tasks WHERE id = ?"
+            "SELECT id, instance_name, deployment_path, status FROM download_tasks WHERE id = ?",
         )
         .bind(&task.id)
         .fetch_one(&pool)
@@ -1121,16 +1261,21 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool.clone());
 
-        let task = mgr.create_task(make_task_create("db-complete", vec![DownloadItemType::Napcat])).await;
-        mgr.mark_completed(&task.id, Some("inst_999".to_string())).await;
+        let task = mgr
+            .create_task(make_task_create(
+                "db-complete",
+                vec![DownloadItemType::Napcat],
+            ))
+            .await;
+        mgr.mark_completed(&task.id, Some("inst_999".to_string()))
+            .await;
 
-        let row: (String, Option<String>, f64) = sqlx::query_as(
-            "SELECT status, instance_id, progress FROM download_tasks WHERE id = ?"
-        )
-        .bind(&task.id)
-        .fetch_one(&pool)
-        .await
-        .expect("数据库应包含已完成的任务行");
+        let row: (String, Option<String>, f64) =
+            sqlx::query_as("SELECT status, instance_id, progress FROM download_tasks WHERE id = ?")
+                .bind(&task.id)
+                .fetch_one(&pool)
+                .await
+                .expect("数据库应包含已完成的任务行");
 
         assert_eq!(row.0, "completed");
         assert_eq!(row.1, Some("inst_999".to_string()));
@@ -1142,16 +1287,17 @@ mod tests {
         let pool = setup_test_db().await;
         let mgr = DownloadManager::new(pool.clone());
 
-        let task = mgr.create_task(make_task_create("db-fail", vec![DownloadItemType::Lpmm])).await;
+        let task = mgr
+            .create_task(make_task_create("db-fail", vec![DownloadItemType::Lpmm]))
+            .await;
         mgr.mark_failed(&task.id, "磁盘空间不足".to_string()).await;
 
-        let row: (String, Option<String>) = sqlx::query_as(
-            "SELECT status, error_message FROM download_tasks WHERE id = ?"
-        )
-        .bind(&task.id)
-        .fetch_one(&pool)
-        .await
-        .expect("数据库应包含失败任务行");
+        let row: (String, Option<String>) =
+            sqlx::query_as("SELECT status, error_message FROM download_tasks WHERE id = ?")
+                .bind(&task.id)
+                .fetch_one(&pool)
+                .await
+                .expect("数据库应包含失败任务行");
 
         assert_eq!(row.0, "failed");
         assert_eq!(row.1, Some("磁盘空间不足".to_string()));
@@ -1171,7 +1317,10 @@ mod tests {
         copy_dir_recursive(&src, &dst).unwrap();
 
         assert_eq!(std::fs::read_to_string(dst.join("a.txt")).unwrap(), "hello");
-        assert_eq!(std::fs::read_to_string(dst.join("sub/b.txt")).unwrap(), "world");
+        assert_eq!(
+            std::fs::read_to_string(dst.join("sub/b.txt")).unwrap(),
+            "world"
+        );
     }
 
     #[test]
@@ -1188,7 +1337,9 @@ mod tests {
         #[cfg(windows)]
         {
             // Windows 下创建符号链接可能需要权限，失败则跳过
-            if std::os::windows::fs::symlink_file(src.join("real.txt"), src.join("link.txt")).is_err() {
+            if std::os::windows::fs::symlink_file(src.join("real.txt"), src.join("link.txt"))
+                .is_err()
+            {
                 // 无权限创建符号链接，跳过本测试
                 return;
             }

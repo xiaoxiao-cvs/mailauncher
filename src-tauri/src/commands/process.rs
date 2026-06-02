@@ -16,13 +16,18 @@ use crate::models::{ComponentLifecycleStatus, ComponentStatus, RuntimeProfile, S
 use crate::services::instance_service;
 use crate::services::lifecycle_service;
 use crate::services::process_service::ProcessManager;
-use crate::services::terminal_stream_service::{ChannelTerminalStreamPublisher, TerminalStreamPublisher};
+use crate::services::terminal_stream_service::{
+    ChannelTerminalStreamPublisher, TerminalStreamPublisher,
+};
 use crate::state::AppState;
 use crate::utils::platform;
 
 // ==================== 组件名称映射 ====================
 
-fn resolve_component_spec<'a>(state: &'a AppState, component_name: &str) -> AppResult<&'static ComponentSpec> {
+fn resolve_component_spec<'a>(
+    state: &'a AppState,
+    component_name: &str,
+) -> AppResult<&'static ComponentSpec> {
     state
         .component_registry
         .get_by_value(component_name)
@@ -66,11 +71,17 @@ fn spawn_output_reader(
                     let iid = instance_id.clone();
                     let comp = internal_component.clone();
                     let t = text.clone();
-                    let sanitized = runtime_handle.block_on(async { pm.add_output(&iid, &comp, t).await });
+                    let sanitized =
+                        runtime_handle.block_on(async { pm.add_output(&iid, &comp, t).await });
 
                     // 通过 Tauri 事件推送到前端（使用 display_component 匹配前端订阅）
                     if let Some(sanitized) = sanitized {
-                        let _ = publisher.publish_output(&app_handle, &instance_id, &display_component, &sanitized);
+                        let _ = publisher.publish_output(
+                            &app_handle,
+                            &instance_id,
+                            &display_component,
+                            &sanitized,
+                        );
                     }
                 }
                 Err(e) => {
@@ -183,7 +194,10 @@ pub async fn start_instance(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
 
-    let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
+    let instance_path_str = instance
+        .instance_path
+        .clone()
+        .unwrap_or_else(|| instance.name.clone());
     let instance_path = platform::get_instances_dir().join(&instance_path_str);
 
     if !instance_path.exists() {
@@ -229,15 +243,28 @@ pub async fn start_instance(
         {
             Ok(StartOutcome::Started) => {
                 any_active = true;
-                info!("组件 {}/{} 启动成功", instance_id, component.component.display_name());
+                info!(
+                    "组件 {}/{} 启动成功",
+                    instance_id,
+                    component.component.display_name()
+                );
             }
             Ok(StartOutcome::AlreadyRunning) => {
                 any_active = true;
-                warn!("组件 {}/{} 已在运行", instance_id, component.component.display_name());
+                warn!(
+                    "组件 {}/{} 已在运行",
+                    instance_id,
+                    component.component.display_name()
+                );
             }
             Err(e) => {
                 last_error = Some(e.to_string());
-                error!("组件 {}/{} 启动失败: {}", instance_id, component.component.display_name(), e);
+                error!(
+                    "组件 {}/{} 启动失败: {}",
+                    instance_id,
+                    component.component.display_name(),
+                    e
+                );
             }
         }
     }
@@ -293,13 +320,22 @@ pub async fn stop_instance(
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
 
     info!("停止实例: {} ({})", instance.name, instance_id);
-    let instance_path = platform::get_instances_dir().join(instance.instance_path.clone().unwrap_or(instance.name.clone()));
+    let instance_path = platform::get_instances_dir().join(
+        instance
+            .instance_path
+            .clone()
+            .unwrap_or(instance.name.clone()),
+    );
     let shutdown_order = state
         .component_registry
         .shutdown_order_for_path(&instance_path)?;
 
     // 记录运行时间
-    if matches!(instance.status, crate::models::InstanceLifecycleStatus::Running | crate::models::InstanceLifecycleStatus::Partial) {
+    if matches!(
+        instance.status,
+        crate::models::InstanceLifecycleStatus::Running
+            | crate::models::InstanceLifecycleStatus::Partial
+    ) {
         if let Some(last_run) = instance.last_run {
             let run_secs = (chrono::Utc::now().naive_utc() - last_run).num_seconds();
             let new_run_time = instance.run_time + run_secs;
@@ -311,7 +347,8 @@ pub async fn stop_instance(
         }
     }
 
-    let results = stop_components_in_order(&state.process_manager, &instance_id, &shutdown_order).await?;
+    let results =
+        stop_components_in_order(&state.process_manager, &instance_id, &shutdown_order).await?;
 
     lifecycle_service::sync_instance_state(
         &state.db,
@@ -327,10 +364,7 @@ pub async fn stop_instance(
 
     info!("实例停止结果: {:?}", results);
 
-    Ok(SuccessResponse::ok(format!(
-        "实例 {} 已停止",
-        instance_id
-    )))
+    Ok(SuccessResponse::ok(format!("实例 {} 已停止", instance_id)))
 }
 
 /// 重启实例
@@ -345,7 +379,8 @@ pub async fn restart_instance(
     let instance = instance_service::get_instance(&state.db, &instance_id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
-    let instance_path = platform::get_instances_dir().join(instance.instance_path.unwrap_or(instance.name.clone()));
+    let instance_path =
+        platform::get_instances_dir().join(instance.instance_path.unwrap_or(instance.name.clone()));
     let shutdown_order = state
         .component_registry
         .shutdown_order_for_path(&instance_path)?;
@@ -376,7 +411,10 @@ pub async fn start_component(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
 
-    let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
+    let instance_path_str = instance
+        .instance_path
+        .clone()
+        .unwrap_or_else(|| instance.name.clone());
     let instance_path = platform::get_instances_dir().join(&instance_path_str);
 
     let startup_chain = state
@@ -434,17 +472,20 @@ pub async fn stop_component(
     let instance = instance_service::get_instance(&state.db, &instance_id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
-    let instance_path = platform::get_instances_dir().join(instance.instance_path.clone().unwrap_or(instance.name.clone()));
+    let instance_path = platform::get_instances_dir().join(
+        instance
+            .instance_path
+            .clone()
+            .unwrap_or(instance.name.clone()),
+    );
     let shutdown_chain = state
         .component_registry
         .shutdown_chain_for_component(&instance_path, component_spec.component)?;
-    let results = stop_components_in_order(&state.process_manager, &instance_id, &shutdown_chain).await?;
+    let results =
+        stop_components_in_order(&state.process_manager, &instance_id, &shutdown_chain).await?;
 
     if !results.iter().all(|(_, success)| *success) {
-        return Err(AppError::Process(format!(
-            "组件 {} 停止失败",
-            component
-        )));
+        return Err(AppError::Process(format!("组件 {} 停止失败", component)));
     }
 
     // 检查实例是否还有组件在运行
@@ -460,10 +501,7 @@ pub async fn stop_component(
     )
     .await?;
 
-    Ok(SuccessResponse::ok(format!(
-        "组件 {} 已停止",
-        component
-    )))
+    Ok(SuccessResponse::ok(format!("组件 {} 已停止", component)))
 }
 
 /// 获取组件运行状态
@@ -507,7 +545,9 @@ pub async fn get_component_status(
 
     Ok(ComponentStatus {
         component: component_spec.component,
-        runtime_kind: instance.get_component_runtime(component_spec.component).kind,
+        runtime_kind: instance
+            .get_component_runtime(component_spec.component)
+            .kind,
         status: if running {
             ComponentLifecycleStatus::Running
         } else {
@@ -534,13 +574,17 @@ pub async fn get_instance_components(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
 
-    let instance_path_str = instance.instance_path.clone().unwrap_or_else(|| instance.name.clone());
+    let instance_path_str = instance
+        .instance_path
+        .clone()
+        .unwrap_or_else(|| instance.name.clone());
     let instance_path = platform::get_instances_dir().join(&instance_path_str);
 
-    let components = lifecycle_service::available_components(&state.component_registry, &instance_path)
-        .into_iter()
-        .map(|component| component.display_name().to_string())
-        .collect();
+    let components =
+        lifecycle_service::available_components(&state.component_registry, &instance_path)
+            .into_iter()
+            .map(|component| component.display_name().to_string())
+            .collect();
 
     Ok(components)
 }
@@ -573,7 +617,11 @@ pub async fn terminal_get_history(
     let component_spec = resolve_component_spec(&state, &component)?;
     let history = state
         .process_manager
-        .get_output_history(&instance_id, component_spec.component.internal_key(), lines.unwrap_or(300))
+        .get_output_history(
+            &instance_id,
+            component_spec.component.internal_key(),
+            lines.unwrap_or(300),
+        )
         .await;
     Ok(history)
 }
@@ -590,6 +638,11 @@ pub async fn terminal_resize(
     let component_spec = resolve_component_spec(&state, &component)?;
     state
         .process_manager
-        .resize_pty(&instance_id, component_spec.component.internal_key(), rows, cols)
+        .resize_pty(
+            &instance_id,
+            component_spec.component.internal_key(),
+            rows,
+            cols,
+        )
         .await
 }

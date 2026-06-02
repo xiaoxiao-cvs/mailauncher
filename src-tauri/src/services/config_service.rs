@@ -28,13 +28,11 @@ pub async fn get_all_configs(pool: &SqlitePool) -> AppResult<Vec<LauncherConfig>
 
 /// 获取单个配置值
 pub async fn get_config(pool: &SqlitePool, key: &str) -> AppResult<Option<String>> {
-    let row = sqlx::query_as::<_, LauncherConfig>(
-        "SELECT * FROM launcher_config WHERE key = ?",
-    )
-    .bind(key)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| AppError::Database(format!("查询配置失败: {}", e)))?;
+    let row = sqlx::query_as::<_, LauncherConfig>("SELECT * FROM launcher_config WHERE key = ?")
+        .bind(key)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| AppError::Database(format!("查询配置失败: {}", e)))?;
     Ok(row.and_then(|r| r.value))
 }
 
@@ -142,10 +140,7 @@ pub async fn save_python_environment(
 
 /// 解析 Python 版本字符串（如 "3.11.5" → (3, 11, 5)）
 fn parse_python_version(version: &str) -> (i32, i32, i32) {
-    let parts: Vec<i32> = version
-        .split('.')
-        .filter_map(|s| s.parse().ok())
-        .collect();
+    let parts: Vec<i32> = version.split('.').filter_map(|s| s.parse().ok()).collect();
     (
         parts.first().copied().unwrap_or(0),
         parts.get(1).copied().unwrap_or(0),
@@ -157,24 +152,20 @@ fn parse_python_version(version: &str) -> (i32, i32, i32) {
 
 /// 获取所有路径配置
 pub async fn get_all_paths(pool: &SqlitePool) -> AppResult<Vec<PathConfig>> {
-    let rows = sqlx::query_as::<_, PathConfig>(
-        "SELECT * FROM path_config ORDER BY name",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| AppError::Database(format!("查询路径配置失败: {}", e)))?;
+    let rows = sqlx::query_as::<_, PathConfig>("SELECT * FROM path_config ORDER BY name")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| AppError::Database(format!("查询路径配置失败: {}", e)))?;
     Ok(rows)
 }
 
 /// 获取指定路径配置
 pub async fn get_path(pool: &SqlitePool, name: &str) -> AppResult<Option<PathConfig>> {
-    let row = sqlx::query_as::<_, PathConfig>(
-        "SELECT * FROM path_config WHERE name = ?",
-    )
-    .bind(name)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| AppError::Database(format!("查询路径配置失败: {}", e)))?;
+    let row = sqlx::query_as::<_, PathConfig>("SELECT * FROM path_config WHERE name = ?")
+        .bind(name)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| AppError::Database(format!("查询路径配置失败: {}", e)))?;
     Ok(row)
 }
 
@@ -220,7 +211,10 @@ pub async fn resolve_config_dir(
             let instance_path = inst.instance_path.unwrap_or_else(|| inst.name.clone());
             let instances_dir = platform::get_instances_dir();
             let config_dir = match config_type {
-                "bot" | "model" => instances_dir.join(&instance_path).join("MaiBot").join("config"),
+                "bot" | "model" => instances_dir
+                    .join(&instance_path)
+                    .join("MaiBot")
+                    .join("config"),
                 // 适配器作为 MaiBot 插件，其 config.toml 位于 MaiBot/plugins 下。
                 "adapter" => instances_dir
                     .join(&instance_path)
@@ -309,10 +303,7 @@ pub fn update_toml_value(
 }
 
 /// 删除 TOML 中的某个键
-pub fn delete_toml_key(
-    config_path: &Path,
-    key_path: &str,
-) -> AppResult<serde_json::Value> {
+pub fn delete_toml_key(config_path: &Path, key_path: &str) -> AppResult<serde_json::Value> {
     let content = std::fs::read_to_string(config_path)
         .map_err(|e| AppError::FileSystem(format!("读取配置文件失败: {}", e)))?;
     let mut doc = content
@@ -352,11 +343,7 @@ pub fn get_toml_sections(config_path: &Path) -> AppResult<Vec<String>> {
         .parse::<DocumentMut>()
         .map_err(|e| AppError::Config(format!("TOML 解析失败: {}", e)))?;
 
-    let sections: Vec<String> = doc
-        .as_table()
-        .iter()
-        .map(|(k, _)| k.to_string())
-        .collect();
+    let sections: Vec<String> = doc.as_table().iter().map(|(k, _)| k.to_string()).collect();
     Ok(sections)
 }
 
@@ -587,11 +574,13 @@ fn json_to_toml_value(value: &serde_json::Value) -> toml_edit::Value {
 
 #[cfg(test)]
 mod tests {
-    use sqlx::SqlitePool;
     use super::*;
+    use sqlx::SqlitePool;
 
     async fn setup_test_db() -> SqlitePool {
-        let pool = SqlitePool::connect("sqlite::memory:").await.expect("创建内存数据库失败");
+        let pool = SqlitePool::connect("sqlite::memory:")
+            .await
+            .expect("创建内存数据库失败");
         sqlx::query(
             "CREATE TABLE launcher_config (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -599,8 +588,11 @@ mod tests {
                 value TEXT,
                 description TEXT,
                 updated_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime'))
-            )"
-        ).execute(&pool).await.expect("建表失败");
+            )",
+        )
+        .execute(&pool)
+        .await
+        .expect("建表失败");
 
         sqlx::query(
             "CREATE TABLE python_environments (
@@ -613,8 +605,11 @@ mod tests {
                 is_default BOOLEAN DEFAULT 0,
                 is_selected BOOLEAN DEFAULT 0,
                 created_at DATETIME DEFAULT (datetime('now', 'localtime'))
-            )"
-        ).execute(&pool).await.expect("建表失败");
+            )",
+        )
+        .execute(&pool)
+        .await
+        .expect("建表失败");
 
         sqlx::query(
             "CREATE TABLE path_config (
@@ -625,8 +620,11 @@ mod tests {
                 is_verified BOOLEAN DEFAULT 0,
                 description TEXT,
                 updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
-            )"
-        ).execute(&pool).await.expect("建表失败");
+            )",
+        )
+        .execute(&pool)
+        .await
+        .expect("建表失败");
 
         pool
     }
@@ -634,7 +632,9 @@ mod tests {
     #[tokio::test]
     async fn set_and_get_config_roundtrip() {
         let pool = setup_test_db().await;
-        set_config(&pool, "theme", "dark", Some("UI 主题")).await.expect("写入配置失败");
+        set_config(&pool, "theme", "dark", Some("UI 主题"))
+            .await
+            .expect("写入配置失败");
         let value = get_config(&pool, "theme").await.expect("读取配置失败");
         assert_eq!(value, Some("dark".to_string()));
     }
@@ -642,8 +642,12 @@ mod tests {
     #[tokio::test]
     async fn set_config_upserts_existing_key() {
         let pool = setup_test_db().await;
-        set_config(&pool, "lang", "en", None).await.expect("首次写入失败");
-        set_config(&pool, "lang", "zh", None).await.expect("更新写入失败");
+        set_config(&pool, "lang", "en", None)
+            .await
+            .expect("首次写入失败");
+        set_config(&pool, "lang", "zh", None)
+            .await
+            .expect("更新写入失败");
         let value = get_config(&pool, "lang").await.expect("读取配置失败");
         assert_eq!(value, Some("zh".to_string()));
     }

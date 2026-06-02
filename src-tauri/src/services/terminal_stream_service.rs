@@ -36,7 +36,9 @@ impl TerminalStreamPublisher for EventTerminalStreamPublisher {
     ) -> AppResult<()> {
         app_handle
             .emit(&terminal_output_event_name(instance_id, component), payload)
-            .map_err(|error| crate::errors::AppError::Internal(format!("发送终端输出事件失败: {}", error)))
+            .map_err(|error| {
+                crate::errors::AppError::Internal(format!("发送终端输出事件失败: {}", error))
+            })
     }
 }
 
@@ -56,11 +58,7 @@ impl ChannelTerminalStreamPublisher {
     }
 
     pub fn start_forwarder(&self, app_handle: AppHandle) {
-        let receiver = self
-            .receiver
-            .lock()
-            .ok()
-            .and_then(|mut guard| guard.take());
+        let receiver = self.receiver.lock().ok().and_then(|mut guard| guard.take());
 
         let Some(mut receiver) = receiver else {
             return;
@@ -90,12 +88,15 @@ impl TerminalStreamPublisher for ChannelTerminalStreamPublisher {
         component: &str,
         payload: &str,
     ) -> AppResult<()> {
-        self.sender.send(TerminalOutputMessage {
-            instance_id: instance_id.to_string(),
-            component: component.to_string(),
-            payload: payload.to_string(),
-        })
-        .map_err(|error| crate::errors::AppError::Internal(format!("发送终端输出消息失败: {}", error)))
+        self.sender
+            .send(TerminalOutputMessage {
+                instance_id: instance_id.to_string(),
+                component: component.to_string(),
+                payload: payload.to_string(),
+            })
+            .map_err(|error| {
+                crate::errors::AppError::Internal(format!("发送终端输出消息失败: {}", error))
+            })
     }
 }
 
