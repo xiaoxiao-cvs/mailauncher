@@ -35,6 +35,13 @@ pub struct PythonEnvironment {
     pub is_default: bool,
     /// 是否为用户选择的 Python
     pub is_selected: bool,
+    /// 是否满足 MaiBot 的最低 Python 版本要求（>= 3.12）
+    ///
+    /// 非数据库列：由 major/minor 计算得出，供前端区分"可用/版本过低"。
+    /// `#[sqlx(default)]` 使 FromRow 跳过该列（取默认 false），
+    /// 由 config_service 在查询后统一回填真实值。
+    #[sqlx(default)]
+    pub meets_maibot_requirement: bool,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }

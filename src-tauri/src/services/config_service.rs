@@ -63,12 +63,16 @@ pub async fn set_config(
 
 /// 获取所有 Python 环境
 pub async fn get_python_environments(pool: &SqlitePool) -> AppResult<Vec<PythonEnvironment>> {
-    let rows = sqlx::query_as::<_, PythonEnvironment>(
+    let mut rows = sqlx::query_as::<_, PythonEnvironment>(
         "SELECT * FROM python_environments ORDER BY is_selected DESC, path",
     )
     .fetch_all(pool)
     .await
     .map_err(|e| AppError::Database(format!("查询 Python 环境失败: {}", e)))?;
+    // meets_maibot_requirement 非数据库列，按存储的 major/minor 回填
+    for env in &mut rows {
+        env.meets_maibot_requirement = compute_meets_maibot_requirement(env);
+    }
     Ok(rows)
 }
 
@@ -80,7 +84,18 @@ pub async fn get_selected_python(pool: &SqlitePool) -> AppResult<Option<PythonEn
     .fetch_optional(pool)
     .await
     .map_err(|e| AppError::Database(format!("查询选中 Python 环境失败: {}", e)))?;
-    Ok(row)
+    Ok(row.map(|mut env| {
+        env.meets_maibot_requirement = compute_meets_maibot_requirement(&env);
+        env
+    }))
+}
+
+/// 根据 PythonEnvironment 存储的 major/minor 计算是否满足 MaiBot 要求
+fn compute_meets_maibot_requirement(env: &PythonEnvironment) -> bool {
+    crate::services::system_service::meets_maibot_requirement(
+        env.major.max(0) as u32,
+        env.minor.max(0) as u32,
+    )
 }
 
 /// 选择 Python 环境

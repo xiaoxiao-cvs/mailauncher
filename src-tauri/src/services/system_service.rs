@@ -67,11 +67,41 @@ fn get_git_path() -> Option<String> {
     }
 }
 
+/// MaiBot 要求的最低 Python 主版本号
+pub const MAIBOT_MIN_PYTHON_MAJOR: u32 = 3;
+/// MaiBot 要求的最低 Python 次版本号（对应 pyproject.toml `requires-python = ">=3.12"`）
+pub const MAIBOT_MIN_PYTHON_MINOR: u32 = 12;
+
 /// 发现的 Python 环境
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct DiscoveredPython {
     pub path: String,
     pub version: String,
+    /// 是否满足 MaiBot 的最低 Python 版本要求（>= 3.12）
+    pub meets_maibot_requirement: bool,
+}
+
+/// 从版本字符串解析 (major, minor)
+///
+/// 接受如 "3.12.1"、"3.13"、"3" 等形式，无法解析的段视为 0。
+fn parse_major_minor(version: &str) -> (u32, u32) {
+    let mut parts = version.split('.');
+    let major = parts.next().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+    let minor = parts.next().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+    (major, minor)
+}
+
+/// 判断给定 (major, minor) 是否满足 MaiBot 的最低 Python 版本要求（>= 3.12）
+///
+/// 纯函数，便于单测。
+pub fn meets_maibot_requirement(major: u32, minor: u32) -> bool {
+    (major, minor) >= (MAIBOT_MIN_PYTHON_MAJOR, MAIBOT_MIN_PYTHON_MINOR)
+}
+
+/// 根据版本字符串判断是否满足 MaiBot 要求
+pub fn version_meets_maibot_requirement(version: &str) -> bool {
+    let (major, minor) = parse_major_minor(version);
+    meets_maibot_requirement(major, minor)
 }
 
 /// 自动发现系统中安装的 Python 环境
@@ -369,9 +399,11 @@ fn try_add_python(path: &str, found: &mut Vec<DiscoveredPython>, seen: &mut std:
                 }
 
                 seen.insert(canonical);
+                let meets = version_meets_maibot_requirement(&version);
                 found.push(DiscoveredPython {
                     path: path.to_string(),
                     version,
+                    meets_maibot_requirement: meets,
                 });
             } else {
                 info!("[discover]   版本字符串为空: {:?}", version_str);
@@ -648,12 +680,54 @@ mod tests {
         let python = DiscoveredPython {
             path: "C:\\Python312\\python.exe".to_string(),
             version: "3.12.0".to_string(),
+            meets_maibot_requirement: true,
         };
         let json = serde_json::to_string(&python).expect("DiscoveredPython 应可序列化");
         let parsed: serde_json::Value =
             serde_json::from_str(&json).expect("JSON 应可反序列化");
         assert_eq!(parsed["version"], "3.12.0");
         assert_eq!(parsed["path"], "C:\\Python312\\python.exe");
+        assert_eq!(parsed["meets_maibot_requirement"], true);
+    }
+
+    // ==================== MaiBot Python 版本判定（纯函数，环境无关） ====================
+
+    #[test]
+    fn meets_maibot_requirement_boundary() {
+        // 低于 3.12 → 不满足
+        assert!(!meets_maibot_requirement(3, 10), "3.10 应不满足");
+        assert!(!meets_maibot_requirement(3, 11), "3.11 应不满足");
+        // 恰好 3.12 → 满足（边界）
+        assert!(meets_maibot_requirement(3, 12), "3.12 应满足（边界）");
+        // 高于 3.12 → 满足
+        assert!(meets_maibot_requirement(3, 13), "3.13 应满足");
+        assert!(meets_maibot_requirement(3, 14), "3.14 应满足");
+        // 更高主版本 → 满足
+        assert!(meets_maibot_requirement(4, 0), "4.0 应满足");
+        // Python 2 → 不满足
+        assert!(!meets_maibot_requirement(2, 7), "2.7 应不满足");
+    }
+
+    #[test]
+    fn version_meets_maibot_requirement_parses_string() {
+        assert!(!version_meets_maibot_requirement("3.11.9"), "3.11.9 应不满足");
+        assert!(version_meets_maibot_requirement("3.12.0"), "3.12.0 应满足");
+        assert!(version_meets_maibot_requirement("3.12"), "3.12 应满足");
+        assert!(version_meets_maibot_requirement("3.13.1"), "3.13.1 应满足");
+        // 仅主版本号、缺次版本号 → minor 视为 0 → 3.0 不满足
+        assert!(!version_meets_maibot_requirement("3"), "仅 '3' 视为 3.0，不满足");
+        // 无法解析 → (0,0) 不满足
+        assert!(!version_meets_maibot_requirement(""), "空串不满足");
+        assert!(!version_meets_maibot_requirement("abc"), "非法串不满足");
+    }
+
+    #[test]
+    fn parse_major_minor_handles_various_forms() {
+        assert_eq!(parse_major_minor("3.12.1"), (3, 12));
+        assert_eq!(parse_major_minor("3.13"), (3, 13));
+        assert_eq!(parse_major_minor("3"), (3, 0));
+        assert_eq!(parse_major_minor(""), (0, 0));
+        assert_eq!(parse_major_minor("3.x"), (3, 0));
     }
 }
 
