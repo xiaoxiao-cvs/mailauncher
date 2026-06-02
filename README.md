@@ -9,7 +9,7 @@ MAI Launcher 是一个面向 MaiBot、NapCat 及相关适配器的桌面管理�
 - 启动器本体已经不再使用 Python 作为后端运行时
 - 原有独立后端通信模型已切换为 Tauri 命令和事件机制
 - 进程管理、下载、数据库访问、配置处理和状态投影已经迁移到 Rust
-- 实例运行方式已抽象为运行时配置，支持 local、wsl2、docker 三类运行时
+- 实例运行方式已抽象为运行时配置，当前支持 local 与 wsl2；docker 为规划中（roadmap）
 - 被管理组件本身是否依赖 Python，取决于组件实现；但启动器自身已经是完整的 Rust 桌面应用
 
 ## 核心能力
@@ -18,7 +18,7 @@ MAI Launcher 是一个面向 MaiBot、NapCat 及相关适配器的桌面管理�
 
 - 创建、启动、停止、删除多个独立实例
 - 管理 MaiBot、NapCat 和适配器等组件
-- 按运行时配置选择本地、WSL2 或 Docker 执行方式
+- 按运行时配置选择本地或 WSL2 执行方式（Docker 为规划中 roadmap）
 - 统一聚合实例和组件状态，区分 running、partial、stopped、failed 等运行态
 
 ### 配置编辑
@@ -184,7 +184,7 @@ src-tauri/target/release/bundle/
 
 - 前端通过 Tauri IPC 调用 Rust 命令，不再依赖旧式后端服务进程
 - Rust 侧按 commands、services、runtime、lifecycle、db、models 等模块划分职责
-- 运行时适配器负责本地、WSL2、Docker 三类环境的统一抽象
+- 运行时适配器负责本地与 WSL2 环境的统一抽象（Docker 为规划中 roadmap）
 - 状态投影逻辑会区分真实进程状态、外部接管状态和终端重连能力
 
 ## 迁移背景
@@ -195,7 +195,7 @@ src-tauri/target/release/bundle/
 
 - 将桌面端核心逻辑迁移到 Rust
 - 通过 Tauri IPC 替代独立后端通信层
-- 引入运行时抽象，统一 local / wsl2 / docker 的执行模型
+- 引入运行时抽象，统一 local 与 wsl2 的执行模型（docker 为规划中 roadmap）
 - 重整生命周期与组件状态投影逻辑
 - 简化打包链路，去掉 Python 后端分发负担
 
@@ -211,7 +211,7 @@ src-tauri/target/release/bundle/
 
 ### MaiBot
 
-- 项目地址：https://github.com/MaiM-with-u/MaiBot
+- 项目地址：https://github.com/Mai-with-u/MaiBot
 - 使用时请遵循 MaiBot 自身许可证要求
 
 ## 许可证

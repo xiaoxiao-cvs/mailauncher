@@ -292,6 +292,8 @@ src-tauri/src/
 
 ## 5. Docker 管理方案
 
+> 实现状态：本章描述的 Docker 管理能力**尚未实现，当前为规划中（roadmap）**。代码中的 `RuntimeKind` 仅包含 `Local` 与 `Wsl2`，不存在 Docker 适配器实现。以下内容为设计记录，不代表已交付功能。
+
 ### 5.1 功能范围
 
 Docker 管理作为一个完整的部署模式引入，覆盖从环境检测到容器生命周期管理的全流程。
@@ -614,12 +616,12 @@ WSL2 管理作为 Docker 模式在 Windows 平台的辅助方案，而非独立�
 
 | 测试项 | Windows | macOS | Linux |
 |--------|---------|-------|-------|
-| 本地模式（进程管理） | ✓ | ✓ | ✓ |
-| 本地模式（Git 克隆） | ✓ | ✓ | ✓ |
-| Docker 模式（Docker Desktop） | ✓ | ✓ | - |
-| Docker 模式（Docker Engine） | - | - | ✓ |
-| WSL2 + Docker | ✓ | - | - |
-| PTY 终端输出 | ✓ | ✓ | ✓ |
+| 本地模式（进程管理） | yes | yes | yes |
+| 本地模式（Git 克隆） | yes | yes | yes |
+| Docker 模式（Docker Desktop） | yes | yes | - |
+| Docker 模式（Docker Engine） | - | - | yes |
+| WSL2 + Docker | yes | - | - |
+| PTY 终端输出 | yes | yes | yes |
 
 ---
 

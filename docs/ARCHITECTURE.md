@@ -94,8 +94,8 @@ mailauncher/
 
 ### 1. 运行时抽象
 - 实例以 `runtime_profile` 描述运行方式，而不是由宿主平台分支推导行为。
-- 当前支持 `local`、`wsl2`、`docker` 三类运行时。
-- `RuntimeResolver` 负责按实例配置选择 `LocalRuntimeAdapter`、`Wsl2RuntimeAdapter`、`DockerRuntimeAdapter`。
+- 当前支持 `local` 与 `wsl2`；`docker` 为规划中（roadmap），尚未实现。
+- `RuntimeResolver` 负责按实例配置选择 `LocalRuntimeAdapter`、`Wsl2RuntimeAdapter`；`DockerRuntimeAdapter` 为规划中。
 
 ### 2. 组件注册表
 - `ComponentRegistry` 维护组件清单、依赖关系、启动顺序和停止顺序。
@@ -108,7 +108,7 @@ mailauncher/
 
 ### 4. 冷启动恢复语义
 - 本地托管进程在应用重启后统一视为已停止。
-- WSL2 / Docker 会在应用启动后执行运行态重发现。
+- WSL2 会在应用启动后执行运行态重发现（Docker 为规划中 roadmap，按同样语义设计）。
 - 远程运行时探测失败时保留 `unknown`，探测成功但未发现进程时收敛为 `stopped`。
 
 ### 5. 终端能力模型

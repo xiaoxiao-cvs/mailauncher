@@ -255,7 +255,7 @@ Ctrl+C、SIGTERM、SIGKILL 在 WSL2 下应由 guest runtime 执行，不能沿�
 - Phase 0 已完成：Tauri 工程已提升到仓库根目录 `src-tauri/`。
 - Phase A 已完成：`runtime_profile`、`RuntimeAdapter`、`RuntimeResolver`、`StateProjector` 已落地。
 - Phase B 已完成：`ComponentRegistry` 与 `ComponentSpec` 已接管组件依赖和启停顺序。
-- Phase C 已完成最小闭环：WSL2 与 Docker 都以独立 runtime adapter 接入，并支持冷启动探测、外部进程接管、tmux 会话能力校验。
+- Phase C 已完成最小闭环：WSL2 已以独立 runtime adapter 接入，并支持冷启动探测、外部进程接管、tmux 会话能力校验。Docker 尚未实现，为规划中（roadmap）。
 - Phase D 已完成主体：`host_pid` / `guest_pid`、最近错误、冷启动恢复与 `partial` / `failed` / `unknown` 展示均已打通。
 
 ## 8. 当前实现补充
@@ -273,7 +273,7 @@ Ctrl+C、SIGTERM、SIGKILL 在 WSL2 下应由 guest runtime 执行，不能沿�
 
 ### 8.3 冷启动恢复语义
 
-- WSL2 / Docker 探测失败时保留 `unknown`，不再错误映射为 `failed`。
+- WSL2 探测失败时保留 `unknown`，不再错误映射为 `failed`（Docker 为规划中 roadmap，按同样语义设计）。
 - 探测成功但未发现运行组件时统一收敛到 `stopped`。
 - 前端能力面板已同时展示 probe 结论与组件真实运行态能力。
 
@@ -326,7 +326,7 @@ Ctrl+C、SIGTERM、SIGKILL 在 WSL2 下应由 guest runtime 执行，不能沿�
 
 ---
 
-## 8. 最低验收标准
+## 11. WSL2 前置硬性门槛
 
 在开始写 WSL2 代码之前，至少满足：
 
@@ -340,7 +340,7 @@ Ctrl+C、SIGTERM、SIGKILL 在 WSL2 下应由 guest runtime 执行，不能沿�
 
 ---
 
-## 11. 结论
+## 12. 结论
 
 这套后端目前作为 Windows/macOS 的本地多实例启动器，方向是对的，基础也已经有了：
 

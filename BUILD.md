@@ -8,9 +8,9 @@ MAI Launcher 是一个 Tauri 桌面应用，包含 Rust 后端和 React 前端�
 
 | 平台 | 架构 | 安装包格式 |
 |------|------|------------|
-| 🍎 macOS | Intel + Apple Silicon (Universal) | `.dmg` |
-| 🪟 Windows | x64 | `.exe` (NSIS) / `.msi` |
-| 🐧 Linux | x64 | `.deb` / `.AppImage` |
+| macOS | Intel + Apple Silicon (Universal) | `.dmg` |
+| Windows | x64 | `.exe` (NSIS) / `.msi` |
+| Linux | x64 | `.deb` / `.AppImage` |
 
 ### 自动化构建
 
