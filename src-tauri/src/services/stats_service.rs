@@ -44,6 +44,44 @@ fn find_maibot_db(instance_path: &str) -> Option<PathBuf> {
     None
 }
 
+/// 统计 mai_messages 表在指定时间区间内的消息数与回复数
+///
+/// MaiBot 重写后消息表名为 `mai_messages`，时间列为 `timestamp`（DateTime，
+/// 字符串形如 'YYYY-MM-DD HH:MM:SS'），与 llm_usage 一致按字符串边界比较。
+/// 当表不存在时返回 (0, 0)，以兼容尚未产生消息记录的实例数据库。
+async fn count_messages(pool: &SqlitePool, start_time: &str, end_time: &str) -> (i64, i64) {
+    let msg_table: Option<(String,)> = sqlx::query_as(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='mai_messages'"
+    )
+    .fetch_optional(pool)
+    .await
+    .unwrap_or(None);
+
+    if msg_table.is_none() {
+        return (0, 0);
+    }
+
+    let msg_count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM mai_messages WHERE timestamp >= ? AND timestamp <= ?"
+    )
+    .bind(start_time)
+    .bind(end_time)
+    .fetch_one(pool)
+    .await
+    .unwrap_or((0,));
+
+    let reply_count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM mai_messages WHERE timestamp >= ? AND timestamp <= ? AND reply_to IS NOT NULL"
+    )
+    .bind(start_time)
+    .bind(end_time)
+    .fetch_one(pool)
+    .await
+    .unwrap_or((0,));
+
+    (msg_count.0, reply_count.0)
+}
+
 /// 查询 MaiBot 数据库的 LLM 使用统计
 async fn query_llm_usage(
     db_path: &PathBuf,
@@ -126,42 +164,9 @@ async fn query_llm_usage(
     summary.total_cost = (summary.total_cost * 10000.0).round() / 10000.0;
 
     // 查询消息数
-    let msg_table: Option<(String,)> = sqlx::query_as(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='messages'"
-    )
-    .fetch_optional(&pool)
-    .await?;
-
-    if msg_table.is_some() {
-        // messages 表使用 unix timestamp
-        let start_ts: f64 = chrono::NaiveDateTime::parse_from_str(start_time, "%Y-%m-%d %H:%M:%S")
-            .map(|d| d.and_utc().timestamp() as f64)
-            .unwrap_or(0.0);
-        let end_ts: f64 = chrono::NaiveDateTime::parse_from_str(end_time, "%Y-%m-%d %H:%M:%S")
-            .map(|d| d.and_utc().timestamp() as f64)
-            .unwrap_or(0.0);
-
-        let msg_count: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM messages WHERE time >= ? AND time <= ?"
-        )
-        .bind(start_ts)
-        .bind(end_ts)
-        .fetch_one(&pool)
-        .await
-        .unwrap_or((0,));
-
-        let reply_count: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM messages WHERE time >= ? AND time <= ? AND reply_to IS NOT NULL"
-        )
-        .bind(start_ts)
-        .bind(end_ts)
-        .fetch_one(&pool)
-        .await
-        .unwrap_or((0,));
-
-        summary.total_messages = msg_count.0;
-        summary.total_replies = reply_count.0;
-    }
+    let (total_messages, total_replies) = count_messages(&pool, start_time, end_time).await;
+    summary.total_messages = total_messages;
+    summary.total_replies = total_replies;
 
     pool.close().await;
 
@@ -438,4 +443,105 @@ pub async fn get_instance_model_stats(
         time_range: time_range.to_string(),
         models,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sqlx::SqlitePool;
+
+    /// 构造一个仅含 mai_messages 表的内存数据库，列布局对齐 MaiBot 真实 schema
+    /// （timestamp 为 DateTime 字符串，reply_to 可空）。
+    async fn setup_messages_db() -> SqlitePool {
+        let pool = SqlitePool::connect("sqlite::memory:")
+            .await
+            .expect("创建内存数据库失败");
+        sqlx::query(
+            "CREATE TABLE mai_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                message_id VARCHAR(255) NOT NULL,
+                timestamp DATETIME NOT NULL,
+                user_id VARCHAR(255) NOT NULL,
+                reply_to VARCHAR(255)
+            )"
+        )
+        .execute(&pool)
+        .await
+        .expect("建表失败");
+        pool
+    }
+
+    async fn insert_message(pool: &SqlitePool, message_id: &str, timestamp: &str, reply_to: Option<&str>) {
+        sqlx::query(
+            "INSERT INTO mai_messages (message_id, timestamp, user_id, reply_to) VALUES (?, ?, ?, ?)"
+        )
+        .bind(message_id)
+        .bind(timestamp)
+        .bind("u1")
+        .bind(reply_to)
+        .execute(pool)
+        .await
+        .expect("插入消息失败");
+    }
+
+    #[tokio::test]
+    async fn count_messages_filters_by_timestamp_window_and_counts_replies() {
+        let pool = setup_messages_db().await;
+        // 窗口内：3 条消息，其中 2 条是回复
+        insert_message(&pool, "m1", "2026-06-03 10:00:00", None).await;
+        insert_message(&pool, "m2", "2026-06-03 10:30:00", Some("m1")).await;
+        insert_message(&pool, "m3", "2026-06-03 11:00:00", Some("m2")).await;
+        // 窗口外（早于起点 / 晚于终点）：均不应计入
+        insert_message(&pool, "m0", "2026-06-03 09:59:59", Some("x")).await;
+        insert_message(&pool, "m4", "2026-06-03 12:00:01", Some("y")).await;
+
+        let (total, replies) =
+            count_messages(&pool, "2026-06-03 10:00:00", "2026-06-03 12:00:00").await;
+
+        assert_eq!(total, 3, "仅应统计 timestamp 落在区间内的消息");
+        assert_eq!(replies, 2, "仅应统计 reply_to 非空的回复");
+    }
+
+    #[tokio::test]
+    async fn count_messages_boundaries_are_inclusive() {
+        let pool = setup_messages_db().await;
+        // 恰好落在区间两端，闭区间应计入
+        insert_message(&pool, "start", "2026-06-03 10:00:00", None).await;
+        insert_message(&pool, "end", "2026-06-03 12:00:00", Some("start")).await;
+
+        let (total, replies) =
+            count_messages(&pool, "2026-06-03 10:00:00", "2026-06-03 12:00:00").await;
+
+        assert_eq!(total, 2, ">= 与 <= 边界应包含端点消息");
+        assert_eq!(replies, 1);
+    }
+
+    #[tokio::test]
+    async fn count_messages_returns_zero_when_table_absent() {
+        // 不创建 mai_messages 表，模拟旧表名/空库场景：应安全返回 (0, 0)
+        let pool = SqlitePool::connect("sqlite::memory:")
+            .await
+            .expect("创建内存数据库失败");
+        // 仅存在旧表名 messages，新查询应因 mai_messages 缺失而返回零值
+        sqlx::query("CREATE TABLE messages (id INTEGER PRIMARY KEY, time REAL)")
+            .execute(&pool)
+            .await
+            .expect("建表失败");
+
+        let (total, replies) =
+            count_messages(&pool, "2026-06-03 10:00:00", "2026-06-03 12:00:00").await;
+
+        assert_eq!(total, 0, "mai_messages 不存在时不应回落到旧 messages 表");
+        assert_eq!(replies, 0);
+    }
+
+    #[test]
+    fn time_range_to_hours_maps_known_ranges() {
+        assert_eq!(time_range_to_hours("1h"), 1.0);
+        assert_eq!(time_range_to_hours("24h"), 24.0);
+        assert_eq!(time_range_to_hours("7d"), 168.0);
+        assert_eq!(time_range_to_hours("30d"), 720.0);
+        // 未知取值回落到 24 小时
+        assert_eq!(time_range_to_hours("unknown"), 24.0);
+    }
 }
