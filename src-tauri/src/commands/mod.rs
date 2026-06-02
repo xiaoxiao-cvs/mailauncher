@@ -3,6 +3,7 @@
 
 pub mod instance;
 pub mod config;
+pub mod python;
 pub mod process;
 pub mod download;
 pub mod runtime;

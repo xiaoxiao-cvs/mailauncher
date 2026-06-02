@@ -13,6 +13,7 @@ pub mod version_service;
 pub mod schedule_service;
 pub mod api_provider_service;
 pub mod system_service;
+pub mod python_provision;
 pub mod stats_service;
 pub mod log_service;
 pub mod message_queue_service;

@@ -166,6 +166,8 @@ pub fn run() {
             commands::config::get_selected_python,
             commands::config::select_python,
             commands::config::save_python_environment,
+            // Python 一键供给（检测优先，没有则用 uv 安装）
+            commands::python::provision_python,
             commands::config::get_all_paths,
             commands::config::get_path,
             commands::config::set_path,
