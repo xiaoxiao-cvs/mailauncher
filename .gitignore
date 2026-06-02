@@ -41,3 +41,9 @@ Plan.txt
 
 # Claude Code local config
 CLAUDE.md
+
+# MaiBot ecosystem reference clones (local analysis only, not tracked)
+maibot-ref/
+
+# Revival planning doc (local working reference only)
+docs/REVIVAL-PLAN.md
