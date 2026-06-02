@@ -1,6 +1,6 @@
-import { ComponentType, Instance, RuntimeKind } from '@/services/instanceApi';
-import { TerminalComponent } from '@/components/terminal/TerminalComponent';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ComponentType, Instance, RuntimeKind } from "@/services/instanceApi";
+import { TerminalComponent } from "@/components/terminal/TerminalComponent";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ComponentStatusInfo {
   running?: boolean;
@@ -12,7 +12,9 @@ interface InstanceTerminalPanelProps {
   selectedComponent: ComponentType;
   onSelectComponent: (component: ComponentType) => void;
   availableComponents: ComponentType[];
-  getComponentStatus: (component: ComponentType) => ComponentStatusInfo | undefined;
+  getComponentStatus: (
+    component: ComponentType,
+  ) => ComponentStatusInfo | undefined;
 }
 
 export function InstanceTerminalPanel({
@@ -44,12 +46,12 @@ export function InstanceTerminalPanel({
                 className="relative px-3 py-1 text-xs font-medium text-gray-400 data-[state=active]:text-white data-[state=active]:bg-gray-700/50 rounded-md transition-all"
               >
                 <span className="flex items-center gap-2">
-                  {comp === 'MaiBot' ? 'MaiBot' : comp === 'NapCat' ? 'NapCat' : 'Adapter'}
+                  {comp === "MaiBot" ? "MaiBot" : "NapCat"}
                   <span
                     className={`w-1.5 h-1.5 rounded-full transition-colors ${
                       getComponentStatus(comp)?.running
-                        ? 'bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.6)]'
-                        : 'bg-gray-600'
+                        ? "bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.6)]"
+                        : "bg-gray-600"
                     }`}
                   />
                 </span>
@@ -69,7 +71,10 @@ export function InstanceTerminalPanel({
                 component={comp}
                 className="h-full"
                 isRunning={getComponentStatus(comp)?.running === true}
-                runtimeKind={getComponentStatus(comp)?.runtime_kind ?? instance.runtime_profile.kind}
+                runtimeKind={
+                  getComponentStatus(comp)?.runtime_kind ??
+                  instance.runtime_profile.kind
+                }
               />
             </TabsContent>
           ))}

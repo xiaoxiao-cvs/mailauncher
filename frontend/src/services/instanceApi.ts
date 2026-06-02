@@ -4,19 +4,33 @@
  * 通过 Tauri invoke 直接调用 Rust 命令，替代原有的 HTTP API。
  */
 
-import { tauriInvoke } from '@/services/tauriInvoke';
+import { tauriInvoke } from "@/services/tauriInvoke";
 
 // ==================== 类型定义 ====================
 
-export type InstanceStatus = 'pending' | 'starting' | 'running' | 'partial' | 'stopping' | 'stopped' | 'failed' | 'unknown';
-export type BotType = 'maibot' | 'napcat' | 'other';
-export type ComponentType = 'MaiBot' | 'NapCat' | 'MaiBot-Napcat-Adapter';
-export type ComponentLifecycleStatus = 'starting' | 'running' | 'stopping' | 'stopped' | 'failed' | 'unknown';
-export type RuntimeKind = 'local' | 'wsl2';
-export type HostOs = 'windows' | 'macos' | 'linux';
-export type GuestOs = 'linux';
-export type PythonMode = 'venv' | 'system' | 'explicit';
-export type PathMappingStrategy = 'native' | 'explicit';
+export type InstanceStatus =
+  | "pending"
+  | "starting"
+  | "running"
+  | "partial"
+  | "stopping"
+  | "stopped"
+  | "failed"
+  | "unknown";
+export type BotType = "maibot" | "napcat" | "other";
+export type ComponentType = "MaiBot" | "NapCat";
+export type ComponentLifecycleStatus =
+  | "starting"
+  | "running"
+  | "stopping"
+  | "stopped"
+  | "failed"
+  | "unknown";
+export type RuntimeKind = "local" | "wsl2";
+export type HostOs = "windows" | "macos" | "linux";
+export type GuestOs = "linux";
+export type PythonMode = "venv" | "system" | "explicit";
+export type PathMappingStrategy = "native" | "explicit";
 
 export interface PythonRuntimeConfig {
   mode: PythonMode;
@@ -54,7 +68,7 @@ export interface WslDistributionInfo {
   is_default: boolean;
 }
 
-export type RuntimeProbeSeverity = 'warning' | 'error';
+export type RuntimeProbeSeverity = "warning" | "error";
 
 export interface RuntimeProbeIssue {
   severity: RuntimeProbeSeverity;
@@ -135,7 +149,7 @@ export interface InstanceStatusResponse {
   component_states: InstanceComponentState[];
 }
 
-export interface ComponentStatus extends InstanceComponentState {}
+export type ComponentStatus = InstanceComponentState;
 
 export interface InstanceList {
   total: number;
@@ -154,14 +168,16 @@ class InstanceApiClient {
    * 获取所有实例
    */
   async getAllInstances(): Promise<InstanceList> {
-    return tauriInvoke<InstanceList>('get_all_instances');
+    return tauriInvoke<InstanceList>("get_all_instances");
   }
 
   /**
    * 获取单个实例详情
    */
   async getInstance(instanceId: string): Promise<Instance> {
-    const result = await tauriInvoke<Instance | null>('get_instance', { instanceId });
+    const result = await tauriInvoke<Instance | null>("get_instance", {
+      instanceId,
+    });
     if (!result) throw new Error(`实例 ${instanceId} 不存在`);
     return result;
   }
@@ -170,14 +186,16 @@ class InstanceApiClient {
    * 获取实例状态
    */
   async getInstanceStatus(instanceId: string): Promise<InstanceStatusResponse> {
-    return tauriInvoke<InstanceStatusResponse>('get_instance_status', { instanceId });
+    return tauriInvoke<InstanceStatusResponse>("get_instance_status", {
+      instanceId,
+    });
   }
 
   /**
    * 创建新实例
    */
   async createInstance(data: InstanceCreate): Promise<Instance> {
-    return tauriInvoke<Instance>('create_instance', {
+    return tauriInvoke<Instance>("create_instance", {
       data: {
         name: data.name,
         bot_type: data.bot_type,
@@ -192,8 +210,11 @@ class InstanceApiClient {
   /**
    * 更新实例
    */
-  async updateInstance(instanceId: string, data: InstanceUpdate): Promise<Instance> {
-    return tauriInvoke<Instance>('update_instance', {
+  async updateInstance(
+    instanceId: string,
+    data: InstanceUpdate,
+  ): Promise<Instance> {
+    return tauriInvoke<Instance>("update_instance", {
       instanceId,
       data: {
         name: data.name,
@@ -209,81 +230,111 @@ class InstanceApiClient {
    * 删除实例
    */
   async deleteInstance(instanceId: string): Promise<SuccessResponse> {
-    return tauriInvoke<SuccessResponse>('delete_instance', { instanceId });
+    return tauriInvoke<SuccessResponse>("delete_instance", { instanceId });
   }
 
   /**
    * 启动实例
    */
   async startInstance(instanceId: string): Promise<SuccessResponse> {
-    return tauriInvoke<SuccessResponse>('start_instance', { instanceId });
+    return tauriInvoke<SuccessResponse>("start_instance", { instanceId });
   }
 
   /**
    * 停止实例
    */
   async stopInstance(instanceId: string): Promise<SuccessResponse> {
-    return tauriInvoke<SuccessResponse>('stop_instance', { instanceId });
+    return tauriInvoke<SuccessResponse>("stop_instance", { instanceId });
   }
 
   /**
    * 重启实例
    */
   async restartInstance(instanceId: string): Promise<SuccessResponse> {
-    return tauriInvoke<SuccessResponse>('restart_instance', { instanceId });
+    return tauriInvoke<SuccessResponse>("restart_instance", { instanceId });
   }
 
   /**
    * 启动指定组件
    */
-  async startComponent(instanceId: string, component: ComponentType): Promise<SuccessResponse> {
-    return tauriInvoke<SuccessResponse>('start_component', { instanceId, component });
+  async startComponent(
+    instanceId: string,
+    component: ComponentType,
+  ): Promise<SuccessResponse> {
+    return tauriInvoke<SuccessResponse>("start_component", {
+      instanceId,
+      component,
+    });
   }
 
   /**
    * 停止指定组件
    */
-  async stopComponent(instanceId: string, component: ComponentType): Promise<SuccessResponse> {
-    return tauriInvoke<SuccessResponse>('stop_component', { instanceId, component });
+  async stopComponent(
+    instanceId: string,
+    component: ComponentType,
+  ): Promise<SuccessResponse> {
+    return tauriInvoke<SuccessResponse>("stop_component", {
+      instanceId,
+      component,
+    });
   }
 
   /**
    * 获取组件状态
    */
-  async getComponentStatus(instanceId: string, component: ComponentType): Promise<ComponentStatus> {
-    return tauriInvoke<ComponentStatus>('get_component_status', { instanceId, component });
+  async getComponentStatus(
+    instanceId: string,
+    component: ComponentType,
+  ): Promise<ComponentStatus> {
+    return tauriInvoke<ComponentStatus>("get_component_status", {
+      instanceId,
+      component,
+    });
   }
 
   async getInstanceComponents(instanceId: string): Promise<ComponentType[]> {
-    return tauriInvoke<ComponentType[]>('get_instance_components', { instanceId });
+    return tauriInvoke<ComponentType[]>("get_instance_components", {
+      instanceId,
+    });
   }
 
   async listWslDistributions(): Promise<WslDistributionInfo[]> {
-    return tauriInvoke<WslDistributionInfo[]>('list_wsl_distributions');
+    return tauriInvoke<WslDistributionInfo[]>("list_wsl_distributions");
   }
 
-  async setInstanceRuntimeProfile(instanceId: string, runtimeProfile: RuntimeProfile): Promise<SuccessResponse> {
-    return tauriInvoke<SuccessResponse>('set_instance_runtime_profile', {
+  async setInstanceRuntimeProfile(
+    instanceId: string,
+    runtimeProfile: RuntimeProfile,
+  ): Promise<SuccessResponse> {
+    return tauriInvoke<SuccessResponse>("set_instance_runtime_profile", {
       instanceId,
       runtimeProfile,
     });
   }
 
-  async refreshInstanceRuntimeState(instanceId: string): Promise<InstanceStatus> {
-    return tauriInvoke<InstanceStatus>('refresh_instance_runtime_state', {
+  async refreshInstanceRuntimeState(
+    instanceId: string,
+  ): Promise<InstanceStatus> {
+    return tauriInvoke<InstanceStatus>("refresh_instance_runtime_state", {
       instanceId,
     });
   }
 
-  async setComponentRuntimeProfiles(instanceId: string, componentRuntimeProfiles: Partial<Record<ComponentType, RuntimeProfile>>): Promise<SuccessResponse> {
-    return tauriInvoke<SuccessResponse>('set_component_runtime_profiles', {
+  async setComponentRuntimeProfiles(
+    instanceId: string,
+    componentRuntimeProfiles: Partial<Record<ComponentType, RuntimeProfile>>,
+  ): Promise<SuccessResponse> {
+    return tauriInvoke<SuccessResponse>("set_component_runtime_profiles", {
       instanceId,
       componentRuntimeProfiles,
     });
   }
 
-  async validateRuntimeProfile(runtimeProfile: RuntimeProfile): Promise<RuntimeProbeResult> {
-    return tauriInvoke<RuntimeProbeResult>('validate_runtime_profile', {
+  async validateRuntimeProfile(
+    runtimeProfile: RuntimeProfile,
+  ): Promise<RuntimeProbeResult> {
+    return tauriInvoke<RuntimeProbeResult>("validate_runtime_profile", {
       runtimeProfile,
     });
   }
@@ -291,9 +342,15 @@ class InstanceApiClient {
   /**
    * 获取NapCat已登录账号列表
    */
-  async getNapCatAccounts(instanceId: string): Promise<{success: boolean; accounts: Array<{account: string; nickname: string}>; message: string}> {
-    const result = await tauriInvoke<{accounts: Array<{account: string; nickname: string}>}>('get_napcat_accounts', { instanceId });
-    return { success: true, accounts: result.accounts, message: '' };
+  async getNapCatAccounts(instanceId: string): Promise<{
+    success: boolean;
+    accounts: Array<{ account: string; nickname: string }>;
+    message: string;
+  }> {
+    const result = await tauriInvoke<{
+      accounts: Array<{ account: string; nickname: string }>;
+    }>("get_napcat_accounts", { instanceId });
+    return { success: true, accounts: result.accounts, message: "" };
   }
 }
 

@@ -20,7 +20,7 @@ import type { RuntimeKind } from "@/services/instanceApi";
 
 interface TerminalComponentProps {
   instanceId: string;
-  component: "MaiBot" | "NapCat" | "MaiBot-Napcat-Adapter";
+  component: "MaiBot" | "NapCat";
   className?: string;
   isRunning?: boolean; // 组件是否正在运行
   runtimeKind?: RuntimeKind;
