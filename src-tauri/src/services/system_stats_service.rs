@@ -143,3 +143,57 @@ impl Default for SystemMonitor {
         Self::new()
     }
 }
+
+/// 主机静态系统信息(基本不变,前端一次性获取即可)。
+#[derive(Debug, Clone, Serialize)]
+pub struct SystemInfo {
+    /// 操作系统名(如 Windows）
+    pub os_name: String,
+    /// 操作系统完整版本(如 Windows 11 Pro）
+    pub os_long_version: String,
+    /// 内核版本
+    pub kernel_version: String,
+    /// 主机名
+    pub hostname: String,
+    /// CPU 型号(品牌串)
+    pub cpu_brand: String,
+    /// CPU 标称频率(MHz)
+    pub cpu_frequency: u64,
+    /// 物理核心数
+    pub cpu_physical_cores: usize,
+    /// 逻辑核心数
+    pub cpu_logical_cores: usize,
+    /// CPU 架构(如 x86_64)
+    pub arch: String,
+    /// 启动器版本
+    pub launcher_version: String,
+    /// 物理内存总量(字节)
+    pub memory_total: u64,
+}
+
+/// 采集一次主机静态系统信息。
+pub fn gather_system_info() -> SystemInfo {
+    let mut system = System::new();
+    system.refresh_cpu_all();
+    system.refresh_memory();
+
+    let cpus = system.cpus();
+    let (cpu_brand, cpu_frequency) = cpus
+        .first()
+        .map(|cpu| (cpu.brand().trim().to_string(), cpu.frequency()))
+        .unwrap_or_else(|| ("未知".to_string(), 0));
+
+    SystemInfo {
+        os_name: System::name().unwrap_or_else(|| "未知".to_string()),
+        os_long_version: System::long_os_version().unwrap_or_else(|| "未知".to_string()),
+        kernel_version: System::kernel_version().unwrap_or_else(|| "未知".to_string()),
+        hostname: System::host_name().unwrap_or_else(|| "未知".to_string()),
+        cpu_brand,
+        cpu_frequency,
+        cpu_physical_cores: system.physical_core_count().unwrap_or(0),
+        cpu_logical_cores: cpus.len(),
+        arch: System::cpu_arch(),
+        launcher_version: env!("CARGO_PKG_VERSION").to_string(),
+        memory_total: system.total_memory(),
+    }
+}

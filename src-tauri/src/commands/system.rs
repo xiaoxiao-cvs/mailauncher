@@ -27,6 +27,12 @@ pub async fn get_system_stats(
     Ok(state.system_monitor.latest_or_sample())
 }
 
+/// 获取主机静态系统信息（OS / CPU 型号 / 内核 / 主机名 / 架构等，前端一次性获取）
+#[tauri::command]
+pub async fn get_system_info() -> AppResult<system_stats_service::SystemInfo> {
+    Ok(system_stats_service::gather_system_info())
+}
+
 /// 检测 Git 环境
 #[tauri::command]
 pub async fn check_git_environment() -> AppResult<system_service::GitInfo> {
