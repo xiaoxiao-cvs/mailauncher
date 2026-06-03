@@ -1,8 +1,0 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* 设计 token 见 src/design/tokens.css(由 main.tsx 引入);此处仅留 lab 入口特有样式。 */
-#lab-root {
-  height: 100%;
-}
