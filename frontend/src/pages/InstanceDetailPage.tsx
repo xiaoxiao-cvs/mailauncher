@@ -5,7 +5,10 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { motion } from "motion/react";
 import { ComponentType } from "@/services/instanceApi";
+import { TactileButton } from "@/components/ls";
+import { springSettle, springSoft } from "@/design/motion";
 import { ConfigModal } from "@/components/ConfigModal";
 import { ScheduleModal } from "@/components/ScheduleModal";
 import { VersionManagementSection } from "@/components/instances/VersionManagementSection";
@@ -14,7 +17,6 @@ import { InstanceHeader } from "@/components/instances/detail/InstanceHeader";
 import { InstanceTerminalPanel } from "@/components/instances/detail/InstanceTerminalPanel";
 import { InstanceControlBar } from "@/components/instances/detail/InstanceControlBar";
 import { InstanceQuickActions } from "@/components/instances/detail/InstanceQuickActions";
-import { animate, utils } from "animejs";
 import {
   useInstanceQuery,
   useComponentStatusQuery,
@@ -69,47 +71,6 @@ export const InstanceDetailPage: React.FC = () => {
     }
   };
 
-  // 入场动画
-  const animatedRef = React.useRef<string | null>(null);
-  const [shouldAnimate, setShouldAnimate] = React.useState(false);
-
-  useEffect(() => {
-    if (instance && id && !shouldAnimate) {
-      setShouldAnimate(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, instance?.id, shouldAnimate]);
-
-  useEffect(() => {
-    if (!shouldAnimate || !id) return;
-    if (animatedRef.current === id) return;
-    animatedRef.current = id;
-
-    const timer = setTimeout(() => {
-      const fadeInElements = document.querySelectorAll(".animate-fade-in");
-      if (fadeInElements.length > 0) {
-        animate(".animate-fade-in", {
-          opacity: [0, 1],
-          translateY: [-10, 0],
-          duration: 600,
-          easing: "easeOutExpo",
-          delay: 100,
-        });
-      }
-      const slideUpElements = document.querySelectorAll(".animate-slide-up");
-      if (slideUpElements.length > 0) {
-        animate(".animate-slide-up", {
-          opacity: [0, 1],
-          translateY: [20, 0],
-          duration: 800,
-          delay: utils.stagger(100, { start: 200 }),
-          easing: "easeOutExpo",
-        });
-      }
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [shouldAnimate, id]);
-
   // 自动切换启动目标
   useEffect(() => {
     if (!instance) return;
@@ -131,22 +92,28 @@ export const InstanceDetailPage: React.FC = () => {
 
   if (!instance) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex h-full items-center justify-center">
         <div className="text-center">
           {isLoading ? (
             <>
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-              <p className="text-muted-foreground">加载中...</p>
+              <div
+                className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2"
+                style={{ borderColor: "var(--ls-life)" }}
+              />
+              <p style={{ color: "var(--ls-ink-soft)" }}>加载中...</p>
             </>
           ) : (
             <>
-              <p className="text-muted-foreground mb-4">实例不存在</p>
-              <button
+              <p className="mb-4" style={{ color: "var(--ls-ink-soft)" }}>
+                实例不存在
+              </p>
+              <TactileButton
+                variant="solid"
                 onClick={() => navigate("/instances")}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="mx-auto"
               >
                 返回列表
-              </button>
+              </TactileButton>
             </>
           )}
         </div>
@@ -226,11 +193,16 @@ export const InstanceDetailPage: React.FC = () => {
   );
 
   return (
-    <div className="h-full flex flex-col p-6 gap-6 overflow-hidden">
+    <motion.div
+      className="flex h-full flex-col gap-6 overflow-hidden p-6"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={springSoft}
+    >
       <InstanceHeader instance={instance} />
 
-      <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
-        <div className="col-span-4 flex flex-col gap-6 overflow-y-auto scrollbar-thin pr-2 pb-2">
+      <div className="grid min-h-0 flex-1 grid-cols-12 gap-6">
+        <div className="scrollbar-thin col-span-4 flex flex-col gap-6 overflow-y-auto pb-2 pr-2">
           <InstanceQuickActions
             onOpenConfig={() => setIsConfigModalOpen(true)}
             onOpenSchedule={() => setIsScheduleModalOpen(true)}
@@ -238,7 +210,12 @@ export const InstanceDetailPage: React.FC = () => {
           <VersionManagementSection instanceId={instance.id} />
         </div>
 
-        <div className="col-span-8 flex flex-col gap-4 min-h-0 animate-slide-up opacity-0">
+        <motion.div
+          className="col-span-8 flex min-h-0 flex-col gap-4"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...springSettle, delay: 0.08 }}
+        >
           <InstanceTerminalPanel
             instance={instance}
             selectedComponent={selectedComponent}
@@ -258,7 +235,7 @@ export const InstanceDetailPage: React.FC = () => {
             onStop={handleStop}
             onRestart={handleRestart}
           />
-        </div>
+        </motion.div>
       </div>
 
       <ConfigModal
@@ -276,6 +253,6 @@ export const InstanceDetailPage: React.FC = () => {
         onClose={() => setIsVersionManagerOpen(false)}
         instanceId={instance.id}
       />
-    </div>
+    </motion.div>
   );
 };

@@ -1,16 +1,26 @@
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
-import { Button } from "@/components/ui/button";
+import { motion } from "motion/react";
+import { TactileButton } from "@/components/ls";
 import { InstallOverview } from "@/components/install/InstallOverview";
 import { InstanceConfigPanel } from "@/components/downloads/InstanceConfigPanel";
 import { DownloadComponentSelector } from "@/components/downloads/DownloadComponentSelector";
 import { useDownload, useInstallOverview } from "@/hooks";
 import { useInstallTask } from "@/contexts/InstallTaskContext";
 import { useNotificationContext } from "@/contexts/NotificationContext";
-import { cn } from "@/lib/utils";
+import { springSettle, springSoft } from "@/design/motion";
 import { TaskStatus } from "@/types/notification";
-import { useEffect, useRef } from "react";
-import { animate, utils } from "animejs";
+import { useEffect } from "react";
+
+// 看板交错入场:根容器 springSoft 浮起,子项(标题 + 两块面板)逐个 springSettle 落定。
+const containerVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.1, delayChildren: 0.04 } },
+};
+const itemChild = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: springSettle },
+};
 
 export function DownloadsPage() {
   const navigate = useNavigate();
@@ -39,23 +49,6 @@ export function DownloadsPage() {
   const { addTaskNotification, updateTaskProgress, updateTaskId } =
     useNotificationContext();
   const { currentTask, startTask } = useInstallTask();
-
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!overviewState.visible && containerRef.current) {
-      const elements = containerRef.current.querySelectorAll(".animate-item");
-      utils.set(elements, { opacity: 0, translateY: 20 });
-
-      animate(elements, {
-        opacity: [0, 1],
-        translateY: [20, 0],
-        delay: utils.stagger(100),
-        duration: 800,
-        easing: "easeOutExpo",
-      });
-    }
-  }, [overviewState.visible]);
 
   useEffect(() => {
     if (currentTask && currentTask.isActive) {
@@ -144,21 +137,31 @@ export function DownloadsPage() {
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden relative z-10 font-sans selection:bg-brand selection:text-brand-foreground">
+    <div className="h-full flex flex-col overflow-hidden relative z-10 font-sans">
       {overviewState.visible ? (
         <InstallOverview state={overviewState} />
       ) : (
         <div className="flex-1 overflow-y-auto scrollbar-thin z-10">
-          <div
+          <motion.div
             className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8 space-y-5 pb-28"
-            ref={containerRef}
+            initial="hidden"
+            animate="show"
+            variants={containerVariants}
           >
-            <div className="animate-item">
-              <h1 className="text-2xl font-bold text-foreground">下载与安装</h1>
-              <p className="text-sm text-muted-foreground mt-1">
+            <motion.div variants={itemChild}>
+              <h1
+                className="text-2xl font-bold"
+                style={{ color: "var(--ls-ink)" }}
+              >
+                下载与安装
+              </h1>
+              <p
+                className="text-sm mt-1"
+                style={{ color: "var(--ls-ink-soft)" }}
+              >
                 配置实例信息，选择组件，一键部署。
               </p>
-            </div>
+            </motion.div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
               <InstanceConfigPanel
@@ -181,13 +184,21 @@ export function DownloadsPage() {
                 toggleItemSelection={toggleItemSelection}
               />
             </div>
-          </div>
+          </motion.div>
 
           <div className="fixed bottom-6 left-0 md:left-[272px] right-0 z-50 px-6 flex justify-center pointer-events-none">
-            <div className="bg-card/90 backdrop-blur-xl rounded-panel shadow-panel border border-border p-2 pl-6 flex items-center gap-4 pointer-events-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={springSoft}
+              className="ls-panel p-2 pl-6 flex items-center gap-4 pointer-events-auto"
+            >
               <div className="min-w-0">
                 {!instanceName.trim() ? (
-                  <div className="flex items-center gap-2 text-warning text-sm">
+                  <div
+                    className="flex items-center gap-2 text-sm"
+                    style={{ color: "var(--ls-warn)" }}
+                  >
                     <Icon
                       icon="ph:warning-circle-fill"
                       className="w-4 h-4 flex-shrink-0"
@@ -195,7 +206,10 @@ export function DownloadsPage() {
                     <span className="font-medium">请设置实例名称</span>
                   </div>
                 ) : !deploymentPath ? (
-                  <div className="flex items-center gap-2 text-warning text-sm">
+                  <div
+                    className="flex items-center gap-2 text-sm"
+                    style={{ color: "var(--ls-warn)" }}
+                  >
                     <Icon
                       icon="ph:warning-circle-fill"
                       className="w-4 h-4 flex-shrink-0"
@@ -203,7 +217,10 @@ export function DownloadsPage() {
                     <span className="font-medium">请选择部署路径</span>
                   </div>
                 ) : selectedItems.size === 0 ? (
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <div
+                    className="flex items-center gap-2 text-sm"
+                    style={{ color: "var(--ls-ink-soft)" }}
+                  >
                     <Icon
                       icon="ph:info-fill"
                       className="w-4 h-4 flex-shrink-0"
@@ -214,24 +231,27 @@ export function DownloadsPage() {
                   <div className="flex items-center gap-2 text-sm">
                     <Icon
                       icon="ph:check-circle-fill"
-                      className="w-4 h-4 text-success flex-shrink-0"
+                      className="w-4 h-4 flex-shrink-0"
+                      style={{ color: "var(--ls-life)" }}
                     />
-                    <span className="font-medium text-foreground truncate max-w-[200px]">
+                    <span
+                      className="font-medium truncate max-w-[200px]"
+                      style={{ color: "var(--ls-ink)" }}
+                    >
                       {instanceName}
                     </span>
-                    <span className="text-muted-foreground">准备就绪</span>
+                    <span style={{ color: "var(--ls-ink-soft)" }}>
+                      准备就绪
+                    </span>
                   </div>
                 )}
               </div>
 
-              <Button
+              <TactileButton
+                variant="life"
                 onClick={handleStartInstall}
                 disabled={!canStartDownload || hasDownloading}
-                className={cn(
-                  "rounded-control px-6 h-10 text-sm font-medium transition-all duration-200",
-                  "bg-brand hover:bg-brand-hover text-brand-foreground",
-                  "disabled:opacity-50 disabled:cursor-not-allowed",
-                )}
+                className="px-6 h-10 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {hasDownloading ? (
                   <>
@@ -250,8 +270,8 @@ export function DownloadsPage() {
                     />
                   </>
                 )}
-              </Button>
-            </div>
+              </TactileButton>
+            </motion.div>
           </div>
         </div>
       )}

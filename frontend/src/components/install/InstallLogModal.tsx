@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
+import { AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import {
   Notification,
@@ -9,7 +9,18 @@ import {
 } from "@/types/notification";
 import { useWebSocket } from "@/hooks";
 import { useNotificationContext } from "@/contexts/NotificationContext";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  ModalRoot,
+  ModalPortal,
+  ModalOverlay,
+  ModalContent,
+  Meter,
+  Surface,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ls";
 
 interface InstallLogModalProps {
   isOpen: boolean;
@@ -22,6 +33,14 @@ interface LogEntry {
   level: "info" | "success" | "warning" | "error";
   message: string;
 }
+
+/** 日志级别 -> 语义文字色(info 用次墨,其余走语义 token)。 */
+const LOG_LEVEL_COLOR: Record<LogEntry["level"], string> = {
+  info: "var(--ls-ink-soft)",
+  success: "var(--ls-life)",
+  warning: "var(--ls-warn)",
+  error: "var(--ls-danger)",
+};
 
 /**
  * 通知详情全屏模态框
@@ -45,23 +64,6 @@ export default function InstallLogModal({
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
-
-  // 按 ESC 键关闭
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-    }
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen, onClose]);
 
   // 获取任务 ID（使用实时的 currentNotification）
   const taskId =
@@ -163,25 +165,20 @@ export default function InstallLogModal({
     }
   }, [isOpen]);
 
-  if (!isOpen || !currentNotification) return null;
-
   // 根据通知类型获取标题
   const getTitle = () => {
+    if (!currentNotification) return "";
     switch (currentNotification.type) {
       case NotificationType.TASK:
         return currentNotification.task?.instanceName || "安装任务";
-      case NotificationType.MESSAGE:
-        return currentNotification.title;
-      case NotificationType.WARNING:
-        return currentNotification.title;
-      case NotificationType.ERROR:
+      default:
         return currentNotification.title;
     }
   };
 
   // 根据通知类型获取图标
   const getIcon = () => {
-    switch (currentNotification.type) {
+    switch (currentNotification?.type) {
       case NotificationType.TASK:
         return "ph:terminal-window";
       case NotificationType.MESSAGE:
@@ -190,284 +187,298 @@ export default function InstallLogModal({
         return "ph:warning";
       case NotificationType.ERROR:
         return "ph:x-circle";
+      default:
+        return "ph:bell";
     }
   };
 
-  // 根据通知类型获取图标颜色
+  // 根据通知类型获取图标语义色
   const getIconColor = () => {
-    switch (currentNotification.type) {
-      case NotificationType.TASK:
-        return "from-brand to-brand/70";
-      case NotificationType.MESSAGE:
-        return "from-brand to-brand/70";
+    switch (currentNotification?.type) {
       case NotificationType.WARNING:
-        return "from-yellow-500 to-orange-500";
+        return "var(--ls-warn)";
       case NotificationType.ERROR:
-        return "from-red-500 to-pink-500";
+        return "var(--ls-danger)";
+      default:
+        return "var(--ls-life)";
     }
   };
 
-  const isTaskNotification = currentNotification.type === NotificationType.TASK;
+  const isTaskNotification =
+    currentNotification?.type === NotificationType.TASK;
+  const taskStatus = currentNotification?.task?.status;
+  // 状态圆盘 / 圆点语义色:成功与进行中=生命色,失败=危险色。
+  const statusAccent =
+    taskStatus === TaskStatus.FAILED ? "var(--ls-danger)" : "var(--ls-life)";
+  const isInProgress =
+    taskStatus === TaskStatus.DOWNLOADING ||
+    taskStatus === TaskStatus.INSTALLING;
 
-  return createPortal(
-    <>
-      {/* 背景遮罩 - 仅覆盖主显示区域，避开 Sidebar */}
-      <div
-        className={cn(
-          "fixed top-0 right-0 bottom-0 left-0 md:left-64 z-[40]",
-          "backdrop-blur-md", // 纯磨砂，无背景色
-          "animate-in fade-in duration-300",
-        )}
-        onClick={onClose}
-      />
-
-      {/* 模态框主体容器 - 限制在主显示区域内居中 */}
-      <div className="fixed top-0 right-0 bottom-0 left-0 md:left-64 z-[60] flex items-center justify-center pointer-events-none">
-        {/* 模态框主体 */}
-        <div
-          className={cn(
-            "relative",
-            "w-full max-w-2xl mx-4", // 移除 md:ml-[18rem]，因为容器已经定位
-            "bg-popover backdrop-blur-xl",
-            "rounded-panel shadow-overlay",
-            "border border-white/20 dark:border-white/10",
-            "flex flex-col overflow-hidden",
-            "animate-in zoom-in-95 fade-in slide-in-from-bottom-4 duration-300 ease-out-expo",
-            // 任务通知固定高度以避免切换 Tab 时跳动，其他通知自适应
-            isTaskNotification
-              ? "h-[600px] max-h-[85vh]"
-              : "h-auto max-h-[85vh]",
-            "pointer-events-auto", // 恢复点击事件
-          )}
-        >
-          {/* 头部 */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-black/5 dark:border-white/5">
-            <div className="flex items-center gap-3">
-              <div
-                className={cn(
-                  "p-2 rounded-lg bg-white/50 dark:bg-white/10",
-                  getIconColor(),
-                )}
-              >
-                <Icon icon={getIcon()} className="w-5 h-5" />
-              </div>
-              <h2 className="text-lg font-semibold text-foreground">
-                {getTitle()}
-              </h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-muted-foreground"
+  return (
+    <ModalRoot
+      open={isOpen && !!currentNotification}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <AnimatePresence>
+        {isOpen && currentNotification && (
+          <ModalPortal forceMount>
+            <ModalOverlay />
+            <ModalContent
+              className={cn(
+                "flex max-w-2xl flex-col overflow-hidden p-0",
+                // 任务通知固定高度以避免切换 Tab 时跳动，其他通知自适应
+                isTaskNotification
+                  ? "h-[600px] max-h-[85vh]"
+                  : "h-auto max-h-[85vh]",
+              )}
             >
-              <Icon icon="ph:x" className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* 内容区域 */}
-          <div className="flex-1 overflow-hidden flex flex-col">
-            {isTaskNotification ? (
-              <Tabs
-                defaultValue="details"
-                className="flex-1 flex flex-col h-full"
+              {/* 头部 */}
+              <div
+                className="flex items-center justify-between border-b px-6 py-4"
+                style={{ borderColor: "var(--ls-hairline)" }}
               >
-                <div className="px-6 pt-4">
-                  <TabsList className="grid w-full grid-cols-2 bg-black/5 dark:bg-white/5">
-                    <TabsTrigger value="details">任务详情</TabsTrigger>
-                    <TabsTrigger value="logs">实时日志</TabsTrigger>
-                  </TabsList>
-                </div>
-
-                <div className="flex-1 overflow-hidden relative">
-                  <TabsContent
-                    value="details"
-                    className="h-full m-0 p-6 overflow-y-auto space-y-6"
+                <div className="flex items-center gap-3">
+                  <div
+                    className="rounded-lg p-2"
+                    style={{
+                      background: "var(--ls-surface-hi)",
+                      boxShadow: "var(--ls-shadow-soft)",
+                      color: getIconColor(),
+                    }}
                   >
-                    {/* 状态卡片 */}
-                    <div className="p-6 rounded-card bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/5 flex flex-col items-center text-center space-y-4">
-                      <div
-                        className={cn(
-                          "w-16 h-16 rounded-full flex items-center justify-center bg-gradient-to-br shadow-lg",
-                          currentNotification.task?.status ===
-                            TaskStatus.SUCCESS
-                            ? "from-green-400 to-green-600"
-                            : currentNotification.task?.status ===
-                                TaskStatus.FAILED
-                              ? "from-red-400 to-red-600"
-                              : "from-blue-400 to-blue-600",
-                        )}
-                      >
-                        <Icon
-                          icon={
-                            currentNotification.task?.status ===
-                            TaskStatus.SUCCESS
-                              ? "ph:check-bold"
-                              : currentNotification.task?.status ===
-                                  TaskStatus.FAILED
-                                ? "ph:x-bold"
-                                : "ph:spinner-gap-bold"
-                          }
-                          className={cn(
-                            "w-8 h-8 text-white",
-                            (currentNotification.task?.status ===
-                              TaskStatus.DOWNLOADING ||
-                              currentNotification.task?.status ===
-                                TaskStatus.INSTALLING) &&
-                              "animate-spin",
-                          )}
-                        />
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-foreground mb-1">
-                          {currentNotification.task?.status ===
-                          TaskStatus.SUCCESS
-                            ? "安装完成"
-                            : currentNotification.task?.status ===
-                                TaskStatus.FAILED
-                              ? "安装失败"
-                              : "正在处理..."}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {currentNotification.message}
-                        </p>
-                      </div>
+                    <Icon icon={getIcon()} className="h-5 w-5" />
+                  </div>
+                  <h2
+                    className="text-lg font-semibold"
+                    style={{ color: "var(--ls-ink)" }}
+                  >
+                    {getTitle()}
+                  </h2>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="ls-item rounded-full p-2 transition-colors"
+                  style={{ color: "var(--ls-ink-soft)" }}
+                  aria-label="关闭"
+                >
+                  <Icon icon="ph:x" className="h-5 w-5" />
+                </button>
+              </div>
 
-                      {/* 进度条 */}
-                      {(currentNotification.task?.status ===
-                        TaskStatus.DOWNLOADING ||
-                        currentNotification.task?.status ===
-                          TaskStatus.INSTALLING) && (
-                        <div className="w-full max-w-xs space-y-2">
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>进度</span>
-                            <span>
-                              {currentNotification.task?.progress?.toFixed(0) ||
-                                "0"}
-                              %
-                            </span>
+              {/* 内容区域 */}
+              <div className="flex flex-1 flex-col overflow-hidden">
+                {isTaskNotification ? (
+                  <Tabs
+                    defaultValue="details"
+                    className="flex h-full flex-1 flex-col"
+                  >
+                    <div className="px-6 pt-4">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="details" className="text-center">
+                          任务详情
+                        </TabsTrigger>
+                        <TabsTrigger value="logs" className="text-center">
+                          实时日志
+                        </TabsTrigger>
+                      </TabsList>
+                    </div>
+
+                    <div className="relative flex-1 overflow-hidden">
+                      <TabsContent
+                        value="details"
+                        className="m-0 h-full space-y-6 overflow-y-auto p-6"
+                      >
+                        {/* 状态卡片 */}
+                        <Surface
+                          variant="inset"
+                          className="flex flex-col items-center space-y-4 p-6 text-center"
+                        >
+                          <div
+                            className="flex h-16 w-16 items-center justify-center rounded-full"
+                            style={{
+                              background: statusAccent,
+                              color: "#fff",
+                              boxShadow: "var(--ls-shadow-soft)",
+                            }}
+                          >
+                            <Icon
+                              icon={
+                                taskStatus === TaskStatus.SUCCESS
+                                  ? "ph:check-bold"
+                                  : taskStatus === TaskStatus.FAILED
+                                    ? "ph:x-bold"
+                                    : "ph:spinner-gap-bold"
+                              }
+                              className={cn(
+                                "h-8 w-8",
+                                isInProgress && "animate-spin",
+                              )}
+                            />
                           </div>
-                          <div className="h-2 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-blue-500 transition-all duration-300 ease-out"
-                              style={{
-                                width: `${currentNotification.task?.progress || 0}%`,
-                              }}
+                          <div>
+                            <h3
+                              className="mb-1 text-xl font-bold"
+                              style={{ color: "var(--ls-ink)" }}
+                            >
+                              {taskStatus === TaskStatus.SUCCESS
+                                ? "安装完成"
+                                : taskStatus === TaskStatus.FAILED
+                                  ? "安装失败"
+                                  : "正在处理..."}
+                            </h3>
+                            <p
+                              className="text-sm"
+                              style={{ color: "var(--ls-ink-soft)" }}
+                            >
+                              {currentNotification.message}
+                            </p>
+                          </div>
+
+                          {/* 进度条 */}
+                          {isInProgress && (
+                            <div className="w-full max-w-xs">
+                              <Meter
+                                label="进度"
+                                used={currentNotification.task?.progress || 0}
+                                total={100}
+                                valueText={`${(currentNotification.task?.progress ?? 0).toFixed(0)}%`}
+                              />
+                            </div>
+                          )}
+                        </Surface>
+
+                        {/* 详细信息列表 */}
+                        <div className="space-y-4">
+                          <h4
+                            className="text-sm font-medium uppercase tracking-wider"
+                            style={{ color: "var(--ls-ink-soft)" }}
+                          >
+                            详细信息
+                          </h4>
+                          <div className="grid grid-cols-1 gap-3">
+                            <InfoItem
+                              label="任务 ID"
+                              value={currentNotification.task?.taskId || "—"}
+                            />
+                            <InfoItem
+                              label="实例名称"
+                              value={
+                                currentNotification.task?.instanceName || "—"
+                              }
+                            />
+                            <InfoItem
+                              label="开始时间"
+                              value={new Date(
+                                currentNotification.createdAt,
+                              ).toLocaleString()}
+                            />
+                            <InfoItem
+                              label="当前状态"
+                              value={currentNotification.task?.status || "—"}
                             />
                           </div>
                         </div>
-                      )}
-                    </div>
+                      </TabsContent>
 
-                    {/* 详细信息列表 */}
-                    <div className="space-y-4">
-                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                        详细信息
-                      </h4>
-                      <div className="grid grid-cols-1 gap-3">
-                        <InfoItem
-                          label="任务 ID"
-                          value={currentNotification.task?.taskId || "-"}
-                        />
-                        <InfoItem
-                          label="实例名称"
-                          value={currentNotification.task?.instanceName || "-"}
-                        />
-                        <InfoItem
-                          label="开始时间"
-                          value={new Date(
-                            currentNotification.createdAt,
-                          ).toLocaleString()}
-                        />
-                        <InfoItem
-                          label="当前状态"
-                          value={currentNotification.task?.status || "-"}
-                        />
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent
-                    value="logs"
-                    className="h-full m-0 flex flex-col"
-                  >
-                    <div className="flex-1 bg-[#1e1e1e] p-4 overflow-y-auto font-mono text-xs space-y-1">
-                      {logs.length === 0 ? (
-                        <div className="h-full flex items-center justify-center text-muted-foreground">
-                          等待日志连接...
-                        </div>
-                      ) : (
-                        logs.map((log, index) => (
-                          <div
-                            key={index}
-                            className="flex gap-2 hover:bg-white/5 px-1 rounded"
-                          >
-                            <span className="text-gray-500 shrink-0 select-none">
-                              [{log.time}]
-                            </span>
-                            <span
-                              className={cn(
-                                "break-all",
-                                log.level === "error"
-                                  ? "text-red-400"
-                                  : log.level === "warning"
-                                    ? "text-yellow-400"
-                                    : log.level === "success"
-                                      ? "text-green-400"
-                                      : "text-gray-300",
-                              )}
+                      <TabsContent
+                        value="logs"
+                        className="m-0 flex h-full flex-col"
+                      >
+                        <Surface
+                          variant="inset"
+                          className="flex-1 space-y-1 overflow-y-auto p-4 font-mono text-xs"
+                        >
+                          {logs.length === 0 ? (
+                            <div
+                              className="flex h-full items-center justify-center"
+                              style={{ color: "var(--ls-ink-faint)" }}
                             >
-                              {log.message}
-                            </span>
-                          </div>
-                        ))
-                      )}
-                      <div ref={logsEndRef} />
+                              等待日志连接...
+                            </div>
+                          ) : (
+                            logs.map((log, index) => (
+                              <div
+                                key={index}
+                                className="ls-item flex gap-2 rounded px-1"
+                              >
+                                <span
+                                  className="ls-num shrink-0 select-none"
+                                  style={{ color: "var(--ls-ink-faint)" }}
+                                >
+                                  [{log.time}]
+                                </span>
+                                <span
+                                  className="break-all"
+                                  style={{ color: LOG_LEVEL_COLOR[log.level] }}
+                                >
+                                  {log.message}
+                                </span>
+                              </div>
+                            ))
+                          )}
+                          <div ref={logsEndRef} />
+                        </Surface>
+                      </TabsContent>
                     </div>
-                  </TabsContent>
-                </div>
-              </Tabs>
-            ) : (
-              // 非任务通知的简单视图
-              <div className="p-8 flex flex-col items-center text-center space-y-6">
-                <div
-                  className={cn(
-                    "w-20 h-20 rounded-full flex items-center justify-center bg-opacity-10",
-                    currentNotification.type === NotificationType.ERROR
-                      ? "bg-red-500 text-red-500"
-                      : currentNotification.type === NotificationType.WARNING
-                        ? "bg-yellow-500 text-yellow-500"
-                        : "bg-blue-500 text-blue-500",
-                  )}
-                >
-                  <Icon icon={getIcon()} className="w-10 h-10" />
-                </div>
-                <div className="space-y-2 max-w-md">
-                  <h3 className="text-2xl font-bold text-foreground">
-                    {currentNotification.title}
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {currentNotification.message}
-                  </p>
-                </div>
-                <div className="pt-4 text-sm text-muted-foreground">
-                  {new Date(currentNotification.createdAt).toLocaleString()}
-                </div>
+                  </Tabs>
+                ) : (
+                  // 非任务通知的简单视图
+                  <div className="flex flex-col items-center space-y-6 p-8 text-center">
+                    <div
+                      className="flex h-20 w-20 items-center justify-center rounded-full"
+                      style={{
+                        background: "var(--ls-surface-hi)",
+                        boxShadow: "var(--ls-shadow-soft)",
+                        color: getIconColor(),
+                      }}
+                    >
+                      <Icon icon={getIcon()} className="h-10 w-10" />
+                    </div>
+                    <div className="max-w-md space-y-2">
+                      <h3
+                        className="text-2xl font-bold"
+                        style={{ color: "var(--ls-ink)" }}
+                      >
+                        {currentNotification.title}
+                      </h3>
+                      <p
+                        className="leading-relaxed"
+                        style={{ color: "var(--ls-ink-soft)" }}
+                      >
+                        {currentNotification.message}
+                      </p>
+                    </div>
+                    <div
+                      className="pt-4 text-sm"
+                      style={{ color: "var(--ls-ink-faint)" }}
+                    >
+                      {new Date(currentNotification.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </>,
-    document.body,
+            </ModalContent>
+          </ModalPortal>
+        )}
+      </AnimatePresence>
+    </ModalRoot>
   );
 }
 
 function InfoItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between items-center p-3 rounded-lg bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/5">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium text-foreground font-mono">
+    <Surface variant="inset" className="flex items-center justify-between p-3">
+      <span className="text-sm" style={{ color: "var(--ls-ink-soft)" }}>
+        {label}
+      </span>
+      <span
+        className="ls-num text-sm font-medium font-mono"
+        style={{ color: "var(--ls-ink)" }}
+      >
         {value}
       </span>
-    </div>
+    </Surface>
   );
 }

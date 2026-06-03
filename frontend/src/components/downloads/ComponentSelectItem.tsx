@@ -1,48 +1,79 @@
-import { Icon } from '@iconify/react'
-import { cn } from '@/lib/utils'
-import type { DownloadItem } from '@/types/download'
+import { Icon } from "@iconify/react";
+import { Checkbox } from "@/components/ls";
+import { cn } from "@/lib/utils";
+import type { DownloadItem } from "@/types/download";
 
 interface ComponentSelectItemProps {
-  item: DownloadItem
-  selected: boolean
-  disabled: boolean
-  locked?: boolean
-  onToggle: () => void
-  badge?: React.ReactNode
+  item: DownloadItem;
+  selected: boolean;
+  disabled: boolean;
+  locked?: boolean;
+  onToggle: () => void;
+  badge?: React.ReactNode;
 }
 
-export function ComponentSelectItem({ item, selected, disabled, locked, onToggle, badge }: ComponentSelectItemProps) {
+export function ComponentSelectItem({
+  item,
+  selected,
+  disabled,
+  locked,
+  onToggle,
+  badge,
+}: ComponentSelectItemProps) {
+  const interactive = !disabled && !locked && item.status !== "completed";
+
   return (
     <div
-      onClick={() => !disabled && !locked && item.status !== 'completed' && onToggle()}
+      onClick={() => interactive && onToggle()}
       className={cn(
-        "group p-3.5 rounded-card border transition-all duration-200",
-        disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-        selected
-          ? "bg-brand-muted border-brand/20"
-          : "bg-transparent border-transparent hover:bg-muted/60"
+        "group p-3.5 transition-all duration-200",
+        disabled
+          ? "opacity-50 cursor-not-allowed"
+          : interactive
+            ? "cursor-pointer"
+            : "cursor-default",
       )}
+      style={{
+        borderRadius: "var(--ls-r-card)",
+        border: "1px solid",
+        borderColor: selected ? "var(--ls-life)" : "transparent",
+        background: selected ? "var(--ls-life-soft)" : "transparent",
+      }}
     >
       <div className="flex items-start gap-3">
-        <div className={cn(
-          "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors mt-0.5 flex-shrink-0",
-          selected
-            ? "bg-brand border-brand"
-            : "border-border group-hover:border-muted-foreground"
-        )}>
-          {selected && <Icon icon="ph:check-bold" className="w-3 h-3 text-brand-foreground" />}
-        </div>
+        <Checkbox
+          checked={selected}
+          disabled={disabled || locked || item.status === "completed"}
+          onCheckedChange={() => interactive && onToggle()}
+          // 阻止冒泡到外层 div 造成双触发(外层点击已驱动 onToggle)
+          onClick={(e) => e.stopPropagation()}
+          className="mt-0.5"
+        />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-0.5">
-            <h3 className="text-sm font-medium text-foreground">{item.name}</h3>
-            {item.status === 'completed' && (
-              <Icon icon="ph:check-circle-fill" className="w-4 h-4 text-success" />
+            <h3
+              className="text-sm font-medium"
+              style={{ color: "var(--ls-ink)" }}
+            >
+              {item.name}
+            </h3>
+            {item.status === "completed" && (
+              <Icon
+                icon="ph:check-circle-fill"
+                className="w-4 h-4"
+                style={{ color: "var(--ls-life)" }}
+              />
             )}
           </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
+          <p
+            className="text-xs leading-relaxed"
+            style={{ color: "var(--ls-ink-soft)" }}
+          >
+            {item.description}
+          </p>
           {badge}
         </div>
       </div>
     </div>
-  )
+  );
 }

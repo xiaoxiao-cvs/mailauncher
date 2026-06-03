@@ -1,21 +1,20 @@
-import { FileCode, Cpu, FolderOpen, Check } from "lucide-react"
+import { FileCode, Cpu, FolderOpen, Check } from "lucide-react";
+import { motion } from "motion/react";
 
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { cn } from "@/lib/utils"
+import { Surface, Input, TactileButton, Label } from "@/components/ls";
+import { springTap } from "@/design/motion";
 
 const VENV_OPTIONS = [
-  { value: 'venv', label: 'venv', icon: FileCode, desc: 'Python \u6807\u51c6\u5e93' },
-  { value: 'conda', label: 'Conda', icon: Cpu, desc: 'Anaconda \u73af\u5883' },
-  { value: 'poetry', label: 'Poetry', icon: FileCode, desc: '\u4f9d\u8d56\u7ba1\u7406' },
-] as const
+  { value: "venv", label: "venv", icon: FileCode, desc: "Python 标准库" },
+  { value: "conda", label: "Conda", icon: Cpu, desc: "Anaconda 环境" },
+  { value: "poetry", label: "Poetry", icon: FileCode, desc: "依赖管理" },
+] as const;
 
 interface PythonEnvironmentPanelProps {
-  pythonPath: string
-  onPythonPathChange: (value: string) => void
-  venvType: string
-  onVenvTypeChange: (value: string) => void
+  pythonPath: string;
+  onPythonPathChange: (value: string) => void;
+  venvType: string;
+  onVenvTypeChange: (value: string) => void;
 }
 
 export function PythonEnvironmentPanel({
@@ -25,80 +24,106 @@ export function PythonEnvironmentPanel({
   onVenvTypeChange,
 }: PythonEnvironmentPanelProps) {
   return (
-    <div className="group relative overflow-hidden rounded-panel border border-border/50 bg-card/30 p-6 shadow-panel transition-all hover:shadow-panel-hover hover:bg-card/50 backdrop-blur-md">
-      <div className="flex items-start justify-between mb-4">
+    <Surface variant="panel" className="p-6">
+      <div className="mb-4 flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-panel bg-orange-500/10 text-orange-600 dark:text-orange-400">
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-[var(--ls-r-control)]"
+            style={{
+              background: "var(--ls-bg-2)",
+              color: "var(--ls-ink-soft)",
+            }}
+          >
             <FileCode size={20} />
           </div>
           <div>
-            <h3 className="text-lg font-semibold">Python {'\u73af\u5883'}</h3>
-            <p className="text-xs text-muted-foreground mt-1">{'\u8fd0\u884c Bot \u5b9e\u4f8b\u7684 Python \u89e3\u91ca\u5668'}</p>
+            <h3 className="text-lg font-semibold">Python {"环境"}</h3>
+            <p className="mt-1 text-xs" style={{ color: "var(--ls-ink-soft)" }}>
+              {"运行 Bot 实例的 Python 解释器"}
+            </p>
           </div>
         </div>
       </div>
 
       <div className="space-y-4">
-        <div className="space-y-3">
-          <Label className="text-sm font-medium text-muted-foreground">Python {'\u53ef\u6267\u884c\u6587\u4ef6\u8def\u5f84'}</Label>
+        <div className="space-y-2">
+          <Label>Python {"可执行文件路径"}</Label>
           <div className="flex gap-2">
             <Input
               value={pythonPath}
               onChange={(e) => onPythonPathChange(e.target.value)}
               placeholder="/usr/bin/python3"
-              className="flex-1 h-10 rounded-card bg-background/50 border-input/50 focus:ring-2 focus:ring-primary/20 transition-all"
+              className="flex-1"
             />
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-card px-4 h-10 bg-background/50 border-input/50 hover:bg-primary/5 hover:border-primary/50"
-            >
-              <FolderOpen className="w-4 h-4 mr-2" />
-              {'\u6d4f\u89c8'}
-            </Button>
+            <TactileButton variant="solid" className="shrink-0">
+              <FolderOpen size={16} />
+              {"浏览"}
+            </TactileButton>
           </div>
         </div>
 
-        <div className="space-y-3">
-          <Label className="text-sm font-medium text-muted-foreground">{'\u865a\u62df\u73af\u5883\u7c7b\u578b'}</Label>
+        <div className="space-y-2">
+          <Label>{"虚拟环境类型"}</Label>
           <div className="grid grid-cols-3 gap-3">
             {VENV_OPTIONS.map((option) => {
-              const Icon = option.icon
-              const isSelected = venvType === option.value
+              const Icon = option.icon;
+              const isSelected = venvType === option.value;
               return (
-                <button
+                <motion.button
                   key={option.value}
+                  type="button"
                   onClick={() => onVenvTypeChange(option.value)}
-                  className={cn(
-                    "relative p-3 rounded-card border-2 transition-all duration-200 text-left group/venv",
-                    isSelected
-                      ? "border-primary bg-primary/5 shadow-panel-hover"
-                      : "border-input/50 bg-background/50 hover:border-primary/50 hover:bg-primary/5"
-                  )}
+                  whileTap={{ scale: 0.97 }}
+                  whileHover={{ y: -1 }}
+                  transition={springTap}
+                  className="relative p-3 text-left outline-none"
+                  style={{
+                    background: isSelected
+                      ? "var(--ls-surface-hi)"
+                      : "var(--ls-bg-2)",
+                    border: `1px solid ${isSelected ? "var(--ls-life)" : "var(--ls-hairline)"}`,
+                    borderRadius: "var(--ls-r-card)",
+                    boxShadow: isSelected ? "var(--ls-shadow-soft)" : "none",
+                  }}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className={cn(
-                      "p-1.5 rounded-control transition-colors",
-                      isSelected
-                        ? "bg-primary/10 text-primary"
-                        : "bg-muted/50 text-muted-foreground group-hover/venv:bg-primary/10 group-hover/venv:text-primary"
-                    )}>
+                  <div className="mb-2 flex items-center justify-between">
+                    <div
+                      className="flex h-7 w-7 items-center justify-center rounded-[var(--ls-r-control)]"
+                      style={{
+                        background: isSelected
+                          ? "var(--ls-life-soft)"
+                          : "var(--ls-bg)",
+                        color: isSelected
+                          ? "var(--ls-life)"
+                          : "var(--ls-ink-soft)",
+                      }}
+                    >
                       <Icon size={16} />
                     </div>
                     {isSelected && (
-                      <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center">
-                        <Check size={10} className="text-primary-foreground" />
-                      </div>
+                      <span
+                        className="flex h-4 w-4 items-center justify-center rounded-full"
+                        style={{ background: "var(--ls-life)" }}
+                      >
+                        <Check size={10} style={{ color: "#fff" }} />
+                      </span>
                     )}
                   </div>
-                  <div className="text-sm font-semibold mb-0.5">{option.label}</div>
-                  <div className="text-xs text-muted-foreground">{option.desc}</div>
-                </button>
-              )
+                  <div className="mb-0.5 text-sm font-semibold">
+                    {option.label}
+                  </div>
+                  <div
+                    className="text-xs"
+                    style={{ color: "var(--ls-ink-soft)" }}
+                  >
+                    {option.desc}
+                  </div>
+                </motion.button>
+              );
             })}
           </div>
         </div>
       </div>
-    </div>
-  )
+    </Surface>
+  );
 }

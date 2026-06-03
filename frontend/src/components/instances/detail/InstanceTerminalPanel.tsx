@@ -1,6 +1,13 @@
 import { ComponentType, Instance, RuntimeKind } from "@/services/instanceApi";
 import { TerminalComponent } from "@/components/terminal/TerminalComponent";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  StatusDot,
+  Surface,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ls";
 
 interface ComponentStatusInfo {
   running?: boolean;
@@ -25,61 +32,56 @@ export function InstanceTerminalPanel({
   getComponentStatus,
 }: InstanceTerminalPanelProps) {
   return (
-    <div className="flex-1 bg-[#1e1e1e] rounded-panel shadow-panel overflow-hidden flex flex-col">
-      <div className="flex items-center px-4 py-3 bg-[#252526] border-b border-gray-700/30">
-        <div className="flex gap-2 mr-4">
-          <div className="w-3 h-3 rounded-full bg-red-500/80" />
-          <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-          <div className="w-3 h-3 rounded-full bg-green-500/80" />
-        </div>
-
-        <Tabs
-          value={selectedComponent}
-          onValueChange={(value) => onSelectComponent(value as ComponentType)}
-          className="flex-1"
+    <Surface
+      variant="inset"
+      className="flex flex-1 flex-col overflow-hidden p-0"
+    >
+      <Tabs
+        value={selectedComponent}
+        onValueChange={(value) => onSelectComponent(value as ComponentType)}
+        className="flex h-full min-h-0 flex-col"
+      >
+        {/* 终端头:凹陷面上的组件分段切换,选中项高面滑块跟随 */}
+        <div
+          className="flex items-center border-b px-4 py-3"
+          style={{ borderColor: "var(--ls-hairline)" }}
         >
-          <TabsList className="bg-transparent h-auto p-0 gap-2">
+          <TabsList>
             {availableComponents.map((comp) => (
-              <TabsTrigger
-                key={comp}
-                value={comp}
-                className="relative px-3 py-1 text-xs font-medium text-gray-400 data-[state=active]:text-white data-[state=active]:bg-gray-700/50 rounded-md transition-all"
-              >
+              <TabsTrigger key={comp} value={comp}>
                 <span className="flex items-center gap-2">
                   {comp === "MaiBot" ? "MaiBot" : "NapCat"}
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                      getComponentStatus(comp)?.running
-                        ? "bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.6)]"
-                        : "bg-gray-600"
-                    }`}
+                  <StatusDot
+                    running={getComponentStatus(comp)?.running === true}
                   />
                 </span>
               </TabsTrigger>
             ))}
           </TabsList>
-        </Tabs>
-      </div>
+        </div>
 
-      <div className="flex-1 relative">
-        <Tabs value={selectedComponent} className="h-full">
-          {availableComponents.map((comp) => (
-            <TabsContent key={comp} value={comp} className="h-full m-0">
-              <TerminalComponent
-                key={`${instance.id}-${comp}`}
-                instanceId={instance.id}
-                component={comp}
-                className="h-full"
-                isRunning={getComponentStatus(comp)?.running === true}
-                runtimeKind={
-                  getComponentStatus(comp)?.runtime_kind ??
-                  instance.runtime_profile.kind
-                }
-              />
-            </TabsContent>
-          ))}
-        </Tabs>
-      </div>
-    </div>
+        {/* 终端正文:xterm 画布自带深色底(#1e1e1e),保持其原生观感不覆盖 */}
+        {availableComponents.map((comp) => (
+          <TabsContent
+            key={comp}
+            value={comp}
+            className="m-0 min-h-0 flex-1 outline-none"
+            motionProps={{ className: "h-full" }}
+          >
+            <TerminalComponent
+              key={`${instance.id}-${comp}`}
+              instanceId={instance.id}
+              component={comp}
+              className="h-full"
+              isRunning={getComponentStatus(comp)?.running === true}
+              runtimeKind={
+                getComponentStatus(comp)?.runtime_kind ??
+                instance.runtime_profile.kind
+              }
+            />
+          </TabsContent>
+        ))}
+      </Tabs>
+    </Surface>
   );
 }

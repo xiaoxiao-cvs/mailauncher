@@ -3,12 +3,14 @@
  * 负责渲染消息列表、空状态、加载状态和退出动画管理
  */
 
-import { useEffect, useState, useRef } from 'react';
-import { cn } from '@/lib/utils';
+import { useEffect, useState, useRef } from "react";
+import { motion } from "motion/react";
+import { Badge, StatusDot } from "@/components/ls";
+import { springSettle } from "@/design/motion";
 import {
   type MessageQueueItem,
   type MessageStatus,
-} from '@/hooks/queries/useMessageQueueQueries';
+} from "@/hooks/queries/useMessageQueueQueries";
 import {
   MessageSquare,
   Loader2,
@@ -19,58 +21,63 @@ import {
   Brain,
   Send,
   Sparkles,
-} from 'lucide-react';
+} from "lucide-react";
 
 // ==================== 配置 ====================
 
-const STATUS_CONFIG: Record<MessageStatus, {
-  color: string;
-  bgColor: string;
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-}> = {
+/**
+ * 状态到生息语义 token 的映射:
+ * - planning/generating/sending = 活跃在途 = 生命色;
+ * - failed = 危险色;sent/pending = 中性弱色。
+ * 行容器统一为凹陷面(.ls-inset),状态靠 token 色图标 + 标签表达,不再用彩色玻璃背景块。
+ */
+const STATUS_CONFIG: Record<
+  MessageStatus,
+  {
+    tone: string;
+    icon: React.ComponentType<{
+      size?: number | string;
+      style?: React.CSSProperties;
+    }>;
+    label: string;
+  }
+> = {
   pending: {
-    color: 'text-gray-500',
-    bgColor: 'bg-gray-100 dark:bg-gray-800',
+    tone: "var(--ls-ink-faint)",
     icon: MessageSquare,
-    label: '等待中',
+    label: "等待中",
   },
   planning: {
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    tone: "var(--ls-life)",
     icon: Brain,
-    label: '思考中',
+    label: "思考中",
   },
   generating: {
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-50 dark:bg-purple-900/20',
+    tone: "var(--ls-life)",
     icon: Sparkles,
-    label: '生成中',
+    label: "生成中",
   },
   sending: {
-    color: 'text-amber-500',
-    bgColor: 'bg-amber-50 dark:bg-amber-900/20',
+    tone: "var(--ls-life)",
     icon: Send,
-    label: '发送中',
+    label: "发送中",
   },
   sent: {
-    color: 'text-green-500',
-    bgColor: 'bg-green-50 dark:bg-green-900/20',
+    tone: "var(--ls-ink-faint)",
     icon: CheckCircle2,
-    label: '已发送',
+    label: "已发送",
   },
   failed: {
-    color: 'text-red-500',
-    bgColor: 'bg-red-50 dark:bg-red-900/20',
+    tone: "var(--ls-danger)",
     icon: AlertCircle,
-    label: '失败',
+    label: "失败",
   },
 };
 
 // ==================== 辅助函数 ====================
 
 function formatDuration(startTime: number): string {
-  const elapsed = Math.floor((Date.now() / 1000) - startTime);
+  const elapsed = Math.floor(Date.now() / 1000 - startTime);
   if (elapsed < 60) return `${elapsed}s`;
   return `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`;
 }
@@ -107,96 +114,123 @@ interface MessageItemProps {
   privacyMode?: boolean;
 }
 
-function MessageItem({ item, isExiting, showInstanceName, privacyMode }: MessageItemProps) {
+function MessageItem({
+  item,
+  isExiting,
+  showInstanceName,
+  privacyMode,
+}: MessageItemProps) {
   const config = STATUS_CONFIG[item.status];
   const Icon = config.icon;
-  const isProcessing = ['planning', 'generating', 'sending'].includes(item.status);
+  const isProcessing = ["planning", "generating", "sending"].includes(
+    item.status,
+  );
 
   const elapsedTime = useElapsedTime(item.start_time, isProcessing);
 
   return (
-    <div
-      className={cn(
-        "relative p-3 rounded-card border transition-all duration-300",
-        config.bgColor,
-        "border-gray-200/50 dark:border-gray-700/50",
-        isExiting && "animate-slide-out-right opacity-0",
-        !isExiting && "animate-slide-in-left"
-      )}
+    <motion.div
+      className="ls-inset relative p-3"
+      initial={{ opacity: 0, x: -12 }}
+      animate={isExiting ? { opacity: 0, x: 12 } : { opacity: 1, x: 0 }}
+      transition={springSettle}
     >
       <div className="flex items-start gap-3">
-        <div className={cn("p-1.5 rounded-control", config.bgColor)}>
-          <Icon className={cn(
-            "w-4 h-4",
-            config.color,
-            isProcessing && "animate-pulse"
-          )} />
-        </div>
+        <span className="mt-0.5 inline-flex shrink-0 items-center">
+          {isProcessing ? (
+            <StatusDot running />
+          ) : (
+            <Icon size={16} style={{ color: config.tone }} />
+          )}
+        </span>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             {showInstanceName && item.instanceName && (
-              <span className="text-xs px-1.5 py-0.5 rounded-control bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                {item.instanceName}
-              </span>
+              <Badge tone="neutral">{item.instanceName}</Badge>
             )}
-            <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+            <span
+              className="text-sm font-medium truncate"
+              style={{ color: "var(--ls-ink)" }}
+            >
               {item.group_name || item.stream_id}
             </span>
             {item.cycle_count > 1 && (
-              <span className="text-xs px-1.5 py-0.5 rounded-control bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+              <Badge tone="neutral" className="ls-num">
                 第{item.cycle_count}次
-              </span>
+              </Badge>
             )}
           </div>
 
           <div className="flex items-center gap-2 mt-1">
-            <span className={cn("text-xs", config.color)}>
+            <span className="text-xs" style={{ color: config.tone }}>
               {config.label}
             </span>
-            <span className="text-xs text-gray-400">
+            <span
+              className="ls-num text-xs"
+              style={{ color: "var(--ls-ink-faint)" }}
+            >
               {elapsedTime}
             </span>
             {item.action_type && (
-              <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                → {item.action_type.toLowerCase().includes('no_reply') ? '不回复' : item.action_type}
+              <span
+                className="text-xs truncate"
+                style={{ color: "var(--ls-ink-soft)" }}
+              >
+                →{" "}
+                {item.action_type.toLowerCase().includes("no_reply")
+                  ? "不回复"
+                  : item.action_type}
               </span>
             )}
           </div>
 
-          {item.status === 'failed' && (
+          {item.status === "failed" && (
             <div className="flex items-center gap-1 mt-1">
-              <AlertCircle className="w-3 h-3 text-red-500" />
-              <span className="text-xs text-red-600 dark:text-red-400">
-                {item.retry_reason || '回复生成失败'}
+              <AlertCircle size={12} style={{ color: "var(--ls-danger)" }} />
+              <span className="text-xs" style={{ color: "var(--ls-danger)" }}>
+                {item.retry_reason || "回复生成失败"}
               </span>
             </div>
           )}
 
-          {item.status !== 'failed' && item.retry_count > 0 && (
+          {item.status !== "failed" && item.retry_count > 0 && (
             <div className="flex items-center gap-1 mt-1">
-              <RefreshCw className="w-3 h-3 text-amber-500" />
-              <span className="text-xs text-amber-600 dark:text-amber-400">
+              <RefreshCw size={12} style={{ color: "var(--ls-warn)" }} />
+              <span
+                className="ls-num text-xs"
+                style={{ color: "var(--ls-warn)" }}
+              >
                 重试 x{item.retry_count}
                 {item.retry_reason && ` (${item.retry_reason})`}
               </span>
             </div>
           )}
 
-          {item.status === 'sent' && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-              {privacyMode ? '已回复' : (item.message_preview ? `"${item.message_preview}"` : '已回复')}
+          {item.status === "sent" && (
+            <p
+              className="text-xs mt-1 truncate"
+              style={{ color: "var(--ls-ink-soft)" }}
+            >
+              {privacyMode
+                ? "已回复"
+                : item.message_preview
+                  ? `"${item.message_preview}"`
+                  : "已回复"}
             </p>
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 // ==================== 退出动画管理 Hook ====================
 
-export type EnrichedMessage = MessageQueueItem & { instanceName: string; instanceConnected: boolean };
+export type EnrichedMessage = MessageQueueItem & {
+  instanceName: string;
+  instanceConnected: boolean;
+};
 
 function useExitAnimations(allMessages: EnrichedMessage[]) {
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
@@ -209,31 +243,34 @@ function useExitAnimations(allMessages: EnrichedMessage[]) {
     const now = Date.now() / 1000;
 
     allMessages.forEach((msg) => {
-      if ((msg.status === 'sent' || msg.status === 'failed') && msg.sent_time) {
+      if ((msg.status === "sent" || msg.status === "failed") && msg.sent_time) {
         if (!processedSentIdsRef.current.has(msg.id)) {
           processedSentIdsRef.current.add(msg.id);
 
-          const delayMs = msg.status === 'failed' ? 5000 : 2000;
+          const delayMs = msg.status === "failed" ? 5000 : 2000;
           const delaySeconds = delayMs / 1000;
           const elapsedSinceComplete = now - msg.sent_time;
 
           if (elapsedSinceComplete > delaySeconds + 1) {
-            setRemovedIds(prev => new Set([...prev, msg.id]));
+            setRemovedIds((prev) => new Set([...prev, msg.id]));
             return;
           }
 
-          const remainingDelay = Math.max(0, delayMs - elapsedSinceComplete * 1000);
+          const remainingDelay = Math.max(
+            0,
+            delayMs - elapsedSinceComplete * 1000,
+          );
 
           setTimeout(() => {
-            setExitingIds(prev => new Set([...prev, msg.id]));
+            setExitingIds((prev) => new Set([...prev, msg.id]));
 
             setTimeout(() => {
-              setExitingIds(prev => {
+              setExitingIds((prev) => {
                 const next = new Set(prev);
                 next.delete(msg.id);
                 return next;
               });
-              setRemovedIds(prev => new Set([...prev, msg.id]));
+              setRemovedIds((prev) => new Set([...prev, msg.id]));
             }, 500);
           }, remainingDelay);
         }
@@ -242,11 +279,11 @@ function useExitAnimations(allMessages: EnrichedMessage[]) {
   }, [allMessages]);
 
   useEffect(() => {
-    const currentIds = new Set(allMessages.map(m => m.id));
+    const currentIds = new Set(allMessages.map((m) => m.id));
 
-    setRemovedIds(prev => {
+    setRemovedIds((prev) => {
       const next = new Set<string>();
-      prev.forEach(id => {
+      prev.forEach((id) => {
         if (currentIds.has(id)) {
           next.add(id);
         }
@@ -254,14 +291,14 @@ function useExitAnimations(allMessages: EnrichedMessage[]) {
       return next;
     });
 
-    processedSentIdsRef.current.forEach(id => {
+    processedSentIdsRef.current.forEach((id) => {
       if (!currentIds.has(id)) {
         processedSentIdsRef.current.delete(id);
       }
     });
   }, [allMessages]);
 
-  const visibleMessages = allMessages.filter(msg => !removedIds.has(msg.id));
+  const visibleMessages = allMessages.filter((msg) => !removedIds.has(msg.id));
 
   return { visibleMessages, exitingIds };
 }
@@ -290,9 +327,19 @@ export function MessageQueueList({
   return (
     <>
       {error && (
-        <div className="mb-4 p-3 rounded-card bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-          <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
-            <AlertCircle className="w-4 h-4" />
+        <div
+          className="mb-4 p-3 rounded-card"
+          style={{
+            background: "color-mix(in srgb, var(--ls-danger) 16%, transparent)",
+            border:
+              "1px solid color-mix(in srgb, var(--ls-danger) 32%, transparent)",
+          }}
+        >
+          <div
+            className="flex items-center gap-2 text-sm"
+            style={{ color: "var(--ls-danger)" }}
+          >
+            <AlertCircle size={16} />
             <span>获取队列失败</span>
           </div>
         </div>
@@ -300,19 +347,29 @@ export function MessageQueueList({
 
       {isLoading && (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+          <Loader2
+            size={24}
+            className="animate-spin"
+            style={{ color: "var(--ls-ink-faint)" }}
+          />
         </div>
       )}
 
       {!isLoading && (
         <div className="space-y-2 max-h-[400px] overflow-y-auto overflow-x-hidden scrollbar-thin">
           {!hasAnyConnected ? (
-            <div className="text-center py-6 text-gray-400">
-              <WifiOff className="w-6 h-6 mx-auto mb-2 opacity-50" />
+            <div
+              className="text-center py-6"
+              style={{ color: "var(--ls-ink-faint)" }}
+            >
+              <WifiOff size={24} className="mx-auto mb-2" />
               <p className="text-sm">实例未启动</p>
             </div>
           ) : visibleMessages.length === 0 ? (
-            <div className="text-center py-6 text-gray-400">
+            <div
+              className="text-center py-6"
+              style={{ color: "var(--ls-ink-faint)" }}
+            >
               <p className="text-sm">暂无消息</p>
             </div>
           ) : (

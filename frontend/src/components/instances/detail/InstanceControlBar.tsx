@@ -1,14 +1,20 @@
 import { ComponentType, RuntimeKind } from "@/services/instanceApi";
-import { Play, Square, RotateCw, ChevronDown, Loader2 } from "lucide-react";
 import {
+  Play,
+  Square,
+  RotateCw,
+  ChevronDown,
+  Check,
+  Loader2,
+} from "lucide-react";
+import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
+  Surface,
+} from "@/components/ls";
 
 interface ComponentStatusInfo {
   running?: boolean;
@@ -30,6 +36,12 @@ interface InstanceControlBarProps {
   onRestart: (component?: ComponentType) => void;
 }
 
+const START_LABEL: Record<ComponentType | "all", string> = {
+  all: "启动所有",
+  MaiBot: "启动 MaiBot",
+  NapCat: "启动 NapCat",
+};
+
 export function InstanceControlBar({
   selectedComponent,
   selectedStartTarget,
@@ -43,11 +55,12 @@ export function InstanceControlBar({
   onRestart,
 }: InstanceControlBarProps) {
   return (
-    <div className="glass-panel p-3 flex items-center justify-between">
+    <Surface variant="panel" className="flex items-center justify-between p-3">
       <div className="flex items-center gap-2">
         {!allComponentsRunning && (
-          <div className="flex items-center bg-green-500/10 rounded-control p-1 border border-green-500/20">
+          <div className="flex items-center gap-1">
             <Button
+              variant="life"
               onClick={() => {
                 if (selectedStartTarget === "all") {
                   onStart();
@@ -56,54 +69,62 @@ export function InstanceControlBar({
                 }
               }}
               disabled={actionLoading === "start"}
-              className="bg-green-500 hover:bg-green-600 text-white rounded-lg shadow-sm h-9 px-4"
             >
               {actionLoading === "start" ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Play className="w-4 h-4 mr-2 fill-current" />
+                <Play className="h-4 w-4 fill-current" />
               )}
-              {selectedStartTarget === "all"
-                ? "启动所有"
-                : selectedStartTarget === "MaiBot"
-                  ? "启动 MaiBot"
-                  : selectedStartTarget === "NapCat"
-                    ? "启动 NapCat"
-                    : "启动"}
+              {START_LABEL[selectedStartTarget]}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-8 text-green-600 hover:bg-green-500/20 rounded-lg ml-1"
+                  variant="life"
+                  aria-label="选择启动目标"
+                  className="!px-2"
                 >
-                  <ChevronDown className="w-4 h-4" />
+                  <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuRadioGroup
-                  value={selectedStartTarget}
-                  onValueChange={(v) =>
-                    onSelectStartTarget(v as ComponentType | "all")
-                  }
-                >
-                  {!hasAnyComponentRunning && (
-                    <DropdownMenuRadioItem value="all">
-                      所有组件
-                    </DropdownMenuRadioItem>
-                  )}
-                  {!getComponentStatus("MaiBot")?.running && (
-                    <DropdownMenuRadioItem value="MaiBot">
-                      MaiBot
-                    </DropdownMenuRadioItem>
-                  )}
-                  {!getComponentStatus("NapCat")?.running && (
-                    <DropdownMenuRadioItem value="NapCat">
-                      NapCat
-                    </DropdownMenuRadioItem>
-                  )}
-                </DropdownMenuRadioGroup>
+                {!hasAnyComponentRunning && (
+                  <DropdownMenuItem onClick={() => onSelectStartTarget("all")}>
+                    <Check
+                      size={16}
+                      style={{
+                        opacity: selectedStartTarget === "all" ? 1 : 0,
+                      }}
+                    />
+                    所有组件
+                  </DropdownMenuItem>
+                )}
+                {!getComponentStatus("MaiBot")?.running && (
+                  <DropdownMenuItem
+                    onClick={() => onSelectStartTarget("MaiBot")}
+                  >
+                    <Check
+                      size={16}
+                      style={{
+                        opacity: selectedStartTarget === "MaiBot" ? 1 : 0,
+                      }}
+                    />
+                    MaiBot
+                  </DropdownMenuItem>
+                )}
+                {!getComponentStatus("NapCat")?.running && (
+                  <DropdownMenuItem
+                    onClick={() => onSelectStartTarget("NapCat")}
+                  >
+                    <Check
+                      size={16}
+                      style={{
+                        opacity: selectedStartTarget === "NapCat" ? 1 : 0,
+                      }}
+                    />
+                    NapCat
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -111,27 +132,27 @@ export function InstanceControlBar({
 
         {hasAnyComponentRunning && (
           <>
-            <div className="flex items-center bg-red-500/10 rounded-control p-1 border border-red-500/20">
+            <div className="flex items-center gap-1">
               <Button
+                variant="destructive"
                 onClick={() => onStop()}
                 disabled={actionLoading === "stop"}
-                className="bg-red-500 hover:bg-red-600 text-white rounded-lg shadow-sm h-9 px-4"
               >
                 {actionLoading === "stop" ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Square className="w-4 h-4 mr-2 fill-current" />
+                  <Square className="h-4 w-4 fill-current" />
                 )}
                 停止
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-8 text-red-600 hover:bg-red-500/20 rounded-lg ml-1"
+                    variant="destructive"
+                    aria-label="选择停止目标"
+                    className="!px-2"
                   >
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -148,27 +169,27 @@ export function InstanceControlBar({
               </DropdownMenu>
             </div>
 
-            <div className="flex items-center bg-blue-500/10 rounded-control p-1 border border-blue-500/20">
+            <div className="flex items-center gap-1">
               <Button
+                variant="solid"
                 onClick={() => onRestart()}
                 disabled={actionLoading === "restart"}
-                className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm h-9 px-4"
               >
                 {actionLoading === "restart" ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <RotateCw className="w-4 h-4 mr-2" />
+                  <RotateCw className="h-4 w-4" />
                 )}
                 重启
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-8 text-blue-600 hover:bg-blue-500/20 rounded-lg ml-1"
+                    variant="solid"
+                    aria-label="选择重启目标"
+                    className="!px-2"
                   >
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -188,9 +209,12 @@ export function InstanceControlBar({
         )}
       </div>
 
-      <div className="text-xs text-gray-400 font-medium px-2">
+      <div
+        className="px-2 text-xs font-medium"
+        style={{ color: "var(--ls-ink-faint)" }}
+      >
         {selectedComponent === "MaiBot" ? "MaiBot Console" : "NapCat Console"}
       </div>
-    </div>
+    </Surface>
   );
 }

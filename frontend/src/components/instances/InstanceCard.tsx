@@ -3,13 +3,31 @@
  * 显示实例的基本信息和操作按钮
  */
 
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Instance } from '@/services/instanceApi';
-import { Play, Square, RotateCw, Trash2, Server, Pencil, Clock, Info } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
-import { InstanceRenameModal } from './InstanceRenameModal';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Instance, InstanceStatus } from "@/services/instanceApi";
+import {
+  Play,
+  Square,
+  RotateCw,
+  Trash2,
+  Server,
+  Pencil,
+  Clock,
+  Loader2,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { zhCN } from "date-fns/locale";
+import {
+  Card,
+  Badge,
+  StatusDot,
+  Meter,
+  IconMenu,
+  TactileButton,
+} from "@/components/ls";
+import type { BadgeTone, IconMenuItem } from "@/components/ls";
+import { InstanceRenameModal } from "./InstanceRenameModal";
 
 interface InstanceCardProps {
   instance: Instance;
@@ -22,41 +40,31 @@ interface InstanceCardProps {
   loading?: boolean;
 }
 
-// 状态颜色映射 - 用于卡片背景
-const statusColors = {
-  pending: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
-  running: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400',
-  partial: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400',
-  stopped: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
-  starting: 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400',
-  stopping: 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400',
-  failed: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
-  unknown: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300',
-};
-
-// 状态文本颜色 - 用于指示点
-const statusTextColors = {
-  pending: 'bg-slate-500',
-  running: 'bg-green-500',
-  partial: 'bg-amber-500',
-  stopped: 'bg-gray-400',
-  starting: 'bg-yellow-500',
-  stopping: 'bg-orange-500',
-  failed: 'bg-red-500',
-  unknown: 'bg-zinc-500',
+// 状态语义 -> Badge 语气(生命/警示/危险/中性),映射到 var(--ls-*)。
+const statusTone: Record<InstanceStatus, BadgeTone> = {
+  pending: "neutral",
+  running: "life",
+  partial: "warn",
+  stopped: "neutral",
+  starting: "warn",
+  stopping: "warn",
+  failed: "danger",
+  unknown: "neutral",
 };
 
 // 状态文本映射
-const statusTexts = {
-  pending: '待命中',
-  running: '运行中',
-  partial: '部分运行',
-  stopped: '已停止',
-  starting: '启动中',
-  stopping: '停止中',
-  failed: '失败',
-  unknown: '未知',
+const statusTexts: Record<InstanceStatus, string> = {
+  pending: "待命中",
+  running: "运行中",
+  partial: "部分运行",
+  stopped: "已停止",
+  starting: "启动中",
+  stopping: "停止中",
+  failed: "失败",
+  unknown: "未知",
 };
+
+const PLACEHOLDER = "—";
 
 export const InstanceCard: React.FC<InstanceCardProps> = ({
   instance,
@@ -69,23 +77,23 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
 }) => {
   const navigate = useNavigate();
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
-  
+
   // 计算组件数量（假设有 main, napcat, napcat-ada）
   const componentCount = instance.component_states?.length || 0;
-  
+
   // 格式化最后运行时间
   const formatLastRun = (lastRun?: string) => {
-    if (!lastRun) return '从未运行';
+    if (!lastRun) return "从未运行";
     try {
-      return formatDistanceToNow(new Date(lastRun), { 
+      return formatDistanceToNow(new Date(lastRun), {
         addSuffix: true,
-        locale: zhCN 
+        locale: zhCN,
       });
     } catch {
-      return '未知';
+      return "未知";
     }
   };
-  
+
   // 格式化运行时长
   const formatRunTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -98,202 +106,176 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
     }
     return `${seconds}秒`;
   };
-  
+
   // 点击卡片进入详情页
   const handleCardClick = (e: React.MouseEvent) => {
     // 如果点击的是按钮，不触发卡片点击
-    if ((e.target as HTMLElement).closest('button')) {
+    if ((e.target as HTMLElement).closest("button")) {
       return;
     }
     navigate(`/instances/${instance.id}`);
   };
-  
+
   // 阻止按钮事件冒泡
   const handleButtonClick = (e: React.MouseEvent, action: () => void) => {
     e.stopPropagation();
     action();
   };
-  
-  const isRunning = instance.status === 'running' || instance.status === 'partial';
-  const isStopped = instance.status === 'stopped';
-  const isTransitioning = instance.status === 'pending' || instance.status === 'starting' || instance.status === 'stopping';
-  
+
+  const isRunning =
+    instance.status === "running" || instance.status === "partial";
+  const isStopped = instance.status === "stopped";
+  const isTransitioning =
+    instance.status === "pending" ||
+    instance.status === "starting" ||
+    instance.status === "stopping";
+  const isBusy = loading || isTransitioning;
+  const canStart =
+    isStopped || instance.status === "failed" || instance.status === "unknown";
+
+  // 资源读数:有真实采样才渲染数值,无采样用占位,不用 0 伪装成"已采集"。
+  const hasCpu = instance.cpu_usage !== undefined && instance.cpu_usage > 0;
+  const hasMem =
+    instance.memory_usage !== undefined && instance.memory_usage > 0;
+  const cpuText = hasCpu ? `${instance.cpu_usage!.toFixed(1)}%` : PLACEHOLDER;
+  const memText = hasMem
+    ? `${instance.memory_usage!.toFixed(0)} MB`
+    : PLACEHOLDER;
+
+  // 卡片右上"更多"操作:重命名 / 重启(运行时)/ 删除(危险)。
+  const menuItems: IconMenuItem[] = [
+    {
+      icon: Pencil,
+      label: "重命名",
+      onSelect: () => setIsRenameModalOpen(true),
+    },
+    ...(isRunning
+      ? [
+          {
+            icon: RotateCw,
+            label: "重启",
+            onSelect: () => onRestart(instance.id),
+          } as IconMenuItem,
+        ]
+      : []),
+    {
+      icon: Trash2,
+      label: isRunning ? "运行中无法删除" : "删除实例",
+      danger: true,
+      onSelect: () => {
+        if (!isRunning) onDelete(instance.id);
+      },
+    },
+  ];
+
   return (
-    <div
+    <Card
       onClick={handleCardClick}
-      className={`
-        group relative overflow-hidden
-        bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl
-        rounded-panel shadow-panel hover:shadow-panel-hover
-        border border-white/50 dark:border-gray-700/50
-        transition-all duration-300 ease-out
-        hover:-translate-y-1 cursor-pointer
-        ${loading || isTransitioning ? 'opacity-80' : ''}
-      `}
+      className={`group relative cursor-pointer ${isBusy ? "opacity-80" : ""}`}
     >
-      {/* 装饰背景 - 仅在 hover 时显示更明显 */}
-      <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-      
-      <div className="p-6 relative z-10">
-        {/* 头部：名称和 Info 图标 */}
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+      {/* 头部:名称 + 运行点 + 更多菜单 */}
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <StatusDot running={isRunning} />
+          <h3
+            className="truncate text-lg font-semibold tracking-tight"
+            style={{ color: "var(--ls-ink)" }}
+          >
             {instance.name}
           </h3>
-          
-          {/* Info 图标按钮 */}
-          <button
-            onClick={(e) => handleButtonClick(e, () => {
-              // TODO: 展示详细信息弹窗
-              console.log('查看实例详情:', instance.id);
-            })}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300
-                     hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:scale-95
-                     transition-all duration-300"
-            title="查看详情"
-          >
-            <Info className="w-4 h-4" />
-          </button>
         </div>
-        
-        {/* 资源使用文本 - 每10秒自动更新 */}
-        <div className="mb-3 text-xs text-gray-500 dark:text-gray-400">
-          CPU {instance.cpu_usage !== undefined && instance.cpu_usage > 0 
-            ? `${instance.cpu_usage.toFixed(1)}%` 
-            : '0%'} / 内存 {instance.memory_usage !== undefined && instance.memory_usage > 0 
-            ? `${instance.memory_usage.toFixed(0)}MB` 
-            : '0MB'}
-        </div>
-        
-        {/* 信息网格 */}
-        {/* 极简徽章式状态显示 */}
-        <div className="flex items-center gap-2 mb-4 text-xs flex-wrap">
-          {/* 运行状态徽章 */}
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${statusColors[instance.status]} transition-all duration-200`}>
-            <div className={`w-1.5 h-1.5 rounded-full ${statusTextColors[instance.status]} ${isRunning ? 'animate-pulse' : ''}`} />
-            <span className="font-medium">{statusTexts[instance.status]}</span>
-          </div>
-          
-          {/* 运行时间徽章 */}
-          {isRunning && instance.run_time !== undefined && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
-              <Clock className="w-3 h-3" />
-              <span className="font-medium">{formatRunTime(instance.run_time)}</span>
-            </div>
-          )}
-          
-          {/* 最后运行徽章 */}
-          {!isRunning && instance.last_run && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-              <RotateCw className="w-3 h-3" />
-              <span className="font-medium">{formatLastRun(instance.last_run)}</span>
-            </div>
-          )}
-          
-          {/* 组件数徽章 */}
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-all duration-200 ${
-            isRunning 
-              ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' 
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-          }`}>
-            <Server className="w-3 h-3" />
-            <span className="font-medium">{componentCount}</span>
-          </div>
-          
-          {/* 版本徽章 */}
-          {instance.bot_version && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-              <span className="font-medium text-[10px]">v{instance.bot_version}</span>
-            </div>
-          )}
-        </div>
-        
-        {/* 操作按钮区域 */}
-        <div className="flex items-center gap-3 pt-2">
-          {/* 启动/停止按钮 - 自适应宽度 */}
-          {isStopped || instance.status === 'failed' || instance.status === 'unknown' ? (
-            <button
-              onClick={(e) => handleButtonClick(e, () => onStart(instance.id))}
-              disabled={loading || isTransitioning}
-              className="flex-1 flex items-center justify-center gap-2 h-10 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full 
-                       hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
-                       transition-all duration-200 shadow-lg shadow-gray-900/20 dark:shadow-white/10 text-sm font-semibold"
-            >
-              {loading || isTransitioning ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
-              ) : (
-                <>
-                  <Play className="w-4 h-4 fill-current" />
-                  <span>启动</span>
-                </>
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={(e) => handleButtonClick(e, () => onStop(instance.id))}
-              disabled={loading || isTransitioning}
-              className="flex-1 flex items-center justify-center gap-2 h-10 bg-white dark:bg-gray-800 text-red-500 border border-red-200 dark:border-red-900/30 rounded-full 
-                       hover:bg-red-50 dark:hover:bg-red-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
-                       transition-all duration-200 text-sm font-semibold"
-            >
-              {loading || isTransitioning ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-500 border-t-transparent" />
-              ) : (
-                <>
-                  <Square className="w-4 h-4 fill-current" />
-                  <span>停止</span>
-                </>
-              )}
-            </button>
-          )}
-          
-          {/* 重命名按钮 - 铅笔图标 */}
-          <button
-            onClick={(e) => handleButtonClick(e, () => setIsRenameModalOpen(true))}
-            disabled={loading || isTransitioning}
-            className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full 
-                     hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:scale-95 disabled:opacity-50
-                     transition-all duration-300"
-            title="重命名"
-          >
-            <Pencil className="w-4 h-4" />
-          </button>
-          
-          {/* 重启按钮 */}
-          {isRunning && (
-            <button
-              onClick={(e) => handleButtonClick(e, () => onRestart(instance.id))}
-              disabled={loading || isTransitioning}
-              className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full 
-                       hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:scale-95 disabled:opacity-50
-                       transition-all duration-300"
-              title="重启"
-            >
-              <RotateCw className={`w-4 h-4 ${loading || isTransitioning ? 'animate-spin' : ''}`} />
-            </button>
-          )}
-          
-          {/* 删除按钮 */}
-          <button
-            onClick={(e) => handleButtonClick(e, () => onDelete(instance.id))}
-            disabled={loading || isRunning || isTransitioning}
-            className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full 
-                     hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 active:scale-95 disabled:opacity-50
-                     transition-all duration-300"
-            title={isRunning ? '请先停止实例再删除' : '删除实例'}
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+        <div className="shrink-0">
+          <IconMenu items={menuItems} align="right" />
         </div>
       </div>
-      
-      {/* 加载遮罩 */}
-      {(loading || isTransitioning) && (
-        <div className="absolute inset-0 bg-white/50 dark:bg-black/50 backdrop-blur-[1px] flex items-center justify-center z-20">
-          {/* 这里的 spinner 已经在按钮里显示了,这里可以留空或者显示一个大的 */}
+
+      {/* 资源占用 —— 内存条(生命色填充 + 等宽读数);CPU 作右侧并列读数 */}
+      <div className="mb-4">
+        <Meter
+          label="内存占用"
+          used={hasMem ? instance.memory_usage! : 0}
+          total={hasMem ? Math.max(instance.memory_usage! * 1.6, 1024) : 0}
+          valueText={memText}
+        />
+        <div
+          className="mt-2 flex items-baseline justify-between text-[11px] font-medium"
+          style={{ color: "var(--ls-ink-soft)" }}
+        >
+          <span>CPU</span>
+          <span className="ls-num text-xs">{cpuText}</span>
         </div>
-      )}
-      
+      </div>
+
+      {/* 状态徽章组 */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Badge tone={statusTone[instance.status]}>
+          {statusTexts[instance.status]}
+        </Badge>
+
+        {isRunning && instance.run_time !== undefined && (
+          <Badge tone="neutral" className="gap-1.5">
+            <Clock className="h-3 w-3" />
+            <span className="ls-num">{formatRunTime(instance.run_time)}</span>
+          </Badge>
+        )}
+
+        {!isRunning && instance.last_run && (
+          <Badge tone="neutral" className="gap-1.5">
+            <RotateCw className="h-3 w-3" />
+            <span>{formatLastRun(instance.last_run)}</span>
+          </Badge>
+        )}
+
+        <Badge tone={isRunning ? "life" : "neutral"} className="gap-1.5">
+          <Server className="h-3 w-3" />
+          <span className="ls-num">{componentCount}</span>
+        </Badge>
+
+        {instance.bot_version && (
+          <Badge tone="neutral">
+            <span className="ls-num text-[10px]">v{instance.bot_version}</span>
+          </Badge>
+        )}
+      </div>
+
+      {/* 主操作:启动(生命色)/ 停止(中性);次要操作收进右上菜单 */}
+      <div className="pt-1">
+        {canStart ? (
+          <TactileButton
+            variant="life"
+            onClick={(e) => handleButtonClick(e, () => onStart(instance.id))}
+            disabled={isBusy}
+            className="w-full justify-center disabled:opacity-50"
+          >
+            {isBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <Play className="h-4 w-4 fill-current" />
+                <span>启动</span>
+              </>
+            )}
+          </TactileButton>
+        ) : (
+          <TactileButton
+            variant="solid"
+            onClick={(e) => handleButtonClick(e, () => onStop(instance.id))}
+            disabled={isBusy}
+            className="w-full justify-center disabled:opacity-50"
+            style={{ color: "var(--ls-danger)" }}
+          >
+            {isBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <Square className="h-4 w-4 fill-current" />
+                <span>停止</span>
+              </>
+            )}
+          </TactileButton>
+        )}
+      </div>
+
       {/* 重命名模态框 */}
       <InstanceRenameModal
         isOpen={isRenameModalOpen}
@@ -306,6 +288,6 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
           setIsRenameModalOpen(false);
         }}
       />
-    </div>
+    </Card>
   );
 };

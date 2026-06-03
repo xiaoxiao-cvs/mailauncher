@@ -3,9 +3,12 @@
  * 显示所有实例的卡片网格
  */
 
-import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
-import { InstanceCard } from '@/components/instances/InstanceCard';
-import { Plus, RefreshCw, AlertCircle, Server } from 'lucide-react';
+import React, { useEffect, useState, useRef } from "react";
+import { motion } from "motion/react";
+import { InstanceCard } from "@/components/instances/InstanceCard";
+import { Plus, RefreshCw, AlertCircle, Server } from "lucide-react";
+import { Surface, Badge, StatusDot, TactileButton } from "@/components/ls";
+import { springSettle } from "@/design/motion";
 import {
   useInstancesQuery,
   useStartInstanceMutation,
@@ -13,373 +16,343 @@ import {
   useRestartInstanceMutation,
   useDeleteInstanceMutation,
   useUpdateInstanceMutation,
-} from '@/hooks/queries/useInstanceQueries';
+} from "@/hooks/queries/useInstanceQueries";
 
 export const InstanceListPage: React.FC = () => {
   // 使用 React Query hooks 获取数据
-  const { data: instanceData, isLoading, error, refetch } = useInstancesQuery({
+  const {
+    data: instanceData,
+    isLoading,
+    error,
+    refetch,
+  } = useInstancesQuery({
     refetchInterval: 10000, // 每10秒自动刷新
   });
-  
+
   // 实例操作 mutations
   const startMutation = useStartInstanceMutation();
   const stopMutation = useStopInstanceMutation();
   const restartMutation = useRestartInstanceMutation();
   const deleteMutation = useDeleteInstanceMutation();
   const updateMutation = useUpdateInstanceMutation();
-  
+
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const previousPositions = useRef<Map<string, DOMRect>>(new Map());
-  const hasAnimatedRef = useRef<Set<string>>(new Set());
-  const previousIndexMap = useRef<Map<string, number>>(new Map());
+  // 排序用:运行实例的启动顺序(重排/入场动画交给 motion layout + 父级 stagger,无需手算 FLIP)
   const runningStartOrderRef = useRef<Map<string, number>>(new Map());
   const nextStartOrderRef = useRef<number>(1);
-  const previousOrderHash = useRef<string>('');
-  const isInitialRender = useRef<boolean>(true);
-  
+
   // 对实例进行排序：运行中的在前，按状态和时间排序
   const instances = React.useMemo(() => {
     const list = instanceData?.instances || [];
-    
+
     // 首次加载时，为已运行的实例初始化启动顺序（按运行时间降序）
-    const runningInstances = list.filter(inst => 
-      inst.status === 'running' || inst.status === 'starting'
+    const runningInstances = list.filter(
+      (inst) => inst.status === "running" || inst.status === "starting",
     );
-    
-    if (runningInstances.length > 0 && runningStartOrderRef.current.size === 0) {
+
+    if (
+      runningInstances.length > 0 &&
+      runningStartOrderRef.current.size === 0
+    ) {
       // 按运行时间降序排序，运行时间长的获得更小的序号（排在前面）
-      const sortedByRunTime = [...runningInstances].sort((a, b) => 
-        (b.run_time || 0) - (a.run_time || 0)
+      const sortedByRunTime = [...runningInstances].sort(
+        (a, b) => (b.run_time || 0) - (a.run_time || 0),
       );
-      
+
       sortedByRunTime.forEach((instance) => {
-        runningStartOrderRef.current.set(instance.id, nextStartOrderRef.current);
+        runningStartOrderRef.current.set(
+          instance.id,
+          nextStartOrderRef.current,
+        );
         nextStartOrderRef.current += 1;
       });
     }
-    
+
     return [...list].sort((a, b) => {
       // 运行中的实例优先
-      const aRunning = a.status === 'running' || a.status === 'starting';
-      const bRunning = b.status === 'running' || b.status === 'starting';
-      
+      const aRunning = a.status === "running" || a.status === "starting";
+      const bRunning = b.status === "running" || b.status === "starting";
+
       if (aRunning && !bRunning) return -1;
       if (!aRunning && bRunning) return 1;
-      
+
       // 相同状态下，按启动顺序排序（运行中）或名称排序（已停止）
       if (aRunning && bRunning) {
         // 按启动顺序排序：先启动的在前面
         const aOrder = runningStartOrderRef.current.get(a.id) || 0;
         const bOrder = runningStartOrderRef.current.get(b.id) || 0;
-        
+
         if (aOrder !== 0 && bOrder !== 0) {
           return aOrder - bOrder;
         }
         // 如果某个没有启动顺序（刚启动），按运行时间排序
         return (b.run_time || 0) - (a.run_time || 0);
       }
-      
+
       // 已停止的按名称排序（字母顺序）
-      return a.name.localeCompare(b.name, 'zh-CN');
+      return a.name.localeCompare(b.name, "zh-CN");
     });
   }, [instanceData?.instances]);
-  
-  // 标记新实例已经动画过，并更新启动顺序
+
+  // 维护运行实例的启动顺序(供排序用);重排/入场动画交给 motion layout + 父级 stagger
   useEffect(() => {
-    instances.forEach(instance => {
-      if (!hasAnimatedRef.current.has(instance.id)) {
-        hasAnimatedRef.current.add(instance.id);
-      }
-      
-      // 为刚启动的实例分配启动顺序
-      const isRunning = instance.status === 'running' || instance.status === 'starting';
+    instances.forEach((instance) => {
+      const isRunning =
+        instance.status === "running" || instance.status === "starting";
       if (isRunning && !runningStartOrderRef.current.has(instance.id)) {
-        runningStartOrderRef.current.set(instance.id, nextStartOrderRef.current);
+        runningStartOrderRef.current.set(
+          instance.id,
+          nextStartOrderRef.current,
+        );
         nextStartOrderRef.current += 1;
       }
-      
-      // 清理已停止实例的启动顺序
       if (!isRunning && runningStartOrderRef.current.has(instance.id)) {
         runningStartOrderRef.current.delete(instance.id);
       }
     });
   }, [instances]);
-  
-  // FLIP 动画的正确实现
-  useLayoutEffect(() => {
-    if (instances.length === 0) return;
-    
-    const currentOrderHash = instances.map(inst => inst.id).join(',');
-    const orderChanged = previousOrderHash.current !== currentOrderHash;
-    
-    // 首次渲染：等入场动画结束后再记录位置
-    if (isInitialRender.current) {
-      // 等待 0.8s 入场动画 + 额外的 100ms 缓冲
-      setTimeout(() => {
-        instances.forEach((instance, index) => {
-          const element = cardRefs.current.get(instance.id);
-          if (element) {
-            const rect = element.getBoundingClientRect();
-            previousPositions.current.set(instance.id, rect);
-            previousIndexMap.current.set(instance.id, index);
-          }
-        });
-      }, 900); // 0.8s 动画 + 0.1s 缓冲
-      
-      previousOrderHash.current = currentOrderHash;
-      isInitialRender.current = false;
-      return;
-    }
-    
-    // 顺序没变：更新位置记录
-    if (!orderChanged) {
-      instances.forEach((instance, index) => {
-        const element = cardRefs.current.get(instance.id);
-        if (element) {
-          const rect = element.getBoundingClientRect();
-          previousPositions.current.set(instance.id, rect);
-          previousIndexMap.current.set(instance.id, index);
-        }
-      });
-      previousOrderHash.current = currentOrderHash;
-      return;
-    }
-    
-    // 记录新位置
-    const newPositions = new Map<string, DOMRect>();
-    const newIndexMap = new Map<string, number>();
-    
-    instances.forEach((instance, index) => {
-      const element = cardRefs.current.get(instance.id);
-      if (element) {
-        const rect = element.getBoundingClientRect();
-        newPositions.set(instance.id, rect);
-        newIndexMap.set(instance.id, index);
-      }
-    });
-    
-    // 执行 FLIP 动画
-    instances.forEach((instance, currentIndex) => {
-      const element = cardRefs.current.get(instance.id);
-      const oldPos = previousPositions.current.get(instance.id);
-      const newPos = newPositions.get(instance.id);
-      const oldIndex = previousIndexMap.current.get(instance.id);
-      
-      if (!element || !oldPos || !newPos || oldIndex === undefined) return;
-      
-      const deltaX = oldPos.left - newPos.left;
-      const deltaY = oldPos.top - newPos.top;
-      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-      
-      const indexChanged = oldIndex !== currentIndex;
-      const isAlreadyFirst = oldIndex === 0 && currentIndex === 0;
-      
-      // 判断是否是水平交换（主要是横向移动）
-      const isHorizontalSwap = Math.abs(deltaX) > 100 && Math.abs(deltaX) > Math.abs(deltaY) * 0.5;
-      
-      if (distance > 5 && indexChanged && !isAlreadyFirst && isHorizontalSwap) {
-        element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-        element.style.transition = 'none';
-        void element.offsetHeight;
-        
-        requestAnimationFrame(() => {
-          element.style.transform = '';
-          element.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-        });
-      }
-    });
-    
-    previousPositions.current = newPositions;
-    previousIndexMap.current = newIndexMap;
-    previousOrderHash.current = currentOrderHash;
-  }, [instances]);
-  
+
+  // 卡片入场与重排动画由下方 motion layout + 父级 staggerChildren 负责(已移除手写 FLIP)。
+
   // 处理启动实例
   const handleStart = async (id: string) => {
     setActionLoading(id);
     try {
       await startMutation.mutateAsync(id);
     } catch (error) {
-      console.error('启动实例失败:', error);
+      console.error("启动实例失败:", error);
     } finally {
       setActionLoading(null);
     }
   };
-  
+
   // 处理停止实例
   const handleStop = async (id: string) => {
     setActionLoading(id);
     try {
       await stopMutation.mutateAsync(id);
     } catch (error) {
-      console.error('停止实例失败:', error);
+      console.error("停止实例失败:", error);
     } finally {
       setActionLoading(null);
     }
   };
-  
+
   // 处理重启实例
   const handleRestart = async (id: string) => {
     setActionLoading(id);
     try {
       await restartMutation.mutateAsync(id);
     } catch (error) {
-      console.error('重启实例失败:', error);
+      console.error("重启实例失败:", error);
     } finally {
       setActionLoading(null);
     }
   };
-  
+
   // 处理删除实例
   const handleDelete = async (id: string) => {
-    if (!confirm('确定要删除这个实例吗？此操作不可恢复。')) {
+    if (!confirm("确定要删除这个实例吗？此操作不可恢复。")) {
       return;
     }
-    
+
     setActionLoading(id);
     try {
       await deleteMutation.mutateAsync(id);
     } catch (error) {
-      console.error('删除实例失败:', error);
+      console.error("删除实例失败:", error);
     } finally {
       setActionLoading(null);
     }
   };
-  
+
   // 处理重命名实例
   const handleRename = async (id: string, newName: string) => {
     try {
       await updateMutation.mutateAsync({ id, data: { name: newName } });
     } catch (error) {
-      console.error('重命名实例失败:', error);
+      console.error("重命名实例失败:", error);
     }
   };
-  
+
   // 手动刷新
   const handleRefresh = () => {
     refetch();
   };
-  
+
   return (
     <div className="container mx-auto px-6 py-10 max-w-7xl">
       {/* 页面头部 */}
       <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-bold text-foreground tracking-tight mb-3">
+          <div
+            className="text-xs uppercase tracking-[0.2em] mb-2"
+            style={{ color: "var(--ls-ink-faint)" }}
+          >
             实例管理
+          </div>
+          <h1
+            className="text-4xl font-semibold tracking-tight mb-3"
+            style={{ color: "var(--ls-ink)" }}
+          >
+            全部实例
           </h1>
-          <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
-            <span className="bg-muted px-3 py-1 rounded-full">
-              总计 {instances.length}
+          <div className="flex items-center gap-3 text-sm font-medium">
+            <Badge tone="neutral">
+              总计 <span className="ls-num ml-1">{instances.length}</span>
+            </Badge>
+            <span
+              className="flex items-center gap-1.5"
+              style={{ color: "var(--ls-ink-soft)" }}
+            >
+              <StatusDot running />
+              运行中
+              <span className="ls-num">
+                {instances.filter((i) => i.status === "running").length}
+              </span>
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-success" />
-              运行中 {instances.filter(i => i.status === 'running').length}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#8E8E93]" />
-              已停止 {instances.filter(i => i.status === 'stopped').length}
+            <span
+              className="flex items-center gap-1.5"
+              style={{ color: "var(--ls-ink-soft)" }}
+            >
+              <StatusDot running={false} />
+              已停止
+              <span className="ls-num">
+                {instances.filter((i) => i.status === "stopped").length}
+              </span>
             </span>
           </div>
         </div>
-        
-        <div className="flex items-center gap-4">
-          <button
+
+        <div className="flex items-center gap-3">
+          <TactileButton
+            variant="ghost"
             onClick={handleRefresh}
             disabled={isLoading}
-            className="flex items-center gap-2 px-5 py-2.5 bg-card
-                     text-muted-foreground rounded-full border border-border hover:bg-muted
-                     hover:shadow-md active:scale-95 disabled:opacity-50 
-                     transition-all duration-300 font-medium text-sm"
+            className="disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
+            />
             刷新状态
-          </button>
-          
-          <button
-            className="flex items-center gap-2 px-6 py-2.5 bg-foreground text-white dark:text-background
-                     rounded-full hover:shadow-lg hover:shadow-foreground/5
-                     hover:-translate-y-0.5 active:translate-y-0 active:scale-95
-                     transition-all duration-300 font-medium text-sm"
-          >
+          </TactileButton>
+
+          <TactileButton variant="solid">
             <Plus className="w-4 h-4" />
             创建新实例
-          </button>
+          </TactileButton>
         </div>
       </div>
-      
+
       {/* 错误提示 */}
       {error && (
-        <div className="mb-8 p-4 bg-destructive/10 border border-destructive/20
-                      rounded-panel flex items-center gap-4 backdrop-blur-sm">
-          <div className="w-10 h-10 rounded-full bg-destructive/20 flex items-center justify-center flex-shrink-0">
-            <AlertCircle className="w-5 h-5 text-destructive" />
+        <Surface variant="panel" className="mb-8 p-4 flex items-center gap-4">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{
+              background:
+                "color-mix(in srgb, var(--ls-danger) 16%, transparent)",
+            }}
+          >
+            <AlertCircle
+              className="w-5 h-5"
+              style={{ color: "var(--ls-danger)" }}
+            />
           </div>
           <div className="flex-1">
-            <p className="text-destructive font-semibold">加载失败</p>
-            <p className="text-destructive/80 text-sm mt-0.5">{error.message}</p>
+            <p className="font-semibold" style={{ color: "var(--ls-danger)" }}>
+              加载失败
+            </p>
+            <p
+              className="text-sm mt-0.5"
+              style={{ color: "var(--ls-ink-soft)" }}
+            >
+              {error.message}
+            </p>
           </div>
-          <button
+          <TactileButton
+            variant="ghost"
             onClick={handleRefresh}
-            className="px-4 py-2 bg-white/50 hover:bg-white text-destructive rounded-full 
-                     text-sm font-medium transition-colors duration-200"
+            style={{ color: "var(--ls-danger)" }}
           >
             重试
-          </button>
-        </div>
+          </TactileButton>
+        </Surface>
       )}
-      
+
       {/* 实例卡片网格 */}
       {isLoading && instances.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-32">
-          <div className="w-16 h-16 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mb-6" />
-          <p className="text-muted-foreground font-medium">正在加载实例数据...</p>
+          <div
+            className="w-16 h-16 rounded-full animate-spin mb-6"
+            style={{
+              border: "4px solid var(--ls-hairline)",
+              borderTopColor: "var(--ls-life)",
+            }}
+          />
+          <p className="font-medium" style={{ color: "var(--ls-ink-soft)" }}>
+            正在加载实例数据...
+          </p>
         </div>
       ) : instances.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-32 text-center">
-          <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
-            <Server className="w-10 h-10 text-gray-400" />
+          <div
+            className="w-24 h-24 rounded-full flex items-center justify-center mb-6"
+            style={{ background: "var(--ls-bg-2)" }}
+          >
+            <Server
+              className="w-10 h-10"
+              style={{ color: "var(--ls-ink-faint)" }}
+            />
           </div>
-          <h3 className="text-xl font-bold text-foreground mb-2">暂无实例</h3>
-          <p className="text-muted-foreground max-w-md mx-auto mb-8">
+          <h3
+            className="text-xl font-semibold mb-2"
+            style={{ color: "var(--ls-ink)" }}
+          >
+            暂无实例
+          </h3>
+          <p
+            className="max-w-md mx-auto mb-8"
+            style={{ color: "var(--ls-ink-soft)" }}
+          >
             您还没有创建任何实例。点击右上角的"创建新实例"按钮开始您的第一个部署。
           </p>
-          <button className="px-8 py-3 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
-            立即创建
-          </button>
+          <TactileButton variant="life">立即创建</TactileButton>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 instance-grid-container">
-          {instances.map((instance, index) => {
-            const isNew = !hasAnimatedRef.current.has(instance.id);
-            
-            return (
-              <div 
-                key={instance.id}
-                ref={(el) => {
-                  if (el) {
-                    cardRefs.current.set(instance.id, el);
-                  } else {
-                    cardRefs.current.delete(instance.id);
-                  }
-                }}
-                className={`instance-card-item ${isNew ? 'instance-card-enter' : ''}`}
-                style={isNew ? { animationDelay: `${index * 0.15}s` } : {}}
-              >
-                <InstanceCard
-                  instance={instance}
-                  onStart={handleStart}
-                  onStop={handleStop}
-                  onRestart={handleRestart}
-                  onDelete={handleDelete}
-                  onRename={handleRename}
-                  loading={actionLoading === instance.id}
-                />
-              </div>
-            );
-          })}
-        </div>
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8"
+          initial="hidden"
+          animate="show"
+          variants={{
+            hidden: {},
+            show: {
+              transition: { staggerChildren: 0.06, delayChildren: 0.04 },
+            },
+          }}
+        >
+          {instances.map((instance) => (
+            <motion.div
+              key={instance.id}
+              layout
+              variants={{
+                hidden: { opacity: 0, y: 16 },
+                show: { opacity: 1, y: 0 },
+              }}
+              transition={springSettle}
+            >
+              <InstanceCard
+                instance={instance}
+                onStart={handleStart}
+                onStop={handleStop}
+                onRestart={handleRestart}
+                onDelete={handleDelete}
+                onRename={handleRename}
+                loading={actionLoading === instance.id}
+              />
+            </motion.div>
+          ))}
+        </motion.div>
       )}
     </div>
   );

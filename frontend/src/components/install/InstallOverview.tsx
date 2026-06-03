@@ -1,9 +1,11 @@
-import { Icon } from '@iconify/react'
-import { InstallOverviewState, TaskStatus } from '@/types/notification'
-import { cn } from '@/lib/utils'
+import { Icon } from "@iconify/react";
+import { motion } from "motion/react";
+import { InstallOverviewState, TaskStatus } from "@/types/notification";
+import { Surface, Badge } from "@/components/ls";
+import { springSoft } from "@/design/motion";
 
 interface InstallOverviewProps {
-  state: InstallOverviewState
+  state: InstallOverviewState;
 }
 
 /**
@@ -14,44 +16,74 @@ interface InstallOverviewProps {
  * - 状态变化动画
  */
 export function InstallOverview({ state }: InstallOverviewProps) {
-  const { visible, instanceName, version, components, deploymentPath, status, loading } = state
+  const {
+    visible,
+    instanceName,
+    version,
+    components,
+    deploymentPath,
+    status,
+    loading,
+  } = state;
 
-  if (!visible) return null
+  if (!visible) return null;
 
   return (
-    <div className={cn(
-      'flex-1 flex items-center justify-center p-6',
-      'animate-in fade-in slide-in-from-right-4 duration-500'
-    )}>
+    <motion.div
+      className="flex-1 flex items-center justify-center p-6"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={springSoft}
+    >
       <div className="w-full max-w-2xl">
-        <div className={cn(
-          'p-8 rounded-card border',
-          'bg-card',
-          'border-border',
-          'shadow-panel'
-        )}>
+        <Surface variant="panel" className="p-8">
           {loading ? (
             // 骨架屏
             <div className="space-y-6 animate-pulse">
-              <div className="h-8 bg-muted rounded w-2/3" />
+              <div
+                className="h-8 rounded w-2/3"
+                style={{ background: "var(--ls-bg-2)" }}
+              />
               <div className="space-y-3">
-                <div className="h-4 bg-muted rounded w-full" />
-                <div className="h-4 bg-muted rounded w-5/6" />
-                <div className="h-4 bg-muted rounded w-4/6" />
+                <div
+                  className="h-4 rounded w-full"
+                  style={{ background: "var(--ls-bg-2)" }}
+                />
+                <div
+                  className="h-4 rounded w-5/6"
+                  style={{ background: "var(--ls-bg-2)" }}
+                />
+                <div
+                  className="h-4 rounded w-4/6"
+                  style={{ background: "var(--ls-bg-2)" }}
+                />
               </div>
             </div>
           ) : (
             <div className="space-y-6">
               {/* 标题 */}
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand to-brand/70 flex items-center justify-center text-white shadow-md flex-shrink-0">
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{
+                    background: "var(--ls-life)",
+                    color: "#fff",
+                    boxShadow: "var(--ls-shadow-soft)",
+                  }}
+                >
                   <Icon icon="ph:robot" className="w-7 h-7" />
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-foreground mb-1">
-                    {getStatusIcon(status)} {getStatusTitle(status)}
+                  <h2
+                    className="text-2xl font-bold mb-1"
+                    style={{ color: "var(--ls-ink)" }}
+                  >
+                    {getStatusTitle(status)}
                   </h2>
-                  <p className="text-sm text-muted-foreground">
+                  <p
+                    className="text-sm"
+                    style={{ color: "var(--ls-ink-soft)" }}
+                  >
                     {instanceName} · {version}
                   </p>
                 </div>
@@ -61,82 +93,84 @@ export function InstallOverview({ state }: InstallOverviewProps) {
               <div className="space-y-4">
                 {/* 组件列表 */}
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                  <label
+                    className="text-sm font-medium mb-2 block"
+                    style={{ color: "var(--ls-ink-soft)" }}
+                  >
                     安装组件
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {components.map((component, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 text-sm font-medium rounded-lg bg-brand-muted text-brand"
-                      >
+                      <Badge key={index} tone="life" className="text-sm">
                         {component}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 </div>
 
                 {/* 部署路径 */}
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                  <label
+                    className="text-sm font-medium mb-2 block"
+                    style={{ color: "var(--ls-ink-soft)" }}
+                  >
                     部署路径
                   </label>
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
-                    <Icon icon="ph:folder-open" className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <span className="text-sm text-muted-foreground font-mono truncate">
+                  <Surface
+                    variant="inset"
+                    className="flex items-center gap-2 px-3 py-2"
+                  >
+                    <Icon
+                      icon="ph:folder-open"
+                      className="w-4 h-4 flex-shrink-0"
+                      style={{ color: "var(--ls-ink-faint)" }}
+                    />
+                    <span
+                      className="ls-num text-sm font-mono truncate"
+                      style={{ color: "var(--ls-ink-soft)" }}
+                    >
                       {deploymentPath}
                     </span>
-                  </div>
+                  </Surface>
                 </div>
 
                 {/* 提示信息 */}
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-brand-muted">
-                  <Icon icon="ph:info" className="w-5 h-5 text-brand flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-muted-foreground">
+                <Surface variant="inset" className="flex items-start gap-2 p-3">
+                  <Icon
+                    icon="ph:info"
+                    className="w-5 h-5 flex-shrink-0"
+                    style={{ color: "var(--ls-life)" }}
+                  />
+                  <p
+                    className="text-sm"
+                    style={{ color: "var(--ls-ink-soft)" }}
+                  >
                     可在通知中查看安装进度和详细日志
                   </p>
-                </div>
+                </Surface>
               </div>
             </div>
           )}
-        </div>
+        </Surface>
       </div>
-    </div>
-  )
-}
-
-// 获取状态图标
-function getStatusIcon(status: TaskStatus): string {
-  switch (status) {
-    case TaskStatus.PENDING:
-      return '[等待]'
-    case TaskStatus.DOWNLOADING:
-      return '[下载]'
-    case TaskStatus.INSTALLING:
-      return '[安装]'
-    case TaskStatus.SUCCESS:
-      return '[成功]'
-    case TaskStatus.FAILED:
-      return '[失败]'
-    default:
-      return '[处理中]'
-  }
+    </motion.div>
+  );
 }
 
 // 获取状态标题
 function getStatusTitle(status: TaskStatus): string {
   switch (status) {
     case TaskStatus.PENDING:
-      return '准备安装'
+      return "准备安装";
     case TaskStatus.DOWNLOADING:
-      return '正在下载'
+      return "正在下载";
     case TaskStatus.INSTALLING:
-      return '正在安装'
+      return "正在安装";
     case TaskStatus.SUCCESS:
-      return '安装成功'
+      return "安装成功";
     case TaskStatus.FAILED:
-      return '安装失败'
+      return "安装失败";
     default:
-      return '处理中'
+      return "处理中";
   }
 }
