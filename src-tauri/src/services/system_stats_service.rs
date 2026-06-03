@@ -10,6 +10,8 @@ use std::time::Instant;
 use serde::Serialize;
 use sysinfo::{Disks, Networks, System};
 
+use crate::services::load_average::LoadSampler;
+
 /// 主机系统资源快照(一次采样的结果)。字段为字节/秒等原始量,格式化交前端。
 #[derive(Debug, Clone, Serialize)]
 pub struct SystemStats {
@@ -35,12 +37,19 @@ pub struct SystemStats {
     pub net_tx_rate: u64,
     /// 主机已运行时长(秒)
     pub uptime_secs: u64,
+    /// 系统平均负载(1 分钟,运行队列长度的 EWMA;Windows 经 PDH 计算,Unix 取 sysinfo 原生)
+    pub load_avg_1: f64,
+    /// 系统平均负载(5 分钟)
+    pub load_avg_5: f64,
+    /// 系统平均负载(15 分钟)
+    pub load_avg_15: f64,
 }
 
 struct MonitorInner {
     system: System,
     networks: Networks,
     disks: Disks,
+    load: LoadSampler,
     last_instant: Option<Instant>,
     latest: Option<SystemStats>,
 }
@@ -58,6 +67,7 @@ impl SystemMonitor {
                 system: System::new(),
                 networks: Networks::new_with_refreshed_list(),
                 disks: Disks::new_with_refreshed_list(),
+                load: LoadSampler::new(),
                 last_instant: None,
                 latest: None,
             })),
@@ -110,6 +120,10 @@ impl SystemMonitor {
             (0, 0)
         };
 
+        // 活跃线程估算:全局 CPU 占用比 × 逻辑核数(运行)+ 队列(等待),对齐任务管理器负载口径。
+        let cpu_running = (cpu_usage as f64 / 100.0) * cpu_core_count as f64;
+        let (load_avg_1, load_avg_5, load_avg_15) = inner.load.sample(elapsed, cpu_running);
+
         let stats = SystemStats {
             cpu_usage,
             cpu_core_count,
@@ -122,6 +136,9 @@ impl SystemMonitor {
             net_rx_rate,
             net_tx_rate,
             uptime_secs: System::uptime(),
+            load_avg_1,
+            load_avg_5,
+            load_avg_15,
         };
         inner.latest = Some(stats.clone());
         stats
