@@ -1,0 +1,121 @@
+/* ============================================================
+   Living Surfaces (生息) —— mailauncher 设计语言 token(锁定 2026-06-03)
+   暖 · 哑光 · 安静。零玻璃,层级靠柔和扩散投影 + 暖中性色;生命感来自绿色信号 + 跟手动效。
+   明暗等权(两套取值)。配合 src/design/motion.ts 的弹簧动效 token 使用。
+   ============================================================ */
+:root {
+  --ls-bg: #f3efe9;
+  --ls-bg-2: #ece7df;
+  --ls-surface: #fbf8f3;
+  --ls-surface-hi: #ffffff;
+  --ls-top-hi: rgba(255, 255, 255, 0.7);
+
+  --ls-ink: #2b2722;
+  --ls-ink-soft: #79716a;
+  --ls-ink-faint: #a89f95;
+  --ls-hairline: rgba(43, 39, 34, 0.08);
+
+  --ls-life: #45a079; /* 生命色:运行/活着 */
+  --ls-life-soft: rgba(69, 160, 121, 0.16);
+  --ls-warn: #cf9442;
+  --ls-danger: #c5563e;
+
+  --ls-shadow-soft:
+    0 1px 2px rgba(43, 39, 34, 0.05), 0 8px 24px -10px rgba(43, 39, 34, 0.12);
+  --ls-shadow-lift:
+    0 2px 6px rgba(43, 39, 34, 0.06), 0 18px 40px -14px rgba(43, 39, 34, 0.18);
+
+  --ls-r-panel: 22px;
+  --ls-r-card: 16px;
+  --ls-r-control: 12px;
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --ls-bg: #17140f;
+  --ls-bg-2: #120f0b;
+  --ls-surface: #211c16;
+  --ls-surface-hi: #2a241d;
+  --ls-top-hi: rgba(255, 255, 255, 0.04);
+
+  --ls-ink: #efe8dd;
+  --ls-ink-soft: #a99e90;
+  --ls-ink-faint: #6e655a;
+  --ls-hairline: rgba(239, 232, 221, 0.09);
+
+  --ls-life: #5fbf92;
+  --ls-life-soft: rgba(95, 191, 146, 0.18);
+  --ls-warn: #e0a65a;
+  --ls-danger: #d9694f;
+
+  --ls-shadow-soft:
+    0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+  --ls-shadow-lift:
+    0 2px 8px rgba(0, 0, 0, 0.45), 0 22px 50px -16px rgba(0, 0, 0, 0.7);
+
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ls-bg);
+  color: var(--ls-ink);
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition:
+    background 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 哑光面 —— 柔和扩散投影 + 发丝边 + 纸面顶高光,绝不用玻璃模糊 */
+.ls-panel {
+  background: var(--ls-surface);
+  border: 1px solid var(--ls-hairline);
+  border-radius: var(--ls-r-panel);
+  box-shadow:
+    var(--ls-shadow-soft),
+    inset 0 1px 0 var(--ls-top-hi);
+}
+.ls-card {
+  background: var(--ls-surface);
+  border: 1px solid var(--ls-hairline);
+  border-radius: var(--ls-r-card);
+  box-shadow:
+    var(--ls-shadow-soft),
+    inset 0 1px 0 var(--ls-top-hi);
+}
+.ls-inset {
+  background: var(--ls-bg-2);
+  border: 1px solid var(--ls-hairline);
+  border-radius: var(--ls-r-card);
+}
+.ls-item {
+  transition: background 0.15s ease;
+}
+.ls-item:hover {
+  background: var(--ls-bg-2);
+}
+
+.ls-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body {
+    transition: none;
+  }
+}
