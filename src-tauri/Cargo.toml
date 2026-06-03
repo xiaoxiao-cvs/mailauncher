@@ -46,9 +46,11 @@ sha2 = "0.10.9"
 # MaiBot bot.py check_eula 用 MD5(EULA.md/PRIVACY.md 内容) 作为 EULA_AGREE/PRIVACY_AGREE 的确认值
 md-5 = "0.10"
 
-# Windows 平均负载:用 PDH 读 \System\Processor Queue Length 性能计数器(仅 Windows 编译)
+# Windows 专属底层查询(仅 Windows 编译):
+#   - Performance: PDH 读 \System\Processor Queue Length 算平均负载
+#   - SystemInformation: GetSystemFirmwareTable 读 SMBIOS Type 17 取内存频率/类型
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_System_Performance"] }
+windows-sys = { version = "0.59", features = ["Win32_System_Performance", "Win32_System_SystemInformation"] }
 
 [dev-dependencies]
 tempfile = "3"

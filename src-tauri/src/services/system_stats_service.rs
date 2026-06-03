@@ -11,6 +11,7 @@ use serde::Serialize;
 use sysinfo::{Disks, Networks, System};
 
 use crate::services::load_average::LoadSampler;
+use crate::services::memory_info::gather_memory_hardware;
 
 /// 主机系统资源快照(一次采样的结果)。字段为字节/秒等原始量,格式化交前端。
 #[derive(Debug, Clone, Serialize)]
@@ -196,6 +197,10 @@ pub struct SystemInfo {
     pub launcher_version: String,
     /// 物理内存总量(字节)
     pub memory_total: u64,
+    /// 内存频率(MT/s;0 表示未知,经 SMBIOS 读取)
+    pub memory_speed: u32,
+    /// 内存类型(如 DDR5;未知为 "未知")
+    pub memory_type: String,
 }
 
 /// 采集一次主机静态系统信息。
@@ -210,6 +215,8 @@ pub fn gather_system_info() -> SystemInfo {
         .map(|cpu| (cpu.brand().trim().to_string(), cpu.frequency()))
         .unwrap_or_else(|| ("未知".to_string(), 0));
 
+    let mem_hw = gather_memory_hardware();
+
     SystemInfo {
         os_name: System::name().unwrap_or_else(|| "未知".to_string()),
         os_long_version: System::long_os_version().unwrap_or_else(|| "未知".to_string()),
@@ -222,5 +229,7 @@ pub fn gather_system_info() -> SystemInfo {
         arch: System::cpu_arch(),
         launcher_version: env!("CARGO_PKG_VERSION").to_string(),
         memory_total: system.total_memory(),
+        memory_speed: mem_hw.speed,
+        memory_type: mem_hw.type_,
     }
 }
