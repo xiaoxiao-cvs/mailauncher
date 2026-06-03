@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import {
   CheckCircle2Icon,
   XCircleIcon,
@@ -7,6 +6,8 @@ import {
   FolderOpenIcon,
   AlertCircleIcon,
 } from "lucide-react";
+
+import { Surface, Input, TactileButton, StatusDot } from "@/components/ls";
 import { tauriInvoke } from "@/services/tauriInvoke";
 import { environmentLogger } from "@/utils/logger";
 
@@ -17,6 +18,7 @@ interface GitInfo {
 }
 
 interface EnvironmentCheckProps {
+  // 由引导步骤注入的强调色；生息风格下层级靠 token 表达，强调色不参与上色，保留以兼容调用方契约。
   stepColor: string;
 }
 
@@ -24,7 +26,7 @@ interface EnvironmentCheckProps {
  * 环境检查与配置组件
  * 负责检查 Git 环境和配置部署路径
  */
-export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
+export function EnvironmentCheck(_props: EnvironmentCheckProps) {
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null);
   const [deploymentPath, setDeploymentPath] = useState<string>("");
   const [isCheckingGit, setIsCheckingGit] = useState(false);
@@ -143,113 +145,148 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
   return (
     <div className="space-y-4">
       {/* Git 环境检查 */}
-      <div className="p-3.5 rounded-card bg-card border border-border">
-        <div className="flex items-start justify-between mb-2.5">
+      <Surface variant="card" className="p-3.5">
+        <div className="mb-2.5 flex items-start justify-between">
           <div className="flex items-center gap-2.5">
             <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"
-              style={{ backgroundColor: stepColor }}
+              className="flex h-9 w-9 items-center justify-center rounded-[var(--ls-r-control)]"
+              style={{
+                background: "var(--ls-bg-2)",
+                color: "var(--ls-ink-soft)",
+              }}
             >
               {isCheckingGit ? (
-                <LoaderIcon className="w-4.5 h-4.5 animate-spin" />
+                <LoaderIcon className="h-[18px] w-[18px] animate-spin" />
               ) : gitInfo?.is_available ? (
-                <CheckCircle2Icon className="w-4.5 h-4.5" />
+                <CheckCircle2Icon
+                  className="h-[18px] w-[18px]"
+                  style={{ color: "var(--ls-life)" }}
+                />
               ) : (
-                <XCircleIcon className="w-4.5 h-4.5" />
+                <XCircleIcon
+                  className="h-[18px] w-[18px]"
+                  style={{ color: "var(--ls-danger)" }}
+                />
               )}
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-foreground">
-                Git 环境
-              </h3>
-              <p className="text-xs text-muted-foreground">
+              <h3 className="text-sm font-semibold">Git 环境</h3>
+              <p className="text-xs" style={{ color: "var(--ls-ink-soft)" }}>
                 克隆和更新 Bot 实例所需
               </p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
+          <TactileButton
+            variant="solid"
             onClick={checkGitEnvironment}
             disabled={isCheckingGit}
-            className="bg-card border-border text-xs h-8"
+            className="h-8 disabled:opacity-60"
           >
             {isCheckingGit ? "检查中..." : "重新检查"}
-          </Button>
+          </TactileButton>
         </div>
 
         {gitError ? (
-          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-            <AlertCircleIcon className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-red-700 dark:text-red-300">{gitError}</p>
-          </div>
+          <Surface variant="inset" className="flex items-start gap-2 p-2.5">
+            <AlertCircleIcon
+              className="mt-0.5 h-4 w-4 shrink-0"
+              style={{ color: "var(--ls-danger)" }}
+            />
+            <p className="text-xs" style={{ color: "var(--ls-danger)" }}>
+              {gitError}
+            </p>
+          </Surface>
         ) : gitInfo ? (
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-muted">
-              <span className="text-xs text-muted-foreground">状态</span>
-              <span className="text-xs font-medium text-foreground">
-                {gitInfo.is_available ? (
-                  <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                    <CheckCircle2Icon className="w-4 h-4" />
-                    已安装
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
-                    <XCircleIcon className="w-4 h-4" />
-                    未安装
-                  </span>
-                )}
+            <Surface
+              variant="inset"
+              className="flex items-center justify-between px-2.5 py-1.5"
+            >
+              <span className="text-xs" style={{ color: "var(--ls-ink-soft)" }}>
+                状态
               </span>
-            </div>
+              <span className="flex items-center gap-1.5 text-xs font-medium">
+                <StatusDot running={gitInfo.is_available} />
+                <span
+                  style={{
+                    color: gitInfo.is_available
+                      ? "var(--ls-life)"
+                      : "var(--ls-danger)",
+                  }}
+                >
+                  {gitInfo.is_available ? "已安装" : "未安装"}
+                </span>
+              </span>
+            </Surface>
 
             {gitInfo.is_available && (
               <>
-                <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-muted">
-                  <span className="text-xs text-muted-foreground">版本</span>
-                  <span className="text-xs font-medium text-foreground font-mono">
+                <Surface
+                  variant="inset"
+                  className="flex items-center justify-between px-2.5 py-1.5"
+                >
+                  <span
+                    className="text-xs"
+                    style={{ color: "var(--ls-ink-soft)" }}
+                  >
+                    版本
+                  </span>
+                  <span className="ls-num font-mono text-xs font-medium">
                     {gitInfo.version}
                   </span>
-                </div>
-                <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-muted">
-                  <span className="text-xs text-muted-foreground">路径</span>
-                  <span className="text-xs font-mono text-foreground truncate max-w-xs">
+                </Surface>
+                <Surface
+                  variant="inset"
+                  className="flex items-center justify-between px-2.5 py-1.5"
+                >
+                  <span
+                    className="text-xs"
+                    style={{ color: "var(--ls-ink-soft)" }}
+                  >
+                    路径
+                  </span>
+                  <span className="max-w-xs truncate font-mono text-xs">
                     {gitInfo.path}
                   </span>
-                </div>
+                </Surface>
               </>
             )}
           </div>
         ) : null}
 
         {gitInfo && !gitInfo.is_available && (
-          <div className="mt-2.5 p-2.5 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
-            <p className="text-xs text-yellow-700 dark:text-yellow-300">
+          <Surface variant="inset" className="mt-2.5 p-2.5">
+            <p className="text-xs" style={{ color: "var(--ls-warn)" }}>
               未检测到 Git。请先安装 Git：
               <a
                 href="https://git-scm.com/downloads"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="ml-1 underline hover:text-yellow-900 dark:hover:text-yellow-100"
+                className="ml-1 underline"
+                style={{ color: "var(--ls-warn)" }}
               >
                 下载 Git
               </a>
             </p>
-          </div>
+          </Surface>
         )}
-      </div>
+      </Surface>
 
       {/* 部署路径配置 */}
-      <div className="p-3.5 rounded-card bg-card border border-border">
-        <div className="flex items-center gap-2.5 mb-2.5">
+      <Surface variant="card" className="p-3.5">
+        <div className="mb-2.5 flex items-center gap-2.5">
           <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"
-            style={{ backgroundColor: stepColor }}
+            className="flex h-9 w-9 items-center justify-center rounded-[var(--ls-r-control)]"
+            style={{
+              background: "var(--ls-bg-2)",
+              color: "var(--ls-ink-soft)",
+            }}
           >
-            <FolderOpenIcon className="w-4.5 h-4.5" />
+            <FolderOpenIcon className="h-[18px] w-[18px]" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-foreground">部署路径</h3>
-            <p className="text-xs text-muted-foreground">
+            <h3 className="text-sm font-semibold">部署路径</h3>
+            <p className="text-xs" style={{ color: "var(--ls-ink-soft)" }}>
               Bot 实例将安装到此目录
             </p>
           </div>
@@ -257,52 +294,55 @@ export function EnvironmentCheck({ stepColor }: EnvironmentCheckProps) {
 
         <div className="space-y-2.5">
           <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <input
+            <div className="relative flex-1">
+              <Input
                 type="text"
                 value={deploymentPath}
                 onChange={(e) => handlePathChange(e.target.value)}
                 placeholder="/path/to/deployments"
                 disabled={isSavingPath}
-                className={`w-full px-3 py-2 text-sm rounded-lg border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
-                  pathError
-                    ? "border-red-300 dark:border-red-700 focus:ring-red-200 dark:focus:ring-red-800"
-                    : pathSuccess
-                      ? "border-green-300 dark:border-green-700 focus:ring-green-200 dark:focus:ring-green-800"
-                      : "border-border focus:ring-ring/20"
-                }`}
+                className="disabled:cursor-not-allowed disabled:opacity-60"
               />
-              {pathError && (
-                <p className="absolute -bottom-5 left-0 text-xs text-red-600 dark:text-red-400">
-                  {pathError}
-                </p>
-              )}
               {isSavingPath && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <LoaderIcon className="w-4 h-4 animate-spin text-foreground" />
+                  <LoaderIcon
+                    className="h-4 w-4 animate-spin"
+                    style={{ color: "var(--ls-ink-soft)" }}
+                  />
                 </div>
               )}
             </div>
-            <Button
+            <TactileButton
+              variant="solid"
               onClick={handleSelectFolder}
-              size="sm"
               disabled={isSavingPath}
-              className="text-white border-0 px-4 shadow-md hover:shadow-lg transition-all text-xs disabled:opacity-60"
-              style={{ backgroundColor: stepColor }}
+              className="shrink-0 disabled:opacity-60"
             >
-              <FolderOpenIcon className="w-3.5 h-3.5 mr-1.5" />
+              <FolderOpenIcon className="h-3.5 w-3.5" />
               选择文件夹
-            </Button>
+            </TactileButton>
           </div>
 
-          <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-            <p className="text-xs text-blue-700 dark:text-blue-300">
+          {pathError && (
+            <p className="text-xs" style={{ color: "var(--ls-danger)" }}>
+              {pathError}
+            </p>
+          )}
+
+          {pathSuccess && (
+            <p className="text-xs" style={{ color: "var(--ls-life)" }}>
+              {pathSuccess}
+            </p>
+          )}
+
+          <Surface variant="inset" className="p-2.5">
+            <p className="text-xs" style={{ color: "var(--ls-ink-soft)" }}>
               提示：可以直接输入路径，或点击按钮选择文件夹。默认路径为后端同目录下的
               deployments 文件夹。
             </p>
-          </div>
+          </Surface>
         </div>
-      </div>
+      </Surface>
     </div>
   );
 }

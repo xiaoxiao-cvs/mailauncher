@@ -18,7 +18,9 @@
   --ls-life: #45a079; /* 生命色:运行/活着 */
   --ls-life-soft: rgba(69, 160, 121, 0.16);
   --ls-warn: #cf9442;
+  --ls-warn-soft: rgba(207, 148, 66, 0.16);
   --ls-danger: #c5563e;
+  --ls-danger-soft: rgba(197, 86, 62, 0.16);
 
   --ls-shadow-soft:
     0 1px 2px rgba(43, 39, 34, 0.05), 0 8px 24px -10px rgba(43, 39, 34, 0.12);
@@ -47,7 +49,9 @@
   --ls-life: #5fbf92;
   --ls-life-soft: rgba(95, 191, 146, 0.18);
   --ls-warn: #e0a65a;
+  --ls-warn-soft: rgba(224, 166, 90, 0.18);
   --ls-danger: #d9694f;
+  --ls-danger-soft: rgba(217, 105, 79, 0.18);
 
   --ls-shadow-soft:
     0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -12px rgba(0, 0, 0, 0.6);

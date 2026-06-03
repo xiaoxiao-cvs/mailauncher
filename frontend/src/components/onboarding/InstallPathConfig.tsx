@@ -1,10 +1,4 @@
-import { Button } from "@/components/ui/button";
-import {
-  LoaderIcon,
-  FolderOpenIcon,
-  CheckCircle2Icon,
-  AlertCircleIcon,
-} from "lucide-react";
+import { LoaderIcon, FolderOpenIcon, CheckCircle2Icon } from "lucide-react";
 import {
   useSavePathMutation,
   useDeploymentPathQuery,
@@ -12,17 +6,18 @@ import {
 import { open } from "@tauri-apps/plugin-dialog";
 import { useState, useEffect } from "react";
 
+import { Surface, Input, TactileButton } from "@/components/ls";
+
 interface InstallPathConfigProps {
+  // 由引导步骤注入的强调色；生息风格下层级靠 token 表达，强调色不参与上色，保留以兼容调用方契约。
   stepColor: string;
 }
-
-const iconStyle = (color: string) => ({ backgroundColor: color });
 
 /**
  * 安装路径配置组件
  * 职责：配置 Bot 实例的部署/安装路径
  */
-export function InstallPathConfig({ stepColor }: InstallPathConfigProps) {
+export function InstallPathConfig(_props: InstallPathConfigProps) {
   // 部署路径管理
   const { data: deploymentPath = "", isLoading: isLoadingPath } =
     useDeploymentPathQuery();
@@ -77,126 +72,152 @@ export function InstallPathConfig({ stepColor }: InstallPathConfigProps) {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* 安装路径配置 */}
-      <div className="p-5 sm:p-6 rounded-card bg-card shadow-panel dark:shadow-none">
-        <div className="flex items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-5">
+      <Surface variant="panel" className="p-5 sm:p-6">
+        <div className="mb-4 flex items-start gap-3 sm:mb-5 sm:items-center sm:gap-4">
           <div
-            className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white shadow-sm flex-shrink-0"
-            style={iconStyle(stepColor)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--ls-r-card)] sm:h-12 sm:w-12"
+            style={{
+              background: "var(--ls-bg-2)",
+              color: "var(--ls-ink-soft)",
+            }}
           >
-            <FolderOpenIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+            <FolderOpenIcon className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-base sm:text-lg font-semibold text-foreground">
-              安装路径
-            </h3>
-            <p className="text-sm text-muted-foreground">
+            <h3 className="text-base font-semibold sm:text-lg">安装路径</h3>
+            <p className="text-sm" style={{ color: "var(--ls-ink-soft)" }}>
               Bot 实例将被安装到此目录
             </p>
           </div>
         </div>
 
         {isLoadingPath ? (
-          <div className="py-6 sm:py-8 text-center">
-            <LoaderIcon className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto text-brand" />
-            <p className="text-sm text-muted-foreground mt-2">加载中...</p>
+          <div className="py-6 text-center sm:py-8">
+            <LoaderIcon
+              className="mx-auto h-5 w-5 animate-spin sm:h-6 sm:w-6"
+              style={{ color: "var(--ls-ink-soft)" }}
+            />
+            <p className="mt-2 text-sm" style={{ color: "var(--ls-ink-soft)" }}>
+              加载中...
+            </p>
           </div>
         ) : (
           <div className="space-y-3 sm:space-y-4">
             {/* 路径输入和选择 */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
-                <input
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="relative flex-1">
+                <Input
                   type="text"
                   value={localPath}
                   onChange={(e) => handlePathChange(e.target.value)}
                   placeholder="选择或输入安装路径"
                   disabled={savePathMutation.isPending}
-                  className={`w-full px-4 py-3 text-sm sm:text-base rounded-xl border-0 bg-muted text-foreground placeholder:text-muted-foreground focus:ring-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono ${
-                    pathError
-                      ? "focus:ring-red-500/30 bg-red-50/50"
-                      : pathSuccess
-                        ? "focus:ring-green-500/30 bg-green-50/50"
-                        : "focus:ring-brand/30"
-                  }`}
+                  className="font-mono disabled:cursor-not-allowed disabled:opacity-60"
                 />
                 {savePathMutation.isPending && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <LoaderIcon className="w-4 h-4 animate-spin text-brand" />
+                    <LoaderIcon
+                      className="h-4 w-4 animate-spin"
+                      style={{ color: "var(--ls-ink-soft)" }}
+                    />
                   </div>
                 )}
               </div>
-              <Button
+              <TactileButton
+                variant="solid"
                 onClick={handleSelectFolder}
                 disabled={savePathMutation.isPending}
-                className="h-12 px-6 rounded-xl bg-muted hover:bg-muted/80 text-foreground border-0 transition-colors shadow-none"
+                className="justify-center disabled:opacity-60 sm:px-6"
               >
                 浏览...
-              </Button>
+              </TactileButton>
             </div>
 
             {/* 错误信息 */}
             {pathError && (
-              <div className="p-2 sm:p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                <div className="flex items-start gap-2">
-                  <AlertCircleIcon className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs sm:text-sm text-red-700 dark:text-red-300 break-words">
-                    {pathError}
-                  </p>
-                </div>
-              </div>
+              <Surface variant="inset" className="p-2 sm:p-3">
+                <p
+                  className="break-words text-xs sm:text-sm"
+                  style={{ color: "var(--ls-danger)" }}
+                >
+                  {pathError}
+                </p>
+              </Surface>
             )}
 
             {/* 成功信息 */}
             {pathSuccess && (
-              <div className="p-2 sm:p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+              <Surface variant="inset" className="p-2 sm:p-3">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2Icon className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                  <p className="text-xs sm:text-sm text-green-700 dark:text-green-300">
+                  <CheckCircle2Icon
+                    className="h-4 w-4 shrink-0"
+                    style={{ color: "var(--ls-life)" }}
+                  />
+                  <p
+                    className="text-xs sm:text-sm"
+                    style={{ color: "var(--ls-life)" }}
+                  >
                     {pathSuccess}
                   </p>
                 </div>
-              </div>
+              </Surface>
             )}
           </div>
         )}
-      </div>
+      </Surface>
 
       {/* 说明信息 */}
-      <div className="p-2 sm:p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-        <p className="text-xs text-blue-700 dark:text-blue-300">
+      <Surface variant="inset" className="p-2 sm:p-3">
+        <p className="text-xs" style={{ color: "var(--ls-ink-soft)" }}>
           提示：所有 Bot
           实例将安装在此目录下的独立子文件夹中。建议选择一个有足够空间的位置。
         </p>
-      </div>
+      </Surface>
 
       {/* 路径结构预览 */}
       {localPath && (
-        <div className="p-3 sm:p-4 rounded-card bg-card border border-border">
-          <h4 className="text-xs sm:text-sm font-medium text-foreground mb-2 sm:mb-3">
+        <Surface variant="card" className="p-3 sm:p-4">
+          <h4 className="mb-2 text-xs font-medium sm:mb-3 sm:text-sm">
             目录结构预览
           </h4>
-          <div className="font-mono text-xs text-muted-foreground space-y-1 bg-muted p-2 sm:p-3 rounded-lg overflow-x-auto">
+          <Surface
+            variant="inset"
+            className="space-y-1 overflow-x-auto p-2 font-mono text-xs sm:p-3"
+            style={{ color: "var(--ls-ink-soft)" }}
+          >
             <div className="flex items-center gap-2 whitespace-nowrap">
-              <FolderOpenIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+              <FolderOpenIcon className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
               <span className="truncate">
                 {localPath.split("/").pop() || localPath}
               </span>
             </div>
-            <div className="pl-4 sm:pl-5 border-l border-dashed border-border ml-1 sm:ml-1.5 space-y-1">
-              <div className="flex items-center gap-2 text-muted-foreground/70">
-                <FolderOpenIcon className="w-3 h-3 flex-shrink-0" />
+            <div
+              className="ml-1 space-y-1 border-l border-dashed pl-4 sm:ml-1.5 sm:pl-5"
+              style={{ borderColor: "var(--ls-hairline)" }}
+            >
+              <div
+                className="flex items-center gap-2"
+                style={{ color: "var(--ls-ink-faint)" }}
+              >
+                <FolderOpenIcon className="h-3 w-3 shrink-0" />
                 <span>instance-1/</span>
               </div>
-              <div className="flex items-center gap-2 text-muted-foreground/70">
-                <FolderOpenIcon className="w-3 h-3 flex-shrink-0" />
+              <div
+                className="flex items-center gap-2"
+                style={{ color: "var(--ls-ink-faint)" }}
+              >
+                <FolderOpenIcon className="h-3 w-3 shrink-0" />
                 <span>instance-2/</span>
               </div>
-              <div className="flex items-center gap-2 text-muted-foreground/50">
+              <div
+                className="flex items-center gap-2"
+                style={{ color: "var(--ls-ink-faint)" }}
+              >
                 <span className="pl-4 sm:pl-5">...</span>
               </div>
             </div>
-          </div>
-        </div>
+          </Surface>
+        </Surface>
       )}
     </div>
   );

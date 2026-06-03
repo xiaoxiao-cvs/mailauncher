@@ -1,6 +1,6 @@
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { LoaderIcon, CheckIcon, XIcon } from "lucide-react";
+
+import { Surface, Input, TactileButton, Label } from "@/components/ls";
 import { useConnectivityCheck } from "@/hooks/useConnectivityCheck";
 
 interface BackendConnectivityProps {
@@ -26,22 +26,28 @@ export function BackendConnectivity({
     backendStatus,
   } = useConnectivityCheck({ onStatusChange, onRecheckRequest });
 
-  // 状态颜色
+  // 状态文字色:成功=生命色,失败=危险色,检查/等待=次要墨色
   const statusColor =
     backendStatus.status === "success"
-      ? "text-success"
+      ? "var(--ls-life)"
       : backendStatus.status === "error"
-        ? "text-destructive"
-        : "text-brand";
+        ? "var(--ls-danger)"
+        : "var(--ls-ink-soft)";
+
+  // 延迟数值色:<500ms 生命色,<1000ms 警示色,否则危险色
+  const latencyColor =
+    backendStatus.latency != null && backendStatus.latency < 500
+      ? "var(--ls-life)"
+      : backendStatus.latency != null && backendStatus.latency < 1000
+        ? "var(--ls-warn)"
+        : "var(--ls-danger)";
 
   return (
     <div className="space-y-6">
       {/* 服务地址配置 */}
       <div className="space-y-4">
         <div>
-          <label className="block text-[13px] font-medium text-muted-foreground mb-2">
-            后端服务地址
-          </label>
+          <Label className="mb-2 block">后端服务地址</Label>
           <div className="flex items-center gap-2">
             <Input
               type="url"
@@ -49,50 +55,80 @@ export function BackendConnectivity({
               onChange={(e) => handleUrlChange(e.target.value)}
               onBlur={handleBlur}
               placeholder="http://localhost:11111"
-              className="h-12 text-[15px] bg-muted/50 border-0 rounded-xl focus-visible:ring-2 focus-visible:ring-brand/30 placeholder:text-muted-foreground transition-all"
+              className="h-12 flex-1 text-[15px]"
             />
             {hasUnsavedChanges && (
-              <Button
-                size="sm"
+              <TactileButton
+                variant="life"
                 onClick={handleSave}
-                className="h-12 w-12 p-0 bg-success hover:bg-success/90 text-success-foreground border-0 rounded-xl flex-shrink-0 transition-colors shadow-sm"
+                className="h-12 w-12 shrink-0 justify-center px-0"
               >
-                <CheckIcon className="w-5 h-5" />
-              </Button>
+                <CheckIcon className="h-5 w-5" />
+              </TactileButton>
             )}
           </div>
-          <p className="text-[12px] text-muted-foreground mt-2">
+          <p
+            className="mt-2 text-[12px]"
+            style={{ color: "var(--ls-ink-soft)" }}
+          >
             默认端口 11111 · 修改后点击保存按钮或失焦自动保存
           </p>
         </div>
       </div>
 
       {/* 连接状态 */}
-      <div className="flex items-center gap-4 p-5 rounded-card bg-card shadow-panel dark:bg-white/[0.05] dark:shadow-none">
+      <Surface variant="card" className="flex items-center gap-4 p-5">
         {/* 状态指示器 */}
         <div className="relative">
           {backendStatus.status === "checking" ? (
-            <div className="w-10 h-10 rounded-full bg-brand/10 flex items-center justify-center">
-              <LoaderIcon className="w-5 h-5 text-brand animate-spin" />
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-full"
+              style={{ background: "var(--ls-bg-2)" }}
+            >
+              <LoaderIcon
+                className="h-5 w-5 animate-spin"
+                style={{ color: "var(--ls-ink-soft)" }}
+              />
             </div>
           ) : backendStatus.status === "success" ? (
-            <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-              <CheckIcon className="w-5 h-5 text-success" />
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-full"
+              style={{ background: "var(--ls-life-soft)" }}
+            >
+              <CheckIcon
+                className="h-5 w-5"
+                style={{ color: "var(--ls-life)" }}
+              />
             </div>
           ) : backendStatus.status === "error" ? (
-            <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
-              <XIcon className="w-5 h-5 text-destructive" />
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-full"
+              style={{
+                background:
+                  "color-mix(in srgb, var(--ls-danger) 16%, transparent)",
+              }}
+            >
+              <XIcon
+                className="h-5 w-5"
+                style={{ color: "var(--ls-danger)" }}
+              />
             </div>
           ) : (
-            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-              <div className="w-3 h-3 rounded-full bg-muted-foreground/30" />
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-full"
+              style={{ background: "var(--ls-bg-2)" }}
+            >
+              <div
+                className="h-3 w-3 rounded-full"
+                style={{ background: "var(--ls-ink-faint)" }}
+              />
             </div>
           )}
         </div>
 
         {/* 状态信息 */}
-        <div className="flex-1 min-w-0">
-          <p className={`text-[15px] font-medium ${statusColor}`}>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-medium" style={{ color: statusColor }}>
             {backendStatus.status === "checking"
               ? "正在检查连接..."
               : backendStatus.status === "success"
@@ -102,7 +138,10 @@ export function BackendConnectivity({
                   : "等待检查"}
           </p>
           {backendStatus.status === "success" && backendStatus.latency && (
-            <p className="text-[13px] text-muted-foreground mt-0.5">
+            <p
+              className="ls-num mt-0.5 text-[13px]"
+              style={{ color: "var(--ls-ink-soft)" }}
+            >
               延迟 {backendStatus.latency}ms ·{" "}
               {backendStatus.latency < 100
                 ? "响应极快"
@@ -114,7 +153,10 @@ export function BackendConnectivity({
             </p>
           )}
           {backendStatus.error && (
-            <p className="text-[13px] text-destructive mt-0.5">
+            <p
+              className="mt-0.5 text-[13px]"
+              style={{ color: "var(--ls-danger)" }}
+            >
               {backendStatus.error}
             </p>
           )}
@@ -122,25 +164,28 @@ export function BackendConnectivity({
 
         {/* 延迟数值 */}
         {backendStatus.latency && backendStatus.status === "success" && (
-          <div className="flex items-baseline gap-0.5 flex-shrink-0">
+          <div className="flex shrink-0 items-baseline gap-0.5">
             <span
-              className={`text-2xl font-semibold tabular-nums ${
-                backendStatus.latency < 500
-                  ? "text-success"
-                  : backendStatus.latency < 1000
-                    ? "text-warning"
-                    : "text-destructive"
-              }`}
+              className="ls-num text-2xl font-semibold"
+              style={{ color: latencyColor }}
             >
               {backendStatus.latency}
             </span>
-            <span className="text-[13px] text-muted-foreground">ms</span>
+            <span
+              className="text-[13px]"
+              style={{ color: "var(--ls-ink-soft)" }}
+            >
+              ms
+            </span>
           </div>
         )}
-      </div>
+      </Surface>
 
       {/* 提示信息 */}
-      <p className="text-[13px] text-muted-foreground text-center">
+      <p
+        className="text-center text-[13px]"
+        style={{ color: "var(--ls-ink-soft)" }}
+      >
         后端服务用于管理 Bot 实例、处理配置和执行部署任务
       </p>
     </div>

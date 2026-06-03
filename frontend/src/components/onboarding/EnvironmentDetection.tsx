@@ -1,186 +1,244 @@
-import { Button } from '@/components/ui/button'
-import { CheckIcon, XIcon, LoaderIcon, RefreshCwIcon } from 'lucide-react'
-import { useGitEnvironmentQuery, usePythonVersionsQuery } from '@/hooks/queries/useEnvironmentQueries'
+import { CheckIcon, XIcon, LoaderIcon, RefreshCwIcon } from "lucide-react";
+
+import { Surface, TactileButton, Badge } from "@/components/ls";
+import {
+  useGitEnvironmentQuery,
+  usePythonVersionsQuery,
+} from "@/hooks/queries/useEnvironmentQueries";
 
 interface EnvironmentDetectionProps {
-  stepColor: string
-  onEnvironmentReady?: (isReady: boolean) => void
+  stepColor: string;
+  onEnvironmentReady?: (isReady: boolean) => void;
 }
 
 /**
  * 环境检测组件
  * 职责：检测 Git 和 Python 是否已安装
  */
-export function EnvironmentDetection({ onEnvironmentReady }: EnvironmentDetectionProps) {
+export function EnvironmentDetection({
+  onEnvironmentReady,
+}: EnvironmentDetectionProps) {
   // Git 环境检查
-  const { 
-    data: gitInfo, 
-    isLoading: isCheckingGit, 
-    error: gitErrorObj, 
-    refetch: checkGitEnvironment 
-  } = useGitEnvironmentQuery()
-  const gitError = gitErrorObj ? String(gitErrorObj) : null
+  const {
+    data: gitInfo,
+    isLoading: isCheckingGit,
+    error: gitErrorObj,
+    refetch: checkGitEnvironment,
+  } = useGitEnvironmentQuery();
+  const gitError = gitErrorObj ? String(gitErrorObj) : null;
 
   // Python 环境检查
-  const { 
-    data: pythonVersions = [], 
-    isLoading: isCheckingPython, 
+  const {
+    data: pythonVersions = [],
+    isLoading: isCheckingPython,
     error: pythonErrorObj,
-    refetch: checkPythonEnvironment
-  } = usePythonVersionsQuery()
-  const pythonError = pythonErrorObj ? String(pythonErrorObj) : null
+    refetch: checkPythonEnvironment,
+  } = usePythonVersionsQuery();
+  const pythonError = pythonErrorObj ? String(pythonErrorObj) : null;
 
-  const isGitAvailable = gitInfo?.is_available ?? false
-  const isPythonAvailable = pythonVersions.length > 0
-  const isAllReady = isGitAvailable && isPythonAvailable
-  const isChecking = isCheckingGit || isCheckingPython
+  const isGitAvailable = gitInfo?.is_available ?? false;
+  const isPythonAvailable = pythonVersions.length > 0;
+  const isAllReady = isGitAvailable && isPythonAvailable;
+  const isChecking = isCheckingGit || isCheckingPython;
 
   // 通知父组件环境状态
   if (onEnvironmentReady && !isChecking) {
-    onEnvironmentReady(isAllReady)
+    onEnvironmentReady(isAllReady);
   }
 
   // 重新检查所有环境
   const handleRecheckAll = () => {
-    checkGitEnvironment()
-    checkPythonEnvironment()
-  }
+    checkGitEnvironment();
+    checkPythonEnvironment();
+  };
 
-  // 状态图标组件
-  const StatusIcon = ({ isLoading, isSuccess, hasError }: { isLoading: boolean; isSuccess: boolean; hasError: boolean }) => {
+  // 状态图标:加载=旋转 loader,失败/未就绪=危险叉,就绪=生命色对勾
+  const StatusIcon = ({
+    isLoading,
+    isSuccess,
+    hasError,
+  }: {
+    isLoading: boolean;
+    isSuccess: boolean;
+    hasError: boolean;
+  }) => {
     if (isLoading) {
       return (
-        <div className="w-6 h-6 rounded-full bg-brand/10 flex items-center justify-center">
-          <LoaderIcon className="w-3.5 h-3.5 text-brand animate-spin" />
+        <div
+          className="flex h-6 w-6 items-center justify-center rounded-full"
+          style={{ background: "var(--ls-bg-2)" }}
+        >
+          <LoaderIcon
+            className="h-3.5 w-3.5 animate-spin"
+            style={{ color: "var(--ls-ink-soft)" }}
+          />
         </div>
-      )
+      );
     }
     if (hasError || !isSuccess) {
       return (
-        <div className="w-6 h-6 rounded-full bg-destructive/10 flex items-center justify-center">
-          <XIcon className="w-3.5 h-3.5 text-destructive" />
+        <div
+          className="flex h-6 w-6 items-center justify-center rounded-full"
+          style={{
+            background: "color-mix(in srgb, var(--ls-danger) 16%, transparent)",
+          }}
+        >
+          <XIcon
+            className="h-3.5 w-3.5"
+            style={{ color: "var(--ls-danger)" }}
+          />
         </div>
-      )
+      );
     }
     return (
-      <div className="w-6 h-6 rounded-full bg-success/10 flex items-center justify-center">
-        <CheckIcon className="w-3.5 h-3.5 text-success" />
+      <div
+        className="flex h-6 w-6 items-center justify-center rounded-full"
+        style={{ background: "var(--ls-life-soft)" }}
+      >
+        <CheckIcon
+          className="h-3.5 w-3.5"
+          style={{ color: "var(--ls-life)" }}
+        />
       </div>
-    )
-  }
+    );
+  };
 
   return (
     <div className="space-y-6">
       {/* 检测项列表 */}
       <div className="space-y-3">
         {/* Git 环境检测 */}
-        <div className="group flex items-center gap-4 p-5 rounded-card bg-card shadow-panel dark:bg-white/[0.05] dark:shadow-none transition-all duration-300 hover:shadow-panel-hover">
-          <StatusIcon isLoading={isCheckingGit} isSuccess={isGitAvailable} hasError={!!gitError} />
-          
-          <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
+        <Surface variant="card" className="group flex items-center gap-4 p-5">
+          <StatusIcon
+            isLoading={isCheckingGit}
+            isSuccess={isGitAvailable}
+            hasError={!!gitError}
+          />
+
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
             <div className="flex flex-col">
-              <h3 className="text-[15px] font-medium text-foreground">
-                Git
-              </h3>
-              <p className="text-[13px] text-muted-foreground mt-0.5">
-                {isCheckingGit ? '正在检测...' : 
-                 gitError ? '检测失败' :
-                 isGitAvailable ? '已安装' : 
-                 '未检测到'}
+              <h3 className="text-[15px] font-medium">Git</h3>
+              <p
+                className="mt-0.5 text-[13px]"
+                style={{ color: "var(--ls-ink-soft)" }}
+              >
+                {isCheckingGit
+                  ? "正在检测..."
+                  : gitError
+                    ? "检测失败"
+                    : isGitAvailable
+                      ? "已安装"
+                      : "未检测到"}
               </p>
             </div>
             {isGitAvailable && !isCheckingGit && (
-              <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded-md">
+              <Badge tone="neutral" className="ls-num font-mono">
                 {gitInfo?.version}
-              </span>
+              </Badge>
             )}
           </div>
 
           {!isGitAvailable && !isCheckingGit && (
-            <a 
-              href="https://git-scm.com/downloads" 
-              target="_blank" 
+            <a
+              href="https://git-scm.com/downloads"
+              target="_blank"
               rel="noopener noreferrer"
-              className="text-[13px] text-brand hover:underline flex-shrink-0"
+              className="shrink-0 text-[13px] hover:underline"
+              style={{ color: "var(--ls-life)" }}
             >
               下载
             </a>
           )}
-        </div>
+        </Surface>
 
         {/* Python 环境检测 */}
-        <div className="group flex items-center gap-4 p-5 rounded-card bg-card shadow-panel dark:bg-white/[0.05] dark:shadow-none transition-all duration-300 hover:shadow-panel-hover">
-          <StatusIcon isLoading={isCheckingPython} isSuccess={isPythonAvailable} hasError={!!pythonError} />
-          
-          <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
+        <Surface variant="card" className="group flex items-center gap-4 p-5">
+          <StatusIcon
+            isLoading={isCheckingPython}
+            isSuccess={isPythonAvailable}
+            hasError={!!pythonError}
+          />
+
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
             <div className="flex flex-col">
-              <h3 className="text-[15px] font-medium text-foreground">
-                Python
-              </h3>
-              <p className="text-[13px] text-muted-foreground mt-0.5">
-                {isCheckingPython ? '正在检测...' : 
-                 pythonError ? '检测失败' :
-                 isPythonAvailable ? '已安装' : 
-                 '未检测到'}
+              <h3 className="text-[15px] font-medium">Python</h3>
+              <p
+                className="mt-0.5 text-[13px]"
+                style={{ color: "var(--ls-ink-soft)" }}
+              >
+                {isCheckingPython
+                  ? "正在检测..."
+                  : pythonError
+                    ? "检测失败"
+                    : isPythonAvailable
+                      ? "已安装"
+                      : "未检测到"}
               </p>
             </div>
             {isPythonAvailable && !isCheckingPython && (
-              <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded-md">
+              <Badge tone="neutral" className="ls-num">
                 {pythonVersions.length} 个版本
-              </span>
+              </Badge>
             )}
           </div>
 
           {!isPythonAvailable && !isCheckingPython && (
-            <a 
-              href="https://www.python.org/downloads/" 
-              target="_blank" 
+            <a
+              href="https://www.python.org/downloads/"
+              target="_blank"
               rel="noopener noreferrer"
-              className="text-[13px] text-brand hover:underline flex-shrink-0"
+              className="shrink-0 text-[13px] hover:underline"
+              style={{ color: "var(--ls-life)" }}
             >
               下载
             </a>
           )}
-        </div>
+        </Surface>
       </div>
 
       {/* 重新检测按钮 */}
       <div className="flex justify-center">
-        <Button
+        <TactileButton
           variant="ghost"
-          size="sm"
           onClick={handleRecheckAll}
           disabled={isChecking}
-          className="text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 rounded-full px-4 h-9 transition-colors"
+          className="rounded-full disabled:opacity-60"
+          style={{ color: "var(--ls-ink-soft)" }}
         >
-          <RefreshCwIcon className={`w-4 h-4 mr-2 ${isChecking ? 'animate-spin' : ''}`} />
+          <RefreshCwIcon
+            className={`h-4 w-4 ${isChecking ? "animate-spin" : ""}`}
+          />
           重新检测
-        </Button>
+        </TactileButton>
       </div>
 
       {/* 状态总结 */}
       {!isChecking && (
-        <div className={`flex items-center justify-center gap-2 py-3 px-4 rounded-card ${
-          isAllReady
-            ? 'bg-success/10'
-            : 'bg-warning/10'
-        }`}>
+        <Surface
+          variant="inset"
+          className="flex items-center justify-center gap-2 px-4 py-3"
+        >
           {isAllReady ? (
-            <CheckIcon className="w-4 h-4 text-success" />
+            <CheckIcon
+              className="h-4 w-4"
+              style={{ color: "var(--ls-life)" }}
+            />
           ) : (
-            <div className="w-4 h-4 rounded-full border-2 border-warning" />
+            <div
+              className="h-4 w-4 rounded-full border-2"
+              style={{ borderColor: "var(--ls-warn)" }}
+            />
           )}
-          <p className={`text-[13px] font-medium ${
-            isAllReady
-              ? 'text-success'
-              : 'text-warning'
-          }`}>
-            {isAllReady 
-              ? '环境检测通过，所有必要组件已安装' 
-              : '部分环境组件未安装，建议安装后再继续'}
+          <p
+            className="text-[13px] font-medium"
+            style={{ color: isAllReady ? "var(--ls-life)" : "var(--ls-warn)" }}
+          >
+            {isAllReady
+              ? "环境检测通过，所有必要组件已安装"
+              : "部分环境组件未安装，建议安装后再继续"}
           </p>
-        </div>
+        </Surface>
       )}
     </div>
-  )
+  );
 }

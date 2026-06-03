@@ -5,12 +5,19 @@ import {
   GitCommit,
   FileText,
   Shield,
-} from 'lucide-react';
+} from "lucide-react";
+import {
+  Surface,
+  Badge,
+  Checkbox,
+  Label,
+  TactileButton,
+} from "@/components/ls";
 import {
   ComponentVersionInfo,
   UpdateCheckResult,
   getComponentDisplayName,
-} from '@/services/versionApi';
+} from "@/services/versionApi";
 
 interface VersionComparisonTabProps {
   components: ComponentVersionInfo[];
@@ -40,142 +47,218 @@ export function VersionComparisonTab({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3">
-        {components.map((component) => (
-          <div
-            key={component.component}
-            className={`p-4 rounded-panel border-2 transition-all cursor-pointer ${
-              selectedComponent === component.component
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-            }`}
-            onClick={() => onSelectComponent(component.component)}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3">
-                <span className="font-semibold text-gray-900 dark:text-white">
-                  {getComponentDisplayName(component.component)}
-                </span>
-                {component.has_update ? (
-                  <span className="px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-xs font-medium">
-                    有更新
+        {components.map((component) => {
+          const isSelected = selectedComponent === component.component;
+          return (
+            <Surface
+              key={component.component}
+              variant="inset"
+              className="ls-item p-4 cursor-pointer"
+              style={
+                isSelected
+                  ? {
+                      borderColor: "var(--ls-life)",
+                      boxShadow: "0 0 0 1px var(--ls-life)",
+                    }
+                  : undefined
+              }
+              onClick={() => onSelectComponent(component.component)}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <span
+                    className="font-semibold"
+                    style={{ color: "var(--ls-ink)" }}
+                  >
+                    {getComponentDisplayName(component.component)}
                   </span>
-                ) : component.status === 'up_to_date' ? (
-                  <span className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-xs font-medium">
-                    最新
+                  {component.has_update ? (
+                    <Badge tone="warn">有更新</Badge>
+                  ) : component.status === "up_to_date" ? (
+                    <Badge tone="life">最新</Badge>
+                  ) : null}
+                </div>
+                {component.installed && (
+                  <span
+                    className="ls-num text-sm font-mono"
+                    style={{ color: "var(--ls-ink-soft)" }}
+                  >
+                    {component.local_version || component.local_commit}
                   </span>
-                ) : null}
+                )}
               </div>
-              {component.installed && (
-                <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
-                  {component.local_version || component.local_commit}
-                </span>
-              )}
-            </div>
 
-            {component.has_update && component.commits_behind && (
-              <div className="text-sm text-orange-600 dark:text-orange-400">
-                落后 {component.commits_behind} 个提交
-              </div>
-            )}
-          </div>
-        ))}
+              {component.has_update && component.commits_behind && (
+                <div
+                  className="ls-num text-sm"
+                  style={{ color: "var(--ls-warn)" }}
+                >
+                  落后 {component.commits_behind} 个提交
+                </div>
+              )}
+            </Surface>
+          );
+        })}
       </div>
 
       {selectedComponent && (
-        <div className="mt-6 p-6 bg-gray-50 dark:bg-gray-900/50 rounded-panel space-y-4">
+        <Surface variant="inset" className="mt-6 p-6 space-y-4">
           {isLoadingDetail ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              <Loader2
+                className="w-6 h-6 animate-spin"
+                style={{ color: "var(--ls-ink-faint)" }}
+              />
             </div>
           ) : componentDetail?.has_update ? (
             <>
               <div className="space-y-3">
-                <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <h4
+                  className="font-semibold flex items-center gap-2"
+                  style={{ color: "var(--ls-ink)" }}
+                >
                   <GitCommit className="w-4 h-4" />
                   版本对比
                 </h4>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-control">
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">当前版本</div>
-                    <div className="font-mono text-sm text-gray-900 dark:text-white">
-                      {componentDetail.local_version || componentDetail.local_commit?.slice(0, 7)}
+                  <Surface variant="card" className="p-3">
+                    <div
+                      className="text-xs mb-1"
+                      style={{ color: "var(--ls-ink-soft)" }}
+                    >
+                      当前版本
                     </div>
-                  </div>
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-control">
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">最新版本</div>
-                    <div className="font-mono text-sm text-blue-600 dark:text-blue-400">
+                    <div
+                      className="ls-num font-mono text-sm"
+                      style={{ color: "var(--ls-ink)" }}
+                    >
+                      {componentDetail.local_version ||
+                        componentDetail.local_commit?.slice(0, 7)}
+                    </div>
+                  </Surface>
+                  <Surface variant="card" className="p-3">
+                    <div
+                      className="text-xs mb-1"
+                      style={{ color: "var(--ls-ink-soft)" }}
+                    >
+                      最新版本
+                    </div>
+                    <div
+                      className="ls-num font-mono text-sm"
+                      style={{ color: "var(--ls-life)" }}
+                    >
                       {componentDetail.github_info?.latest_version ||
-                       componentDetail.github_info?.latest_commit?.slice(0, 7)}
+                        componentDetail.github_info?.latest_commit?.slice(0, 7)}
                     </div>
-                  </div>
+                  </Surface>
                 </div>
               </div>
 
-              {componentDetail.comparison && componentDetail.comparison.commits.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    更新内容 ({componentDetail.comparison.total_commits} 个提交)
-                  </h4>
-                  <div className="max-h-48 overflow-y-auto space-y-2">
-                    {componentDetail.comparison.commits.map((commit, index) => (
-                      <div
-                        key={index}
-                        className="p-3 bg-white dark:bg-gray-800 rounded-control text-sm"
-                      >
-                        <div className="flex items-start gap-2">
-                          <code className="text-xs font-mono text-blue-600 dark:text-blue-400 flex-shrink-0">
-                            {commit.sha}
-                          </code>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-gray-900 dark:text-white truncate">
-                              {commit.message}
+              {componentDetail.comparison &&
+                componentDetail.comparison.commits.length > 0 && (
+                  <div className="space-y-3">
+                    <h4
+                      className="font-semibold flex items-center gap-2"
+                      style={{ color: "var(--ls-ink)" }}
+                    >
+                      <FileText className="w-4 h-4" />
+                      更新内容 (
+                      <span className="ls-num">
+                        {componentDetail.comparison.total_commits}
+                      </span>{" "}
+                      个提交)
+                    </h4>
+                    <div className="max-h-48 overflow-y-auto space-y-2">
+                      {componentDetail.comparison.commits.map(
+                        (commit, index) => (
+                          <Surface
+                            key={index}
+                            variant="card"
+                            className="p-3 text-sm"
+                          >
+                            <div className="flex items-start gap-2">
+                              <code
+                                className="ls-num text-xs font-mono flex-shrink-0"
+                                style={{ color: "var(--ls-life)" }}
+                              >
+                                {commit.sha}
+                              </code>
+                              <div className="flex-1 min-w-0">
+                                <div
+                                  className="truncate"
+                                  style={{ color: "var(--ls-ink)" }}
+                                >
+                                  {commit.message}
+                                </div>
+                                <div
+                                  className="ls-num text-xs mt-1"
+                                  style={{ color: "var(--ls-ink-soft)" }}
+                                >
+                                  {commit.author} ·{" "}
+                                  {new Date(commit.date).toLocaleDateString(
+                                    "zh-CN",
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              {commit.author} · {new Date(commit.date).toLocaleDateString('zh-CN')}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                          </Surface>
+                        ),
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-card">
+              <Surface variant="card" className="p-4">
                 <div className="flex items-start gap-3">
-                  <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                  <Shield
+                    className="w-5 h-5 flex-shrink-0 mt-0.5"
+                    style={{ color: "var(--ls-life)" }}
+                  />
                   <div className="flex-1">
-                    <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                    <h5
+                      className="font-medium mb-1"
+                      style={{ color: "var(--ls-ink)" }}
+                    >
                       安全更新说明
                     </h5>
-                    <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                      <li>• 更新前会自动创建完整备份</li>
-                      <li>• 数据库和配置文件不会被覆盖</li>
-                      <li>• 仅更新代码文件和依赖</li>
-                      <li>• 更新失败可从备份快速恢复</li>
+                    <ul
+                      className="text-sm space-y-1"
+                      style={{ color: "var(--ls-ink-soft)" }}
+                    >
+                      <li>- 更新前会自动创建完整备份</li>
+                      <li>- 数据库和配置文件不会被覆盖</li>
+                      <li>- 仅更新代码文件和依赖</li>
+                      <li>- 更新失败可从备份快速恢复</li>
                     </ul>
                   </div>
                 </div>
-              </div>
+              </Surface>
 
               <div className="space-y-3">
-                <label className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-control cursor-pointer">
-                  <input
-                    type="checkbox"
+                <Label
+                  className="flex items-center gap-3 p-3 cursor-pointer"
+                  style={{
+                    background: "var(--ls-surface)",
+                    border: "1px solid var(--ls-hairline)",
+                    borderRadius: "var(--ls-r-control)",
+                  }}
+                >
+                  <Checkbox
                     checked={updateConfirmed}
-                    onChange={(e) => onUpdateConfirmedChange(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    onCheckedChange={(next) =>
+                      onUpdateConfirmedChange(next === true)
+                    }
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="text-sm" style={{ color: "var(--ls-ink)" }}>
                     我已了解：仅更新代码，数据库和配置文件不会被覆盖
                   </span>
-                </label>
+                </Label>
 
-                <button
+                <TactileButton
+                  variant="life"
                   onClick={onUpdate}
                   disabled={!updateConfirmed || isUpdating}
-                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white rounded-card font-medium transition-all disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full justify-center py-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isUpdating ? (
                     <>
@@ -188,22 +271,39 @@ export function VersionComparisonTab({
                       确认更新
                     </>
                   )}
-                </button>
+                </TactileButton>
               </div>
             </>
           ) : (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-500" />
+            <div
+              className="text-center py-8"
+              style={{ color: "var(--ls-ink-soft)" }}
+            >
+              <CheckCircle
+                className="w-12 h-12 mx-auto mb-3"
+                style={{ color: "var(--ls-life)" }}
+              />
               <p>已是最新版本</p>
             </div>
           )}
-        </div>
+        </Surface>
       )}
 
       {!hasUpdateAvailable && !selectedComponent && (
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
-          <p className="text-lg font-medium mb-2">所有组件都是最新版本</p>
+        <div
+          className="text-center py-12"
+          style={{ color: "var(--ls-ink-soft)" }}
+        >
+          <CheckCircle
+            className="w-16 h-16 mx-auto mb-4"
+            style={{ color: "var(--ls-life)" }}
+          />
+          <p
+            className="text-lg font-medium mb-2"
+            style={{ color: "var(--ls-ink)" }}
+          >
+            所有组件都是最新版本
+          </p>
           <p className="text-sm">无需更新</p>
         </div>
       )}

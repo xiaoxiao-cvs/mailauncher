@@ -13,7 +13,7 @@ import {
 } from "@headless-tree/core";
 import { useTree } from "@headless-tree/react";
 import { FolderIcon, FolderOpenIcon, SearchIcon } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Input } from "@/components/ls";
 import { Tree, TreeItem, TreeItemLabel } from "@/components/tree";
 
 export interface TreeNode {
@@ -102,7 +102,7 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({
     rootItemId: rootId,
     getItemName: (item) => {
       const data = item.getItemData();
-      return data?.name ?? "Unknown";
+      return data?.name ?? "—";
     },
     isItemFolder: (item) => {
       const data = item.getItemData();
@@ -172,7 +172,10 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({
           type="search"
           placeholder="搜索配置..."
         />
-        <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center justify-center ps-3 text-muted-foreground/80 peer-disabled:opacity-50">
+        <div
+          className="pointer-events-none absolute inset-y-0 start-0 flex items-center justify-center ps-3 peer-disabled:opacity-50"
+          style={{ color: "var(--ls-ink-faint)" }}
+        >
           <SearchIcon className="size-4" aria-hidden="true" />
         </div>
       </div>
@@ -186,18 +189,25 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({
             <TreeItem
               key={item.getId()}
               item={item}
-              className={`
-                rounded-md hover:bg-gray-100 dark:hover:bg-gray-700
-                ${isSelected ? "bg-blue-50 dark:bg-blue-900/30" : ""}
-              `}
+              className="ls-item rounded-control"
+              style={isSelected ? { background: "var(--ls-bg-2)" } : undefined}
             >
               <TreeItemLabel>
-                <span className="flex items-center gap-2">
+                <span
+                  className="flex items-center gap-2"
+                  style={{ color: "var(--ls-ink)" }}
+                >
                   {item.isFolder() &&
                     (item.isExpanded() ? (
-                      <FolderOpenIcon className="pointer-events-none size-4 text-blue-500" />
+                      <FolderOpenIcon
+                        className="pointer-events-none size-4"
+                        style={{ color: "var(--ls-life)" }}
+                      />
                     ) : (
-                      <FolderIcon className="pointer-events-none size-4 text-blue-500" />
+                      <FolderIcon
+                        className="pointer-events-none size-4"
+                        style={{ color: "var(--ls-ink-soft)" }}
+                      />
                     ))}
                   {item.getItemName()}
                 </span>

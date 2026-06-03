@@ -4,8 +4,15 @@
  */
 import React, { useState } from "react";
 import { X, Plus, Clock, PlayCircle, StopCircle, RotateCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AnimatePresence } from "motion/react";
 import { toast } from "sonner";
+import {
+  ModalRoot,
+  ModalPortal,
+  ModalOverlay,
+  ModalContent,
+  TactileButton,
+} from "@/components/ls";
 import {
   useSchedulesQuery,
   useCreateScheduleMutation,
@@ -218,103 +225,120 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     );
   };
 
-  if (!isOpen) return null;
-
   const actionIcons = {
     start: <PlayCircle className="w-4 h-4" />,
     stop: <StopCircle className="w-4 h-4" />,
     restart: <RotateCw className="w-4 h-4" />,
   };
 
+  // 动作 -> 语义色值(CSS var token):启动=生命色、停止=危险色、重启=次墨中性。
+  // 生息无蓝色,且 restart 非破坏性,用中性墨而非原蓝。子视图经 style 应用。
   const actionColors = {
-    start: "text-green-600 dark:text-green-400",
-    stop: "text-red-600 dark:text-red-400",
-    restart: "text-blue-600 dark:text-blue-400",
+    start: "var(--ls-life)",
+    stop: "var(--ls-danger)",
+    restart: "var(--ls-ink-soft)",
   };
 
   return (
-    <div className="fixed inset-0 z-[100] animate-in fade-in duration-200">
-      {/* 背景遮罩 */}
-      <div
-        className="absolute inset-0 backdrop-blur-md transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Modal 容器 */}
-      <div className="absolute top-0 right-0 bottom-0 left-0 md:left-[272px] flex items-center justify-center p-4 md:p-8 pointer-events-none">
-        <div className="relative w-full max-w-3xl h-[75vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-panel shadow-overlay border border-white/20 dark:border-white/10 flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 ring-1 ring-black/5 pointer-events-auto">
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 h-16 border-b border-gray-200/50 dark:border-gray-700/50 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 dark:bg-purple-400/10 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  计划任务管理
-                </h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  定时执行实例操作
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {formMode === "view" && (
-                <Button
-                  onClick={handleCreate}
-                  size="sm"
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  新建任务
-                </Button>
-              )}
-              <Button
-                onClick={onClose}
-                variant="ghost"
-                size="icon"
-                className="rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+    <ModalRoot
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <AnimatePresence>
+        {isOpen && (
+          <ModalPortal forceMount>
+            <ModalOverlay />
+            <ModalContent className="flex h-[75vh] max-w-3xl flex-col overflow-hidden p-0">
+              {/* Header */}
+              <div
+                className="flex h-16 shrink-0 items-center justify-between border-b px-6"
+                style={{ borderColor: "var(--ls-hairline)" }}
               >
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
-          </div>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-xl"
+                    style={{
+                      background: "var(--ls-surface-hi)",
+                      boxShadow: "var(--ls-shadow-soft)",
+                      color: "var(--ls-life)",
+                    }}
+                  >
+                    <Clock className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2
+                      className="text-lg font-semibold"
+                      style={{ color: "var(--ls-ink)" }}
+                    >
+                      计划任务管理
+                    </h2>
+                    <p
+                      className="text-xs"
+                      style={{ color: "var(--ls-ink-soft)" }}
+                    >
+                      定时执行实例操作
+                    </p>
+                  </div>
+                </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30 dark:bg-black/20">
-            {formMode === "view" ? (
-              <ScheduleListView
-                schedules={schedules}
-                isLoading={isLoading}
-                actionIcons={actionIcons}
-                actionColors={actionColors}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onToggle={handleToggle}
-              />
-            ) : (
-              <ScheduleFormView
-                formMode={formMode}
-                formData={formData}
-                selectedDate={selectedDate}
-                selectedTime={selectedTime}
-                selectedWeekdays={selectedWeekdays}
-                actionIcons={actionIcons}
-                actionColors={actionColors}
-                isPending={createMutation.isPending || updateMutation.isPending}
-                onFormDataChange={setFormData}
-                onSelectedDateChange={setSelectedDate}
-                onSelectedTimeChange={setSelectedTime}
-                onToggleWeekday={toggleWeekday}
-                onResetWeekdays={() => setSelectedWeekdays([])}
-                onSubmit={handleSubmit}
-                onCancel={handleCancel}
-              />
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+                <div className="flex items-center gap-2">
+                  {formMode === "view" && (
+                    <TactileButton variant="solid" onClick={handleCreate}>
+                      <Plus className="h-4 w-4" />
+                      新建任务
+                    </TactileButton>
+                  )}
+                  <button
+                    onClick={onClose}
+                    className="ls-item rounded-full p-2"
+                    style={{ color: "var(--ls-ink-soft)" }}
+                    aria-label="关闭"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {formMode === "view" ? (
+                  <ScheduleListView
+                    schedules={schedules}
+                    isLoading={isLoading}
+                    actionIcons={actionIcons}
+                    actionColors={actionColors}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onToggle={handleToggle}
+                  />
+                ) : (
+                  <ScheduleFormView
+                    formMode={formMode}
+                    formData={formData}
+                    selectedDate={selectedDate}
+                    selectedTime={selectedTime}
+                    selectedWeekdays={selectedWeekdays}
+                    actionIcons={actionIcons}
+                    actionColors={actionColors}
+                    isPending={
+                      createMutation.isPending || updateMutation.isPending
+                    }
+                    onFormDataChange={setFormData}
+                    onSelectedDateChange={setSelectedDate}
+                    onSelectedTimeChange={setSelectedTime}
+                    onToggleWeekday={toggleWeekday}
+                    onResetWeekdays={() => setSelectedWeekdays([])}
+                    onSubmit={handleSubmit}
+                    onCancel={handleCancel}
+                  />
+                )}
+              </div>
+            </ModalContent>
+          </ModalPortal>
+        )}
+      </AnimatePresence>
+    </ModalRoot>
   );
 };

@@ -1,18 +1,25 @@
-import React from 'react'
-import { Clock, Edit2, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { Schedule, ScheduleAction } from '@/services/scheduleApi'
+import React from "react";
+import { Clock, Edit2, Trash2 } from "lucide-react";
+import { TactileButton, Switch, Badge } from "@/components/ls";
+import { Schedule, ScheduleAction, ScheduleType } from "@/services/scheduleApi";
 
 interface ScheduleListViewProps {
-  schedules: Schedule[]
-  isLoading: boolean
-  actionIcons: Record<ScheduleAction, React.ReactNode>
-  actionColors: Record<ScheduleAction, string>
-  onEdit: (schedule: Schedule) => void
-  onDelete: (scheduleId: string) => void
-  onToggle: (scheduleId: string, enabled: boolean) => void
+  schedules: Schedule[];
+  isLoading: boolean;
+  actionIcons: Record<ScheduleAction, React.ReactNode>;
+  /** 动作 -> 语义色值(CSS var token 字符串),经 style 应用,随明暗自适配 */
+  actionColors: Record<ScheduleAction, string>;
+  onEdit: (schedule: Schedule) => void;
+  onDelete: (scheduleId: string) => void;
+  onToggle: (scheduleId: string, enabled: boolean) => void;
 }
+
+const scheduleTypeLabel: Record<ScheduleType, string> = {
+  once: "单次",
+  daily: "每天",
+  weekly: "每周",
+  monitor: "监控",
+};
 
 export const ScheduleListView: React.FC<ScheduleListViewProps> = ({
   schedules,
@@ -26,74 +33,102 @@ export const ScheduleListView: React.FC<ScheduleListViewProps> = ({
   return (
     <div className="space-y-3">
       {isLoading ? (
-        <div className="text-center py-12 text-gray-500">加载中...</div>
+        <div
+          className="py-12 text-center text-sm"
+          style={{ color: "var(--ls-ink-soft)" }}
+        >
+          加载中...
+        </div>
       ) : schedules.length === 0 ? (
-        <div className="text-center py-12">
-          <Clock className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">暂无计划任务</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            点击"新建任务"创建第一个计划任务
+        <div className="py-12 text-center">
+          <Clock
+            className="mx-auto mb-3 h-12 w-12"
+            style={{ color: "var(--ls-ink-faint)" }}
+          />
+          <p className="text-sm" style={{ color: "var(--ls-ink-soft)" }}>
+            暂无计划任务
+          </p>
+          <p className="mt-1 text-xs" style={{ color: "var(--ls-ink-faint)" }}>
+            点击「新建任务」创建第一个计划任务
           </p>
         </div>
       ) : (
         schedules.map((schedule) => (
           <div
             key={schedule.id}
-            className="p-4 rounded-card bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 hover:border-purple-300 dark:hover:border-purple-700 transition-all"
+            className="ls-item p-4"
+            style={{
+              border: "1px solid var(--ls-hairline)",
+              borderRadius: "var(--ls-r-card)",
+            }}
           >
             <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className={`${actionColors[schedule.action]}`}>
+              <div className="min-w-0 flex-1">
+                <div className="mb-2 flex items-center gap-2">
+                  <span style={{ color: actionColors[schedule.action] }}>
                     {actionIcons[schedule.action]}
-                  </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                  </span>
+                  <h3
+                    className="truncate font-semibold"
+                    style={{ color: "var(--ls-ink)" }}
+                  >
                     {schedule.name}
                   </h3>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                    {schedule.schedule_type === 'once' && '单次'}
-                    {schedule.schedule_type === 'daily' && '每天'}
-                    {schedule.schedule_type === 'weekly' && '每周'}
-                    {schedule.schedule_type === 'monitor' && '监控'}
-                  </span>
+                  <Badge tone="neutral">
+                    {scheduleTypeLabel[schedule.schedule_type]}
+                  </Badge>
                 </div>
 
-                <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                <div
+                  className="space-y-1 text-xs"
+                  style={{ color: "var(--ls-ink-soft)" }}
+                >
                   {schedule.next_run && (
-                    <div>下次执行: {new Date(schedule.next_run).toLocaleString('zh-CN')}</div>
+                    <div>
+                      下次执行:{" "}
+                      <span className="ls-num">
+                        {new Date(schedule.next_run).toLocaleString("zh-CN")}
+                      </span>
+                    </div>
                   )}
                   {schedule.last_run && (
-                    <div>上次执行: {new Date(schedule.last_run).toLocaleString('zh-CN')}</div>
+                    <div>
+                      上次执行:{" "}
+                      <span className="ls-num">
+                        {new Date(schedule.last_run).toLocaleString("zh-CN")}
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex shrink-0 items-center gap-2">
                 <Switch
                   checked={schedule.enabled}
                   onCheckedChange={(checked) => onToggle(schedule.id, checked)}
                 />
-                <Button
+                <TactileButton
+                  variant="ghost"
                   onClick={() => onEdit(schedule)}
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 justify-center px-0"
+                  aria-label="编辑"
                 >
-                  <Edit2 className="w-4 h-4" />
-                </Button>
-                <Button
+                  <Edit2 className="h-4 w-4" />
+                </TactileButton>
+                <TactileButton
+                  variant="ghost"
                   onClick={() => onDelete(schedule.id)}
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-red-600 hover:text-red-700 dark:text-red-400"
+                  className="h-8 w-8 justify-center px-0"
+                  style={{ color: "var(--ls-danger)" }}
+                  aria-label="删除"
                 >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                  <Trash2 className="h-4 w-4" />
+                </TactileButton>
               </div>
             </div>
           </div>
         ))
       )}
     </div>
-  )
-}
+  );
+};

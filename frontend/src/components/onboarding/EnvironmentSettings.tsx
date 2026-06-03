@@ -1,13 +1,20 @@
-import { LoaderIcon, AlertCircleIcon, ChevronDownIcon, CheckCircle2Icon } from 'lucide-react'
+import { LoaderIcon, AlertCircleIcon } from "lucide-react";
 import {
   usePythonVersionsQuery,
   usePythonDefaultQuery,
   useSetPythonDefaultMutation,
-} from '@/hooks/queries/useEnvironmentQueries'
-import { useState, useEffect } from 'react'
+} from "@/hooks/queries/useEnvironmentQueries";
+import { useState, useEffect } from "react";
+import {
+  Label,
+  SelectRoot,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+} from "@/components/ls";
 
 interface EnvironmentSettingsProps {
-  stepColor?: string
+  stepColor?: string;
 }
 
 /**
@@ -15,100 +22,113 @@ interface EnvironmentSettingsProps {
  * 职责：选择默认 Python 版本
  */
 export function EnvironmentSettings(_props: EnvironmentSettingsProps) {
-  const { data: pythonVersions = [], isLoading: isLoadingPython, error: pythonErrorObj } = usePythonVersionsQuery()
-  const { data: selectedPython } = usePythonDefaultQuery()
-  const savePythonMutation = useSetPythonDefaultMutation()
-  const pythonError = pythonErrorObj ? String(pythonErrorObj) : null
+  const {
+    data: pythonVersions = [],
+    isLoading: isLoadingPython,
+    error: pythonErrorObj,
+  } = usePythonVersionsQuery();
+  const { data: selectedPython } = usePythonDefaultQuery();
+  const savePythonMutation = useSetPythonDefaultMutation();
+  const pythonError = pythonErrorObj ? String(pythonErrorObj) : null;
 
-  const [showPythonDropdown, setShowPythonDropdown] = useState(false)
-  const [localSelectedPython, setLocalSelectedPython] = useState(selectedPython?.path || '')
+  const [localSelectedPython, setLocalSelectedPython] = useState(
+    selectedPython?.path || "",
+  );
 
   useEffect(() => {
     if (selectedPython?.path) {
-      setLocalSelectedPython(selectedPython.path)
+      setLocalSelectedPython(selectedPython.path);
     }
-  }, [selectedPython])
+  }, [selectedPython]);
+
+  const currentVersion = pythonVersions.find(
+    (v) => v.path === localSelectedPython,
+  );
 
   return (
     <div className="space-y-6">
       {/* Python 版本 */}
-      <div>
-        <h3 className="text-sm font-medium text-foreground mb-2">
-          默认 Python 版本
-        </h3>
+      <div className="space-y-2">
+        <Label>默认 Python 版本</Label>
 
         {pythonError ? (
-          <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400">
+          <div
+            className="flex items-center gap-2 text-xs"
+            style={{ color: "var(--ls-danger)" }}
+          >
             <AlertCircleIcon className="w-3.5 h-3.5 flex-shrink-0" />
             <span>{pythonError}</span>
           </div>
         ) : isLoadingPython ? (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div
+            className="flex items-center gap-2 text-xs"
+            style={{ color: "var(--ls-ink-soft)" }}
+          >
             <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
             <span>检测中…</span>
           </div>
         ) : pythonVersions.length > 0 ? (
-          <div className="relative">
-            <button
-              onClick={() => setShowPythonDropdown(!showPythonDropdown)}
-              disabled={savePythonMutation.isPending}
-              className="w-full flex items-center justify-between py-2.5 px-3.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors disabled:opacity-60 text-left"
-            >
-              <div className="flex-1 min-w-0">
-                {localSelectedPython ? (
-                  <>
-                    <div className="text-sm font-medium text-foreground">
-                      {pythonVersions.find(v => v.path === localSelectedPython)?.version || '未选择'}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">
-                      {localSelectedPython}
-                    </div>
-                  </>
-                ) : (
-                  <span className="text-sm text-muted-foreground">选择 Python 版本</span>
-                )}
-              </div>
-              <ChevronDownIcon className={`w-4 h-4 text-muted-foreground transition-transform ml-2 flex-shrink-0 ${showPythonDropdown ? 'rotate-180' : ''}`} />
-            </button>
-
-            {showPythonDropdown && (
-              <div className="absolute z-10 w-full mt-1 py-1 rounded-lg bg-popover border border-border shadow-lg max-h-[200px] overflow-y-auto">
-                {pythonVersions.map((version) => (
-                  <button
-                    key={version.path}
-                    onClick={() => {
-                      setLocalSelectedPython(version.path)
-                      setShowPythonDropdown(false)
-                      savePythonMutation.mutate(version.path)
-                    }}
-                    className={`w-full text-left px-3.5 py-2 hover:bg-muted transition-colors ${
-                      version.path === localSelectedPython ? 'bg-muted' : ''
-                    }`}
+          <SelectRoot
+            value={localSelectedPython || undefined}
+            onValueChange={(path) => {
+              setLocalSelectedPython(path);
+              savePythonMutation.mutate(path);
+            }}
+            disabled={savePythonMutation.isPending}
+          >
+            <SelectTrigger className="h-auto py-2.5 px-3.5">
+              {/* 触发器自渲染:展示版本号 + 等宽路径两行,而非 SelectValue 单行文本 */}
+              {currentVersion ? (
+                <div className="flex-1 min-w-0 text-left">
+                  <div
+                    className="text-sm font-medium"
+                    style={{ color: "var(--ls-ink)" }}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-foreground">
-                          {version.version}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground font-mono truncate">
-                          {version.path}
-                        </div>
-                      </div>
-                      {version.path === localSelectedPython && (
-                        <CheckCircle2Icon className="w-4 h-4 text-brand flex-shrink-0" />
-                      )}
+                    {currentVersion.version}
+                  </div>
+                  <div
+                    className="ls-num text-[11px] font-mono truncate mt-0.5"
+                    style={{ color: "var(--ls-ink-soft)" }}
+                  >
+                    {localSelectedPython}
+                  </div>
+                </div>
+              ) : (
+                <span
+                  className="text-sm"
+                  style={{ color: "var(--ls-ink-faint)" }}
+                >
+                  选择 Python 版本
+                </span>
+              )}
+            </SelectTrigger>
+            <SelectContent>
+              {pythonVersions.map((version) => (
+                <SelectItem key={version.path} value={version.path}>
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="text-sm font-medium"
+                      style={{ color: "var(--ls-ink)" }}
+                    >
+                      {version.version}
                     </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+                    <div
+                      className="ls-num text-[11px] font-mono truncate"
+                      style={{ color: "var(--ls-ink-soft)" }}
+                    >
+                      {version.path}
+                    </div>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </SelectRoot>
         ) : (
-          <p className="text-xs text-yellow-600 dark:text-yellow-400">
+          <p className="text-xs" style={{ color: "var(--ls-warn)" }}>
             未检测到 Python 环境，请返回上一步安装
           </p>
         )}
       </div>
     </div>
-  )
+  );
 }

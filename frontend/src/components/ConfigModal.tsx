@@ -2,8 +2,10 @@
  * MAIBot 配置模态框 - 重构版
  */
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { springSoft } from "@/design/motion";
 import {
   getBotConfig,
   getModelConfig,
@@ -320,117 +322,143 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] animate-in fade-in duration-200">
-      <div
-        className="absolute inset-0 backdrop-blur-md transition-opacity"
-        onClick={onClose}
-      />
-
-      <div className="absolute top-0 right-0 bottom-0 left-0 md:left-[272px] flex items-center justify-center p-2 sm:p-4 md:p-6 lg:p-8 pointer-events-none">
-        <div
-          ref={containerRef}
-          className="relative w-full max-w-7xl h-[90vh] md:h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-panel shadow-overlay border border-white/20 dark:border-white/10 flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 ring-1 ring-black/5 pointer-events-auto"
-        >
-          <ConfigHeader
-            activeConfig={activeConfig}
-            editMode={editMode}
-            isCompact={isCompact}
-            isMobile={isMobile}
-            onConfigChange={(config) => setActiveConfig(config)}
-            onEditModeChange={(mode) => {
-              setEditMode(mode);
-              setHasChanges(
-                mode === "text" ? rawText !== originalRawText : false,
-              );
-            }}
-            onClose={onClose}
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100]">
+          <motion.div
+            className="absolute inset-0"
+            style={{ background: "rgba(0, 0, 0, 0.45)" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            onClick={onClose}
           />
 
-          <div className="flex-1 flex overflow-hidden bg-gray-50/30 dark:bg-black/20 relative">
-            {loading ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-4">
-                <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
-                <p className="text-gray-500 dark:text-gray-400 font-medium">
-                  正在加载配置...
-                </p>
-              </div>
-            ) : (
-              <div className="flex-1 flex overflow-hidden relative">
-                <ConfigTextEditor
-                  rawText={rawText}
-                  hasChanges={hasChanges}
-                  saving={saving}
-                  editMode={editMode}
-                  onRawTextChange={(value) => {
-                    setRawText(value);
-                    setHasChanges(value !== originalRawText);
-                  }}
-                  onResetChanges={() => {
-                    setRawText(originalRawText);
-                    setHasChanges(false);
-                  }}
-                  onSave={handleSave}
-                />
+          <div className="absolute top-0 right-0 bottom-0 left-0 md:left-[272px] flex items-center justify-center p-2 sm:p-4 md:p-6 lg:p-8 pointer-events-none">
+            <motion.div
+              ref={containerRef}
+              className="relative w-full max-w-7xl h-[90vh] md:h-[85vh] rounded-panel flex flex-col overflow-hidden pointer-events-auto"
+              style={{
+                background: "var(--ls-surface)",
+                border: "1px solid var(--ls-hairline)",
+                boxShadow:
+                  "var(--ls-shadow-lift), inset 0 1px 0 var(--ls-top-hi)",
+              }}
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 8 }}
+              transition={springSoft}
+            >
+              <ConfigHeader
+                activeConfig={activeConfig}
+                editMode={editMode}
+                isCompact={isCompact}
+                isMobile={isMobile}
+                onConfigChange={(config) => setActiveConfig(config)}
+                onEditModeChange={(mode) => {
+                  setEditMode(mode);
+                  setHasChanges(
+                    mode === "text" ? rawText !== originalRawText : false,
+                  );
+                }}
+                onClose={onClose}
+              />
 
-                <ConfigTreeEditor
-                  editMode={editMode}
-                  isCompact={isCompact}
-                  treeData={treeData}
-                  selectedGroupId={selectedGroupId}
-                  selectedGroup={selectedGroup}
-                  activeConfig={activeConfig}
-                  selectedPath={selectedPath}
-                  editValue={editValue}
-                  hasChanges={hasChanges}
-                  saving={saving}
-                  botConfig={botConfig}
-                  modelConfig={modelConfig}
-                  adapterConfig={adapterConfig}
-                  addingTagPath={addingTagPath}
-                  newTagValue={newTagValue}
-                  napCatAccounts={napCatAccounts}
-                  selectedQQAccount={selectedQQAccount}
-                  originalQQAccount={originalQQAccount}
-                  loadingAccounts={loadingAccounts}
-                  onSelectGroup={(groupId) => {
-                    setSelectedGroupId(groupId);
-                    setSelectedPath(null);
-                    setEditValue(null);
-                    setHasChanges(false);
-                  }}
-                  onPathSelect={(path) => {
-                    setSelectedPath(path);
-                    setHasChanges(true);
-                  }}
-                  onValueChange={setEditValue}
-                  onSave={handleSave}
-                  onCancel={() => {
-                    setEditValue(null);
-                    setSelectedPath(null);
-                    setHasChanges(false);
-                  }}
-                  onAddTag={setAddingTagPath}
-                  onNewTagValueChange={setNewTagValue}
-                  onCancelAddTag={() => setAddingTagPath(null)}
-                  onLoadNapCatAccounts={loadNapCatAccounts}
-                  onSelectQQAccount={(account) => {
-                    setSelectedQQAccount(account);
-                    setHasChanges(account !== originalQQAccount);
-                  }}
-                  onResetQQAccount={() => {
-                    setSelectedQQAccount(originalQQAccount);
-                    setHasChanges(false);
-                  }}
-                  onSaveQQAccount={handleSaveQQAccount}
-                />
+              <div
+                className="flex-1 flex overflow-hidden relative"
+                style={{ background: "var(--ls-bg)" }}
+              >
+                {loading ? (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                    <Loader2
+                      className="w-10 h-10 animate-spin"
+                      style={{ color: "var(--ls-life)" }}
+                    />
+                    <p
+                      className="font-medium"
+                      style={{ color: "var(--ls-ink-soft)" }}
+                    >
+                      正在加载配置...
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex overflow-hidden relative">
+                    <ConfigTextEditor
+                      rawText={rawText}
+                      hasChanges={hasChanges}
+                      saving={saving}
+                      editMode={editMode}
+                      onRawTextChange={(value) => {
+                        setRawText(value);
+                        setHasChanges(value !== originalRawText);
+                      }}
+                      onResetChanges={() => {
+                        setRawText(originalRawText);
+                        setHasChanges(false);
+                      }}
+                      onSave={handleSave}
+                    />
+
+                    <ConfigTreeEditor
+                      editMode={editMode}
+                      isCompact={isCompact}
+                      treeData={treeData}
+                      selectedGroupId={selectedGroupId}
+                      selectedGroup={selectedGroup}
+                      activeConfig={activeConfig}
+                      selectedPath={selectedPath}
+                      editValue={editValue}
+                      hasChanges={hasChanges}
+                      saving={saving}
+                      botConfig={botConfig}
+                      modelConfig={modelConfig}
+                      adapterConfig={adapterConfig}
+                      addingTagPath={addingTagPath}
+                      newTagValue={newTagValue}
+                      napCatAccounts={napCatAccounts}
+                      selectedQQAccount={selectedQQAccount}
+                      originalQQAccount={originalQQAccount}
+                      loadingAccounts={loadingAccounts}
+                      onSelectGroup={(groupId) => {
+                        setSelectedGroupId(groupId);
+                        setSelectedPath(null);
+                        setEditValue(null);
+                        setHasChanges(false);
+                      }}
+                      onPathSelect={(path) => {
+                        setSelectedPath(path);
+                        setHasChanges(true);
+                      }}
+                      onValueChange={setEditValue}
+                      onSave={handleSave}
+                      onCancel={() => {
+                        setEditValue(null);
+                        setSelectedPath(null);
+                        setHasChanges(false);
+                      }}
+                      onAddTag={setAddingTagPath}
+                      onNewTagValueChange={setNewTagValue}
+                      onCancelAddTag={() => setAddingTagPath(null)}
+                      onLoadNapCatAccounts={loadNapCatAccounts}
+                      onSelectQQAccount={(account) => {
+                        setSelectedQQAccount(account);
+                        setHasChanges(account !== originalQQAccount);
+                      }}
+                      onResetQQAccount={() => {
+                        setSelectedQQAccount(originalQQAccount);
+                        setHasChanges(false);
+                      }}
+                      onSaveQQAccount={handleSaveQQAccount}
+                    />
+                  </div>
+                )}
               </div>
-            )}
+            </motion.div>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 };
