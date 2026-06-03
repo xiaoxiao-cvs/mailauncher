@@ -35,6 +35,10 @@ pub struct SystemStats {
     pub net_rx_rate: u64,
     /// 网络上行速率(字节/秒)
     pub net_tx_rate: u64,
+    /// 本次会话累计下行(字节,自启动器 Networks 实例创建起算)
+    pub net_rx_total: u64,
+    /// 本次会话累计上行(字节)
+    pub net_tx_total: u64,
     /// 主机已运行时长(秒)
     pub uptime_secs: u64,
     /// 系统平均负载(1 分钟,运行队列长度的 EWMA;Windows 经 PDH 计算,Unix 取 sysinfo 原生)
@@ -107,9 +111,13 @@ impl SystemMonitor {
         inner.networks.refresh(false);
         let mut rx_bytes = 0u64;
         let mut tx_bytes = 0u64;
+        let mut rx_total = 0u64;
+        let mut tx_total = 0u64;
         for data in inner.networks.list().values() {
             rx_bytes = rx_bytes.saturating_add(data.received());
             tx_bytes = tx_bytes.saturating_add(data.transmitted());
+            rx_total = rx_total.saturating_add(data.total_received());
+            tx_total = tx_total.saturating_add(data.total_transmitted());
         }
         let (net_rx_rate, net_tx_rate) = if elapsed > 0.0 {
             (
@@ -135,6 +143,8 @@ impl SystemMonitor {
             disk_available,
             net_rx_rate,
             net_tx_rate,
+            net_rx_total: rx_total,
+            net_tx_total: tx_total,
             uptime_secs: System::uptime(),
             load_avg_1,
             load_avg_5,
