@@ -167,8 +167,10 @@
   * {
     @apply border-border;
   }
+  /* 根背景对齐生息暖中性底,不再用 shadcn 冷色 --background;明暗均由 var(--ls-*) 自适配。 */
   body {
-    @apply bg-background text-foreground;
+    background: var(--ls-bg);
+    color: var(--ls-ink);
   }
 }
 

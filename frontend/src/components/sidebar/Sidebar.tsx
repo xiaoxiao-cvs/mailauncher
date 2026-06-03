@@ -1,30 +1,33 @@
-import { SidebarNavItemComponent } from './SidebarNavItem'
-import { SIDEBAR_NAV_ITEMS, SIDEBAR_BOTTOM_ITEMS } from './constants'
-import { NotificationBell } from '@/components/notifications/NotificationBell'
-import { NotificationPopover } from '@/components/notifications/NotificationPopover'
-import { cn } from '@/lib/utils'
+import { SidebarNavItemComponent } from "./SidebarNavItem";
+import { SIDEBAR_NAV_ITEMS, SIDEBAR_BOTTOM_ITEMS } from "./constants";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { NotificationPopover } from "@/components/notifications/NotificationPopover";
+import { cn } from "@/lib/utils";
 // import { useSidebar } from '@/hooks/useSidebar'
-import { useNotificationContext } from '@/contexts/NotificationContext'
-import { useState, useEffect } from 'react'
-import InstallLogModal from '../install/InstallLogModal'
-import { Notification } from '@/types/notification'
-import { registerNotificationHandlers, setupNotificationTestCommands } from '@/utils/notificationTestTool'
+import { useNotificationContext } from "@/contexts/NotificationContext";
+import { useState, useEffect } from "react";
+import InstallLogModal from "../install/InstallLogModal";
+import { Notification } from "@/types/notification";
+import {
+  registerNotificationHandlers,
+  setupNotificationTestCommands,
+} from "@/utils/notificationTestTool";
 
 /**
  * 侧边栏组件
  * 职责：提供应用导航
- * 
- * 设计特点：
+ *
+ * 设计特点（生息 Living Surfaces）：
  * - 始终展开状态
  * - 悬浮圆角矩形设计
- * - 毛玻璃效果
+ * - 实色哑光面：--ls-surface 背景 + 发丝边 + 柔影 + 顶高光，零玻璃
  * - 当前页面高亮显示
  * - 通知中心功能
  */
 export function Sidebar() {
   // 始终保持展开状态
-  const isCollapsed = false
-  
+  const isCollapsed = false;
+
   // 通知管理
   const {
     notifications,
@@ -39,7 +42,7 @@ export function Sidebar() {
     addErrorNotification,
     addTaskNotification,
     updateTaskProgress,
-  } = useNotificationContext()
+  } = useNotificationContext();
 
   // 注册测试工具（开发环境）
   useEffect(() => {
@@ -51,8 +54,8 @@ export function Sidebar() {
         addTaskNotification,
         updateTaskProgress,
         clearAllNotifications,
-      })
-      setupNotificationTestCommands()
+      });
+      setupNotificationTestCommands();
     }
   }, [
     addMessageNotification,
@@ -61,72 +64,70 @@ export function Sidebar() {
     addTaskNotification,
     updateTaskProgress,
     clearAllNotifications,
-  ])
+  ]);
 
   // 调试日志
   useEffect(() => {
-    console.log('[Notification] 通知列表更新:', notifications)
-    console.log('[Notification] 未读数量:', unreadCount)
-  }, [notifications, unreadCount])
+    console.log("[Notification] 通知列表更新:", notifications);
+    console.log("[Notification] 未读数量:", unreadCount);
+  }, [notifications, unreadCount]);
 
   // 日志模态框状态
   const [logModal, setLogModal] = useState<{
-    isOpen: boolean
-    notification: Notification | null
+    isOpen: boolean;
+    notification: Notification | null;
   }>({
     isOpen: false,
     notification: null,
-  })
+  });
 
   // 处理通知点击 - 所有类型的通知都可以点击查看详情
   const handleNotificationClick = (notification: Notification) => {
     setLogModal({
       isOpen: true,
       notification,
-    })
-    closePopover()
-  }
+    });
+    closePopover();
+  };
 
   return (
     <aside
       className={cn(
-        // 玻璃拟态核心样式
-        'h-full',
-        'bg-white/40 dark:bg-black/40', // 降低不透明度，让背景透出来
-        'backdrop-blur-3xl', // 极高模糊
-        'backdrop-saturate-150', // 增加饱和度，让透出的颜色更鲜艳（液态感关键）
-        'border border-white/20 dark:border-white/10', // 细腻边框
-        
-        // 布局与过渡
-        'flex flex-col transition-all duration-300 ease-in-out relative z-50',
-        
-        // 形状
-        'rounded-panel',
-
-        // 深度感
-        'shadow-overlay shadow-black/5',
-        
+        // 实色哑光面 + 布局
+        "h-full flex flex-col relative z-50",
         // 宽度
-        'w-64'
+        "w-64",
       )}
+      style={{
+        background: "var(--ls-surface)",
+        border: "1px solid var(--ls-hairline)",
+        borderRadius: "var(--ls-r-panel)",
+        boxShadow: "var(--ls-shadow-soft), inset 0 1px 0 var(--ls-top-hi)",
+      }}
     >
       {/* 顶部：Logo 区域 */}
-      <div className="px-4 py-6 border-b border-border overflow-hidden">
-        <div className={cn(
-          'flex items-center gap-3 transition-all duration-200',
-          'justify-start' // 左对齐
-        )}>
-          {/* Logo 图标 */}
-          <div className="w-8 h-8 bg-gradient-to-br from-brand to-brand/70 rounded-lg flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-sm">MAI</span>
+      <div
+        className="px-4 py-6 overflow-hidden"
+        style={{ borderBottom: "1px solid var(--ls-hairline)" }}
+      >
+        <div className="flex items-center gap-3 justify-start">
+          {/* Logo 图标 —— 生命色克制点缀 */}
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{
+              background: "var(--ls-life)",
+              boxShadow: "inset 0 1px 0 var(--ls-top-hi)",
+            }}
+          >
+            <span className="font-bold text-sm" style={{ color: "#fff" }}>
+              MAI
+            </span>
           </div>
-          
+
           {/* Logo 文字 */}
-          <span 
-            className={cn(
-              'text-lg font-semibold text-foreground whitespace-nowrap transition-all duration-200',
-              'opacity-100'
-            )}
+          <span
+            className="text-lg font-semibold whitespace-nowrap"
+            style={{ color: "var(--ls-ink)" }}
           >
             mailauncher
           </span>
@@ -181,5 +182,5 @@ export function Sidebar() {
         onClose={() => setLogModal({ isOpen: false, notification: null })}
       />
     </aside>
-  )
+  );
 }

@@ -47,33 +47,54 @@ export class ErrorBoundary extends Component<Props, State> {
           background: "#f3efe9",
         }}
       >
-        <div style={{ fontSize: 18, fontWeight: 600 }}>页面渲染出错</div>
-        <pre
+        <div
           style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 16,
             maxWidth: 680,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            fontSize: 13,
-            lineHeight: 1.5,
-            color: "#c5563e",
+            width: "100%",
+            padding: 24,
+            borderRadius: 16,
+            border: "1px solid rgba(43,39,34,0.08)",
+            background: "#fbf8f3",
           }}
         >
-          {error.message}
-        </pre>
-        <button
-          type="button"
-          onClick={this.handleRetry}
-          style={{
-            padding: "8px 18px",
-            borderRadius: 12,
-            border: "1px solid rgba(43,39,34,0.12)",
-            background: "#ffffff",
-            cursor: "pointer",
-            fontSize: 14,
-          }}
-        >
-          重试
-        </button>
+          <div style={{ fontSize: 18, fontWeight: 600, color: "#2b2722" }}>
+            页面渲染出错
+          </div>
+          <div style={{ fontSize: 13, color: "#79716a" }}>
+            请查看下方错误信息,修复后点击重试。
+          </div>
+          <pre
+            style={{
+              maxWidth: "100%",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              fontSize: 13,
+              lineHeight: 1.5,
+              color: "#c5563e",
+            }}
+          >
+            {error.message}
+          </pre>
+          <button
+            type="button"
+            onClick={this.handleRetry}
+            style={{
+              padding: "8px 18px",
+              borderRadius: 12,
+              border: "1px solid rgba(43,39,34,0.08)",
+              background: "#ffffff",
+              color: "#2b2722",
+              cursor: "pointer",
+              fontSize: 14,
+            }}
+          >
+            重试
+          </button>
+        </div>
       </div>
     );
   }

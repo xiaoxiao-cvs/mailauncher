@@ -32,7 +32,7 @@
   color-scheme: light;
 }
 
-[data-theme="dark"] {
+.dark {
   --ls-bg: #17140f;
   --ls-bg-2: #120f0b;
   --ls-surface: #211c16;
