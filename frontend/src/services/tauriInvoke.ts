@@ -4,7 +4,7 @@
  * 提供统一的 invoke 调用接口，替换原有的 HTTP apiJson/apiText。
  * Rust 命令直接返回数据（无 {success, data} 包装），错误通过 reject 抛出。
  */
-import { invoke } from '@tauri-apps/api/core'
+import { transport } from "@/services/transport";
 
 /**
  * 调用 Tauri 命令并返回结果
@@ -20,18 +20,10 @@ import { invoke } from '@tauri-apps/api/core'
  * const instance = await tauriInvoke<Instance>('get_instance', { instanceId: 'abc' })
  * ```
  */
-export async function tauriInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  try {
-    const result = await invoke<T>(command, args)
-    return result
-  } catch (error) {
-    // Tauri 的 invoke 错误可能是字符串或对象
-    const message = typeof error === 'string'
-      ? error
-      : error instanceof Error
-        ? error.message
-        : JSON.stringify(error)
-    console.error(`[Tauri Command Error] ${command}:`, message)
-    throw new Error(message)
-  }
+export async function tauriInvoke<T>(
+  command: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
+  // 错误归一化已下沉至 transport 层（TauriTransport.invoke）
+  return transport.invoke<T>(command, args);
 }

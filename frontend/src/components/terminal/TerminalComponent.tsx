@@ -13,7 +13,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import "@xterm/xterm/css/xterm.css";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { transport } from "@/services/transport";
 import { tauriInvoke } from "@/services/tauriInvoke";
 import { terminalOutputEvent } from "@/types/tauriEvents";
 import type { RuntimeKind } from "@/services/instanceApi";
@@ -143,7 +143,7 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
     const term = terminalInstance.current;
     if (!term) return;
 
-    let unlisten: UnlistenFn | null = null;
+    let unlisten: (() => void) | null = null;
     let cancelled = false;
     let pollTimer: number | null = null;
 
@@ -186,10 +186,10 @@ export const TerminalComponent: React.FC<TerminalComponentProps> = ({
 
         // 2. 监听实时输出事件
         const eventName = terminalOutputEvent(instanceId, component);
-        unlisten = await listen<string>(eventName, (event) => {
+        unlisten = await transport.listen<string>(eventName, (payload) => {
           if (!cancelled) {
-            term.write(event.payload);
-            snapshotRef.current += event.payload;
+            term.write(payload);
+            snapshotRef.current += payload;
           }
         });
 
