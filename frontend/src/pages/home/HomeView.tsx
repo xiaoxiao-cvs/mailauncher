@@ -1,10 +1,11 @@
-import { useMemo } from "react";
-import { motion } from "motion/react";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { ArrowDown, ArrowDownUp, ArrowUp } from "lucide-react";
 
 import {
   Card,
   Meter,
+  MirrorGraph,
   Ring,
   SegmentControl,
   Sparkline,
@@ -58,6 +59,16 @@ function fmtRate(raw: number | null | undefined): string {
   if (bps >= 1024 * 1024) return (bps / 1024 / 1024).toFixed(1) + " MB/s";
   if (bps >= 1024) return (bps / 1024).toFixed(0) + " KB/s";
   return Math.round(bps) + " B/s";
+}
+
+/** 字节 -> 自适应 B|KB|MB|GB|TB（累计总量读数用，无 /s）。 */
+function fmtBytes(raw: number | null | undefined): string {
+  const b = num(raw);
+  if (b >= 1024 ** 4) return (b / 1024 ** 4).toFixed(2) + " TB";
+  if (b >= 1024 ** 3) return (b / 1024 ** 3).toFixed(2) + " GB";
+  if (b >= 1024 ** 2) return (b / 1024 ** 2).toFixed(1) + " MB";
+  if (b >= 1024) return (b / 1024).toFixed(0) + " KB";
+  return Math.round(b) + " B";
 }
 
 /** 秒 -> "Xh Ym"。系统运行时长 footer 用。 */
@@ -142,6 +153,24 @@ export interface HomeViewProps {
 
 const PLACEHOLDER = "—";
 
+/** 内存硬件信息拼读："DDR5 · 6000 MT/s"，缺项降级，全缺为占位符。 */
+function fmtMemHw(info: SystemInfo | undefined): string {
+  if (!info) return PLACEHOLDER;
+  const hasType = info.memory_type !== "" && info.memory_type !== "未知";
+  const hasSpeed = info.memory_speed > 0;
+  if (hasType && hasSpeed)
+    return `${info.memory_type} · ${info.memory_speed} MT/s`;
+  if (hasSpeed) return `${info.memory_speed} MT/s`;
+  if (hasType) return info.memory_type;
+  return PLACEHOLDER;
+}
+
+const SYS_TABS = ["系统", "网络"] as const;
+type SysTab = (typeof SYS_TABS)[number];
+
+/** 网络速率滚动缓冲容量:每约 1.5s 一帧,48 帧约 72s 走势。 */
+const NET_HIST_CAP = 48;
+
 function SystemPanel({
   info,
   stats,
@@ -149,6 +178,21 @@ function SystemPanel({
   info: SystemInfo | undefined;
   stats: SystemStats | undefined;
 }) {
+  const [tab, setTab] = useState<SysTab>("系统");
+  const [netHist, setNetHist] = useState<{ down: number[]; up: number[] }>({
+    down: [],
+    up: [],
+  });
+
+  // 每来一帧实时快照(事件推送为新对象引用),把收发速率压入滚动缓冲供波形/峰值用。
+  useEffect(() => {
+    if (!stats) return;
+    setNetHist((prev) => ({
+      down: [...prev.down, stats.net_rx_rate].slice(-NET_HIST_CAP),
+      up: [...prev.up, stats.net_tx_rate].slice(-NET_HIST_CAP),
+    }));
+  }, [stats]);
+
   const cpuPct = stats ? Math.round(stats.cpu_usage) : 0;
   // 负载环:1 分钟负载相对逻辑核数的占比(负载=核数即满圈,32 线程下负载 16 约半环)
   const loadPct = stats
@@ -159,88 +203,151 @@ function SystemPanel({
         ),
       )
     : 0;
+  const peakDown = netHist.down.length ? Math.max(...netHist.down) : 0;
+  const peakUp = netHist.up.length ? Math.max(...netHist.up) : 0;
 
   return (
     <Card className="col-span-12 flex flex-col lg:col-span-4">
-      <div className="flex items-baseline justify-between gap-3">
-        <div className="text-sm font-semibold">系统</div>
-        <div
-          className="truncate text-xs"
-          style={{ color: "var(--ls-ink-faint)" }}
-        >
-          {info
-            ? `${info.os_long_version} · 启动器 v${info.launcher_version}`
-            : PLACEHOLDER}
-        </div>
+      {/* 系统/网络 Tab 栏:选中段高面滑块跟随,左对齐 */}
+      <div className="flex">
+        <SegmentControl options={SYS_TABS} value={tab} onChange={setTab} />
       </div>
 
-      {/* 分割线之上:环=系统负载(1min,相对核数),条=CPU 利用率 / 内存 */}
-      <div className="mt-5 flex items-center gap-5">
-        <div className="flex flex-col items-center">
-          <Ring value={loadPct} />
-          <div
-            className="mt-1.5 text-[11px]"
-            style={{ color: "var(--ls-ink-soft)" }}
-          >
-            系统负载
-          </div>
-        </div>
-        <div className="flex flex-1 flex-col gap-4">
-          <div>
-            <Meter
-              label="CPU"
-              used={stats ? stats.cpu_usage : 0}
-              total={100}
-              valueText={
-                stats
-                  ? `${cpuPct}% of ${stats.cpu_core_count} CPU(s)`
-                  : PLACEHOLDER
-              }
-            />
-            <div
-              className="ls-num mt-1.5 text-right text-[11px]"
-              style={{ color: "var(--ls-ink-faint)" }}
+      {/* Tab 内容区:固定最小高 + 垂直居中,切换不跳动 */}
+      <div className="mt-4 flex min-h-[156px] flex-col justify-center">
+        <AnimatePresence mode="wait" initial={false}>
+          {tab === "系统" ? (
+            <motion.div
+              key="sys"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="flex items-center gap-5"
             >
-              {stats
-                ? `负载 ${num(stats.load_avg_1).toFixed(2)} / ${num(stats.load_avg_5).toFixed(2)} / ${num(stats.load_avg_15).toFixed(2)}`
-                : PLACEHOLDER}
-            </div>
-          </div>
-          <Meter
-            label="内存"
-            used={stats ? stats.memory_used : 0}
-            total={stats ? stats.memory_total : 0}
-            valueText={
-              stats
-                ? `${fmtGB(stats.memory_used)} / ${fmtGB(stats.memory_total)}`
-                : PLACEHOLDER
-            }
-          />
-        </div>
-      </div>
+              <div className="flex flex-col items-center">
+                <Ring value={loadPct} />
+                <div
+                  className="mt-1.5 text-[11px]"
+                  style={{ color: "var(--ls-ink-soft)" }}
+                >
+                  系统负载
+                </div>
+              </div>
+              <div className="flex flex-1 flex-col gap-4">
+                <div>
+                  <Meter
+                    label="CPU"
+                    used={stats ? stats.cpu_usage : 0}
+                    total={100}
+                    valueText={
+                      stats
+                        ? `${cpuPct}% of ${stats.cpu_core_count} CPU(s)`
+                        : PLACEHOLDER
+                    }
+                  />
+                  <div
+                    className="ls-num mt-1.5 text-right text-[11px]"
+                    style={{ color: "var(--ls-ink-faint)" }}
+                  >
+                    {stats
+                      ? `负载 ${num(stats.load_avg_1).toFixed(2)} / ${num(stats.load_avg_5).toFixed(2)} / ${num(stats.load_avg_15).toFixed(2)}`
+                      : PLACEHOLDER}
+                  </div>
+                </div>
+                <div>
+                  <Meter
+                    label="内存"
+                    used={stats ? stats.memory_used : 0}
+                    total={stats ? stats.memory_total : 0}
+                    valueText={
+                      stats
+                        ? `${fmtGB(stats.memory_used)} / ${fmtGB(stats.memory_total)}`
+                        : PLACEHOLDER
+                    }
+                  />
+                  <div
+                    className="ls-num mt-1.5 text-right text-[11px]"
+                    style={{ color: "var(--ls-ink-faint)" }}
+                  >
+                    {fmtMemHw(info)}
+                  </div>
+                </div>
+                <Meter
+                  label="交换区"
+                  used={stats ? stats.swap_used : 0}
+                  total={stats ? stats.swap_total : 0}
+                  valueText={
+                    stats
+                      ? `${fmtGB(stats.swap_used)} / ${fmtGB(stats.swap_total)}`
+                      : PLACEHOLDER
+                  }
+                />
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="net"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {/* 上下镜像波形:下行朝上(生命色)/ 上行朝下(柔墨),中轴一个分流图标 */}
+              <div className="relative">
+                <MirrorGraph top={netHist.down} bottom={netHist.up} />
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <div
+                    className="flex h-7 w-7 items-center justify-center rounded-full"
+                    style={{
+                      background: "var(--ls-surface-hi)",
+                      boxShadow: "var(--ls-shadow-soft)",
+                    }}
+                  >
+                    <ArrowDownUp
+                      size={13}
+                      style={{ color: "var(--ls-ink-soft)" }}
+                    />
+                  </div>
+                </div>
+              </div>
 
-      <div
-        className="mt-5 flex items-center gap-5 border-t pt-3"
-        style={{ borderColor: "var(--ls-hairline)" }}
-      >
-        <div
-          className="text-[11px] font-medium"
-          style={{ color: "var(--ls-ink-soft)" }}
-        >
-          网络
-        </div>
-        <div className="flex items-center gap-1.5 text-sm">
-          <ArrowDown size={13} style={{ color: "var(--ls-life)" }} />
-          <span className="ls-num">
-            {stats ? fmtRate(stats.net_rx_rate) : PLACEHOLDER}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5 text-sm">
-          <ArrowUp size={13} style={{ color: "var(--ls-ink-soft)" }} />
-          <span className="ls-num" style={{ color: "var(--ls-ink-soft)" }}>
-            {stats ? fmtRate(stats.net_tx_rate) : PLACEHOLDER}
-          </span>
-        </div>
+              {/* 分割线下:每方向 当前 / 累计 / 峰值 */}
+              <div
+                className="mt-3 grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-x-3 gap-y-2.5 border-t pt-3"
+                style={{ borderColor: "var(--ls-hairline)" }}
+              >
+                <ArrowDown size={13} style={{ color: "var(--ls-life)" }} />
+                <NetCell
+                  label="当前"
+                  value={stats ? fmtRate(stats.net_rx_rate) : PLACEHOLDER}
+                />
+                <NetCell
+                  label="累计"
+                  value={stats ? fmtBytes(stats.net_rx_total) : PLACEHOLDER}
+                />
+                <NetCell
+                  label="峰值"
+                  value={stats ? fmtRate(peakDown) : PLACEHOLDER}
+                />
+
+                <ArrowUp size={13} style={{ color: "var(--ls-ink-soft)" }} />
+                <NetCell
+                  label="当前"
+                  value={stats ? fmtRate(stats.net_tx_rate) : PLACEHOLDER}
+                />
+                <NetCell
+                  label="累计"
+                  value={stats ? fmtBytes(stats.net_tx_total) : PLACEHOLDER}
+                />
+                <NetCell
+                  label="峰值"
+                  value={stats ? fmtRate(peakUp) : PLACEHOLDER}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* 发丝线分隔:下方为静态真系统信息 */}
@@ -274,13 +381,21 @@ function SystemPanel({
         </div>
       </div>
 
+      {/* 元信息归底:OS 串下沉于此,与运行时长聚成"这台机器是什么" */}
       <div
         className="mt-auto pt-3 text-xs"
         style={{ color: "var(--ls-ink-faint)" }}
       >
-        {stats
-          ? `运行 ${fmtUptime(stats.uptime_secs)} · 状态正常`
-          : PLACEHOLDER}
+        <div className="truncate">
+          {info
+            ? `${info.os_long_version} · 启动器 v${info.launcher_version}`
+            : PLACEHOLDER}
+        </div>
+        <div className="ls-num mt-0.5">
+          {stats
+            ? `运行 ${fmtUptime(stats.uptime_secs)} · 状态正常`
+            : PLACEHOLDER}
+        </div>
       </div>
     </Card>
   );
@@ -294,6 +409,20 @@ function SystemFact({ label, value }: { label: string; value: string }) {
         className="ls-num min-w-0 truncate text-right"
         style={{ color: "var(--ls-ink-soft)" }}
       >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/** 网络明细单元:小标签在上、tabular 数值在下,用于网络卡底部三列。 */
+function NetCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-[10px]" style={{ color: "var(--ls-ink-faint)" }}>
+        {label}
+      </span>
+      <span className="ls-num text-xs" style={{ color: "var(--ls-ink-soft)" }}>
         {value}
       </span>
     </div>

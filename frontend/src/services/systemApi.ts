@@ -35,6 +35,10 @@ export interface SystemStats {
   net_rx_rate: number;
   /** 网络上行速率（字节/秒） */
   net_tx_rate: number;
+  /** 本次会话累计下行（字节，自启动器 Networks 实例创建起算） */
+  net_rx_total: number;
+  /** 本次会话累计上行（字节） */
+  net_tx_total: number;
   /** 主机已运行时长（秒） */
   uptime_secs: number;
   /** 系统平均负载（1 分钟，运行队列长度 EWMA；Windows 经 PDH 计算） */
@@ -73,6 +77,10 @@ export interface SystemInfo {
   launcher_version: string;
   /** 物理内存总量（字节） */
   memory_total: number;
+  /** 内存频率（MT/s；0 表示未知） */
+  memory_speed: number;
+  /** 内存类型（如 DDR5；未知为 "未知"） */
+  memory_type: string;
 }
 
 // ==================== Invoke 包装 ====================

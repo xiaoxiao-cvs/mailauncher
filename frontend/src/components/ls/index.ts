@@ -29,6 +29,9 @@ export type { RingProps } from "./Ring";
 export { Sparkline } from "./Sparkline";
 export type { SparklineProps } from "./Sparkline";
 
+export { MirrorGraph } from "./MirrorGraph";
+export type { MirrorGraphProps } from "./MirrorGraph";
+
 export { Meter } from "./Meter";
 export type { MeterProps } from "./Meter";
 
