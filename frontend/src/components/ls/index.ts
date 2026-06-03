@@ -37,3 +37,83 @@ export type { MeterProps } from "./Meter";
 
 export { SegmentControl } from "./SegmentControl";
 export type { SegmentControlProps } from "./SegmentControl";
+
+// —— Phase 2 基础原语(表单 / 弹层 / 按钮 / 徽标)——
+
+export { Button } from "./Button";
+export type { ButtonProps, ButtonVariant, ButtonSize } from "./Button";
+
+export {
+  Modal,
+  ModalRoot,
+  ModalTrigger,
+  ModalClose,
+  ModalPortal,
+  ModalTitle,
+  ModalDescription,
+  ModalOverlay,
+  ModalContent,
+} from "./Modal";
+export type { ModalProps, ModalContentProps } from "./Modal";
+
+export { Input } from "./Input";
+export type { InputProps } from "./Input";
+
+export { Textarea } from "./Textarea";
+export type { TextareaProps } from "./Textarea";
+
+export { Label } from "./Label";
+export type { LabelProps } from "./Label";
+
+export { Switch } from "./Switch";
+export type { SwitchProps } from "./Switch";
+
+export { Checkbox } from "./Checkbox";
+export type { CheckboxProps } from "./Checkbox";
+
+export {
+  Select,
+  SelectRoot,
+  SelectGroup,
+  SelectValue,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+} from "./Select";
+export type {
+  SelectProps,
+  SelectOption,
+  SelectTriggerProps,
+  SelectContentProps,
+  SelectItemProps,
+} from "./Select";
+
+export { Tabs, TabsList, TabsTrigger, TabsContent } from "./Tabs";
+export type {
+  TabsProps,
+  TabsListProps,
+  TabsTriggerProps,
+  TabsContentProps,
+} from "./Tabs";
+
+export {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuGroup,
+  DropdownMenuPortal,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "./DropdownMenu";
+export type {
+  DropdownMenuProps,
+  DropdownMenuTriggerProps,
+  DropdownMenuContentProps,
+  DropdownMenuItemProps,
+  DropdownMenuSeparatorProps,
+  DropdownMenuLabelProps,
+} from "./DropdownMenu";
+
+export { Badge } from "./Badge";
+export type { BadgeProps, BadgeTone } from "./Badge";
