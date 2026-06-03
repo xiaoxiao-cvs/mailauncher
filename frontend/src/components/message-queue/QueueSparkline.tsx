@@ -3,8 +3,8 @@
  * 追踪已处理消息数量的变化趋势
  */
 
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { Sparkline, SPARKLINE_COLORS } from '@/components/ui/sparkline';
+import { useEffect, useState, useRef, useCallback } from "react";
+import { Sparkline } from "@/components/ls";
 
 const HISTORY_MAX_POINTS = 15;
 
@@ -13,12 +13,15 @@ interface QueueSparklineProps {
   hasAnyConnected: boolean;
 }
 
-export function QueueSparkline({ totalProcessed, hasAnyConnected }: QueueSparklineProps) {
+export function QueueSparkline({
+  totalProcessed,
+  hasAnyConnected,
+}: QueueSparklineProps) {
   const [processedHistory, setProcessedHistory] = useState<number[]>([]);
   const lastProcessedRef = useRef<number>(0);
 
   const updateHistory = useCallback((newValue: number) => {
-    setProcessedHistory(prev => {
+    setProcessedHistory((prev) => {
       if (prev.length > 0 && prev[prev.length - 1] === newValue) {
         return prev;
       }
@@ -47,13 +50,5 @@ export function QueueSparkline({ totalProcessed, hasAnyConnected }: QueueSparkli
     return null;
   }
 
-  return (
-    <Sparkline
-      data={processedHistory}
-      color={SPARKLINE_COLORS.cyan}
-      width={60}
-      height={24}
-      strokeWidth={1.5}
-    />
-  );
+  return <Sparkline values={processedHistory} className="h-6 w-[60px]" />;
 }

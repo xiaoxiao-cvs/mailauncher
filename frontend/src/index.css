@@ -174,52 +174,6 @@
   }
 }
 
-/* ===== 语义化组件样式 ===== */
-@layer components {
-  /* 顶层面板：详情页左右分栏的卡片容器 */
-  .glass-panel {
-    @apply bg-card rounded-panel border border-border shadow-panel
-           backdrop-blur-xl;
-  }
-
-  /* 悬浮面板：弹窗、下拉菜单 */
-  .glass-overlay {
-    @apply bg-popover rounded-panel border border-border shadow-overlay
-           backdrop-blur-2xl;
-  }
-
-  /* 内嵌卡片：面板内的子区块 */
-  .glass-card {
-    @apply rounded-card border border-border p-3;
-  }
-}
-
-/* 液态背景动画 */
-@keyframes blob {
-  0% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-  100% {
-    transform: translate(0px, 0px) scale(1);
-  }
-}
-
-.animate-blob {
-  animation: blob 7s infinite;
-}
-
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
+/* 旧玻璃拟态(.glass-*)与液态光斑(blob)样式已随生息转换全部移除 */
 
 /* 实例卡片重排/入场动画已迁至 InstanceListPage 的 motion layout + 父级 staggerChildren */
