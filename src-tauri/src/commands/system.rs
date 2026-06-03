@@ -5,7 +5,7 @@ use tauri::State;
 
 use crate::errors::AppResult;
 use crate::models::SuccessResponse;
-use crate::services::{api_provider_service, system_service};
+use crate::services::{api_provider_service, system_service, system_stats_service};
 use crate::state::AppState;
 
 // ==================== 系统环境 ====================
@@ -14,6 +14,17 @@ use crate::state::AppState;
 #[tauri::command]
 pub async fn ping() -> AppResult<String> {
     Ok("pong".to_string())
+}
+
+/// 获取主机系统资源实时快照（CPU/内存/磁盘/网络）
+///
+/// 后台采样任务每约 1.5s 通过 `system-stats` 事件推送最新数据；
+/// 此命令返回最近一次采样，供首屏初始化或轮询兜底使用。
+#[tauri::command]
+pub async fn get_system_stats(
+    state: State<'_, AppState>,
+) -> AppResult<system_stats_service::SystemStats> {
+    Ok(state.system_monitor.latest_or_sample())
 }
 
 /// 检测 Git 环境

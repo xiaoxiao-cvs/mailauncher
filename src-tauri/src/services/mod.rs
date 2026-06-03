@@ -15,5 +15,6 @@ pub mod runtime_service;
 pub mod schedule_service;
 pub mod stats_service;
 pub mod system_service;
+pub mod system_stats_service;
 pub mod terminal_stream_service;
 pub mod version_service;

@@ -1,4 +1,4 @@
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tracing::info;
 
 // 模块声明
@@ -60,6 +60,7 @@ async fn init_rust_services() -> AppState {
     let process_manager = services::process_service::ProcessManager::new();
     let terminal_stream_publisher =
         services::terminal_stream_service::ChannelTerminalStreamPublisher::new();
+    let system_monitor = services::system_stats_service::SystemMonitor::new();
 
     let reconciled = services::lifecycle_service::reconcile_instance_states_on_startup(&pool)
         .await
@@ -93,6 +94,7 @@ async fn init_rust_services() -> AppState {
         runtime_resolver,
         process_manager,
         terminal_stream_publisher,
+        system_monitor,
         download_manager: services::download_service::DownloadManager::new(pool),
     }
 }
@@ -116,6 +118,19 @@ pub fn run() {
             state
                 .terminal_stream_publisher
                 .start_forwarder(app.handle().clone());
+
+            // 系统资源实时采样：每约 1.5s 采样并通过 `system-stats` 事件推送给前端
+            let system_monitor = state.system_monitor.clone();
+            let stats_app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let mut ticker = tokio::time::interval(std::time::Duration::from_millis(1500));
+                loop {
+                    ticker.tick().await;
+                    let stats = system_monitor.sample();
+                    let _ = stats_app_handle.emit("system-stats", &stats);
+                }
+            });
+
             Ok(())
         })
         .manage(app_state)
@@ -191,6 +206,7 @@ pub fn run() {
             commands::system::check_git_environment,
             commands::system::discover_python,
             commands::system::check_connectivity,
+            commands::system::get_system_stats,
             // API 供应商管理
             commands::system::get_api_providers,
             commands::system::create_api_provider,

@@ -8,6 +8,7 @@ use crate::components::ComponentRegistry;
 use crate::runtime::RuntimeResolver;
 use crate::services::download_service::DownloadManager;
 use crate::services::process_service::ProcessManager;
+use crate::services::system_stats_service::SystemMonitor;
 use crate::services::terminal_stream_service::ChannelTerminalStreamPublisher;
 
 /// 应用状态，持有数据库连接池和进程管理器等共享资源
@@ -22,6 +23,8 @@ pub struct AppState {
     pub process_manager: ProcessManager,
     /// 终端输出发布器（channel 优先，统一转发到前端事件）
     pub terminal_stream_publisher: ChannelTerminalStreamPublisher,
+    /// 系统资源监视器（持久 sysinfo 实例，周期采样主机 CPU/内存/磁盘/网络）
+    pub system_monitor: SystemMonitor,
     /// 下载管理器（管理下载任务的生命周期和进度）
     pub download_manager: DownloadManager,
 }
