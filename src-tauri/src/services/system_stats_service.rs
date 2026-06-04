@@ -21,6 +21,8 @@ pub struct SystemStats {
     pub cpu_usage: f32,
     /// 逻辑核心数
     pub cpu_core_count: usize,
+    /// 逐核 CPU 使用率(0-100,顺序与 sysinfo cpus() 一致)
+    pub cpu_cores: Vec<f32>,
     /// 物理内存总量(字节)
     pub memory_total: u64,
     /// 已用物理内存(字节)
@@ -94,7 +96,8 @@ impl SystemMonitor {
 
         inner.system.refresh_cpu_usage();
         let cpu_usage = inner.system.global_cpu_usage();
-        let cpu_core_count = inner.system.cpus().len();
+        let cpu_cores: Vec<f32> = inner.system.cpus().iter().map(|c| c.cpu_usage()).collect();
+        let cpu_core_count = cpu_cores.len();
 
         inner.system.refresh_memory();
         let memory_total = inner.system.total_memory();
@@ -137,6 +140,7 @@ impl SystemMonitor {
         let stats = SystemStats {
             cpu_usage,
             cpu_core_count,
+            cpu_cores,
             memory_total,
             memory_used,
             swap_total,

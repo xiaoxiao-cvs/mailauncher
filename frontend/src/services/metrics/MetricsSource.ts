@@ -36,6 +36,7 @@ function toHostSample(stats: SystemStats): MetricSample {
           ? Math.min(100, (stats.load_avg_1 / stats.cpu_core_count) * 100)
           : 0,
     },
+    cores: stats.cpu_cores,
   };
 }
 

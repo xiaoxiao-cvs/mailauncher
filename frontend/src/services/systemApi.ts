@@ -19,6 +19,8 @@ export interface SystemStats {
   cpu_usage: number;
   /** 逻辑核心数 */
   cpu_core_count: number;
+  /** 逐核 CPU 使用率（0-100，顺序与后端 cpus() 一致） */
+  cpu_cores: number[];
   /** 物理内存总量（字节） */
   memory_total: number;
   /** 已用物理内存（字节） */
