@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown, ArrowDownUp, ArrowUp } from "lucide-react";
 
@@ -12,6 +12,7 @@ import {
   Stat,
 } from "@/components/ls";
 import { springSettle, springSoft } from "@/design/motion";
+import { useNetHistory } from "@/services/netHistoryStore";
 import type { SystemInfo, SystemStats } from "@/services/systemApi";
 import type { StatsSummary, ModelStats } from "@/hooks/queries/useStatsQueries";
 import type {
@@ -165,11 +166,21 @@ function fmtMemHw(info: SystemInfo | undefined): string {
   return PLACEHOLDER;
 }
 
+/** 内存整行规格:"93.1 GB · DDR5 6400 MT/s",缺项降级。 */
+function fmtMemFull(info: SystemInfo | undefined): string {
+  if (!info) return PLACEHOLDER;
+  const size = fmtGB(info.memory_total);
+  const hasType = info.memory_type !== "" && info.memory_type !== "未知";
+  const hasSpeed = info.memory_speed > 0;
+  if (hasType && hasSpeed)
+    return `${size} · ${info.memory_type} ${info.memory_speed} MT/s`;
+  if (hasType) return `${size} · ${info.memory_type}`;
+  if (hasSpeed) return `${size} · ${info.memory_speed} MT/s`;
+  return size;
+}
+
 const SYS_TABS = ["系统", "网络"] as const;
 type SysTab = (typeof SYS_TABS)[number];
-
-/** 网络速率滚动缓冲容量:每约 1.5s 一帧,48 帧约 72s 走势。 */
-const NET_HIST_CAP = 48;
 
 function SystemPanel({
   info,
@@ -179,19 +190,8 @@ function SystemPanel({
   stats: SystemStats | undefined;
 }) {
   const [tab, setTab] = useState<SysTab>("系统");
-  const [netHist, setNetHist] = useState<{ down: number[]; up: number[] }>({
-    down: [],
-    up: [],
-  });
-
-  // 每来一帧实时快照(事件推送为新对象引用),把收发速率压入滚动缓冲供波形/峰值用。
-  useEffect(() => {
-    if (!stats) return;
-    setNetHist((prev) => ({
-      down: [...prev.down, stats.net_rx_rate].slice(-NET_HIST_CAP),
-      up: [...prev.up, stats.net_tx_rate].slice(-NET_HIST_CAP),
-    }));
-  }, [stats]);
+  // 网络历史来自全局持久化 store(跨页面常驻累积、预填基线),不在本组件内逐帧累积。
+  const netHist = useNetHistory();
 
   const cpuPct = stats ? Math.round(stats.cpu_usage) : 0;
   // 负载环:1 分钟负载相对逻辑核数的占比(负载=核数即满圈,32 线程下负载 16 约半环)
@@ -274,7 +274,7 @@ function SystemPanel({
                   </div>
                 </div>
                 <Meter
-                  label="交换区"
+                  label="交换区 (Swap)"
                   used={stats ? stats.swap_used : 0}
                   total={stats ? stats.swap_total : 0}
                   valueText={
@@ -293,9 +293,15 @@ function SystemPanel({
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             >
-              {/* 上下镜像波形:下行朝上(生命色)/ 上行朝下(柔墨),中轴一个分流图标 */}
+              {/* 上下镜像波形:上行朝上(柔墨)/ 下行朝下(生命色),与 ↑/↓ 箭头朝向一致;中轴一个分流图标 */}
               <div className="relative">
-                <MirrorGraph top={netHist.down} bottom={netHist.up} />
+                <MirrorGraph
+                  top={netHist.up}
+                  bottom={netHist.down}
+                  topColor="var(--ls-ink-soft)"
+                  bottomColor="var(--ls-life)"
+                  className="h-16 w-full"
+                />
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                   <div
                     className="flex h-7 w-7 items-center justify-center rounded-full"
@@ -314,23 +320,9 @@ function SystemPanel({
 
               {/* 分割线下:每方向 当前 / 累计 / 峰值 */}
               <div
-                className="mt-3 grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-x-3 gap-y-2.5 border-t pt-3"
+                className="mt-2 grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-x-3 gap-y-2 border-t pt-3"
                 style={{ borderColor: "var(--ls-hairline)" }}
               >
-                <ArrowDown size={13} style={{ color: "var(--ls-life)" }} />
-                <NetCell
-                  label="当前"
-                  value={stats ? fmtRate(stats.net_rx_rate) : PLACEHOLDER}
-                />
-                <NetCell
-                  label="累计"
-                  value={stats ? fmtBytes(stats.net_rx_total) : PLACEHOLDER}
-                />
-                <NetCell
-                  label="峰值"
-                  value={stats ? fmtRate(peakDown) : PLACEHOLDER}
-                />
-
                 <ArrowUp size={13} style={{ color: "var(--ls-ink-soft)" }} />
                 <NetCell
                   label="当前"
@@ -343,6 +335,20 @@ function SystemPanel({
                 <NetCell
                   label="峰值"
                   value={stats ? fmtRate(peakUp) : PLACEHOLDER}
+                />
+
+                <ArrowDown size={13} style={{ color: "var(--ls-life)" }} />
+                <NetCell
+                  label="当前"
+                  value={stats ? fmtRate(stats.net_rx_rate) : PLACEHOLDER}
+                />
+                <NetCell
+                  label="累计"
+                  value={stats ? fmtBytes(stats.net_rx_total) : PLACEHOLDER}
+                />
+                <NetCell
+                  label="峰值"
+                  value={stats ? fmtRate(peakDown) : PLACEHOLDER}
                 />
               </div>
             </motion.div>
@@ -359,54 +365,53 @@ function SystemPanel({
           className="text-[11px] font-medium"
           style={{ color: "var(--ls-ink-soft)" }}
         >
-          处理器
+          系统配置
         </div>
-        <div className="mt-1 truncate text-sm font-semibold">
-          {info ? info.cpu_brand : PLACEHOLDER}
-        </div>
-        <div
-          className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-2 border-t pt-2.5 text-xs"
-          style={{ borderColor: "var(--ls-hairline)" }}
-        >
-          <SystemFact label="架构" value={info ? info.arch : PLACEHOLDER} />
+        <div className="mt-2 space-y-2 text-xs">
           <SystemFact
-            label="频率"
-            value={info ? `${info.cpu_frequency} MHz` : PLACEHOLDER}
+            label="处理器"
+            value={info ? info.cpu_brand : PLACEHOLDER}
+            wrap
+          />
+          <SystemFact label="内存" value={fmtMemFull(info)} />
+          {info && info.gpus.length > 0 && (
+            <SystemFact label="显卡" value={info.gpus.join(" · ")} />
+          )}
+          <SystemFact
+            label="存储"
+            value={
+              stats
+                ? `已使用 ${fmtBytes(stats.disk_total - stats.disk_available)} 中的 ${fmtBytes(stats.disk_total)}`
+                : PLACEHOLDER
+            }
           />
           <SystemFact
-            label="内核"
-            value={info ? info.kernel_version : PLACEHOLDER}
+            label="系统"
+            value={info ? info.os_long_version : PLACEHOLDER}
           />
-          <SystemFact label="主机" value={info ? info.hostname : PLACEHOLDER} />
-        </div>
-      </div>
-
-      {/* 元信息归底:OS 串下沉于此,与运行时长聚成"这台机器是什么" */}
-      <div
-        className="mt-auto pt-3 text-xs"
-        style={{ color: "var(--ls-ink-faint)" }}
-      >
-        <div className="truncate">
-          {info
-            ? `${info.os_long_version} · 启动器 v${info.launcher_version}`
-            : PLACEHOLDER}
-        </div>
-        <div className="ls-num mt-0.5">
-          {stats
-            ? `运行 ${fmtUptime(stats.uptime_secs)} · 状态正常`
-            : PLACEHOLDER}
         </div>
       </div>
     </Card>
   );
 }
 
-function SystemFact({ label, value }: { label: string; value: string }) {
+function SystemFact({
+  label,
+  value,
+  wrap,
+}: {
+  label: string;
+  value: string;
+  /** 长值(如 CPU 品牌串)换行展示而非截断 */
+  wrap?: boolean;
+}) {
   return (
     <div className="flex items-baseline justify-between gap-2">
-      <span style={{ color: "var(--ls-ink-faint)" }}>{label}</span>
+      <span className="shrink-0" style={{ color: "var(--ls-ink-faint)" }}>
+        {label}
+      </span>
       <span
-        className="ls-num min-w-0 truncate text-right"
+        className={`ls-num min-w-0 text-right ${wrap ? "" : "truncate"}`}
         style={{ color: "var(--ls-ink-soft)" }}
       >
         {value}

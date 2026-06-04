@@ -81,6 +81,8 @@ export interface SystemInfo {
   memory_speed: number;
   /** 内存类型（如 DDR5；未知为 "未知"） */
   memory_type: string;
+  /** 显卡名称列表（无独显/云服务器为空） */
+  gpus: string[];
 }
 
 // ==================== Invoke 包装 ====================
