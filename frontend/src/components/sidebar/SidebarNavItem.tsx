@@ -22,7 +22,10 @@ export function SidebarNavItemComponent({
   isCollapsed,
 }: SidebarNavItemComponentProps) {
   const location = useLocation();
-  const isActive = location.pathname === item.path;
+  // 段前缀匹配:深链子路由(如 /monitor/cpu、/instances/:id)下父级导航项仍保持高亮
+  const isActive =
+    location.pathname === item.path ||
+    location.pathname.startsWith(item.path + "/");
 
   return (
     <motion.div whileTap={{ scale: 0.95 }} transition={springTap}>

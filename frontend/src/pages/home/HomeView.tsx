@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { useNavigate } from "react-router-dom";
+import { Icon } from "@iconify/react";
 import { ArrowDown, ArrowDownUp, ArrowUp } from "lucide-react";
 
 import {
@@ -190,8 +192,12 @@ function SystemPanel({
   stats: SystemStats | undefined;
 }) {
   const [tab, setTab] = useState<SysTab>("系统");
+  const navigate = useNavigate();
   // 网络历史来自全局持久化 store(跨页面常驻累积、预填基线),不在本组件内逐帧累积。
   const netHist = useNetHistory();
+
+  // 整卡作为进入监控 hub 的缩略图:深链跟随当前 Tab —— 系统区落 CPU、网络区落网络。
+  const monitorTarget = tab === "网络" ? "/monitor/network" : "/monitor/cpu";
 
   const cpuPct = stats ? Math.round(stats.cpu_usage) : 0;
   // 负载环:1 分钟负载相对逻辑核数的占比(负载=核数即满圈,32 线程下负载 16 约半环)
@@ -207,9 +213,24 @@ function SystemPanel({
   const peakUp = netHist.up.length ? Math.max(...netHist.up) : 0;
 
   return (
-    <Card className="col-span-12 flex flex-col lg:col-span-4">
-      {/* 系统/网络 Tab 栏:选中段高面滑块跟随,左对齐 */}
-      <div className="flex">
+    <Card
+      className="group relative col-span-12 flex cursor-pointer flex-col lg:col-span-4"
+      onClick={() => navigate(monitorTarget)}
+      role="link"
+      aria-label="打开系统监控"
+    >
+      {/* 右上角进入提示:整卡是通往监控 hub 的缩略图,hover 时箭头微亮以示可点深入 */}
+      <Icon
+        icon="ph:arrow-up-right-thin"
+        width={18}
+        height={18}
+        className="pointer-events-none absolute right-4 top-4 opacity-40 transition-opacity duration-200 group-hover:opacity-90"
+        style={{ color: "var(--ls-ink-soft)" }}
+      />
+
+      {/* 系统/网络 Tab 栏:选中段高面滑块跟随,左对齐。
+          stopPropagation 拦截切换点击,避免冒泡触发整卡跳转。 */}
+      <div className="flex" onClick={(e) => e.stopPropagation()}>
         <SegmentControl options={SYS_TABS} value={tab} onChange={setTab} />
       </div>
 

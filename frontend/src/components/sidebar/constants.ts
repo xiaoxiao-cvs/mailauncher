@@ -1,4 +1,4 @@
-import type { SidebarNavItem } from '@/types/sidebar'
+import type { SidebarNavItem } from "@/types/sidebar";
 
 /**
  * 侧边栏导航项配置
@@ -6,33 +6,39 @@ import type { SidebarNavItem } from '@/types/sidebar'
  */
 export const SIDEBAR_NAV_ITEMS: SidebarNavItem[] = [
   {
-    id: 'home',
-    label: '主页',
-    icon: 'ph:house-thin',
-    path: '/home',
+    id: "home",
+    label: "主页",
+    icon: "ph:house-thin",
+    path: "/home",
   },
   {
-    id: 'instances',
-    label: '实例管理',
-    icon: 'ph:stack-thin',
-    path: '/instances',
+    id: "instances",
+    label: "实例管理",
+    icon: "ph:stack-thin",
+    path: "/instances",
   },
   {
-    id: 'downloads',
-    label: '下载',
-    icon: 'ph:download-simple-thin',
-    path: '/downloads',
+    id: "downloads",
+    label: "下载",
+    icon: "ph:download-simple-thin",
+    path: "/downloads",
   },
-]
+  {
+    id: "monitor",
+    label: "监控",
+    icon: "ph:pulse-thin",
+    path: "/monitor",
+  },
+];
 
 /**
  * 底部导航项
  */
 export const SIDEBAR_BOTTOM_ITEMS: SidebarNavItem[] = [
   {
-    id: 'settings',
-    label: '设置',
-    icon: 'ph:gear-thin',
-    path: '/settings',
+    id: "settings",
+    label: "设置",
+    icon: "ph:gear-thin",
+    path: "/settings",
   },
-]
+];
