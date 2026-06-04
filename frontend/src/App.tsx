@@ -20,7 +20,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { MainLayout } from "@/layouts/MainLayout";
 import logger, { routerLogger } from "@/utils/logger";
 import { useOnboardingState } from "@/hooks/useOnboardingState";
-import { startNetHistory } from "@/services/netHistoryStore";
+import { startMetrics } from "@/services/metrics/timeSeriesStore";
 import "./App.css";
 
 /**
@@ -99,9 +99,9 @@ function AppRoutes() {
  * 职责：路由管理和组件组合
  */
 function App() {
-  // 应用挂载即启动全局网络历史累积,跨页面常驻(切到别的页面也持续监测)。
+  // 应用挂载即启动全局指标累积(CPU/内存/磁盘/网络/负载),跨页面常驻(切到别的页面也持续监测)。
   useEffect(() => {
-    startNetHistory();
+    startMetrics();
   }, []);
 
   return (
