@@ -10,6 +10,7 @@ use std::time::Instant;
 use serde::Serialize;
 use sysinfo::{Disks, Networks, System};
 
+use crate::services::gpu_info::gather_gpus;
 use crate::services::load_average::LoadSampler;
 use crate::services::memory_info::gather_memory_hardware;
 
@@ -201,6 +202,8 @@ pub struct SystemInfo {
     pub memory_speed: u32,
     /// 内存类型(如 DDR5;未知为 "未知")
     pub memory_type: String,
+    /// 显卡名称列表(无独显/云服务器为空)
+    pub gpus: Vec<String>,
 }
 
 /// 采集一次主机静态系统信息。
@@ -216,6 +219,7 @@ pub fn gather_system_info() -> SystemInfo {
         .unwrap_or_else(|| ("未知".to_string(), 0));
 
     let mem_hw = gather_memory_hardware();
+    let gpus = gather_gpus();
 
     SystemInfo {
         os_name: System::name().unwrap_or_else(|| "未知".to_string()),
@@ -231,5 +235,6 @@ pub fn gather_system_info() -> SystemInfo {
         memory_total: system.total_memory(),
         memory_speed: mem_hw.speed,
         memory_type: mem_hw.type_,
+        gpus,
     }
 }

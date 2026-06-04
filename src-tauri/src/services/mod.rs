@@ -4,6 +4,7 @@
 pub mod api_provider_service;
 pub mod config_service;
 pub mod download_service;
+pub mod gpu_info;
 pub mod install_service;
 pub mod instance_service;
 pub mod lifecycle_service;
