@@ -1,5 +1,5 @@
 import { ComponentType, Instance, RuntimeKind } from "@/services/instanceApi";
-import { TerminalComponent } from "@/components/terminal/TerminalComponent";
+import { ComponentLogView } from "@/components/terminal/ComponentLogView";
 import {
   StatusDot,
   Surface,
@@ -60,7 +60,7 @@ export function InstanceTerminalPanel({
           </TabsList>
         </div>
 
-        {/* 终端正文:xterm 画布自带深色底(#1e1e1e),保持其原生观感不覆盖 */}
+        {/* 日志正文:统一风格的结构化日志视图(剥 ANSI + 解析 level/模块),非 xterm 终端 */}
         {availableComponents.map((comp) => (
           <TabsContent
             key={comp}
@@ -68,16 +68,11 @@ export function InstanceTerminalPanel({
             className="m-0 min-h-0 flex-1 outline-none"
             motionProps={{ className: "h-full" }}
           >
-            <TerminalComponent
+            <ComponentLogView
               key={`${instance.id}-${comp}`}
               instanceId={instance.id}
               component={comp}
               className="h-full"
-              isRunning={getComponentStatus(comp)?.running === true}
-              runtimeKind={
-                getComponentStatus(comp)?.runtime_kind ??
-                instance.runtime_profile.kind
-              }
             />
           </TabsContent>
         ))}
