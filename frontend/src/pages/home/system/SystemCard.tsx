@@ -678,17 +678,17 @@ function CpuDetail({ stats }: { stats: SystemStats | undefined }) {
         </div>
       </div>
       <div className="min-h-0 flex-1">
-        <ProcessList />
+        <ProcessList by="cpu" />
       </div>
     </div>
   );
 }
 
-/** 进程占用表:top-N 系统进程,按 CPU 降序,打开期间轮询采样。列序对齐表头 CPU · 内存。 */
-function ProcessList() {
+/** 进程占用表:top-N 系统进程,按 by(cpu/memory)降序,打开期间轮询采样;排序列加粗、另一列淡化。 */
+function ProcessList({ by }: { by: "cpu" | "memory" }) {
   const { data } = useQuery({
-    queryKey: ["top-processes"],
-    queryFn: () => getTopProcesses(8),
+    queryKey: ["top-processes", by],
+    queryFn: () => getTopProcesses(8, by),
     refetchInterval: 1500,
     staleTime: 1000,
   });
@@ -700,7 +700,9 @@ function ProcessList() {
         style={{ color: "var(--ls-ink-soft)" }}
       >
         <span>进程占用</span>
-        <span style={{ color: "var(--ls-ink-faint)" }}>CPU · 内存</span>
+        <span style={{ color: "var(--ls-ink-faint)" }}>
+          {by === "memory" ? "内存 · CPU" : "CPU · 内存"}
+        </span>
       </div>
       {procs.length === 0 ? (
         <div
@@ -711,25 +713,50 @@ function ProcessList() {
         </div>
       ) : (
         <div className="mt-2 space-y-1">
-          {procs.map((p) => (
-            <div key={p.pid} className="flex items-center gap-2 text-[11px]">
+          {procs.map((p) => {
+            const cpu = (
               <span
-                className="flex-1 truncate"
-                style={{ color: "var(--ls-ink)" }}
+                className={`ls-num w-12 text-right ${by === "cpu" ? "font-medium" : ""}`}
+                style={{
+                  color: by === "cpu" ? "var(--ls-ink)" : "var(--ls-ink-faint)",
+                }}
               >
-                {p.name}
-              </span>
-              <span className="ls-num w-11 text-right font-medium">
                 {p.cpu.toFixed(1)}%
               </span>
+            );
+            const mem = (
               <span
-                className="ls-num w-16 text-right"
-                style={{ color: "var(--ls-ink-faint)" }}
+                className={`ls-num w-16 text-right ${by === "memory" ? "font-medium" : ""}`}
+                style={{
+                  color:
+                    by === "memory" ? "var(--ls-ink)" : "var(--ls-ink-faint)",
+                }}
               >
                 {fmtBytes(p.memory)}
               </span>
-            </div>
-          ))}
+            );
+            return (
+              <div key={p.pid} className="flex items-center gap-2 text-[11px]">
+                <span
+                  className="flex-1 truncate"
+                  style={{ color: "var(--ls-ink)" }}
+                >
+                  {p.name}
+                </span>
+                {by === "memory" ? (
+                  <>
+                    {mem}
+                    {cpu}
+                  </>
+                ) : (
+                  <>
+                    {cpu}
+                    {mem}
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -745,10 +772,10 @@ function MemoryDetail({
 }) {
   const series = useTimeSeries(HOST_SCOPE, "mem");
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex h-full flex-col gap-3">
       <div>
         <SectionHead title="占用走势" hint="近 72 秒" />
-        <Sparkline values={series} className="mt-1.5 h-14 w-full" />
+        <Sparkline values={series} className="mt-1.5 h-12 w-full" />
       </div>
       <div className="grid grid-cols-3 gap-2">
         <Cell
@@ -767,6 +794,9 @@ function MemoryDetail({
               : PLACEHOLDER
           }
         />
+      </div>
+      <div className="min-h-0 flex-1">
+        <ProcessList by="memory" />
       </div>
     </div>
   );
@@ -838,32 +868,41 @@ function NetworkDetail({
   const peakUp = netHist.up.length ? Math.max(...netHist.up) : 0;
   const peakDown = netHist.down.length ? Math.max(...netHist.down) : 0;
   return (
-    <div className="grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-x-2 gap-y-2">
-      <span className="text-[11px]" style={{ color: "var(--ls-ink-soft)" }}>
-        上行
-      </span>
-      <Cell
-        label="当前"
-        value={stats ? fmtRate(stats.net_tx_rate) : PLACEHOLDER}
+    <div className="flex h-full flex-col gap-3">
+      <MirrorGraph
+        top={netHist.up}
+        bottom={netHist.down}
+        topColor="var(--ls-ink-soft)"
+        bottomColor="var(--ls-life)"
+        className="h-24 w-full"
       />
-      <Cell
-        label="累计"
-        value={stats ? fmtBytes(stats.net_tx_total) : PLACEHOLDER}
-      />
-      <Cell label="峰值" value={stats ? fmtRate(peakUp) : PLACEHOLDER} />
+      <div className="grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-x-2 gap-y-2">
+        <span className="text-[11px]" style={{ color: "var(--ls-ink-soft)" }}>
+          上行
+        </span>
+        <Cell
+          label="当前"
+          value={stats ? fmtRate(stats.net_tx_rate) : PLACEHOLDER}
+        />
+        <Cell
+          label="累计"
+          value={stats ? fmtBytes(stats.net_tx_total) : PLACEHOLDER}
+        />
+        <Cell label="峰值" value={stats ? fmtRate(peakUp) : PLACEHOLDER} />
 
-      <span className="text-[11px]" style={{ color: "var(--ls-life)" }}>
-        下行
-      </span>
-      <Cell
-        label="当前"
-        value={stats ? fmtRate(stats.net_rx_rate) : PLACEHOLDER}
-      />
-      <Cell
-        label="累计"
-        value={stats ? fmtBytes(stats.net_rx_total) : PLACEHOLDER}
-      />
-      <Cell label="峰值" value={stats ? fmtRate(peakDown) : PLACEHOLDER} />
+        <span className="text-[11px]" style={{ color: "var(--ls-life)" }}>
+          下行
+        </span>
+        <Cell
+          label="当前"
+          value={stats ? fmtRate(stats.net_rx_rate) : PLACEHOLDER}
+        />
+        <Cell
+          label="累计"
+          value={stats ? fmtBytes(stats.net_rx_total) : PLACEHOLDER}
+        />
+        <Cell label="峰值" value={stats ? fmtRate(peakDown) : PLACEHOLDER} />
+      </div>
     </div>
   );
 }
