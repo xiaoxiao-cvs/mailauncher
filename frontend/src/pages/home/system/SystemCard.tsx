@@ -832,13 +832,30 @@ function SwapDetail({ stats }: { stats: SystemStats | undefined }) {
       </div>
     );
   }
+  const used = stats ? num(stats.swap_used) : 0;
+  const total = stats ? num(stats.swap_total) : 0;
+  const pct = total > 0 ? (used / total) * 100 : 0;
   return (
     <div className="flex h-full flex-col gap-3">
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div>
         <SectionHead title="占用走势" hint="近 72 秒" />
-        <div className="mt-1.5 min-h-0 flex-1">
-          <Sparkline values={series} className="h-full w-full" />
+        <Sparkline values={series} className="mt-1.5 h-24 w-full" />
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col justify-center gap-2.5">
+        <div className="flex items-baseline gap-1">
+          <span
+            className="ls-num"
+            style={{ fontSize: 26, fontWeight: 600, color: "var(--ls-ink)" }}
+          >
+            {pct < 0.05 ? "空闲" : pct.toFixed(0)}
+          </span>
+          {pct >= 0.05 && (
+            <span style={{ fontSize: 13, color: "var(--ls-ink-faint)" }}>
+              %
+            </span>
+          )}
         </div>
+        <MiniBar pct={pct} color="var(--ls-life)" />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <Cell
