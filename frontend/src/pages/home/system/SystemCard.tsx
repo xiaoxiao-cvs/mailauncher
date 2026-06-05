@@ -861,7 +861,7 @@ function DiskDetail({ stats }: { stats: SystemStats | undefined }) {
   const peakWrite = write.length ? Math.max(...write) : 0;
   return (
     <div className="flex h-full flex-col gap-3">
-      <div className="min-h-0 flex-1">
+      <div className="h-24">
         <MirrorGraph
           top={read}
           bottom={write}
@@ -869,6 +869,37 @@ function DiskDetail({ stats }: { stats: SystemStats | undefined }) {
           bottomColor="var(--ls-ink-soft)"
           className="h-full w-full"
         />
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <SectionHead title="分区" hint="容量占用" />
+        <div className="mt-1.5 space-y-1.5">
+          {(stats?.disk_partitions ?? []).map((p) => {
+            const used = p.total - p.available;
+            const pct = p.total > 0 ? (used / p.total) * 100 : 0;
+            return (
+              <div
+                key={p.mount}
+                className="flex items-center gap-2.5 text-[11px]"
+              >
+                <span
+                  className="ls-num w-8 font-medium"
+                  style={{ color: "var(--ls-ink)" }}
+                >
+                  {p.mount}
+                </span>
+                <div className="flex-1">
+                  <MiniBar pct={pct} color={tone(pct).tone} />
+                </div>
+                <span
+                  className="ls-num shrink-0"
+                  style={{ color: "var(--ls-ink-soft)" }}
+                >
+                  {fmtBytes(used)} / {fmtBytes(p.total)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
       <div className="grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-x-2 gap-y-2">
         <span className="text-[11px]" style={{ color: "var(--ls-life)" }}>
@@ -912,7 +943,7 @@ function NetworkDetail({
   const peakDown = netHist.down.length ? Math.max(...netHist.down) : 0;
   return (
     <div className="flex h-full flex-col gap-3">
-      <div className="min-h-0 flex-1">
+      <div className="h-24">
         <MirrorGraph
           top={netHist.up}
           bottom={netHist.down}
@@ -920,6 +951,35 @@ function NetworkDetail({
           bottomColor="var(--ls-life)"
           className="h-full w-full"
         />
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <SectionHead title="网卡" hint="实时吞吐" />
+        <div className="mt-1.5 space-y-1">
+          {(stats?.net_interfaces ?? []).map((nic) => (
+            <div key={nic.name} className="flex items-center gap-2 text-[11px]">
+              <span
+                className="flex-1 truncate"
+                style={{ color: "var(--ls-ink)" }}
+              >
+                {nic.name}
+              </span>
+              <span
+                className="ls-num flex w-20 items-center justify-end gap-1"
+                style={{ color: "var(--ls-life)" }}
+              >
+                <Icon icon="ph:arrow-down-thin" width={11} height={11} />
+                {fmtRate(nic.rx_rate)}
+              </span>
+              <span
+                className="ls-num flex w-20 items-center justify-end gap-1"
+                style={{ color: "var(--ls-ink-soft)" }}
+              >
+                <Icon icon="ph:arrow-up-thin" width={11} height={11} />
+                {fmtRate(nic.tx_rate)}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
       <div className="grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-x-2 gap-y-2">
         <span className="text-[11px]" style={{ color: "var(--ls-ink-soft)" }}>
