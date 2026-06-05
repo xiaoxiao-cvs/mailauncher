@@ -59,6 +59,30 @@ export interface SystemStats {
   load_avg_5: number;
   /** 系统平均负载（15 分钟） */
   load_avg_15: number;
+  /** 各活动网卡瞬时吞吐（按当前总速率降序） */
+  net_interfaces: NetInterfaceStat[];
+  /** 各磁盘分区容量（按挂载点） */
+  disk_partitions: DiskPartitionStat[];
+}
+
+/** 单网卡瞬时吞吐（对应 Rust NetInterfaceStat）。 */
+export interface NetInterfaceStat {
+  /** 网卡名 */
+  name: string;
+  /** 下行速率（字节/秒） */
+  rx_rate: number;
+  /** 上行速率（字节/秒） */
+  tx_rate: number;
+}
+
+/** 单磁盘分区容量（对应 Rust DiskPartitionStat）。 */
+export interface DiskPartitionStat {
+  /** 挂载点（Windows 如 "C:"） */
+  mount: string;
+  /** 分区总容量（字节） */
+  total: number;
+  /** 分区可用容量（字节） */
+  available: number;
 }
 
 /**

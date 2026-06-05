@@ -61,6 +61,32 @@ pub struct SystemStats {
     pub load_avg_5: f64,
     /// 系统平均负载(15 分钟)
     pub load_avg_15: f64,
+    /// 各活动网卡瞬时吞吐(按当前总速率降序;无累计流量的网卡略去)
+    pub net_interfaces: Vec<NetInterfaceStat>,
+    /// 各磁盘分区容量(按挂载点)
+    pub disk_partitions: Vec<DiskPartitionStat>,
+}
+
+/// 单网卡瞬时吞吐(per-NIC)。
+#[derive(Debug, Clone, Serialize)]
+pub struct NetInterfaceStat {
+    /// 网卡名(系统接口名)
+    pub name: String,
+    /// 下行速率(字节/秒)
+    pub rx_rate: u64,
+    /// 上行速率(字节/秒)
+    pub tx_rate: u64,
+}
+
+/// 单磁盘分区容量(per-volume)。
+#[derive(Debug, Clone, Serialize)]
+pub struct DiskPartitionStat {
+    /// 挂载点(Windows 如 "C:")
+    pub mount: String,
+    /// 分区总容量(字节)
+    pub total: u64,
+    /// 分区可用容量(字节)
+    pub available: u64,
 }
 
 struct MonitorInner {
@@ -125,6 +151,7 @@ impl SystemMonitor {
         let mut disk_write_bytes = 0u64;
         let mut disk_read_total = 0u64;
         let mut disk_write_total = 0u64;
+        let mut disk_partitions: Vec<DiskPartitionStat> = Vec::new();
         for disk in inner.disks.list() {
             disk_total = disk_total.saturating_add(disk.total_space());
             disk_available = disk_available.saturating_add(disk.available_space());
@@ -133,6 +160,15 @@ impl SystemMonitor {
             disk_write_bytes = disk_write_bytes.saturating_add(io.written_bytes);
             disk_read_total = disk_read_total.saturating_add(io.total_read_bytes);
             disk_write_total = disk_write_total.saturating_add(io.total_written_bytes);
+            disk_partitions.push(DiskPartitionStat {
+                mount: disk
+                    .mount_point()
+                    .to_string_lossy()
+                    .trim_end_matches('\\')
+                    .to_string(),
+                total: disk.total_space(),
+                available: disk.available_space(),
+            });
         }
         let (disk_read_rate, disk_write_rate) = if elapsed > 0.0 {
             (
@@ -148,12 +184,30 @@ impl SystemMonitor {
         let mut tx_bytes = 0u64;
         let mut rx_total = 0u64;
         let mut tx_total = 0u64;
-        for data in inner.networks.list().values() {
+        let mut net_interfaces: Vec<NetInterfaceStat> = Vec::new();
+        for (name, data) in inner.networks.list().iter() {
             rx_bytes = rx_bytes.saturating_add(data.received());
             tx_bytes = tx_bytes.saturating_add(data.transmitted());
             rx_total = rx_total.saturating_add(data.total_received());
             tx_total = tx_total.saturating_add(data.total_transmitted());
+            // 仅收录有累计流量的活动网卡,滤掉一堆 0 流量的虚拟/未启用接口
+            if data.total_received() + data.total_transmitted() > 0 {
+                let (rx, tx) = if elapsed > 0.0 {
+                    (
+                        (data.received() as f64 / elapsed).round() as u64,
+                        (data.transmitted() as f64 / elapsed).round() as u64,
+                    )
+                } else {
+                    (0, 0)
+                };
+                net_interfaces.push(NetInterfaceStat {
+                    name: name.clone(),
+                    rx_rate: rx,
+                    tx_rate: tx,
+                });
+            }
         }
+        net_interfaces.sort_by_key(|n| std::cmp::Reverse(n.rx_rate + n.tx_rate));
         let (net_rx_rate, net_tx_rate) = if elapsed > 0.0 {
             (
                 (rx_bytes as f64 / elapsed).round() as u64,
@@ -190,6 +244,8 @@ impl SystemMonitor {
             load_avg_1,
             load_avg_5,
             load_avg_15,
+            net_interfaces,
+            disk_partitions,
         };
         inner.latest = Some(stats.clone());
         stats
