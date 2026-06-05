@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import type { CSSProperties, ReactNode } from "react";
+import { LayoutGroup, motion } from "motion/react";
 import { Icon } from "@iconify/react";
 import { useQuery } from "@tanstack/react-query";
 
-import { Card, MirrorGraph, Sparkline } from "@/components/ls";
-import { springSettle } from "@/design/motion";
+import { MirrorGraph, Ring, Sparkline } from "@/components/ls";
+import { springMorph, springSettle, springSoft } from "@/design/motion";
 import { useNetHistory } from "@/services/netHistoryStore";
 import { useTimeSeries } from "@/services/metrics/timeSeriesStore";
 import { HOST_SCOPE } from "@/services/metrics/types";
@@ -13,37 +14,55 @@ import { fmtBytes, fmtGB, fmtRate, num } from "@/utils/format";
 import type { SystemInfo, SystemStats } from "@/services/systemApi";
 
 /**
- * 系统卡 —— 固定尺寸框内的资源钻取。
+ * 系统卡 —— 暖色 bento 拟物磁贴(方案 D) + 容器形变钻取。
  *
- * 概览态:CPU/内存/Swap/磁盘/网络 五条资源,每条 = 标签 + 实时进度条(网络是波形)。
- * 点某条 → 框内**交叉淡入**切到该资源详情;唯独那条指示条用 `layoutId` 在两态间**连续位移**
- * (同一元素从行内滑到顶,**高度恒定不变**、不切断、实时数据照常),其余一切走 opacity。
+ * 折叠态:非对称 bento 网格,CPU 占大格,内存竖跨,Swap/磁盘并列小格,网络横跨底栏。
+ * 每块是微凸暖面瓦片(--ls-surface + 柔影 + 顶高光,零玻璃)。
  *
- * 铁律:卡片是**固定高度**的框,概览与详情共用同一框、绝不改尺寸——杜绝撑大、卡顿、瞎飘。
- * 全卡同时只有 1 个元素做布局位移(选中条),所以丝滑。
+ * 钻取(关键):被点的那块瓦片**本体**(同一元素,不换层)用 `layout` 从它的格子**连续长大**到铺满整张卡
+ * (绝对定位 + 高 z-index,**不透明**,故盖住其余),其余瓦片快速淡出。因为全程只有这一块在动布局、
+ * 且它不透明地占据画面,所以"从哪来到哪去"清清楚楚、不会出现两层重叠的鬼影。再点它收回原格。
+ *
+ * 铁律:卡是固定高度的框,折叠/详情共用同一框、绝不改尺寸。
  */
 
-/** 固定框高(px):需同时容下概览五行与最高的 CPU 详情(走势 + 进程表)。 */
-const FRAME_H = 320;
-/** 指示条高度(概览/详情恒定一致)。 */
-const BAR_H = 8;
+/** 固定框高(px):bento 概览与 CPU 详情共用同一框;加高以容下 bento 五块不挤。 */
+const FRAME_H = 440;
+const TILE_RADIUS = 14;
 const PLACEHOLDER = "—";
 
 type ResKey = "cpu" | "memory" | "swap" | "disk" | "network";
 
-interface RowData {
-  key: ResKey;
-  label: string;
-  /** 进度条百分比 0-100;网络行走波形,为 undefined */
-  pct?: number;
-  /** 右侧读数 */
-  value: string;
-  /** 网络行用波形而非进度条 */
-  wave?: boolean;
-}
+const META: Record<ResKey, { icon: string; label: string }> = {
+  cpu: { icon: "ph:cpu-thin", label: "CPU" },
+  memory: { icon: "ph:memory-thin", label: "内存" },
+  swap: { icon: "ph:swap-thin", label: "交换区" },
+  disk: { icon: "ph:hard-drives-thin", label: "磁盘" },
+  network: { icon: "ph:wifi-high-thin", label: "网络" },
+};
 
-function pctOf(used: number, total: number): number {
-  return total > 0 ? Math.min(100, (used / total) * 100) : 0;
+const TILES: { key: ResKey; area: string; pad: number }[] = [
+  { key: "cpu", area: "cpu", pad: 12 },
+  { key: "memory", area: "mem", pad: 12 },
+  { key: "swap", area: "swap", pad: 12 },
+  { key: "disk", area: "disk", pad: 12 },
+  { key: "network", area: "net", pad: 11 },
+];
+
+/** 瓦片视觉(暖面 + 发丝边 + 柔影 + 顶高光);折叠/展开同一元素,故同视觉无缝。 */
+const TILE_VISUAL: CSSProperties = {
+  borderRadius: TILE_RADIUS,
+  background: "var(--ls-surface)",
+  border: "1px solid var(--ls-hairline)",
+  boxShadow: "var(--ls-shadow-soft), inset 0 1px 0 var(--ls-top-hi)",
+  overflow: "hidden",
+};
+
+/** 占用率 → 生命色 / 暖琥珀(>=85% 提示),克制点缀。 */
+function tone(pct: number): { tone: string; soft: string } {
+  return pct >= 85
+    ? { tone: "var(--ls-warn)", soft: "var(--ls-warn-soft)" }
+    : { tone: "var(--ls-life)", soft: "var(--ls-life-soft)" };
 }
 
 export function SystemCard({
@@ -55,201 +74,546 @@ export function SystemCard({
 }) {
   const [expanded, setExpanded] = useState<ResKey | null>(null);
   const netHist = useNetHistory();
-
-  const diskUsed = stats ? stats.disk_total - stats.disk_available : 0;
-  const rows: RowData[] = [
-    {
-      key: "cpu",
-      label: "CPU",
-      pct: stats ? Math.min(100, num(stats.cpu_usage)) : 0,
-      value: stats
-        ? `${Math.round(num(stats.cpu_usage))}% · ${stats.cpu_core_count} 线程`
-        : PLACEHOLDER,
-    },
-    {
-      key: "memory",
-      label: "内存",
-      pct: stats ? pctOf(stats.memory_used, stats.memory_total) : 0,
-      value: stats
-        ? `${fmtGB(stats.memory_used)} / ${fmtGB(stats.memory_total)}`
-        : PLACEHOLDER,
-    },
-    {
-      key: "swap",
-      label: "交换区",
-      pct: stats ? pctOf(stats.swap_used, stats.swap_total) : 0,
-      value: stats
-        ? stats.swap_total > 0
-          ? `${fmtGB(stats.swap_used)} / ${fmtGB(stats.swap_total)}`
-          : "未启用"
-        : PLACEHOLDER,
-    },
-    {
-      key: "disk",
-      label: "磁盘",
-      pct: stats ? pctOf(diskUsed, stats.disk_total) : 0,
-      value: stats
-        ? `${fmtBytes(diskUsed)} / ${fmtBytes(stats.disk_total)}`
-        : PLACEHOLDER,
-    },
-    {
-      key: "network",
-      label: "网络",
-      wave: true,
-      value: stats
-        ? `↑ ${fmtRate(stats.net_tx_rate)}   ↓ ${fmtRate(stats.net_rx_rate)}`
-        : PLACEHOLDER,
-    },
-  ];
-
-  const active = expanded ? rows.find((r) => r.key === expanded) : undefined;
+  const cpuHist = useTimeSeries(HOST_SCOPE, "cpu");
 
   return (
-    <Card className="col-span-12 flex flex-col lg:col-span-4">
+    <motion.div
+      className="col-span-12 lg:col-span-4"
+      variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
+      transition={springSoft}
+    >
       <LayoutGroup>
-        <div className="relative" style={{ height: FRAME_H }}>
-          <AnimatePresence initial={false}>
-            {expanded === null ? (
-              <motion.div
-                key="overview"
-                className="absolute inset-0 flex flex-col justify-between"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.16 }}
-              >
-                {rows.map((r) => (
-                  <button
-                    key={r.key}
-                    type="button"
-                    onClick={() => setExpanded(r.key)}
-                    className="block w-full text-left"
-                  >
-                    <RowHead label={r.label} value={r.value} active={false} />
-                    <div className="mt-1.5">
-                      <Indicator def={r} netHist={netHist} />
-                    </div>
-                  </button>
-                ))}
-              </motion.div>
-            ) : (
-              active && (
-                <motion.div
-                  key="detail"
-                  className="absolute inset-0 flex flex-col"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.16 }}
+        <div
+          className="relative"
+          style={{ height: FRAME_H, ...TILE_VISUAL, borderRadius: 16 }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              padding: 12,
+              display: "grid",
+              gap: 10,
+              gridTemplateColumns: "1fr 1fr 0.92fr",
+              gridTemplateRows: "1.32fr 1fr 0.92fr",
+              gridTemplateAreas: `
+                "cpu cpu mem"
+                "swap disk mem"
+                "net net net"
+              `,
+            }}
+          >
+            {TILES.map((t) => {
+              const isExp = expanded === t.key;
+              const dim = expanded !== null && !isExp;
+              return (
+                <motion.button
+                  key={t.key}
+                  type="button"
+                  layout
+                  transition={{
+                    layout: springMorph,
+                    opacity: { duration: 0.12 },
+                  }}
+                  onClick={() => setExpanded(isExp ? null : t.key)}
+                  whileHover={isExp ? undefined : { y: -2 }}
+                  animate={{ opacity: dim ? 0 : 1 }}
+                  style={{
+                    ...TILE_VISUAL,
+                    ...(isExp
+                      ? {
+                          position: "absolute",
+                          inset: 0,
+                          zIndex: 10,
+                          padding: 14,
+                        }
+                      : {
+                          gridArea: t.area,
+                          position: "relative",
+                          padding: t.pad,
+                        }),
+                    display: "flex",
+                    flexDirection: "column",
+                    minWidth: 0,
+                    textAlign: "left",
+                    cursor: "pointer",
+                    pointerEvents: dim ? "none" : "auto",
+                  }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => setExpanded(null)}
-                    className="block w-full text-left"
-                  >
-                    <RowHead label={active.label} value={active.value} active />
-                    <div className="mt-1.5">
-                      <Indicator def={active} netHist={netHist} />
-                    </div>
-                  </button>
-                  <div className="mt-4 min-h-0 flex-1">
-                    <ResourceDetail
-                      kind={active.key}
+                  {isExp ? (
+                    <DetailBody
+                      resKey={t.key}
                       info={info}
                       stats={stats}
                       netHist={netHist}
                     />
-                  </div>
-                </motion.div>
-              )
-            )}
-          </AnimatePresence>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.2, delay: 0.06 }}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        flex: 1,
+                        minHeight: 0,
+                      }}
+                    >
+                      <TileBody
+                        resKey={t.key}
+                        info={info}
+                        stats={stats}
+                        cpuHist={cpuHist}
+                        netHist={netHist}
+                      />
+                    </motion.div>
+                  )}
+                </motion.button>
+              );
+            })}
+          </div>
         </div>
       </LayoutGroup>
-    </Card>
+    </motion.div>
   );
 }
 
-/** 行头:标签(左)+ 读数(右)+ 展开/收起小箭头。 */
-function RowHead({
-  label,
-  value,
-  active,
-}: {
-  label: string;
-  value: string;
-  active: boolean;
-}) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span
-        className="text-[13px] font-medium"
-        style={{ color: active ? "var(--ls-ink)" : "var(--ls-ink-soft)" }}
-      >
-        {label}
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span
-          className="ls-num text-[11px]"
-          style={{ color: "var(--ls-ink-faint)" }}
-        >
-          {value}
-        </span>
-        <Icon
-          icon="ph:caret-down-thin"
-          width={13}
-          height={13}
-          style={{
-            color: "var(--ls-ink-faint)",
-            transform: active ? "rotate(180deg)" : "none",
-          }}
-        />
-      </span>
-    </div>
-  );
-}
-
-/** 选中条的连续位移元素:进度条或波形,带 layoutId 在概览/详情两态间 morph;高度恒定。 */
-function Indicator({
-  def,
+/** 折叠态瓦片内容(按资源分派)。 */
+function TileBody({
+  resKey,
+  info,
+  stats,
+  cpuHist,
   netHist,
 }: {
-  def: RowData;
+  resKey: ResKey;
+  info: SystemInfo | undefined;
+  stats: SystemStats | undefined;
+  cpuHist: number[];
   netHist: { up: number[]; down: number[] };
 }) {
-  if (def.wave) {
-    return (
-      <motion.div
-        layoutId={`ind-${def.key}`}
-        transition={springSettle}
-        className="w-full"
+  switch (resKey) {
+    case "cpu":
+      return <CpuTile info={info} stats={stats} cpuHist={cpuHist} />;
+    case "memory":
+      return <MemTile info={info} stats={stats} />;
+    case "swap":
+      return <SwapTile stats={stats} />;
+    case "disk":
+      return <DiskTile stats={stats} />;
+    case "network":
+      return <NetTile stats={stats} netHist={netHist} />;
+  }
+}
+
+function CpuTile({
+  info,
+  stats,
+  cpuHist,
+}: {
+  info: SystemInfo | undefined;
+  stats: SystemStats | undefined;
+  cpuHist: number[];
+}) {
+  const cpu = stats ? num(stats.cpu_usage) : 0;
+  const t = tone(cpu);
+  return (
+    <>
+      <TileHead
+        icon={META.cpu.icon}
+        label="CPU"
+        tone={t.tone}
+        toneSoft={t.soft}
+        trailing={
+          <span
+            className="ls-num"
+            style={{ fontSize: 10.5, color: "var(--ls-ink-faint)" }}
+          >
+            {info ? `${(num(info.cpu_frequency) / 1000).toFixed(1)} GHz` : ""}
+          </span>
+        }
+      />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginTop: 8,
+          flex: 1,
+          minHeight: 0,
+        }}
       >
+        <Ring
+          value={Math.round(cpu)}
+          size={72}
+          stroke={7}
+          centerLabel={<RingNum value={cpu} big={18} />}
+        />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div
+            style={{
+              fontSize: 11.5,
+              fontWeight: 600,
+              color: "var(--ls-ink)",
+              lineHeight: 1.25,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {info ? info.cpu_brand : PLACEHOLDER}
+          </div>
+          <div
+            className="ls-num"
+            style={{
+              marginTop: 4,
+              fontSize: 10.5,
+              color: "var(--ls-ink-soft)",
+            }}
+          >
+            {info
+              ? `${num(info.cpu_physical_cores)}核 ${num(info.cpu_logical_cores)}线程`
+              : PLACEHOLDER}
+          </div>
+        </div>
+      </div>
+      <div style={{ height: 30, marginTop: 6 }}>
+        <Sparkline values={cpuHist} className="h-full w-full" />
+      </div>
+    </>
+  );
+}
+
+function MemTile({
+  info,
+  stats,
+}: {
+  info: SystemInfo | undefined;
+  stats: SystemStats | undefined;
+}) {
+  const used = stats ? num(stats.memory_used) : 0;
+  const total = stats ? num(stats.memory_total) : 0;
+  const pct = total > 0 ? (used / total) * 100 : 0;
+  const t = tone(pct);
+  return (
+    <>
+      <TileHead
+        icon={META.memory.icon}
+        label="内存"
+        tone={t.tone}
+        toneSoft={t.soft}
+      />
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 10,
+        }}
+      >
+        <Ring
+          value={Math.round(pct)}
+          size={64}
+          stroke={7}
+          centerLabel={<RingNum value={pct} big={17} />}
+        />
+        <div style={{ textAlign: "center", lineHeight: 1.3 }}>
+          <div className="ls-num" style={{ fontSize: 13, fontWeight: 600 }}>
+            {stats ? fmtGB(used) : PLACEHOLDER}
+          </div>
+          <div
+            className="ls-num"
+            style={{ fontSize: 10.5, color: "var(--ls-ink-faint)" }}
+          >
+            / {stats ? fmtGB(total) : PLACEHOLDER}
+            {info && info.memory_type ? ` · ${info.memory_type}` : ""}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function SwapTile({ stats }: { stats: SystemStats | undefined }) {
+  const used = stats ? num(stats.swap_used) : 0;
+  const total = stats ? num(stats.swap_total) : 0;
+  const pct = total > 0 ? (used / total) * 100 : 0;
+  return (
+    <>
+      <TileHead icon={META.swap.icon} label="交换区" />
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          gap: 7,
+        }}
+      >
+        <div
+          className="ls-num"
+          style={{ fontSize: 15, fontWeight: 600, color: "var(--ls-ink)" }}
+        >
+          {pct < 0.05 ? (
+            <span style={{ color: "var(--ls-ink-soft)" }}>空闲</span>
+          ) : (
+            fmtGB(used)
+          )}
+        </div>
+        <MiniBar pct={pct} color="var(--ls-life)" />
+        <div style={{ fontSize: 10, color: "var(--ls-ink-faint)" }}>
+          共 {stats ? fmtGB(total) : PLACEHOLDER}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function DiskTile({ stats }: { stats: SystemStats | undefined }) {
+  const total = stats ? num(stats.disk_total) : 0;
+  const avail = stats ? num(stats.disk_available) : 0;
+  const used = Math.max(0, total - avail);
+  const pct = total > 0 ? (used / total) * 100 : 0;
+  const t = tone(pct);
+  return (
+    <>
+      <TileHead
+        icon={META.disk.icon}
+        label="磁盘"
+        tone={t.tone}
+        toneSoft={t.soft}
+      />
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          gap: 7,
+        }}
+      >
+        <div
+          className="ls-num"
+          style={{ fontSize: 15, fontWeight: 600, color: "var(--ls-ink)" }}
+        >
+          {Math.round(pct)}
+          <span style={{ fontSize: 11, color: "var(--ls-ink-faint)" }}> %</span>
+        </div>
+        <MiniBar pct={pct} color={t.tone} />
+        <div
+          className="ls-num"
+          style={{ fontSize: 10, color: "var(--ls-ink-faint)" }}
+        >
+          {stats ? `${fmtBytes(avail)} 可用` : PLACEHOLDER}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function NetTile({
+  stats,
+  netHist,
+}: {
+  stats: SystemStats | undefined;
+  netHist: { up: number[]; down: number[] };
+}) {
+  const rx = stats ? num(stats.net_rx_rate) : 0;
+  const tx = stats ? num(stats.net_tx_rate) : 0;
+  return (
+    <>
+      <TileHead
+        icon={META.network.icon}
+        label="网络"
+        trailing={
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              fontSize: 10.5,
+            }}
+          >
+            <NetLeg dir="down" rate={rx} />
+            <NetLeg dir="up" rate={tx} />
+          </span>
+        }
+      />
+      <div style={{ flex: 1, minHeight: 0, marginTop: 4 }}>
         <MirrorGraph
           top={netHist.up}
           bottom={netHist.down}
           topColor="var(--ls-ink-soft)"
           bottomColor="var(--ls-life)"
-          className="h-8 w-full"
+          className="h-full w-full"
         />
-      </motion.div>
-    );
-  }
-  const w = Math.max(0, Math.min(100, def.pct ?? 0));
+      </div>
+    </>
+  );
+}
+
+/** 展开态:头部(图标 + 标签 + 收起提示)+ 资源详情;整块可点收回(详情只读,无嵌套按钮)。 */
+function DetailBody({
+  resKey,
+  info,
+  stats,
+  netHist,
+}: {
+  resKey: ResKey;
+  info: SystemInfo | undefined;
+  stats: SystemStats | undefined;
+  netHist: { up: number[]; down: number[] };
+}) {
   return (
     <motion.div
-      layoutId={`ind-${def.key}`}
-      transition={springSettle}
-      className="relative w-full overflow-hidden rounded-full"
-      style={{ background: "var(--ls-bg-2)", height: BAR_H }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.18, delay: 0.06 }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        minHeight: 0,
+      }}
+    >
+      <div className="flex w-full items-center gap-2">
+        <Icon
+          icon={META[resKey].icon}
+          width={16}
+          height={16}
+          style={{ color: "var(--ls-life)" }}
+        />
+        <span
+          className="text-[13px] font-medium"
+          style={{ color: "var(--ls-ink)" }}
+        >
+          {META[resKey].label}
+        </span>
+        <Icon
+          icon="ph:caret-up-thin"
+          width={14}
+          height={14}
+          className="ml-auto"
+          style={{ color: "var(--ls-ink-faint)" }}
+        />
+      </div>
+      <div className="mt-3 min-h-0 flex-1 overflow-hidden">
+        <ResourceDetail
+          kind={resKey}
+          info={info}
+          stats={stats}
+          netHist={netHist}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
+/** 瓦片头:细线图标置于暖色小托盘 + 标签,可选右侧读数。 */
+function TileHead({
+  icon,
+  label,
+  trailing,
+  tone: toneColor = "var(--ls-life)",
+  toneSoft = "var(--ls-life-soft)",
+}: {
+  icon: string;
+  label: string;
+  trailing?: ReactNode;
+  tone?: string;
+  toneSoft?: string;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+      <span
+        style={{
+          display: "grid",
+          placeItems: "center",
+          width: 20,
+          height: 20,
+          borderRadius: 7,
+          background: toneSoft,
+          color: toneColor,
+          flexShrink: 0,
+        }}
+      >
+        <Icon icon={icon} width={13} height={13} />
+      </span>
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: 0.2,
+          color: "var(--ls-ink-soft)",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {label}
+      </span>
+      {trailing != null && (
+        <span style={{ marginLeft: "auto", flexShrink: 0 }}>{trailing}</span>
+      )}
+    </div>
+  );
+}
+
+/** 环心数字:大号整数 + 小号 %。 */
+function RingNum({ value, big }: { value: number; big: number }) {
+  return (
+    <span style={{ display: "grid", placeItems: "center", lineHeight: 1 }}>
+      <span className="ls-num" style={{ fontSize: big, fontWeight: 600 }}>
+        {Math.round(value)}
+      </span>
+      <span style={{ fontSize: 9, color: "var(--ls-ink-faint)" }}>%</span>
+    </span>
+  );
+}
+
+/** 细瓦片内的内嵌占用条(替代 Meter,贴合 bento 紧凑高度)。 */
+function MiniBar({ pct, color }: { pct: number; color: string }) {
+  return (
+    <div
+      style={{
+        height: 6,
+        width: "100%",
+        borderRadius: 999,
+        background: "var(--ls-bg-2)",
+        overflow: "hidden",
+      }}
     >
       <motion.div
-        className="absolute inset-y-0 left-0 rounded-full"
-        style={{ background: "var(--ls-life)" }}
         initial={false}
-        animate={{ width: `${w}%` }}
+        animate={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
         transition={springSettle}
+        style={{ height: "100%", borderRadius: 999, background: color }}
       />
-    </motion.div>
+    </div>
+  );
+}
+
+/** 网络单向速率:方向箭头 + 等宽速率(下行生命色 / 上行柔墨)。 */
+function NetLeg({ dir, rate }: { dir: "up" | "down"; rate: number }) {
+  const color = dir === "down" ? "var(--ls-life)" : "var(--ls-ink-soft)";
+  return (
+    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <Icon
+        icon={dir === "down" ? "ph:arrow-down-thin" : "ph:arrow-up-thin"}
+        width={12}
+        height={12}
+        style={{ color }}
+      />
+      <span className="ls-num" style={{ color: "var(--ls-ink-soft)" }}>
+        {fmtRate(rate)}
+      </span>
+    </span>
   );
 }
 
@@ -306,7 +670,7 @@ function CpuDetail({ stats }: { stats: SystemStats | undefined }) {
 function ProcessList() {
   const { data } = useQuery({
     queryKey: ["top-processes"],
-    queryFn: () => getTopProcesses(6),
+    queryFn: () => getTopProcesses(8),
     refetchInterval: 1500,
     staleTime: 1000,
   });
@@ -486,7 +850,7 @@ function NetworkDetail({
   );
 }
 
-/** 紧凑读数:小标签 + 单行等宽数值(不换行),比 LS Readout 更小,适配固定框。 */
+/** 紧凑读数:小标签 + 单行等宽数值(不换行),适配固定框。 */
 function Cell({ label, value }: { label: string; value: string }) {
   return (
     <div
