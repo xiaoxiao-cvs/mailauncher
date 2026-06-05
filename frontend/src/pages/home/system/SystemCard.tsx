@@ -712,7 +712,7 @@ function ProcessList({ by }: { by: "cpu" | "memory" }) {
           正在采样进程占用…
         </div>
       ) : (
-        <div className="mt-2 space-y-1">
+        <div className="mt-2 flex min-h-0 flex-1 flex-col">
           {procs.map((p) => {
             const cpu = (
               <span
@@ -736,7 +736,10 @@ function ProcessList({ by }: { by: "cpu" | "memory" }) {
               </span>
             );
             return (
-              <div key={p.pid} className="flex items-center gap-2 text-[11px]">
+              <div
+                key={p.pid}
+                className="flex flex-1 items-center gap-2 text-[11px]"
+              >
                 <span
                   className="flex-1 truncate"
                   style={{ color: "var(--ls-ink)" }}
@@ -803,19 +806,29 @@ function MemoryDetail({
 }
 
 function SwapDetail({ stats }: { stats: SystemStats | undefined }) {
-  const series = useTimeSeries(HOST_SCOPE, "swap");
   if (stats && stats.swap_total === 0) {
     return (
-      <div className="text-[11px]" style={{ color: "var(--ls-ink-faint)" }}>
+      <div
+        className="flex h-full items-center justify-center text-[11px]"
+        style={{ color: "var(--ls-ink-faint)" }}
+      >
         当前系统未启用交换区(Swap)
       </div>
     );
   }
+  const pct =
+    stats && stats.swap_total > 0
+      ? (stats.swap_used / stats.swap_total) * 100
+      : 0;
   return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <SectionHead title="占用走势" hint="近 72 秒" />
-        <Sparkline values={series} className="mt-1.5 h-14 w-full" />
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex min-h-0 flex-1 items-center justify-center">
+        <Ring
+          value={pct}
+          size={140}
+          stroke={12}
+          centerLabel={<RingNum value={pct} big={30} />}
+        />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <Cell
@@ -832,13 +845,18 @@ function SwapDetail({ stats }: { stats: SystemStats | undefined }) {
 }
 
 function DiskDetail({ stats }: { stats: SystemStats | undefined }) {
-  const series = useTimeSeries(HOST_SCOPE, "disk");
   const used = stats ? stats.disk_total - stats.disk_available : 0;
+  const pct =
+    stats && stats.disk_total > 0 ? (used / stats.disk_total) * 100 : 0;
   return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <SectionHead title="占用走势" hint="近 72 秒" />
-        <Sparkline values={series} className="mt-1.5 h-14 w-full" />
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex min-h-0 flex-1 items-center justify-center">
+        <Ring
+          value={pct}
+          size={140}
+          stroke={12}
+          centerLabel={<RingNum value={pct} big={30} />}
+        />
       </div>
       <div className="grid grid-cols-3 gap-2">
         <Cell label="已用" value={stats ? fmtBytes(used) : PLACEHOLDER} />
@@ -850,9 +868,6 @@ function DiskDetail({ stats }: { stats: SystemStats | undefined }) {
           label="总量"
           value={stats ? fmtBytes(stats.disk_total) : PLACEHOLDER}
         />
-      </div>
-      <div className="text-[10px]" style={{ color: "var(--ls-ink-faint)" }}>
-        分盘明细与磁盘 IO 速率规划中
       </div>
     </div>
   );
@@ -869,13 +884,15 @@ function NetworkDetail({
   const peakDown = netHist.down.length ? Math.max(...netHist.down) : 0;
   return (
     <div className="flex h-full flex-col gap-3">
-      <MirrorGraph
-        top={netHist.up}
-        bottom={netHist.down}
-        topColor="var(--ls-ink-soft)"
-        bottomColor="var(--ls-life)"
-        className="h-24 w-full"
-      />
+      <div className="min-h-0 flex-1">
+        <MirrorGraph
+          top={netHist.up}
+          bottom={netHist.down}
+          topColor="var(--ls-ink-soft)"
+          bottomColor="var(--ls-life)"
+          className="h-full w-full"
+        />
+      </div>
       <div className="grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-x-2 gap-y-2">
         <span className="text-[11px]" style={{ color: "var(--ls-ink-soft)" }}>
           上行
