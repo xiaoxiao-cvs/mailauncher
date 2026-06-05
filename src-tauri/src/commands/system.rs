@@ -37,9 +37,7 @@ pub async fn get_system_info() -> AppResult<system_stats_service::SystemInfo> {
 
 /// 获取按 CPU 占用排序的 top-N 系统进程（供 CPU 详情进程表；每次调用即一次采样，前端轮询取增量）
 #[tauri::command]
-pub async fn get_top_processes(
-    limit: usize,
-) -> AppResult<Vec<process_list_service::ProcessRow>> {
+pub async fn get_top_processes(limit: usize) -> AppResult<Vec<process_list_service::ProcessRow>> {
     Ok(process_list_service::top_processes(limit).await)
 }
 
