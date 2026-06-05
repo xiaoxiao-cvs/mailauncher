@@ -229,7 +229,11 @@ function CpuTile({
             className="ls-num"
             style={{ fontSize: 10.5, color: "var(--ls-ink-faint)" }}
           >
-            {info ? `${(num(info.cpu_frequency) / 1000).toFixed(1)} GHz` : ""}
+            {stats && num(stats.cpu_freq_mhz) > 0
+              ? `${(num(stats.cpu_freq_mhz) / 1000).toFixed(1)} GHz`
+              : info
+                ? `${(num(info.cpu_frequency) / 1000).toFixed(1)} GHz`
+                : ""}
           </span>
         }
       />
@@ -321,16 +325,18 @@ function MemTile({
           stroke={7}
           centerLabel={<RingNum value={pct} big={17} />}
         />
-        <div style={{ textAlign: "center", lineHeight: 1.3 }}>
-          <div className="ls-num" style={{ fontSize: 13, fontWeight: 600 }}>
+        <div style={{ textAlign: "center", lineHeight: 1.35 }}>
+          <div className="ls-num" style={{ fontSize: 14, fontWeight: 600 }}>
             {stats ? fmtGB(used) : PLACEHOLDER}
           </div>
           <div
             className="ls-num"
             style={{ fontSize: 10.5, color: "var(--ls-ink-faint)" }}
           >
-            / {stats ? fmtGB(total) : PLACEHOLDER}
-            {info && info.memory_type ? ` · ${info.memory_type}` : ""}
+            共 {stats ? fmtGB(total) : PLACEHOLDER}
+            {info && info.memory_type && info.memory_type !== "未知"
+              ? ` · ${info.memory_type}`
+              : ""}
           </div>
         </div>
       </div>
@@ -404,6 +410,18 @@ function DiskTile({ stats }: { stats: SystemStats | undefined }) {
         >
           {Math.round(pct)}
           <span style={{ fontSize: 11, color: "var(--ls-ink-faint)" }}> %</span>
+          {stats ? (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: "var(--ls-ink-soft)",
+              }}
+            >
+              {" · "}
+              {fmtBytes(used)}
+            </span>
+          ) : null}
         </div>
         <MiniBar pct={pct} color={t.tone} />
         <div
