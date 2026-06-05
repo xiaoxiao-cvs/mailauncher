@@ -37,6 +37,14 @@ pub struct SystemStats {
     pub disk_total: u64,
     /// 所有磁盘可用容量(字节)
     pub disk_available: u64,
+    /// 磁盘读取速率(字节/秒,所有磁盘合计;跨两次采样的 DISK_PERFORMANCE 差值)
+    pub disk_read_rate: u64,
+    /// 磁盘写入速率(字节/秒,所有磁盘合计)
+    pub disk_write_rate: u64,
+    /// 磁盘累计读取(字节,自系统启动起算,所有磁盘合计)
+    pub disk_read_total: u64,
+    /// 磁盘累计写入(字节,自系统启动起算)
+    pub disk_write_total: u64,
     /// 网络下行速率(字节/秒)
     pub net_rx_rate: u64,
     /// 网络上行速率(字节/秒)
@@ -109,13 +117,31 @@ impl SystemMonitor {
         let swap_total = inner.system.total_swap();
         let swap_used = inner.system.used_swap();
 
+        // refresh(false) 等价于 DiskRefreshKind::everything(),已含 io_usage;disk.usage() 给出距上次刷新的读写增量
         inner.disks.refresh(false);
         let mut disk_total = 0u64;
         let mut disk_available = 0u64;
+        let mut disk_read_bytes = 0u64;
+        let mut disk_write_bytes = 0u64;
+        let mut disk_read_total = 0u64;
+        let mut disk_write_total = 0u64;
         for disk in inner.disks.list() {
             disk_total = disk_total.saturating_add(disk.total_space());
             disk_available = disk_available.saturating_add(disk.available_space());
+            let io = disk.usage();
+            disk_read_bytes = disk_read_bytes.saturating_add(io.read_bytes);
+            disk_write_bytes = disk_write_bytes.saturating_add(io.written_bytes);
+            disk_read_total = disk_read_total.saturating_add(io.total_read_bytes);
+            disk_write_total = disk_write_total.saturating_add(io.total_written_bytes);
         }
+        let (disk_read_rate, disk_write_rate) = if elapsed > 0.0 {
+            (
+                (disk_read_bytes as f64 / elapsed).round() as u64,
+                (disk_write_bytes as f64 / elapsed).round() as u64,
+            )
+        } else {
+            (0, 0)
+        };
 
         inner.networks.refresh(false);
         let mut rx_bytes = 0u64;
@@ -152,6 +178,10 @@ impl SystemMonitor {
             swap_used,
             disk_total,
             disk_available,
+            disk_read_rate,
+            disk_write_rate,
+            disk_read_total,
+            disk_write_total,
             net_rx_rate,
             net_tx_rate,
             net_rx_total: rx_total,

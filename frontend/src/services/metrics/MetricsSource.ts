@@ -29,6 +29,8 @@ function toHostSample(stats: SystemStats): MetricSample {
       mem: pct(stats.memory_used, stats.memory_total),
       swap: pct(stats.swap_used, stats.swap_total),
       disk: pct(stats.disk_total - stats.disk_available, stats.disk_total),
+      diskRead: stats.disk_read_rate,
+      diskWrite: stats.disk_write_rate,
       netRx: stats.net_rx_rate,
       netTx: stats.net_tx_rate,
       load:

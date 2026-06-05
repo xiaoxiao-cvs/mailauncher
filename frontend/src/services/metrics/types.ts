@@ -24,13 +24,15 @@ export function scopeKey(scope: MetricScope): string {
 /**
  * 保留的标量时序指标键。
  * 均为可直接画曲线的量:cpu/mem/swap/disk/load 为百分比(0-100),
- * netRx/netTx 为字节每秒的原始速率(波形用,不归一化)。
+ * netRx/netTx、diskRead/diskWrite 为字节每秒的原始速率(波形用,不归一化)。
  */
 export type MetricKey =
   | "cpu"
   | "mem"
   | "swap"
   | "disk"
+  | "diskRead"
+  | "diskWrite"
   | "netRx"
   | "netTx"
   | "load";
@@ -41,6 +43,8 @@ export const HOST_METRIC_KEYS: readonly MetricKey[] = [
   "mem",
   "swap",
   "disk",
+  "diskRead",
+  "diskWrite",
   "netRx",
   "netTx",
   "load",

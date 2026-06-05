@@ -35,6 +35,14 @@ export interface SystemStats {
   disk_total: number;
   /** 所有磁盘可用容量（字节） */
   disk_available: number;
+  /** 磁盘读取速率（字节/秒，所有磁盘合计） */
+  disk_read_rate: number;
+  /** 磁盘写入速率（字节/秒，所有磁盘合计） */
+  disk_write_rate: number;
+  /** 磁盘累计读取（字节，自系统启动起算） */
+  disk_read_total: number;
+  /** 磁盘累计写入（字节，自系统启动起算） */
+  disk_write_total: number;
   /** 网络下行速率（字节/秒） */
   net_rx_rate: number;
   /** 网络上行速率（字节/秒） */
