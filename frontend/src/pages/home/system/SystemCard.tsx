@@ -216,14 +216,12 @@ function CpuTile({
   cpuHist: number[];
 }) {
   const cpu = stats ? num(stats.cpu_usage) : 0;
-  const t = tone(cpu);
   return (
     <>
       <TileHead
+        morphKey="cpu"
         icon={META.cpu.icon}
         label="CPU"
-        tone={t.tone}
-        toneSoft={t.soft}
         trailing={
           <span
             className="ls-num"
@@ -299,15 +297,9 @@ function MemTile({
   const used = stats ? num(stats.memory_used) : 0;
   const total = stats ? num(stats.memory_total) : 0;
   const pct = total > 0 ? (used / total) * 100 : 0;
-  const t = tone(pct);
   return (
     <>
-      <TileHead
-        icon={META.memory.icon}
-        label="内存"
-        tone={t.tone}
-        toneSoft={t.soft}
-      />
+      <TileHead morphKey="memory" icon={META.memory.icon} label="内存" />
       <div
         style={{
           flex: 1,
@@ -350,7 +342,7 @@ function SwapTile({ stats }: { stats: SystemStats | undefined }) {
   const pct = total > 0 ? (used / total) * 100 : 0;
   return (
     <>
-      <TileHead icon={META.swap.icon} label="交换区" />
+      <TileHead morphKey="swap" icon={META.swap.icon} label="交换区" />
       <div
         style={{
           flex: 1,
@@ -388,12 +380,7 @@ function DiskTile({ stats }: { stats: SystemStats | undefined }) {
   const t = tone(pct);
   return (
     <>
-      <TileHead
-        icon={META.disk.icon}
-        label="磁盘"
-        tone={t.tone}
-        toneSoft={t.soft}
-      />
+      <TileHead morphKey="disk" icon={META.disk.icon} label="磁盘" />
       <div
         style={{
           flex: 1,
@@ -447,6 +434,7 @@ function NetTile({
   return (
     <>
       <TileHead
+        morphKey="network"
         icon={META.network.icon}
         label="网络"
         trailing={
@@ -500,19 +488,12 @@ function DetailBody({
         minHeight: 0,
       }}
     >
-      <div className="flex w-full items-center gap-2">
-        <Icon
+      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+        <HeadIdentity
+          morphKey={resKey}
           icon={META[resKey].icon}
-          width={16}
-          height={16}
-          style={{ color: "var(--ls-life)" }}
+          label={META[resKey].label}
         />
-        <span
-          className="text-[13px] font-medium"
-          style={{ color: "var(--ls-ink)" }}
-        >
-          {META[resKey].label}
-        </span>
         <Icon
           icon="ph:caret-up-thin"
           width={14}
@@ -533,37 +514,37 @@ function DetailBody({
   );
 }
 
-/** 瓦片头:细线图标置于暖色小托盘 + 标签,可选右侧读数。 */
-function TileHead({
+/** 头部身份(图标托盘 + 标签):折叠瓦片头与详情头共用同一 layoutId,morph 时从瓦片原位滑到详情头部,不闪。 */
+function HeadIdentity({
+  morphKey,
   icon,
   label,
-  trailing,
-  tone: toneColor = "var(--ls-life)",
-  toneSoft = "var(--ls-life-soft)",
 }: {
+  morphKey: string;
   icon: string;
   label: string;
-  trailing?: ReactNode;
-  tone?: string;
-  toneSoft?: string;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-      <span
+    <>
+      <motion.span
+        layoutId={`head-icon-${morphKey}`}
+        transition={springMorph}
         style={{
           display: "grid",
           placeItems: "center",
           width: 20,
           height: 20,
           borderRadius: 7,
-          background: toneSoft,
-          color: toneColor,
+          background: "var(--ls-life-soft)",
+          color: "var(--ls-life)",
           flexShrink: 0,
         }}
       >
         <Icon icon={icon} width={13} height={13} />
-      </span>
-      <span
+      </motion.span>
+      <motion.span
+        layoutId={`head-label-${morphKey}`}
+        transition={springMorph}
         style={{
           fontSize: 11,
           fontWeight: 600,
@@ -575,7 +556,26 @@ function TileHead({
         }}
       >
         {label}
-      </span>
+      </motion.span>
+    </>
+  );
+}
+
+/** 瓦片头:头部身份(可 morph)+ 可选右侧读数。 */
+function TileHead({
+  morphKey,
+  icon,
+  label,
+  trailing,
+}: {
+  morphKey: string;
+  icon: string;
+  label: string;
+  trailing?: ReactNode;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+      <HeadIdentity morphKey={morphKey} icon={icon} label={label} />
       {trailing != null && (
         <span style={{ marginLeft: "auto", flexShrink: 0 }}>{trailing}</span>
       )}
