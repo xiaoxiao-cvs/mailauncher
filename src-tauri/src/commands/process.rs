@@ -609,7 +609,7 @@ pub async fn get_instance_components(
 
 // ==================== 终端交互命令 ====================
 
-/// 向进程终端写入输入
+/// 向进程终端写入输入(NapCat/WSL2 终端重连等仍走此路;前端日志视图已不用)
 #[tauri::command]
 pub async fn terminal_write(
     state: State<'_, AppState>,
@@ -644,7 +644,7 @@ pub async fn terminal_get_history(
     Ok(history)
 }
 
-/// 调整 PTY 终端大小
+/// 调整 PTY 终端大小(保留:WSL2 tmux 会话 resize 等运行时路径仍用;前端日志视图已不用)
 #[tauri::command]
 pub async fn terminal_resize(
     state: State<'_, AppState>,
