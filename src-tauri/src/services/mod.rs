@@ -12,6 +12,7 @@ pub mod load_average;
 pub mod log_service;
 pub mod memory_info;
 pub mod message_queue_service;
+pub mod process_list_service;
 pub mod process_service;
 pub mod python_provision;
 pub mod runtime_service;

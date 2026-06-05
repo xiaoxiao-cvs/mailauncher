@@ -5,7 +5,9 @@ use tauri::State;
 
 use crate::errors::AppResult;
 use crate::models::SuccessResponse;
-use crate::services::{api_provider_service, system_service, system_stats_service};
+use crate::services::{
+    api_provider_service, process_list_service, system_service, system_stats_service,
+};
 use crate::state::AppState;
 
 // ==================== 系统环境 ====================
@@ -31,6 +33,14 @@ pub async fn get_system_stats(
 #[tauri::command]
 pub async fn get_system_info() -> AppResult<system_stats_service::SystemInfo> {
     Ok(system_stats_service::gather_system_info())
+}
+
+/// 获取按 CPU 占用排序的 top-N 系统进程（供 CPU 详情进程表；每次调用即一次采样，前端轮询取增量）
+#[tauri::command]
+pub async fn get_top_processes(
+    limit: usize,
+) -> AppResult<Vec<process_list_service::ProcessRow>> {
+    Ok(process_list_service::top_processes(limit).await)
 }
 
 /// 检测 Git 环境

@@ -208,6 +208,7 @@ pub fn run() {
             commands::system::check_connectivity,
             commands::system::get_system_stats,
             commands::system::get_system_info,
+            commands::system::get_top_processes,
             // API 供应商管理
             commands::system::get_api_providers,
             commands::system::create_api_provider,

@@ -106,3 +106,27 @@ export function getSystemStats(): Promise<SystemStats> {
 export function getSystemInfo(): Promise<SystemInfo> {
   return tauriInvoke<SystemInfo>("get_system_info");
 }
+
+/**
+ * 单进程 CPU/内存占用（get_top_processes 返回项，对应 Rust ProcessRow）。
+ */
+export interface ProcessRow {
+  /** 进程 PID */
+  pid: number;
+  /** 进程名 */
+  name: string;
+  /** CPU 占用（占整机百分比 0-100） */
+  cpu: number;
+  /** 物理内存占用（字节） */
+  memory: number;
+}
+
+/**
+ * 获取按 CPU 占用降序的 top-N 系统进程。
+ *
+ * 进程 CPU 占用需跨调用累积，后端持久 System 单例每次调用采样一次；
+ * 前端在 CPU 详情打开期间轮询调用即得稳定增量。
+ */
+export function getTopProcesses(limit: number): Promise<ProcessRow[]> {
+  return tauriInvoke<ProcessRow[]>("get_top_processes", { limit });
+}
