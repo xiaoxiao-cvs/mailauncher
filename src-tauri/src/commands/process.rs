@@ -12,7 +12,9 @@ use tracing::{error, info, warn};
 
 use crate::components::spec::ComponentSpec;
 use crate::errors::{AppError, AppResult};
-use crate::models::{ComponentLifecycleStatus, ComponentStatus, RuntimeProfile, SuccessResponse};
+use crate::models::{
+    ComponentLifecycleStatus, ComponentStatus, ComponentType, RuntimeProfile, SuccessResponse,
+};
 use crate::services::instance_service;
 use crate::services::lifecycle_service;
 use crate::services::process_service::ProcessManager;
@@ -150,6 +152,14 @@ async fn start_component_inner(
 
     let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
 
+    // NapCat 启动前:幂等修好已存在的 onebot11(本次启动即读到正确配置,覆盖"已登录过的重启"场景)。
+    // 失败不阻断启动——大不了退回手动 WebUI 配。
+    if component_spec.component == ComponentType::NapCat {
+        if let Err(e) = crate::services::napcat_config::ensure_napcat_ws(instance_path) {
+            warn!("NapCat WS 预配置出错(忽略): {}", e);
+        }
+    }
+
     // 启动进程
     let reader = process_manager
         .start_process(
@@ -174,6 +184,11 @@ async fn start_component_inner(
             component_spec.component.display_name().to_string(),
             reader,
         );
+
+        // NapCat 启动后:轮询补首次登录才生成的 onebot11(覆盖"首次扫码登录"场景,NapCat 热重载生效)
+        if component_spec.component == ComponentType::NapCat {
+            crate::services::napcat_config::spawn_ws_watcher(instance_path.to_path_buf());
+        }
 
         return Ok(StartOutcome::Started);
     }
