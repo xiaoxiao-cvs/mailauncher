@@ -28,8 +28,8 @@ fn sampler() -> &'static Mutex<System> {
     SAMPLER.get_or_init(|| Mutex::new(System::new()))
 }
 
-/// 采样并返回按 CPU 占用降序的 top-N 进程。limit 为 0 时返回空。
-pub async fn top_processes(limit: usize) -> Vec<ProcessRow> {
+/// 采样并返回 top-N 进程,按 `by` 字段降序("memory" 按内存,其余按 CPU)。limit 为 0 时返回空。
+pub async fn top_processes(limit: usize, by: &str) -> Vec<ProcessRow> {
     let cores = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(1) as f32;
@@ -50,11 +50,15 @@ pub async fn top_processes(limit: usize) -> Vec<ProcessRow> {
         })
         .collect();
 
-    rows.sort_by(|a, b| {
-        b.cpu
-            .partial_cmp(&a.cpu)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+    if by == "memory" {
+        rows.sort_by_key(|p| std::cmp::Reverse(p.memory));
+    } else {
+        rows.sort_by(|a, b| {
+            b.cpu
+                .partial_cmp(&a.cpu)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+    }
     rows.truncate(limit);
     rows
 }

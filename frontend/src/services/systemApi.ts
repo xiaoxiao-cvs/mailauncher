@@ -129,6 +129,9 @@ export interface ProcessRow {
  * 进程 CPU 占用需跨调用累积，后端持久 System 单例每次调用采样一次；
  * 前端在 CPU 详情打开期间轮询调用即得稳定增量。
  */
-export function getTopProcesses(limit: number): Promise<ProcessRow[]> {
-  return tauriInvoke<ProcessRow[]>("get_top_processes", { limit });
+export function getTopProcesses(
+  limit: number,
+  by: "cpu" | "memory" = "cpu",
+): Promise<ProcessRow[]> {
+  return tauriInvoke<ProcessRow[]>("get_top_processes", { limit, by });
 }
