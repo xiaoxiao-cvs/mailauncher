@@ -11,7 +11,6 @@ import { HomePage } from "@/pages/HomePage";
 import { InstancesPage } from "@/pages/InstancesPage";
 import { InstanceDetailPageWrapper } from "@/pages/InstanceDetailPageWrapper";
 import { DownloadsPage } from "@/pages/DownloadsPage";
-import { MonitorPage } from "@/pages/MonitorPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import InstallProgressPage from "@/pages/InstallProgressPage";
 import { InstallTaskProvider } from "@/contexts/InstallTaskContext";
@@ -79,7 +78,6 @@ function AppRoutes() {
         <Route path="/instances" element={<InstancesPage />} />
         <Route path="/instances/:id" element={<InstanceDetailPageWrapper />} />
         <Route path="/downloads" element={<DownloadsPage />} />
-        <Route path="/monitor/:tab?" element={<MonitorPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
 

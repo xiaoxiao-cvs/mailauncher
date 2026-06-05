@@ -23,12 +23,6 @@ export const SIDEBAR_NAV_ITEMS: SidebarNavItem[] = [
     icon: "ph:download-simple-thin",
     path: "/downloads",
   },
-  {
-    id: "monitor",
-    label: "监控",
-    icon: "ph:pulse-thin",
-    path: "/monitor",
-  },
 ];
 
 /**
