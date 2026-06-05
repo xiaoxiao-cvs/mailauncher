@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { LayoutGroup, motion } from "motion/react";
 import { Icon } from "@iconify/react";
@@ -30,6 +30,10 @@ import type { SystemInfo, SystemStats } from "@/services/systemApi";
 const FRAME_H = 440;
 const TILE_RADIUS = 14;
 const PLACEHOLDER = "—";
+/** 进程行行距(px):据此按进程表可用高度推算可容纳行数,自适应铺满(行高约 16 + 行距)。 */
+const ROW_PITCH = 22;
+/** 进程表最少行数(容器极矮时的下限)。 */
+const MIN_ROWS = 4;
 
 type ResKey = "cpu" | "memory" | "swap" | "disk" | "network";
 
@@ -686,9 +690,23 @@ function CpuDetail({ stats }: { stats: SystemStats | undefined }) {
 
 /** 进程占用表:top-N 系统进程,按 by(cpu/memory)降序,打开期间轮询采样;排序列加粗、另一列淡化。 */
 function ProcessList({ by }: { by: "cpu" | "memory" }) {
+  // 按进程表可用高度自适应行数:量出容器高 / 行距,矮则少、高则多,正好铺满不留空也不溢出
+  const listRef = useRef<HTMLDivElement>(null);
+  const [rows, setRows] = useState(8);
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const measure = () =>
+      setRows(Math.max(MIN_ROWS, Math.floor(el.clientHeight / ROW_PITCH)));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const { data } = useQuery({
-    queryKey: ["top-processes", by],
-    queryFn: () => getTopProcesses(8, by),
+    queryKey: ["top-processes", by, rows],
+    queryFn: () => getTopProcesses(rows, by),
     refetchInterval: 1500,
     staleTime: 1000,
   });
@@ -704,16 +722,16 @@ function ProcessList({ by }: { by: "cpu" | "memory" }) {
           {by === "memory" ? "内存 · CPU" : "CPU · 内存"}
         </span>
       </div>
-      {procs.length === 0 ? (
-        <div
-          className="mt-2 text-[11px]"
-          style={{ color: "var(--ls-ink-faint)" }}
-        >
-          正在采样进程占用…
-        </div>
-      ) : (
-        <div className="mt-2 flex min-h-0 flex-1 flex-col">
-          {procs.map((p) => {
+      <div
+        ref={listRef}
+        className="mt-2 min-h-0 flex-1 space-y-1 overflow-hidden"
+      >
+        {procs.length === 0 ? (
+          <div className="text-[11px]" style={{ color: "var(--ls-ink-faint)" }}>
+            正在采样进程占用…
+          </div>
+        ) : (
+          procs.map((p) => {
             const cpu = (
               <span
                 className={`ls-num w-12 text-right ${by === "cpu" ? "font-medium" : ""}`}
@@ -736,10 +754,7 @@ function ProcessList({ by }: { by: "cpu" | "memory" }) {
               </span>
             );
             return (
-              <div
-                key={p.pid}
-                className="flex flex-1 items-center gap-2 text-[11px]"
-              >
+              <div key={p.pid} className="flex items-center gap-2 text-[11px]">
                 <span
                   className="flex-1 truncate"
                   style={{ color: "var(--ls-ink)" }}
@@ -759,9 +774,9 @@ function ProcessList({ by }: { by: "cpu" | "memory" }) {
                 )}
               </div>
             );
-          })}
-        </div>
-      )}
+          })
+        )}
+      </div>
     </div>
   );
 }
@@ -806,6 +821,7 @@ function MemoryDetail({
 }
 
 function SwapDetail({ stats }: { stats: SystemStats | undefined }) {
+  const series = useTimeSeries(HOST_SCOPE, "swap");
   if (stats && stats.swap_total === 0) {
     return (
       <div
@@ -816,19 +832,13 @@ function SwapDetail({ stats }: { stats: SystemStats | undefined }) {
       </div>
     );
   }
-  const pct =
-    stats && stats.swap_total > 0
-      ? (stats.swap_used / stats.swap_total) * 100
-      : 0;
   return (
     <div className="flex h-full flex-col gap-3">
-      <div className="flex min-h-0 flex-1 items-center justify-center">
-        <Ring
-          value={pct}
-          size={140}
-          stroke={12}
-          centerLabel={<RingNum value={pct} big={30} />}
-        />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <SectionHead title="占用走势" hint="近 72 秒" />
+        <div className="mt-1.5 min-h-0 flex-1">
+          <Sparkline values={series} className="h-full w-full" />
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <Cell
@@ -845,29 +855,47 @@ function SwapDetail({ stats }: { stats: SystemStats | undefined }) {
 }
 
 function DiskDetail({ stats }: { stats: SystemStats | undefined }) {
-  const used = stats ? stats.disk_total - stats.disk_available : 0;
-  const pct =
-    stats && stats.disk_total > 0 ? (used / stats.disk_total) * 100 : 0;
+  const read = useTimeSeries(HOST_SCOPE, "diskRead");
+  const write = useTimeSeries(HOST_SCOPE, "diskWrite");
+  const peakRead = read.length ? Math.max(...read) : 0;
+  const peakWrite = write.length ? Math.max(...write) : 0;
   return (
     <div className="flex h-full flex-col gap-3">
-      <div className="flex min-h-0 flex-1 items-center justify-center">
-        <Ring
-          value={pct}
-          size={140}
-          stroke={12}
-          centerLabel={<RingNum value={pct} big={30} />}
+      <div className="min-h-0 flex-1">
+        <MirrorGraph
+          top={read}
+          bottom={write}
+          topColor="var(--ls-life)"
+          bottomColor="var(--ls-ink-soft)"
+          className="h-full w-full"
         />
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <Cell label="已用" value={stats ? fmtBytes(used) : PLACEHOLDER} />
+      <div className="grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-x-2 gap-y-2">
+        <span className="text-[11px]" style={{ color: "var(--ls-life)" }}>
+          读取
+        </span>
         <Cell
-          label="可用"
-          value={stats ? fmtBytes(stats.disk_available) : PLACEHOLDER}
+          label="当前"
+          value={stats ? fmtRate(stats.disk_read_rate) : PLACEHOLDER}
         />
         <Cell
-          label="总量"
-          value={stats ? fmtBytes(stats.disk_total) : PLACEHOLDER}
+          label="累计"
+          value={stats ? fmtBytes(stats.disk_read_total) : PLACEHOLDER}
         />
+        <Cell label="峰值" value={stats ? fmtRate(peakRead) : PLACEHOLDER} />
+
+        <span className="text-[11px]" style={{ color: "var(--ls-ink-soft)" }}>
+          写入
+        </span>
+        <Cell
+          label="当前"
+          value={stats ? fmtRate(stats.disk_write_rate) : PLACEHOLDER}
+        />
+        <Cell
+          label="累计"
+          value={stats ? fmtBytes(stats.disk_write_total) : PLACEHOLDER}
+        />
+        <Cell label="峰值" value={stats ? fmtRate(peakWrite) : PLACEHOLDER} />
       </div>
     </div>
   );

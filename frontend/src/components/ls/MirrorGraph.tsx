@@ -7,6 +7,7 @@ import { motion } from "motion/react";
  * 上下共享同一标尺(合并峰值),幅度可直接横向对比;典型用途是网络上/下行。
  * 曲线用 Catmull-Rom 转贝塞尔平滑;随容器拉伸(preserveAspectRatio=none),
  * 描边用 non-scaling-stroke 保持粗细恒定;渐变 id 用 useId 唯一化避免冲突。
+ * 中轴常驻一条 hairline 基准线,分隔上下两沿。
  */
 export interface MirrorGraphProps {
   /** 上沿序列(绕中轴朝上),如网络上行速率 */
@@ -97,6 +98,15 @@ export function MirrorGraph({
           <stop offset="100%" stopColor={bottomColor} stopOpacity="0.2" />
         </linearGradient>
       </defs>
+      <line
+        x1={0}
+        y1={MID}
+        x2={VW}
+        y2={MID}
+        stroke="var(--ls-hairline)"
+        strokeWidth={1}
+        vectorEffect="non-scaling-stroke"
+      />
       {ready && (
         <motion.g
           initial={{ opacity: 0 }}
