@@ -28,6 +28,93 @@ const ADAPTER_DEFAULT_NAPCAT_PORT: i64 = 3001;
 
 // ==================== 虚拟环境 ====================
 
+/// 解析出的 Python 调用:程序(路径或名字)+ 需前置的参数(py 启动器需 `-3`)。
+#[derive(Debug, Clone)]
+pub struct PythonInvocation {
+    pub program: String,
+    pub prefix_args: Vec<String>,
+}
+
+/// 解析一个可用的 Python(>= 3.12)。
+///
+/// Windows 上 `python` / `python3` 常被微软商店的"应用执行别名"占位 stub 截走(运行时只打印
+/// "Python was not found ..." 而不执行),故按 用户配置路径 → `py -3`(python.org 启动器,
+/// 不受别名影响)→ `python3` → `python` 顺序探测,取第一个真能运行且版本 >= 3.12 的;
+/// 全不可用时给出可操作的清晰错误,而不是把 stub 原文直接抛给用户。
+pub async fn resolve_python(python_path: Option<&str>) -> AppResult<PythonInvocation> {
+    let mut candidates: Vec<PythonInvocation> = Vec::new();
+    if let Some(p) = python_path {
+        let p = p.trim();
+        if !p.is_empty() {
+            candidates.push(PythonInvocation {
+                program: p.to_string(),
+                prefix_args: Vec::new(),
+            });
+        }
+    }
+    #[cfg(windows)]
+    candidates.push(PythonInvocation {
+        program: "py".to_string(),
+        prefix_args: vec!["-3".to_string()],
+    });
+    candidates.push(PythonInvocation {
+        program: "python3".to_string(),
+        prefix_args: Vec::new(),
+    });
+    candidates.push(PythonInvocation {
+        program: "python".to_string(),
+        prefix_args: Vec::new(),
+    });
+
+    let mut too_old: Option<String> = None;
+    for cand in &candidates {
+        match probe_python_version(cand).await {
+            Some((major, minor, raw)) if (major, minor) >= (3, 12) => {
+                info!(
+                    "选用 Python: {} {:?} -> {}",
+                    cand.program, cand.prefix_args, raw
+                );
+                return Ok(cand.clone());
+            }
+            Some((_, _, raw)) => {
+                warn!("跳过版本过低的 Python({}): {}", cand.program, raw);
+                too_old.get_or_insert(raw);
+            }
+            None => {}
+        }
+    }
+
+    if let Some(raw) = too_old {
+        return Err(AppError::Process(format!(
+            "找到的 Python 版本过低({}),MaiBot 1.0 需要 Python 3.12 及以上。请安装 3.12+ 或在设置中指定其 python 可执行文件的完整路径。",
+            raw
+        )));
+    }
+    Err(AppError::Process(
+        "未找到可用的 Python。请安装 Python 3.12+(Windows 建议从 python.org 安装,自带的 py 启动器不受应用执行别名影响),或在设置中填写 python 可执行文件的完整路径。"
+            .to_string(),
+    ))
+}
+
+/// 安静地运行 `<program> <prefix...> --version` 并解析出 (major, minor, 版本串)。
+/// 进程跑不起来、或输出不是 `Python X.Y...`(如命中商店 stub 的提示文案)时返回 None。
+async fn probe_python_version(inv: &PythonInvocation) -> Option<(u32, u32, String)> {
+    let mut args = inv.prefix_args.clone();
+    args.push("--version".to_string());
+    let output = tokio::process::Command::new(&inv.program)
+        .args(&args)
+        .output()
+        .await
+        .ok()?;
+    let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
+    text.push_str(String::from_utf8_lossy(&output.stderr).as_ref());
+    let ver = text.trim().strip_prefix("Python ")?.trim().to_string();
+    let mut parts = ver.split('.');
+    let major: u32 = parts.next()?.trim().parse().ok()?;
+    let minor: u32 = parts.next()?.trim().parse().ok()?;
+    Some((major, minor, ver))
+}
+
 /// 创建 Python 虚拟环境
 ///
 /// 在 `project_dir/../.venv` 创建共享虚拟环境（与 Python 版一致）。
@@ -46,23 +133,24 @@ pub async fn create_virtual_environment(
         return Ok(());
     }
 
-    let default_python = if cfg!(target_os = "windows") {
-        "python"
-    } else {
-        "python3"
-    };
-    let python = python_path.unwrap_or(default_python);
+    // 解析可用的 Python(配置路径 → py -3 → python3 → python,自动跳过商店 stub 与过低版本)
+    let python = resolve_python(python_path).await?;
 
-    info!("创建虚拟环境: {:?} (python: {})", venv_dir, python);
+    info!(
+        "创建虚拟环境: {:?} (python: {} {:?})",
+        venv_dir, python.program, python.prefix_args
+    );
     let venv_start = std::time::Instant::now();
 
     let venv_str = venv_dir
         .to_str()
         .ok_or_else(|| AppError::FileSystem("虚拟环境路径包含非法字符".to_string()))?;
 
+    let mut venv_args: Vec<&str> = python.prefix_args.iter().map(String::as_str).collect();
+    venv_args.extend(["-m", "venv", venv_str]);
     let output = run_command_with_output(
-        python,
-        &["-m", "venv", venv_str],
+        python.program.as_str(),
+        &venv_args,
         None,
         app_handle,
         event_name,

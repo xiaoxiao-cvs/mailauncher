@@ -272,6 +272,20 @@ async fn execute_download_task(
         }
     }
 
+    // Python 预检:选了需要 Python 的组件(MaiBot/适配器/LPMM)时,克隆前先确认有可用的
+    // Python 3.12+,fail-fast 给出清晰报错——避免克隆完才在建 venv 时炸、也不再因逐组件重试刷屏。
+    let needs_python = task
+        .selected_items
+        .iter()
+        .any(|item| !matches!(item, DownloadItemType::Napcat));
+    if needs_python {
+        if let Err(e) = install_service::resolve_python(task.python_path.as_deref()).await {
+            let _ = app_handle.emit(&event_name, format!("[预检] {}", e));
+            return Err(e);
+        }
+        let _ = app_handle.emit(&event_name, "Python 预检通过");
+    }
+
     // 2. 计算总步骤
     let total_items = task.selected_items.len();
     let mut current_step = 0;
