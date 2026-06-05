@@ -11,6 +11,7 @@ pub mod instance_service;
 pub mod lifecycle_service;
 pub mod load_average;
 pub mod log_service;
+pub mod maibot_log;
 pub mod memory_info;
 pub mod message_queue_service;
 pub mod napcat_config;

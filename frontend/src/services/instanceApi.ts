@@ -352,6 +352,40 @@ class InstanceApiClient {
     }>("get_napcat_accounts", { instanceId });
     return { success: true, accounts: result.accounts, message: "" };
   }
+
+  /**
+   * 获取麦麦结构化日志增量(读 MaiBot/logs/app_*.log.jsonl,非解析 PTY 终端流)。
+   * cursor 传上次返回的游标做增量;首次传 null 取尾部。
+   */
+  async getMaibotLogs(
+    instanceId: string,
+    cursor: MaibotLogCursor | null,
+  ): Promise<MaibotLogChunk> {
+    return tauriInvoke<MaibotLogChunk>("get_maibot_logs", {
+      instanceId,
+      cursor,
+    });
+  }
+}
+
+/** 麦麦结构化日志一条记录(对应 Rust MaibotLogRecord)。 */
+export interface MaibotLogRecord {
+  ts: string;
+  level: string;
+  module: string;
+  message: string;
+}
+
+/** 增量读取游标(对应 Rust MaibotLogCursor)。 */
+export interface MaibotLogCursor {
+  file: string;
+  offset: number;
+}
+
+/** 一次读取结果(对应 Rust MaibotLogChunk)。 */
+export interface MaibotLogChunk {
+  records: MaibotLogRecord[];
+  cursor: MaibotLogCursor;
 }
 
 // 导出单例

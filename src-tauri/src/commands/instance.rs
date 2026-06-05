@@ -137,3 +137,23 @@ pub async fn get_napcat_accounts(
 
     Ok(NapCatAccountsResponse { accounts })
 }
+
+/// 获取麦麦(MaiBot)结构化日志增量(读 `MaiBot/logs/app_*.log.jsonl`,而非解析 PTY 的 ANSI 终端流)。
+///
+/// `cursor` 传上次返回的游标做增量,首次传 None 取尾部;返回新日志 + 推进后的游标。
+#[tauri::command]
+pub async fn get_maibot_logs(
+    state: State<'_, AppState>,
+    instance_id: String,
+    cursor: Option<crate::services::maibot_log::MaibotLogCursor>,
+) -> AppResult<crate::services::maibot_log::MaibotLogChunk> {
+    let instance = instance_service::get_instance(&state.db, &instance_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
+    let instance_path = crate::utils::platform::get_instances_dir().join(
+        instance
+            .instance_path
+            .unwrap_or_else(|| instance.name.clone()),
+    );
+    crate::services::maibot_log::read_logs(&instance_path, cursor, 800)
+}
