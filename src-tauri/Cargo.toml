@@ -49,8 +49,9 @@ md-5 = "0.10"
 # Windows 专属底层查询(仅 Windows 编译):
 #   - Performance: PDH 读 \System\Processor Queue Length 算平均负载
 #   - SystemInformation: GetSystemFirmwareTable 读 SMBIOS Type 17 取内存频率/类型
+#   - Power: CallNtPowerInformation(ProcessorInformation) 取每核 CurrentMhz 实时主频
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_System_Performance", "Win32_System_SystemInformation", "Win32_Graphics_Gdi"] }
+windows-sys = { version = "0.59", features = ["Win32_System_Performance", "Win32_System_SystemInformation", "Win32_Graphics_Gdi", "Win32_System_Power"] }
 
 [dev-dependencies]
 tempfile = "3"

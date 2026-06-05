@@ -21,6 +21,8 @@ export interface SystemStats {
   cpu_core_count: number;
   /** 逐核 CPU 使用率（0-100，顺序与后端 cpus() 一致） */
   cpu_cores: number[];
+  /** 实时 CPU 频率（MHz，各核当前频率最大值；0 表示不可得） */
+  cpu_freq_mhz: number;
   /** 物理内存总量（字节） */
   memory_total: number;
   /** 已用物理内存（字节） */

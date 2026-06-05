@@ -23,6 +23,8 @@ pub struct SystemStats {
     pub cpu_core_count: usize,
     /// 逐核 CPU 使用率(0-100,顺序与 sysinfo cpus() 一致)
     pub cpu_cores: Vec<f32>,
+    /// 实时 CPU 频率(MHz,取各核当前频率最大值=当前峰值;0 表示不可得)
+    pub cpu_freq_mhz: u64,
     /// 物理内存总量(字节)
     pub memory_total: u64,
     /// 已用物理内存(字节)
@@ -98,6 +100,8 @@ impl SystemMonitor {
         let cpu_usage = inner.system.global_cpu_usage();
         let cpu_cores: Vec<f32> = inner.system.cpus().iter().map(|c| c.cpu_usage()).collect();
         let cpu_core_count = cpu_cores.len();
+        // 实时主频:Windows 经 CallNtPowerInformation 取各核 CurrentMhz 最大值(sysinfo 在 Win 只给基频)
+        let cpu_freq_mhz = crate::services::cpu_freq::current_max_mhz();
 
         inner.system.refresh_memory();
         let memory_total = inner.system.total_memory();
@@ -141,6 +145,7 @@ impl SystemMonitor {
             cpu_usage,
             cpu_core_count,
             cpu_cores,
+            cpu_freq_mhz,
             memory_total,
             memory_used,
             swap_total,
