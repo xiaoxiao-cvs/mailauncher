@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 /**
  * 迷你折线图 —— 生命色平滑曲线 + 渐隐填充,随容器拉伸(preserveAspectRatio=none),描边用 non-scaling-stroke 保持粗细恒定(纵向拉高也不变粗)。
  * 曲线用 Catmull-Rom 转三次贝塞尔平滑(与 MirrorGraph 同一套手感),而非直线段折线。
- * 入场:填充淡入、曲线按 pathLength 从左到右画出。
+ * 入场:整图渐显(填充与曲线一同淡入)。曲线不用 pathLength 描边动画——它与 non-scaling-stroke 叠加会在窗口横向缩放时让端点漂移;改纯透明度淡入,缩放时只随容器拉伸、不重绘。
  * 渐变 id 用 useId 唯一化,避免同页多条 Sparkline 的 <defs> id 冲突。
  */
 export interface SparklineProps {
@@ -78,9 +78,9 @@ export function Sparkline({
         strokeLinecap="round"
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
-        initial={{ pathLength: 0 }}
-        animate={{ pathLength: 1 }}
-        transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
       />
     </svg>
   );
