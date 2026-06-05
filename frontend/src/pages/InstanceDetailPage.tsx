@@ -16,6 +16,7 @@ import { VersionManagerModal } from "@/components/instances/VersionManagerModal"
 import { InstanceHeader } from "@/components/instances/detail/InstanceHeader";
 import { InstanceTerminalPanel } from "@/components/instances/detail/InstanceTerminalPanel";
 import { InstanceControlBar } from "@/components/instances/detail/InstanceControlBar";
+import { NapcatQrPanel } from "@/components/instances/detail/NapcatQrPanel";
 import { InstanceQuickActions } from "@/components/instances/detail/InstanceQuickActions";
 import {
   useInstanceQuery,
@@ -216,6 +217,7 @@ export const InstanceDetailPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ ...springSettle, delay: 0.08 }}
         >
+          <NapcatQrPanel instanceId={instance.id} />
           <InstanceTerminalPanel
             instance={instance}
             selectedComponent={selectedComponent}

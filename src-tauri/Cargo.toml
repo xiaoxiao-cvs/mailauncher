@@ -45,6 +45,8 @@ futures-util = "0.3"
 sha2 = "0.10.9"
 # MaiBot bot.py check_eula 用 MD5(EULA.md/PRIVACY.md 内容) 作为 EULA_AGREE/PRIVACY_AGREE 的确认值
 md-5 = "0.10"
+# NapCat 登录二维码 PNG → data URL,推前端展示
+base64 = "0.22"
 
 # Windows 专属底层查询(仅 Windows 编译):
 #   - Performance: PDH 读 \System\Processor Queue Length 算平均负载

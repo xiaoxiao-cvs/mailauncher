@@ -144,6 +144,7 @@ pub fn run() {
             commands::instance::delete_instance,
             commands::instance::get_napcat_accounts,
             commands::instance::get_maibot_logs,
+            commands::instance::get_napcat_qrcode,
             // 进程管理
             commands::process::start_instance,
             commands::process::stop_instance,

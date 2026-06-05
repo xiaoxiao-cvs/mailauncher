@@ -157,3 +157,50 @@ pub async fn get_maibot_logs(
     );
     crate::services::maibot_log::read_logs(&instance_path, cursor, 800)
 }
+
+/// NapCat 登录二维码。
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NapcatQrCode {
+    /// PNG 的 data URL(`data:image/png;base64,...`)
+    pub data_url: String,
+    /// PNG 修改时间(毫秒);前端据此判断二维码是否新鲜(=正在等扫码)
+    pub mtime_ms: u64,
+}
+
+/// 读取 NapCat 登录二维码。NapCat 在等扫码登录时把二维码存为 `<实例>/NapCat/cache/qrcode.png`,
+/// 本命令读出转 data URL 推前端展示,免去看终端字符二维码。文件不存在(未在等扫码/已登录)返回 None。
+#[tauri::command]
+pub async fn get_napcat_qrcode(
+    state: State<'_, AppState>,
+    instance_id: String,
+) -> AppResult<Option<NapcatQrCode>> {
+    let instance = instance_service::get_instance(&state.db, &instance_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
+    let path = crate::utils::platform::get_instances_dir()
+        .join(
+            instance
+                .instance_path
+                .unwrap_or_else(|| instance.name.clone()),
+        )
+        .join("NapCat")
+        .join("cache")
+        .join("qrcode.png");
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let bytes = std::fs::read(&path)?;
+    let mtime_ms = std::fs::metadata(&path)?
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    use base64::Engine;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Ok(Some(NapcatQrCode {
+        data_url: format!("data:image/png;base64,{}", b64),
+        mtime_ms,
+    }))
+}

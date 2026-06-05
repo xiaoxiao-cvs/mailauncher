@@ -366,6 +366,15 @@ class InstanceApiClient {
       cursor,
     });
   }
+
+  /**
+   * 读取 NapCat 登录二维码(NapCat/cache/qrcode.png → data URL);无则 null。
+   */
+  async getNapcatQrcode(instanceId: string): Promise<NapcatQrCode | null> {
+    return tauriInvoke<NapcatQrCode | null>("get_napcat_qrcode", {
+      instanceId,
+    });
+  }
 }
 
 /** 麦麦结构化日志一条记录(对应 Rust MaibotLogRecord)。 */
@@ -386,6 +395,12 @@ export interface MaibotLogCursor {
 export interface MaibotLogChunk {
   records: MaibotLogRecord[];
   cursor: MaibotLogCursor;
+}
+
+/** NapCat 登录二维码(对应 Rust NapcatQrCode)。 */
+export interface NapcatQrCode {
+  dataUrl: string;
+  mtimeMs: number;
 }
 
 // 导出单例
