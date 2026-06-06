@@ -976,7 +976,6 @@ impl ProcessManager {
     ///
     /// CPU 使用率需要跨调用累积才能得到有效值（sysinfo 要求至少两次 refresh 的间隔）。
     /// System 实例持久化在 ProcessManagerInner 中以满足此要求。
-    #[allow(dead_code)]
     pub async fn get_process_resources(&self, instance_id: &str, component: &str) -> (f64, f64) {
         let session_id = Self::session_id(instance_id, component);
         let mut inner = self.inner.lock().await;
@@ -990,7 +989,10 @@ impl ProcessManager {
                     .system
                     .refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
                 if let Some(process) = inner.system.process(pid) {
-                    let cpu = process.cpu_usage() as f64;
+                    // CPU 归一为占整机百分比(sysinfo cpu_usage 是单核制、多核可超 100),
+                    // 与系统卡/进程表口径一致。
+                    let cores = inner.system.cpus().len().max(1) as f64;
+                    let cpu = (process.cpu_usage() as f64 / cores).min(100.0);
                     let mem = process.memory() as f64 / 1024.0 / 1024.0;
                     (cpu, mem)
                 } else {

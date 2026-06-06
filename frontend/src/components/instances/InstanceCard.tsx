@@ -22,7 +22,6 @@ import {
   Card,
   Badge,
   StatusDot,
-  Meter,
   IconMenu,
   TactileButton,
 } from "@/components/ls";
@@ -189,21 +188,24 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
         </div>
       </div>
 
-      {/* 资源占用 —— 内存条(生命色填充 + 等宽读数);CPU 作右侧并列读数 */}
-      <div className="mb-4">
-        <Meter
-          label="内存占用"
-          used={hasMem ? instance.memory_usage! : 0}
-          total={hasMem ? Math.max(instance.memory_usage! * 1.6, 1024) : 0}
-          valueText={memText}
-        />
-        <div
-          className="mt-2 flex items-baseline justify-between text-[11px] font-medium"
-          style={{ color: "var(--ls-ink-soft)" }}
-        >
-          <span>CPU</span>
-          <span className="ls-num text-xs">{cpuText}</span>
-        </div>
+      {/* 资源占用 —— 单行,中点分隔,不用进度条 */}
+      <div
+        className="mb-4 flex items-center gap-2 text-sm font-medium"
+        style={{ color: "var(--ls-ink-soft)" }}
+      >
+        <span>
+          内存{" "}
+          <span className="ls-num" style={{ color: "var(--ls-ink)" }}>
+            {memText}
+          </span>
+        </span>
+        <span style={{ color: "var(--ls-ink-faint)" }}>·</span>
+        <span>
+          CPU{" "}
+          <span className="ls-num" style={{ color: "var(--ls-ink)" }}>
+            {cpuText}
+          </span>
+        </span>
       </div>
 
       {/* 状态徽章组 */}
