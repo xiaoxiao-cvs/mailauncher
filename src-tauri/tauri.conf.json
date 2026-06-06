@@ -66,7 +66,7 @@
         "https://github.com/xiaoxiao-cvs/mailauncher/releases/latest/download/latest.json"
       ],
       "dialog": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYzNDM2RDM2MTIyMTQ3NkQKUldSdFJ5RVNObTFEWThCNHZvd3lRM3JvaHkzbGk5ckt3MGxHM2NuaWxudFhrM1lZNHFYS3hKMDcK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEyOUMxMzM0MTFFNEQyMzUKUldRMTB1UVJOQk9jRXFvNWptM0h2cHE4Zm42cy94dUtxOUF4aTd1S0w2NUdzVHU0a3BmUG94dy8K",
       "windows": {
         "installMode": "passive"
       }

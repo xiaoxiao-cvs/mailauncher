@@ -78,7 +78,7 @@ function VersionField({
 }
 
 export function UpdateCheckSection() {
-  const [selectedChannel, setSelectedChannel] = useState("stable");
+  const [selectedChannel, setSelectedChannel] = useState("main");
   const [selectedVersion, setSelectedVersion] = useState("");
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
 
@@ -160,6 +160,7 @@ export function UpdateCheckSection() {
                 label={"选择版本"}
                 value={selectedVersion}
                 onChange={setSelectedVersion}
+                placeholder="最新版本"
                 options={(channelVersions?.versions || []).map((v: any) => ({
                   value: v.version || v,
                   label: v.version || v,
