@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { MoreHorizontal, type LucideIcon } from "lucide-react";
 
@@ -34,6 +34,20 @@ export function IconMenu({ items, align = "right" }: IconMenuProps) {
   const itemsRef = useRef<HTMLDivElement>(null);
   const [openH, setOpenH] = useState(CLOSED);
   const menuId = useId();
+  const closeTimer = useRef<number | null>(null);
+
+  const clearCloseTimer = () => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+  const close = () => {
+    clearCloseTimer();
+    setOpen(false);
+  };
+  // 卸载时清掉待触发的关闭定时器,避免在已卸载组件上 setState。
+  useEffect(() => clearCloseTimer, []);
 
   // 在固定展开宽度下测一次菜单自然高度(随 items 变化重测),保证展开后首行即第一项。
   useLayoutEffect(() => {
@@ -49,15 +63,20 @@ export function IconMenu({ items, align = "right" }: IconMenuProps) {
           type="button"
           aria-label="关闭菜单"
           className="fixed inset-0 z-10 cursor-default"
-          onClick={() => setOpen(false)}
+          onClick={close}
         />
       )}
 
       <motion.div
         className={`absolute top-0 z-20 overflow-hidden ${edge}`}
+        onPointerEnter={clearCloseTimer}
         onPointerLeave={(e) => {
-          // 鼠标/触控笔移出菜单即关(最轻);触摸设备无 hover,仍靠下方 fixed 背板点外部关闭。
-          if (open && e.pointerType !== "touch") setOpen(false);
+          // 鼠标/触控笔移出菜单后延迟 250ms 关(中途移回则取消,防边缘划过误关);
+          // 触摸设备无 hover,仍靠下方 fixed 背板点外部关闭。
+          if (open && e.pointerType !== "touch") {
+            clearCloseTimer();
+            closeTimer.current = window.setTimeout(() => setOpen(false), 250);
+          }
         }}
         initial={false}
         animate={{
@@ -90,7 +109,7 @@ export function IconMenu({ items, align = "right" }: IconMenuProps) {
               tabIndex={open ? 0 : -1}
               onClick={() => {
                 it.onSelect?.();
-                setOpen(false);
+                close();
               }}
               whileTap={{ scale: 0.97 }}
               initial={false}
@@ -119,7 +138,10 @@ export function IconMenu({ items, align = "right" }: IconMenuProps) {
           aria-haspopup="menu"
           aria-expanded={open}
           aria-controls={menuId}
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            clearCloseTimer();
+            setOpen(true);
+          }}
           initial={false}
           animate={{ opacity: open ? 0 : 1, scale: open ? 0.7 : 1 }}
           transition={open ? { duration: 0.1 } : { ...springPop, delay: 0.06 }}
