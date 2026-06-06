@@ -421,43 +421,58 @@ pub async fn update_component_git(
 
 // ==================== 备份/恢复 ====================
 
-/// 创建组件备份
+/// 更新前数据备份的条目白名单与保留份数。只备份用户不可再生的状态(配置 + 数据),
+/// 代码由 Git 兜底无需进备份。条目可为目录(MaiBot/NapCat 的 config/、MaiBot 的 data/)
+/// 或文件(适配器根下的 config.toml)——存在哪个备哪个。
+const DATA_BACKUP_ITEMS: [&str; 3] = ["config", "data", "config.toml"];
+const DATA_BACKUP_KEEP: usize = 3;
+
+/// 更新前自动备份:快照组件目录下存在的 config/ 与 data/ 子目录,写入 backups/{databak_id}/,
+/// 并仅保留每实例每组件最近 DATA_BACKUP_KEEP 份(超出的删盘+删库)。
 ///
-/// 将组件目录整体复制到备份目录，并记录到数据库。
-pub async fn create_backup(
+/// 不备份源码——代码受 Git 版本控制,误伤可回滚,纳入备份只会徒增体积。
+/// 返回备份 id;若组件目录下既无 config/ 也无 data/(无可备份内容)则返回 None。
+pub async fn backup_component_data(
     pool: &SqlitePool,
     instance_id: &str,
     item_type: &crate::models::download::DownloadItemType,
     component_dir: &Path,
-) -> AppResult<String> {
-    use crate::services::download_service::copy_dir_recursive;
+) -> AppResult<Option<String>> {
     use uuid::Uuid;
 
     let repo = get_github_repo(item_type);
+
+    // 只对真正存在的条目建备份,避免生成空备份目录。
+    let present: Vec<&str> = DATA_BACKUP_ITEMS
+        .iter()
+        .copied()
+        .filter(|item| component_dir.join(item).exists())
+        .collect();
+    if present.is_empty() {
+        info!("组件 {} 无 config/data 可备份,跳过更新前备份", repo.folder);
+        return Ok(None);
+    }
+
     let backup_id = format!(
-        "backup_{}",
+        "databak_{}",
         &Uuid::new_v4().to_string().replace('-', "")[..12]
     );
-
-    // 备份目录
-    let backups_dir = crate::utils::platform::get_data_root().join("backups");
-    let backup_path = backups_dir.join(&backup_id);
-
+    let backup_path = crate::utils::platform::get_data_root()
+        .join("backups")
+        .join(&backup_id);
     std::fs::create_dir_all(&backup_path)
         .map_err(|e| AppError::FileSystem(format!("创建备份目录失败: {}", e)))?;
 
-    copy_dir_recursive(component_dir, &backup_path)
-        .map_err(|e| AppError::FileSystem(format!("复制备份数据失败: {}", e)))?;
+    let copied = snapshot_items(component_dir, &backup_path, &present)?;
 
-    // 计算备份大小
     let backup_size = fs_dir_size(&backup_path);
-
     let commit_hash = get_local_commit(component_dir);
     let version = get_local_version_from_file(component_dir, repo.name);
+    let description = format!("更新前自动备份: {}", copied.join("+"));
 
     sqlx::query(
-        "INSERT INTO version_backups (id, instance_id, component, version, commit_hash, backup_path, backup_size, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+        "INSERT INTO version_backups (id, instance_id, component, version, commit_hash, backup_path, backup_size, description, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
     )
     .bind(&backup_id)
     .bind(instance_id)
@@ -466,12 +481,154 @@ pub async fn create_backup(
     .bind(&commit_hash)
     .bind(backup_path.to_string_lossy().as_ref())
     .bind(backup_size as i64)
+    .bind(&description)
     .execute(pool)
     .await
     .map_err(|e: sqlx::Error| AppError::Database(format!("记录备份失败: {}", e)))?;
 
-    info!("组件备份完成: {} → {}", repo.folder, backup_id);
-    Ok(backup_id)
+    prune_data_backups(pool, instance_id, repo.folder, DATA_BACKUP_KEEP).await;
+
+    info!(
+        "更新前备份完成: {} → {} ({} 字节, {})",
+        repo.folder, backup_id, backup_size, description
+    );
+    Ok(Some(backup_id))
+}
+
+/// 把 component_dir 下指定条目逐个复制到 dest_dir(保持同名),返回实际复制的条目名。
+/// 条目为目录则递归复制,为文件则直接复制,不存在则跳过。纯文件系统操作,便于单测。
+fn snapshot_items(component_dir: &Path, dest_dir: &Path, items: &[&str]) -> AppResult<Vec<String>> {
+    use crate::services::download_service::copy_dir_recursive;
+
+    let mut copied = Vec::new();
+    for item in items {
+        let src = component_dir.join(item);
+        if src.is_dir() {
+            copy_dir_recursive(&src, &dest_dir.join(item))
+                .map_err(|e| AppError::FileSystem(format!("备份 {} 失败: {}", item, e)))?;
+            copied.push((*item).to_string());
+        } else if src.is_file() {
+            std::fs::create_dir_all(dest_dir)
+                .map_err(|e| AppError::FileSystem(format!("创建备份目录失败: {}", e)))?;
+            std::fs::copy(&src, dest_dir.join(item))
+                .map_err(|e| AppError::FileSystem(format!("备份 {} 失败: {}", item, e)))?;
+            copied.push((*item).to_string());
+        }
+    }
+    Ok(copied)
+}
+
+/// 裁剪"更新前数据备份"(databak_ 前缀),每实例每组件仅保留最近 keep 份,超出的删盘+删库。
+/// 裁剪是更新的附属清理动作,失败只记日志、不阻断更新主流程。
+async fn prune_data_backups(pool: &SqlitePool, instance_id: &str, component: &str, keep: usize) {
+    let rows = sqlx::query_as::<_, (String, String)>(
+        "SELECT id, backup_path FROM version_backups
+         WHERE instance_id = ? AND component = ? AND id LIKE 'databak\\_%' ESCAPE '\\'
+         ORDER BY created_at DESC, id DESC",
+    )
+    .bind(instance_id)
+    .bind(component)
+    .fetch_all(pool)
+    .await;
+
+    let rows = match rows {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("裁剪旧备份: 查询失败,跳过裁剪: {}", e);
+            return;
+        }
+    };
+
+    for (id, path) in rows.into_iter().skip(keep) {
+        let dir = std::path::PathBuf::from(&path);
+        if dir.exists() {
+            if let Err(e) = std::fs::remove_dir_all(&dir) {
+                warn!("裁剪旧备份: 删除目录失败 {} ({}),保留数据库记录", path, e);
+                continue;
+            }
+        }
+        match sqlx::query("DELETE FROM version_backups WHERE id = ?")
+            .bind(&id)
+            .execute(pool)
+            .await
+        {
+            Ok(_) => info!("裁剪旧备份: 已删除 {}", id),
+            Err(e) => warn!("裁剪旧备份: 删除记录失败 {} ({})", id, e),
+        }
+    }
+}
+
+/// 叠加式恢复(用于 databak_ 数据备份):把备份目录下的每个子目录原子覆盖回组件目录,
+/// 仅替换 config/data 等被备份的子目录,保留组件目录里的其它内容(源码、插件等)。
+pub fn restore_data_backup(backup_path: &Path, component_dir: &Path) -> AppResult<()> {
+    use crate::services::download_service::copy_dir_recursive;
+
+    std::fs::create_dir_all(component_dir)
+        .map_err(|e| AppError::FileSystem(format!("创建组件目录失败: {}", e)))?;
+
+    let entries = std::fs::read_dir(backup_path)
+        .map_err(|e| AppError::FileSystem(format!("读取备份目录失败: {}", e)))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| AppError::FileSystem(format!("遍历备份目录失败: {}", e)))?;
+        let src = entry.path();
+        let name = entry.file_name();
+        let target = component_dir.join(&name);
+
+        if src.is_dir() {
+            // 目录:先复制到同目录暂存,成功后再原子替换,避免中途失败把原数据删了又没补上。
+            let staging = component_dir.join(format!(".restoring_{}", name.to_string_lossy()));
+            if staging.exists() {
+                std::fs::remove_dir_all(&staging)
+                    .map_err(|e| AppError::FileSystem(format!("清理暂存目录失败: {}", e)))?;
+            }
+            copy_dir_recursive(&src, &staging).map_err(|e| {
+                let _ = std::fs::remove_dir_all(&staging);
+                AppError::FileSystem(format!("恢复子目录 {:?} 失败: {}", name, e))
+            })?;
+            if target.exists() {
+                std::fs::remove_dir_all(&target).map_err(|e| {
+                    AppError::FileSystem(format!("删除旧子目录 {:?} 失败: {}", name, e))
+                })?;
+            }
+            std::fs::rename(&staging, &target)
+                .map_err(|e| AppError::FileSystem(format!("替换子目录 {:?} 失败: {}", name, e)))?;
+        } else if src.is_file() {
+            // 文件:直接覆盖写入(copy 会截断已存在的目标)。
+            std::fs::copy(&src, &target)
+                .map_err(|e| AppError::FileSystem(format!("恢复文件 {:?} 失败: {}", name, e)))?;
+        }
+    }
+    Ok(())
+}
+
+/// 整目录恢复(用于旧式整目录备份):把备份整体原子替换回组件目录。
+pub fn restore_full_backup(backup_path: &Path, component_dir: &Path) -> AppResult<()> {
+    use crate::services::download_service::copy_dir_recursive;
+
+    let base_dir = component_dir
+        .parent()
+        .ok_or_else(|| AppError::FileSystem("组件目录无父目录".to_string()))?;
+    let comp_name = component_dir
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "component".to_string());
+
+    let temp_restore_dir = base_dir.join(format!("_restore_temp_{}", comp_name));
+    if temp_restore_dir.exists() {
+        std::fs::remove_dir_all(&temp_restore_dir)
+            .map_err(|e| AppError::FileSystem(format!("清理临时恢复目录失败: {}", e)))?;
+    }
+    copy_dir_recursive(backup_path, &temp_restore_dir).map_err(|e| {
+        let _ = std::fs::remove_dir_all(&temp_restore_dir);
+        AppError::FileSystem(format!("恢复备份数据失败: {}", e))
+    })?;
+    if component_dir.exists() {
+        std::fs::remove_dir_all(component_dir)
+            .map_err(|e| AppError::FileSystem(format!("删除组件目录失败: {}", e)))?;
+    }
+    std::fs::rename(&temp_restore_dir, component_dir)
+        .map_err(|e| AppError::FileSystem(format!("重命名恢复目录失败: {}", e)))?;
+    Ok(())
 }
 
 /// 计算目录大小
@@ -1303,6 +1460,218 @@ mod tests {
             .await
             .expect("查询失败");
         assert!(result_b.is_empty(), "实例 B 不应看到实例 A 的备份");
+    }
+
+    // ==================== 更新前数据备份:快照 / 裁剪 / 恢复 ====================
+
+    #[test]
+    fn snapshot_items_copies_dirs_and_files_skips_missing() {
+        let tmp = tempfile::tempdir().expect("临时目录");
+        let comp = tmp.path().join("MaiBot");
+        std::fs::create_dir_all(comp.join("config")).unwrap();
+        std::fs::create_dir_all(comp.join("data")).unwrap();
+        std::fs::create_dir_all(comp.join("src")).unwrap();
+        std::fs::write(comp.join("config").join("bot_config.toml"), b"k=1").unwrap();
+        std::fs::write(comp.join("data").join("MaiBot.db"), b"DBDATA").unwrap();
+        std::fs::write(comp.join("config.toml"), b"adapter=1").unwrap();
+        std::fs::write(comp.join("src").join("main.py"), b"print()").unwrap();
+
+        let dest = tmp.path().join("bak");
+        let copied = snapshot_items(&comp, &dest, &["config", "data", "config.toml", "logs"])
+            .expect("快照失败");
+
+        // 目录 config/data + 文件 config.toml 都备份;缺失的 logs 跳过;白名单外的 src 不备份
+        assert_eq!(
+            copied,
+            vec![
+                "config".to_string(),
+                "data".to_string(),
+                "config.toml".to_string()
+            ]
+        );
+        assert_eq!(
+            std::fs::read(dest.join("config").join("bot_config.toml")).unwrap(),
+            b"k=1"
+        );
+        assert_eq!(
+            std::fs::read(dest.join("data").join("MaiBot.db")).unwrap(),
+            b"DBDATA"
+        );
+        assert_eq!(
+            std::fs::read(dest.join("config.toml")).unwrap(),
+            b"adapter=1"
+        );
+        assert!(!dest.join("src").exists());
+        assert!(!dest.join("logs").exists());
+    }
+
+    #[test]
+    fn snapshot_items_returns_empty_when_none_present() {
+        let tmp = tempfile::tempdir().expect("临时目录");
+        let comp = tmp.path().join("MaiBot");
+        std::fs::create_dir_all(comp.join("src")).unwrap();
+        let dest = tmp.path().join("bak");
+        let copied =
+            snapshot_items(&comp, &dest, &["config", "data", "config.toml"]).expect("快照失败");
+        assert!(copied.is_empty());
+    }
+
+    #[test]
+    fn restore_data_backup_overlays_only_backed_up_subdirs() {
+        let tmp = tempfile::tempdir().expect("临时目录");
+        // 备份内容:新的 config/data
+        let bak = tmp.path().join("bak");
+        std::fs::create_dir_all(bak.join("config")).unwrap();
+        std::fs::create_dir_all(bak.join("data")).unwrap();
+        std::fs::write(bak.join("config").join("bot_config.toml"), b"NEW").unwrap();
+        std::fs::write(bak.join("data").join("MaiBot.db"), b"NEWDB").unwrap();
+
+        // 现状组件目录:旧 config/data + 不该被动的 src
+        let comp = tmp.path().join("MaiBot");
+        std::fs::create_dir_all(comp.join("config")).unwrap();
+        std::fs::create_dir_all(comp.join("data")).unwrap();
+        std::fs::create_dir_all(comp.join("src")).unwrap();
+        std::fs::write(comp.join("config").join("bot_config.toml"), b"OLD").unwrap();
+        std::fs::write(comp.join("data").join("MaiBot.db"), b"OLDDB").unwrap();
+        std::fs::write(comp.join("src").join("main.py"), b"CODE").unwrap();
+
+        restore_data_backup(&bak, &comp).expect("恢复失败");
+
+        // config/data 被备份内容覆盖,src(代码)原样保留
+        assert_eq!(
+            std::fs::read(comp.join("config").join("bot_config.toml")).unwrap(),
+            b"NEW"
+        );
+        assert_eq!(
+            std::fs::read(comp.join("data").join("MaiBot.db")).unwrap(),
+            b"NEWDB"
+        );
+        assert_eq!(
+            std::fs::read(comp.join("src").join("main.py")).unwrap(),
+            b"CODE"
+        );
+        // 无残留暂存目录
+        assert!(!comp.join(".restoring_config").exists());
+        assert!(!comp.join(".restoring_data").exists());
+    }
+
+    #[test]
+    fn restore_data_backup_removes_stale_files_in_target_subdir() {
+        // 旧 config 里有备份中不存在的文件,恢复后应消失(子目录整体替换语义)
+        let tmp = tempfile::tempdir().expect("临时目录");
+        let bak = tmp.path().join("bak");
+        std::fs::create_dir_all(bak.join("config")).unwrap();
+        std::fs::write(bak.join("config").join("keep.toml"), b"K").unwrap();
+
+        let comp = tmp.path().join("MaiBot");
+        std::fs::create_dir_all(comp.join("config")).unwrap();
+        std::fs::write(comp.join("config").join("keep.toml"), b"OLD").unwrap();
+        std::fs::write(comp.join("config").join("stale.toml"), b"STALE").unwrap();
+
+        restore_data_backup(&bak, &comp).expect("恢复失败");
+        assert_eq!(
+            std::fs::read(comp.join("config").join("keep.toml")).unwrap(),
+            b"K"
+        );
+        assert!(!comp.join("config").join("stale.toml").exists());
+    }
+
+    #[test]
+    fn restore_data_backup_overwrites_top_level_file() {
+        // 适配器场景:备份里是根下的 config.toml 文件,恢复应覆盖该文件、不动代码。
+        let tmp = tempfile::tempdir().expect("临时目录");
+        let bak = tmp.path().join("bak");
+        std::fs::create_dir_all(&bak).unwrap();
+        std::fs::write(bak.join("config.toml"), b"NEW").unwrap();
+
+        let comp = tmp.path().join("MaiBot-Napcat-Adapter");
+        std::fs::create_dir_all(comp.join("src")).unwrap();
+        std::fs::write(comp.join("config.toml"), b"OLD").unwrap();
+        std::fs::write(comp.join("src").join("a.py"), b"CODE").unwrap();
+
+        restore_data_backup(&bak, &comp).expect("恢复失败");
+        assert_eq!(std::fs::read(comp.join("config.toml")).unwrap(), b"NEW");
+        assert_eq!(
+            std::fs::read(comp.join("src").join("a.py")).unwrap(),
+            b"CODE"
+        );
+    }
+
+    #[test]
+    fn restore_full_backup_replaces_entire_component_dir() {
+        let tmp = tempfile::tempdir().expect("临时目录");
+        let bak = tmp.path().join("bak");
+        std::fs::create_dir_all(bak.join("config")).unwrap();
+        std::fs::write(bak.join("config").join("a.toml"), b"A").unwrap();
+        std::fs::write(bak.join("root.txt"), b"R").unwrap();
+
+        let comp = tmp.path().join("MaiBot");
+        std::fs::create_dir_all(comp.join("src")).unwrap();
+        std::fs::write(comp.join("src").join("old.py"), b"OLD").unwrap();
+
+        restore_full_backup(&bak, &comp).expect("恢复失败");
+        // 整目录被替换:备份内容在,旧 src 没了
+        assert_eq!(
+            std::fs::read(comp.join("config").join("a.toml")).unwrap(),
+            b"A"
+        );
+        assert_eq!(std::fs::read(comp.join("root.txt")).unwrap(), b"R");
+        assert!(!comp.join("src").exists());
+    }
+
+    #[tokio::test]
+    async fn prune_data_backups_keeps_recent_and_deletes_old() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_prune").await;
+        let tmp = tempfile::tempdir().expect("临时目录");
+
+        // 5 份 databak_ 备份(created_at 递增,各有真实磁盘目录)
+        for i in 0..5 {
+            let id = format!("databak_{:012}", i);
+            let dir = tmp.path().join(&id);
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join("f"), b"x").unwrap();
+            sqlx::query(
+                "INSERT INTO version_backups (id, instance_id, component, backup_path, backup_size, created_at)
+                 VALUES (?, 'inst_prune', 'MaiBot', ?, 1, ?)",
+            )
+            .bind(&id)
+            .bind(dir.to_string_lossy().as_ref())
+            .bind(format!("2024-01-0{} 00:00:00", i + 1))
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+        // 旧式整目录备份(backup_ 前缀)不应被 databak_ 裁剪触及
+        let legacy_dir = tmp.path().join("backup_legacy01");
+        std::fs::create_dir_all(&legacy_dir).unwrap();
+        sqlx::query(
+            "INSERT INTO version_backups (id, instance_id, component, backup_path, backup_size, created_at)
+             VALUES ('backup_legacy01', 'inst_prune', 'MaiBot', ?, 1, '2024-01-01 00:00:00')",
+        )
+        .bind(legacy_dir.to_string_lossy().as_ref())
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        prune_data_backups(&pool, "inst_prune", "MaiBot", 3).await;
+
+        let remaining = get_backups(&pool, "inst_prune", Some("MaiBot"))
+            .await
+            .unwrap();
+        let ids: std::collections::HashSet<String> =
+            remaining.iter().map(|b| b.id.clone()).collect();
+        // 保留最近 3 份 databak_(i=2,3,4)+ 旧式备份;删最旧 2 份(i=0,1)
+        assert!(ids.contains("databak_000000000004"));
+        assert!(ids.contains("databak_000000000003"));
+        assert!(ids.contains("databak_000000000002"));
+        assert!(ids.contains("backup_legacy01"));
+        assert!(!ids.contains("databak_000000000001"));
+        assert!(!ids.contains("databak_000000000000"));
+        // 磁盘目录也删了
+        assert!(!tmp.path().join("databak_000000000000").exists());
+        assert!(!tmp.path().join("databak_000000000001").exists());
+        assert!(tmp.path().join("databak_000000000004").exists());
     }
 
     // ==================== DB: get_update_history ====================

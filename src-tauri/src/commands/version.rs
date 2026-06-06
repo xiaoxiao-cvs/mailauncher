@@ -75,11 +75,25 @@ pub async fn update_component(
 
     let event_name = format!("update-log-{}-{}", instance_id, component);
 
-    // 可选备份
-    if create_backup.unwrap_or(false) {
-        let _ = app_handle.emit(&event_name, "正在创建备份...");
-        version_service::create_backup(&state.db, &instance_id, &item_type, &component_dir).await?;
-        let _ = app_handle.emit(&event_name, "备份创建完成");
+    // 更新前自动备份配置与数据(代码由 Git 兜底无需备份);默认开,可显式传 false 关闭。
+    // 备份失败直接中止更新——宁可不更新,也不让用户在没有退路的情况下动数据。
+    if create_backup.unwrap_or(true) {
+        let _ = app_handle.emit(&event_name, "正在备份配置与数据...");
+        match version_service::backup_component_data(
+            &state.db,
+            &instance_id,
+            &item_type,
+            &component_dir,
+        )
+        .await?
+        {
+            Some(id) => {
+                let _ = app_handle.emit(&event_name, format!("配置与数据已备份: {}", id));
+            }
+            None => {
+                let _ = app_handle.emit(&event_name, "无配置/数据需备份,跳过");
+            }
+        }
     }
 
     // 执行更新 (git pull / checkout)
@@ -151,26 +165,13 @@ pub async fn restore_backup(
     let base_dir = resolve_instance_base_dir(&state.db, &instance_id).await?;
     let component_dir = base_dir.join(&backup.component);
 
-    // 原子恢复：先复制到临时目录，再通过 rename 替换，避免中途失败导致数据丢失
-    let temp_restore_dir = base_dir.join(format!("_restore_temp_{}", &backup.component));
-    if temp_restore_dir.exists() {
-        std::fs::remove_dir_all(&temp_restore_dir)
-            .map_err(|e| AppError::FileSystem(format!("清理临时恢复目录失败: {}", e)))?;
+    // databak_ 前缀 = 更新前的"配置+数据"快照,叠加式恢复(只覆盖 config/data,保住代码);
+    // 其它(旧式整目录备份)走整目录原子替换。
+    if backup.id.starts_with("databak_") {
+        version_service::restore_data_backup(&backup_path, &component_dir)?;
+    } else {
+        version_service::restore_full_backup(&backup_path, &component_dir)?;
     }
-
-    crate::services::download_service::copy_dir_recursive(&backup_path, &temp_restore_dir)
-        .map_err(|e| {
-            let _ = std::fs::remove_dir_all(&temp_restore_dir);
-            AppError::FileSystem(format!("恢复备份数据失败: {}", e))
-        })?;
-
-    // 复制成功后，删除旧目录并重命名临时目录
-    if component_dir.exists() {
-        std::fs::remove_dir_all(&component_dir)
-            .map_err(|e| AppError::FileSystem(format!("删除组件目录失败: {}", e)))?;
-    }
-    std::fs::rename(&temp_restore_dir, &component_dir)
-        .map_err(|e| AppError::FileSystem(format!("重命名恢复目录失败: {}", e)))?;
 
     info!(
         "恢复备份完成: {} / {} ← {}",

@@ -79,7 +79,10 @@ export const VersionManagerModal: React.FC<VersionManagerModalProps> = ({
   };
 
   const handleRestore = async (backupId: string) => {
-    if (!confirm("确定要恢复到此备份吗？当前代码将被替换。")) return;
+    if (
+      !confirm("确定恢复此备份吗？将用备份覆盖当前的配置与数据，代码不受影响。")
+    )
+      return;
 
     try {
       await restoreMutation.mutateAsync({ instanceId, backupId });
