@@ -47,3 +47,7 @@ maibot-ref/
 
 # Revival planning doc (local working reference only)
 docs/REVIVAL-PLAN.md
+
+# 对手对标分析与 v1 对标清单(本地参考,不入库)
+docs/competitive-analysis-official.md
+docs/v1-parity-checklist.md
