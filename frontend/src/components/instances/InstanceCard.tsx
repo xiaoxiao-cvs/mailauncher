@@ -137,9 +137,12 @@ export const InstanceCard: React.FC<InstanceCardProps> = ({
   const hasMem =
     instance.memory_usage !== undefined && instance.memory_usage > 0;
   const cpuText = hasCpu ? `${instance.cpu_usage!.toFixed(1)}%` : PLACEHOLDER;
-  const memText = hasMem
-    ? `${instance.memory_usage!.toFixed(0)} MB`
-    : PLACEHOLDER;
+  // 内存读数:<1024 MB 显示 MB,达到 1024 MB 起自动转 GB(两位小数)。
+  const memText = !hasMem
+    ? PLACEHOLDER
+    : instance.memory_usage! >= 1024
+      ? `${(instance.memory_usage! / 1024).toFixed(2)} GB`
+      : `${instance.memory_usage!.toFixed(0)} MB`;
 
   // 卡片右上"更多"操作:重命名 / 重启(运行时)/ 删除(危险)。
   const menuItems: IconMenuItem[] = [
