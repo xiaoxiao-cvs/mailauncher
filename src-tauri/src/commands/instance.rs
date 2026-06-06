@@ -168,16 +168,30 @@ pub struct NapcatQrCode {
     pub mtime_ms: u64,
 }
 
-/// NapCat 登录成功的日志标记。等扫码阶段不会出现,登录后必现其一:
+/// NapCat 等扫码阶段的日志标记(每次生成/刷新登录二维码都会打印其一)。
+const NAPCAT_QR_MARKERS: &[&str] = &["二维码已保存", "二维码解码URL"];
+/// NapCat 登录成功的日志标记(等扫码阶段不会出现,登录后必现其一):
 /// "登录成功"(QR 登录成功)、"适配器初始化完成"(登录后才初始化协议适配器)、
-/// "接收 <-"(已在线并收到消息)。命中任一即视为已登录。
+/// "接收 <-"(已在线并收到消息)。
 const NAPCAT_LOGIN_MARKERS: &[&str] = &["登录成功", "适配器初始化完成", "接收 <-"];
 
-/// 从 NapCat 进程最近输出判断是否已登录(纯函数,便于单测)。
-fn napcat_login_detected(lines: &[String]) -> bool {
-    lines
-        .iter()
-        .any(|line| NAPCAT_LOGIN_MARKERS.iter().any(|m| line.contains(m)))
+/// 依据 NapCat 进程的有序输出行缓冲判断"当前是否应展示登录二维码"(纯函数,便于单测)。
+///
+/// 比较"最后一条等扫码标记"与"最后一条登录成功标记"的先后位置:
+/// 等扫码标记更靠后(更新)= 当前在等扫码(含会话中途过期后重新弹码)→ 展示;
+/// 登录标记更靠后 = 已登录 → 收回;两者都无 = 信息不足,交给前端 mtime 兜底。
+fn napcat_waiting_for_scan(lines: &[String]) -> bool {
+    let last_idx = |markers: &[&str]| -> Option<usize> {
+        lines
+            .iter()
+            .rposition(|line| markers.iter().any(|m| line.contains(m)))
+    };
+    match (last_idx(NAPCAT_QR_MARKERS), last_idx(NAPCAT_LOGIN_MARKERS)) {
+        (Some(qr), Some(login)) => qr > login,
+        (Some(_), None) => true,
+        (None, Some(_)) => false,
+        (None, None) => true,
+    }
 }
 
 /// 读取 NapCat 登录二维码。NapCat 在等扫码登录时把二维码存为 `<实例>/NapCat/cache/qrcode.png`,
@@ -202,13 +216,14 @@ pub async fn get_napcat_qrcode(
     if !path.is_file() {
         return Ok(None);
     }
-    // 已登录即收回:扫 NapCat 进程最近输出,命中登录成功标记则返回 None,
-    // 让前端立即撤掉作废的二维码(不必等 png 的 mtime 转旧才消失)。
+    // 比较 NapCat 输出里"最后一次等扫码标记"与"最后一次登录成功标记"的先后:
+    // 已登录(登录标记更靠后)就返回 None 让前端立即收回;会话中途过期重新弹码时,
+    // 新的等扫码标记又会更靠后 → 自动重新展示。比纯 mtime 更准,能处理反复过期。
     let recent = state
         .process_manager
-        .get_output_history(&instance_id, "NapCat", 200)
+        .get_output_history(&instance_id, "NapCat", 400)
         .await;
-    if napcat_login_detected(&recent) {
+    if !napcat_waiting_for_scan(&recent) {
         return Ok(None);
     }
     let bytes = std::fs::read(&path)?;
@@ -230,39 +245,53 @@ pub async fn get_napcat_qrcode(
 mod tests {
     use super::*;
 
-    #[test]
-    fn login_detected_on_adapter_init() {
-        let lines = vec![
-            "[AdapterManager] 开始初始化协议适配器...".to_string(),
-            "[AdapterManager] OneBot11 适配器初始化完成".to_string(),
-        ];
-        assert!(napcat_login_detected(&lines));
+    fn lines(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
     }
 
     #[test]
-    fn login_detected_on_success_marker() {
-        assert!(napcat_login_detected(&["登录成功".to_string()]));
+    fn waiting_when_qr_present_and_no_login() {
+        assert!(napcat_waiting_for_scan(&lines(&[
+            "二维码已保存到 .../NapCat/cache/qrcode.png",
+            "二维码解码URL: https://txz.qq.com/p?k=xxx&f=1600001604",
+        ])));
     }
 
     #[test]
-    fn login_detected_on_receiving_message() {
-        let lines = vec!["接收 <- 群聊 [测试群(123)] [某人(456)] 在吗".to_string()];
-        assert!(napcat_login_detected(&lines));
+    fn retract_when_login_after_qr() {
+        assert!(!napcat_waiting_for_scan(&lines(&[
+            "二维码已保存到 .../qrcode.png",
+            "[AdapterManager] OneBot11 适配器初始化完成",
+        ])));
     }
 
     #[test]
-    fn not_logged_in_while_waiting_for_scan() {
-        // 等扫码阶段的典型输出,无任何登录标记,二维码应保留
-        let lines = vec![
-            "二维码已保存到 .../NapCat/cache/qrcode.png".to_string(),
-            "二维码解码URL: https://txz.qq.com/p?k=xxx&f=1600001604".to_string(),
-            "如果控制台二维码无法扫码,可以复制解码url到二维码生成网站再扫码".to_string(),
-        ];
-        assert!(!napcat_login_detected(&lines));
+    fn waiting_again_on_relogin_qr_after_login() {
+        // 会话中途过期重新弹码:登录标记在前、新的等扫码标记在后 → 重新展示
+        assert!(napcat_waiting_for_scan(&lines(&[
+            "[AdapterManager] OneBot11 适配器初始化完成",
+            "接收 <- 群聊 [群(1)] [人(2)] 在吗",
+            "二维码已保存到 .../qrcode.png",
+            "二维码解码URL: https://txz.qq.com/p?k=yyy",
+        ])));
     }
 
     #[test]
-    fn not_detected_on_empty() {
-        assert!(!napcat_login_detected(&[]));
+    fn retract_when_received_message_after_qr() {
+        // 扫码登录后又收到消息(登录标记在后)→ 收回
+        assert!(!napcat_waiting_for_scan(&lines(&[
+            "二维码已保存到 .../qrcode.png",
+            "接收 <- 群聊 [群(1)] [人(2)] 你好",
+        ])));
+    }
+
+    #[test]
+    fn retract_when_only_login_marker() {
+        assert!(!napcat_waiting_for_scan(&lines(&["登录成功"])));
+    }
+
+    #[test]
+    fn show_when_no_markers_defer_to_mtime() {
+        assert!(napcat_waiting_for_scan(&[]));
     }
 }
