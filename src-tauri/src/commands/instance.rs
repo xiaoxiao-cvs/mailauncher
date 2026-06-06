@@ -18,22 +18,14 @@ use crate::state::AppState;
 pub async fn get_all_instances(state: State<'_, AppState>) -> AppResult<InstanceList> {
     let mut list = instance_service::get_all_instances(&state.db).await?;
 
-    // 为运行中的实例补实时资源:按运行组件的 PID 用 sysinfo 累加 CPU/内存,并以最长存活组件的
-    // uptime 作为实例运行时长。list_desired_running 返回 (instance_id, 组件 internal_key),
-    // 已滤掉外部(WSL2)会话。CPU 首个采样周期可能为 0(sysinfo 需两次刷新),随轮询稳定。
+    // 为运行中的实例补实时资源:按运行组件的进程子树(壳进程 + 真正的 python/node 子孙)累加
+    // CPU/内存,并以最长存活组件的 uptime 作运行时长。单次刷新保证 CPU 采样口径一致;
+    // list_desired_running 已滤掉外部(WSL2)会话。CPU 首轮可能为 0(sysinfo 需两次刷新)。
     let running = state.process_manager.list_desired_running().await;
-    let mut agg: std::collections::HashMap<String, (f64, f64, Option<f64>)> =
-        std::collections::HashMap::new();
-    for (iid, comp) in &running {
-        let (cpu, mem) = state.process_manager.get_process_resources(iid, comp).await;
-        let uptime = state.process_manager.get_process_uptime(iid, comp).await;
-        let entry = agg.entry(iid.clone()).or_insert((0.0, 0.0, None));
-        entry.0 += cpu;
-        entry.1 += mem;
-        if let Some(u) = uptime {
-            entry.2 = Some(entry.2.map_or(u, |prev| prev.max(u)));
-        }
-    }
+    let agg = state
+        .process_manager
+        .sample_instance_resources(&running)
+        .await;
     for inst in list.instances.iter_mut() {
         if let Some((cpu, mem, uptime)) = agg.get(&inst.id) {
             if *cpu > 0.0 {

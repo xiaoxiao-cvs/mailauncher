@@ -972,35 +972,84 @@ impl ProcessManager {
         }
     }
 
-    /// 获取进程的 CPU 和内存使用情况
+    /// 采样一批运行组件会话的实时资源,按实例聚合返回 instance_id -> (CPU 占整机百分比, 内存 MB, uptime 秒)。
     ///
-    /// CPU 使用率需要跨调用累积才能得到有效值（sysinfo 要求至少两次 refresh 的间隔）。
-    /// System 实例持久化在 ProcessManagerInner 中以满足此要求。
-    pub async fn get_process_resources(&self, instance_id: &str, component: &str) -> (f64, f64) {
-        let session_id = Self::session_id(instance_id, component);
+    /// 关键点:
+    /// - 量的是每个会话进程的"子树":PTY 直接拉起的常是 shell/launcher 壳进程(几 MB、CPU≈0),
+    ///   真正的 python(MaiBot)/node(NapCat)是其子孙进程;只量壳进程会得到错误读数。
+    /// - 单次 refresh 全部进程:既拿到父子关系,又让所有进程的 CPU 采样区间一致(逐会话各刷一次
+    ///   会把后续会话的区间压成几 ms 而恒 0)。CPU 首轮仍可能为 0(sysinfo 需两次刷新),随轮询稳定。
+    pub async fn sample_instance_resources(
+        &self,
+        sessions: &[(String, String)],
+    ) -> std::collections::HashMap<String, (f64, f64, Option<f64>)> {
         let mut inner = self.inner.lock().await;
+        inner
+            .system
+            .refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+        let cores = inner.system.cpus().len().max(1) as f64;
 
-        let pid = inner.processes.get(&session_id).and_then(|p| p.pid);
+        // 先一次性取出 (pid, parent),释放对 processes() 的借用,后续按子树累加。
+        let pairs: Vec<(Pid, Option<Pid>)> = inner
+            .system
+            .processes()
+            .iter()
+            .map(|(pid, proc)| (*pid, proc.parent()))
+            .collect();
 
-        match pid {
-            Some(pid) => {
-                let pid = Pid::from_u32(pid);
-                inner
-                    .system
-                    .refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
-                if let Some(process) = inner.system.process(pid) {
-                    // CPU 归一为占整机百分比(sysinfo cpu_usage 是单核制、多核可超 100),
-                    // 与系统卡/进程表口径一致。
-                    let cores = inner.system.cpus().len().max(1) as f64;
-                    let cpu = (process.cpu_usage() as f64 / cores).min(100.0);
-                    let mem = process.memory() as f64 / 1024.0 / 1024.0;
-                    (cpu, mem)
-                } else {
-                    (0.0, 0.0)
+        let mut result: std::collections::HashMap<String, (f64, f64, Option<f64>)> =
+            std::collections::HashMap::new();
+
+        for (instance_id, component) in sessions {
+            let session_id = Self::session_id(instance_id, component);
+            let (root, uptime) = match inner.processes.get(&session_id) {
+                Some(info) => (info.pid, info.get_uptime()),
+                None => continue,
+            };
+            let Some(root) = root else { continue };
+            let root = Pid::from_u32(root);
+
+            // 收集 root + 全部后代 pid(进程数有限,迭代到不再新增为止)
+            let mut subtree: std::collections::HashSet<Pid> = std::collections::HashSet::new();
+            subtree.insert(root);
+            loop {
+                let mut added = false;
+                for (pid, parent) in &pairs {
+                    if subtree.contains(pid) {
+                        continue;
+                    }
+                    if let Some(parent) = parent {
+                        if subtree.contains(parent) {
+                            subtree.insert(*pid);
+                            added = true;
+                        }
+                    }
+                }
+                if !added {
+                    break;
                 }
             }
-            None => (0.0, 0.0),
+
+            let mut cpu = 0.0;
+            let mut mem = 0.0;
+            for pid in &subtree {
+                if let Some(proc) = inner.system.process(*pid) {
+                    cpu += proc.cpu_usage() as f64;
+                    mem += proc.memory() as f64;
+                }
+            }
+
+            let entry = result
+                .entry(instance_id.clone())
+                .or_insert((0.0, 0.0, None));
+            entry.0 += (cpu / cores).min(100.0);
+            entry.1 += mem / 1024.0 / 1024.0;
+            if let Some(u) = uptime {
+                entry.2 = Some(entry.2.map_or(u, |prev| prev.max(u)));
+            }
         }
+
+        result
     }
 
     /// 获取进程启动时间（用于计算 uptime）
