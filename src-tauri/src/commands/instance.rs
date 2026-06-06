@@ -219,10 +219,17 @@ pub async fn get_napcat_qrcode(
     // 比较 NapCat 输出里"最后一次等扫码标记"与"最后一次登录成功标记"的先后:
     // 已登录(登录标记更靠后)就返回 None 让前端立即收回;会话中途过期重新弹码时,
     // 新的等扫码标记又会更靠后 → 自动重新展示。比纯 mtime 更准,能处理反复过期。
-    let recent = state
-        .process_manager
-        .get_output_history(&instance_id, "NapCat", 400)
-        .await;
+    // NapCat 进程会话按组件 internal_key 注册(非显示名 "NapCat"),必须经注册表解析,
+    // 否则按 "NapCat" 查不到会话、拿到空输出,导致登录后永远判定为"仍在等扫码"而不收回。
+    let recent = match state.component_registry.get_by_value("NapCat") {
+        Some(spec) => {
+            state
+                .process_manager
+                .get_output_history(&instance_id, spec.component.internal_key(), 400)
+                .await
+        }
+        None => Vec::new(),
+    };
     if !napcat_waiting_for_scan(&recent) {
         return Ok(None);
     }
