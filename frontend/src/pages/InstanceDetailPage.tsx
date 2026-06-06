@@ -207,6 +207,7 @@ export const InstanceDetailPage: React.FC = () => {
           <InstanceQuickActions
             onOpenConfig={() => setIsConfigModalOpen(true)}
             onOpenSchedule={() => setIsScheduleModalOpen(true)}
+            onOpenVersionManager={() => setIsVersionManagerOpen(true)}
           />
           <VersionManagementSection instanceId={instance.id} />
         </div>
