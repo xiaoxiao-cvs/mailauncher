@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { InstanceCard } from "@/components/instances/InstanceCard";
 import { Plus, RefreshCw, AlertCircle, Server } from "lucide-react";
@@ -19,6 +20,8 @@ import {
 } from "@/hooks/queries/useInstanceQueries";
 
 export const InstanceListPage: React.FC = () => {
+  const navigate = useNavigate();
+
   // 使用 React Query hooks 获取数据
   const {
     data: instanceData,
@@ -237,7 +240,7 @@ export const InstanceListPage: React.FC = () => {
             刷新状态
           </TactileButton>
 
-          <TactileButton variant="solid">
+          <TactileButton variant="solid" onClick={() => navigate("/downloads")}>
             <Plus className="w-4 h-4" />
             创建新实例
           </TactileButton>
@@ -317,7 +320,9 @@ export const InstanceListPage: React.FC = () => {
           >
             您还没有创建任何实例。点击右上角的"创建新实例"按钮开始您的第一个部署。
           </p>
-          <TactileButton variant="life">立即创建</TactileButton>
+          <TactileButton variant="life" onClick={() => navigate("/downloads")}>
+            立即创建
+          </TactileButton>
         </div>
       ) : (
         <motion.div
