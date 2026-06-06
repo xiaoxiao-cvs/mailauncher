@@ -131,6 +131,9 @@ pub fn run() {
                 }
             });
 
+            // 启动计划任务执行器(后台 tick 轮询到点的计划任务并触发实例动作)
+            services::schedule_executor::spawn_scheduler(app.handle().clone());
+
             Ok(())
         })
         .manage(app_state)

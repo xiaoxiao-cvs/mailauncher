@@ -19,6 +19,7 @@ pub mod process_list_service;
 pub mod process_service;
 pub mod python_provision;
 pub mod runtime_service;
+pub mod schedule_executor;
 pub mod schedule_service;
 pub mod stats_service;
 pub mod system_service;

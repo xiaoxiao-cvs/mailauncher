@@ -186,3 +186,17 @@ pub async fn toggle_schedule(
     );
     get_schedule(pool, schedule_id).await
 }
+
+/// 记录计划任务最近执行时间(供执行器跨重启做当日去重)
+pub async fn mark_last_run(
+    pool: &SqlitePool,
+    schedule_id: &str,
+    when: chrono::NaiveDateTime,
+) -> AppResult<()> {
+    sqlx::query("UPDATE schedule_tasks SET last_run = ? WHERE id = ?")
+        .bind(when)
+        .bind(schedule_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
