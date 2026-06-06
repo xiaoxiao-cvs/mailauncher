@@ -47,6 +47,8 @@ sha2 = "0.10.9"
 md-5 = "0.10"
 # NapCat 登录二维码 PNG → data URL,推前端展示
 base64 = "0.22"
+# 自更新"选版本安装":用 updater 公钥验 Tauri 产出的 .sig 签名(minisign 格式)
+minisign-verify = "0.2"
 
 # Windows 专属底层查询(仅 Windows 编译):
 #   - Performance: PDH 读 \System\Processor Queue Length 算平均负载

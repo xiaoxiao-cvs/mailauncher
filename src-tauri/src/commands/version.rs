@@ -227,6 +227,96 @@ pub async fn get_channel_versions(
     version_service::get_channel_versions(&ch, limit).await
 }
 
+/// 安装启动器自更新(选定通道/版本):下载安装包 -> 用 updater 公钥验签 -> 拉起安装器并退出本应用。
+///
+/// Tauri updater 插件只能更到最新、不支持多通道+选版本,故走此自研路径,但沿用同一套签名校验
+/// (与 tauri.conf 同一把公钥)。仅 Windows 支持应用内安装,其它平台引导手动下载。
+/// 下载/安装进度经 `launcher-update-progress` 事件推送。
+#[tauri::command]
+pub async fn install_launcher_update(
+    app: AppHandle,
+    channel: String,
+    version: Option<String>,
+) -> AppResult<()> {
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (app, channel, version);
+        Err(AppError::InvalidInput(
+            "当前平台暂不支持应用内自更新,请到 Releases 页面手动下载安装".to_string(),
+        ))
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let target = version_service::resolve_install_target(&channel, version.as_deref()).await?;
+        info!(
+            "[自更新] 目标版本 {},下载 {}",
+            target.version, target.installer_name
+        );
+        let bytes = download_installer_with_progress(&app, &target.installer_url).await?;
+
+        // 安全关键:用内置 updater 公钥校验签名,未过不安装
+        let sig = version_service::fetch_text(&target.sig_url).await?;
+        version_service::verify_launcher_signature(&bytes, &sig)?;
+        info!("[自更新] 签名校验通过,准备安装 {}", target.version);
+
+        let installer_path = std::env::temp_dir().join(&target.installer_name);
+        std::fs::write(&installer_path, &bytes)?;
+        let _ = app.emit(
+            "launcher-update-progress",
+            serde_json::json!({ "phase": "installing", "version": target.version }),
+        );
+        std::process::Command::new(&installer_path)
+            .spawn()
+            .map_err(|e| AppError::Process(format!("启动安装器失败: {}", e)))?;
+        // 给安装器拉起的时间,随后退出本进程以便覆盖被占用的文件
+        tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+        app.exit(0);
+        Ok(())
+    }
+}
+
+/// 流式下载安装包,经 launcher-update-progress 事件回报下载进度。
+#[cfg(target_os = "windows")]
+async fn download_installer_with_progress(app: &AppHandle, url: &str) -> AppResult<Vec<u8>> {
+    use futures_util::StreamExt;
+
+    let resp = version_service::github_client()
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| AppError::Network(format!("下载安装包失败: {}", e)))?;
+    if !resp.status().is_success() {
+        return Err(AppError::Network(format!(
+            "下载安装包失败: HTTP {}",
+            resp.status()
+        )));
+    }
+    let total = resp.content_length().unwrap_or(0);
+    let mut downloaded: u64 = 0;
+    let mut buf: Vec<u8> = Vec::with_capacity(total as usize);
+    let mut stream = resp.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| AppError::Network(format!("下载中断: {}", e)))?;
+        downloaded += chunk.len() as u64;
+        buf.extend_from_slice(&chunk);
+        let percent = if total > 0 {
+            (downloaded as f64 / total as f64 * 100.0) as u32
+        } else {
+            0
+        };
+        let _ = app.emit(
+            "launcher-update-progress",
+            serde_json::json!({
+                "phase": "downloading",
+                "downloaded": downloaded,
+                "total": total,
+                "percent": percent
+            }),
+        );
+    }
+    Ok(buf)
+}
+
 // ==================== 工具函数 ====================
 
 /// 解析组件类型字符串

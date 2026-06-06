@@ -639,12 +639,183 @@ pub async fn get_channel_versions(
     })
 }
 
+// ==================== 自更新:选版本下载 + 验签 + 安装 ====================
+
+/// 自更新签名公钥(= tauri.conf 的 updater.pubkey,内容为 base64 的 .pub 文件文本)。
+/// 与 CI 签名所用私钥配对;换密钥时此处需与 tauri.conf 一并更新。
+const UPDATER_PUBKEY_B64: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEyOUMxMzM0MTFFNEQyMzUKUldRMTB1UVJOQk9jRXFvNWptM0h2cHE4Zm42cy94dUtxOUF4aTd1S0w2NUdzVHU0a3BmUG94dy8K";
+
+/// 校验数据的 Tauri/minisign 签名。
+///
+/// 入参均为 Tauri 形式:`pubkey_b64` 是 base64(.pub 文件文本);`sig_b64` 是 .sig 文件内容
+/// (同样 base64,内层为 minisign 签名文件文本)。校验失败(含被篡改/损坏)返回 Err。
+pub fn verify_tauri_signature(data: &[u8], sig_b64: &str, pubkey_b64: &str) -> AppResult<()> {
+    use base64::Engine;
+    use minisign_verify::{PublicKey, Signature};
+
+    let decode_text = |s: &str, what: &str| -> AppResult<String> {
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(s.trim())
+            .map_err(|e| AppError::Internal(format!("{} base64 解码失败: {}", what, e)))?;
+        String::from_utf8(bytes).map_err(|e| AppError::Internal(format!("{}非 UTF8: {}", what, e)))
+    };
+
+    let pub_text = decode_text(pubkey_b64, "公钥")?;
+    // .pub 文件首行为注释,真正的 minisign 公钥在其后一行
+    let key_line = pub_text
+        .lines()
+        .map(str::trim)
+        .find(|l| !l.is_empty() && !l.starts_with("untrusted comment"))
+        .ok_or_else(|| AppError::Internal("公钥内容缺少密钥行".to_string()))?;
+    let pk = PublicKey::from_base64(key_line)
+        .map_err(|e| AppError::Internal(format!("公钥解析失败: {}", e)))?;
+
+    let sig_text = decode_text(sig_b64, "签名")?;
+    let sig = Signature::decode(&sig_text)
+        .map_err(|e| AppError::Internal(format!("签名解析失败: {}", e)))?;
+
+    pk.verify(data, &sig, false)
+        .map_err(|e| AppError::Internal(format!("签名校验未通过(安装包可能被篡改或损坏): {}", e)))
+}
+
+/// 用内置 updater 公钥校验启动器安装包签名。
+#[cfg(target_os = "windows")]
+pub fn verify_launcher_signature(data: &[u8], sig_b64: &str) -> AppResult<()> {
+    verify_tauri_signature(data, sig_b64, UPDATER_PUBKEY_B64)
+}
+
+/// 自更新安装目标:某个 Release 在本平台的安装包及其签名。
+#[cfg(target_os = "windows")]
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallTarget {
+    /// 目标版本(Release tag)
+    pub version: String,
+    /// 安装包下载地址
+    pub installer_url: String,
+    /// 安装包文件名(落地用)
+    pub installer_name: String,
+    /// 签名文件(.sig)下载地址
+    pub sig_url: String,
+}
+
+/// 本平台安装包扩展名(目前仅 Windows 支持应用内自更新安装)。
+#[cfg(target_os = "windows")]
+const INSTALLER_EXT: &str = ".exe";
+
+/// 解析选定通道/版本的安装目标:在 Release 资产里定位本平台安装包及其 .sig。
+/// `version` 为 None 时取该通道最新 Release。缺签名文件则报错(拒绝无签名安装)。
+#[cfg(target_os = "windows")]
+pub async fn resolve_install_target(
+    channel: &str,
+    version: Option<&str>,
+) -> AppResult<InstallTarget> {
+    let releases = get_releases(LAUNCHER_OWNER, LAUNCHER_REPO, Some(50)).await?;
+    let release = releases
+        .iter()
+        .filter(|r| filter_by_channel(&r.tag_name, channel))
+        .find(|r| match version {
+            Some(v) => {
+                r.tag_name == v || r.tag_name.trim_start_matches('v') == v.trim_start_matches('v')
+            }
+            None => true,
+        })
+        .ok_or_else(|| {
+            AppError::NotFound(format!(
+                "通道 {} 未找到{}对应的 Release",
+                channel,
+                version.map(|v| format!("版本 {} ", v)).unwrap_or_default()
+            ))
+        })?;
+
+    let installer = release
+        .assets
+        .iter()
+        .find(|a| {
+            let n = a.name.to_lowercase();
+            n.ends_with(INSTALLER_EXT) && !n.ends_with(".sig")
+        })
+        .ok_or_else(|| {
+            AppError::NotFound(format!("Release {} 缺少本平台安装包", release.tag_name))
+        })?;
+
+    let sig_name = format!("{}.sig", installer.name);
+    let sig = release
+        .assets
+        .iter()
+        .find(|a| a.name == sig_name)
+        .ok_or_else(|| {
+            AppError::NotFound(format!(
+                "Release {} 的安装包缺少签名文件 {},无法安全校验,拒绝安装",
+                release.tag_name, sig_name
+            ))
+        })?;
+
+    Ok(InstallTarget {
+        version: release.tag_name.clone(),
+        installer_url: installer.download_url.clone(),
+        installer_name: installer.name.clone(),
+        sig_url: sig.download_url.clone(),
+    })
+}
+
+/// 下载小文本资源(签名文件)。
+#[cfg(target_os = "windows")]
+pub async fn fetch_text(url: &str) -> AppResult<String> {
+    let resp = github_client()
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| AppError::Network(format!("下载签名失败: {}", e)))?;
+    if !resp.status().is_success() {
+        return Err(AppError::Network(format!(
+            "下载签名失败: HTTP {}",
+            resp.status()
+        )));
+    }
+    resp.text()
+        .await
+        .map_err(|e| AppError::Network(format!("读取签名失败: {}", e)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::db::migration::run_migrations;
     use crate::models::download::DownloadItemType;
     use sqlx::SqlitePool;
+
+    // ==================== 自更新验签 ====================
+
+    // 下列向量由一次性临时密钥(密码 test)对 b"mailauncher-updater-test-vector" 真实签出
+    // (tauri signer),用于证明 verify_tauri_signature 正确处理 Tauri 的 base64 外层与
+    // minisign 内层格式。与生产 updater 公钥无关,生产公钥见 UPDATER_PUBKEY_B64。
+    const TEST_PUBKEY_B64: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU3MzY5NjFBNUNEOTI2NUQKUldSZEp0bGNHcFkyNThPUk5QOHpXbU8zTkVlQm5ONUdvVU1mK2YzQXl5M0JORElVY3AzT0pzcnIK";
+    const TEST_SIG_B64: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSZEp0bGNHcFkyNS9YQ2kydkNXSnJraDdWS1BqOWJYdGNjV2NiYVo5aHU0T1ArZkwweU5oaXJUR0M5MHMyYkJJakEyV2lPVE9oYlN2QUR6eGlBN2JNL2hoU1Ywczh6cUFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgwNzI3NjIzCWZpbGU6bWxhdW5jaGVyX3ZlYy5iaW4KNlR2dUQ2d2RlbG5VbkNGalVsVnJTYkVyU0xnUDVLZWN5Yy9DT1FKMXdTWnpRQ1N0UlpiZ2s3cHRuOWZXVSsweWV0SEZ1SXI1WmVzUHNiNmVNNlhZQ0E9PQo=";
+    const TEST_DATA: &[u8] = b"mailauncher-updater-test-vector";
+
+    #[test]
+    fn verify_accepts_valid_signature() {
+        verify_tauri_signature(TEST_DATA, TEST_SIG_B64, TEST_PUBKEY_B64).expect("合法签名应通过");
+    }
+
+    #[test]
+    fn verify_rejects_tampered_data() {
+        assert!(verify_tauri_signature(b"tampered-bytes", TEST_SIG_B64, TEST_PUBKEY_B64).is_err());
+    }
+
+    #[test]
+    fn verify_rejects_wrong_pubkey() {
+        // 用另一把公钥(生产 updater 公钥)验这条签名应失败
+        assert!(verify_tauri_signature(TEST_DATA, TEST_SIG_B64, UPDATER_PUBKEY_B64).is_err());
+    }
+
+    #[test]
+    fn verify_rejects_garbage_sig() {
+        assert!(
+            verify_tauri_signature(TEST_DATA, "not-valid-base64-!!!", TEST_PUBKEY_B64).is_err()
+        );
+    }
 
     // ==================== setup ====================
 

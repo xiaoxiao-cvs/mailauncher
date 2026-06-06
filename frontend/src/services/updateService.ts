@@ -139,3 +139,35 @@ export async function getCurrentVersion(): Promise<string> {
     return "0.1.0";
   }
 }
+
+/**
+ * 安装启动器自更新(选定通道/版本)。
+ *
+ * 调后端 install_launcher_update:下载安装包 -> 用 updater 公钥验签 -> 拉起安装器并退出本应用。
+ * 下载/安装进度经 launcher-update-progress 事件回报(percent 0-100)。
+ * version 留空(undefined)= 安装该通道最新版本。
+ * 注意:安装器拉起后本应用会退出,故 invoke 可能不会正常 resolve,属预期。
+ */
+export async function installLauncherUpdate(
+  channel: string,
+  version: string | undefined,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
+  const { listen } = await import("@tauri-apps/api/event");
+  const unlisten = await listen<{ phase: string; percent?: number }>(
+    "launcher-update-progress",
+    (event) => {
+      if (typeof event.payload.percent === "number") {
+        onProgress?.(event.payload.percent);
+      }
+    },
+  );
+  try {
+    await tauriInvoke("install_launcher_update", {
+      channel,
+      version: version ?? null,
+    });
+  } finally {
+    unlisten();
+  }
+}

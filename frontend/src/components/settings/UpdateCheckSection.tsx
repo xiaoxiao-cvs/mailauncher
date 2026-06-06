@@ -17,9 +17,9 @@ import {
   useCurrentVersionQuery,
   useChannelVersionsQuery,
   useCheckUpdateQuery,
-  useInstallTauriUpdateMutation,
   useOpenDownloadPageMutation,
 } from "@/hooks/queries/useUpdateQueries";
+import { installLauncherUpdate } from "@/services/updateService";
 import { UpdateDialog } from "@/components/update/UpdateDialog";
 
 const PLACEHOLDER = "—";
@@ -89,13 +89,14 @@ export function UpdateCheckSection() {
     isLoading: isChecking,
     refetch: checkForUpdates,
   } = useCheckUpdateQuery(selectedChannel);
-  const installTauriUpdateMutation = useInstallTauriUpdateMutation();
   const openDownloadMutation = useOpenDownloadPageMutation();
 
-  const installUpdate = async (_onProgress: (progress: number) => void) => {
-    if (updateInfo) {
-      await installTauriUpdateMutation.mutateAsync(updateInfo);
-    }
+  const installUpdate = async (onProgress: (progress: number) => void) => {
+    await installLauncherUpdate(
+      selectedChannel,
+      selectedVersion || undefined,
+      onProgress,
+    );
   };
 
   const downloadManually = () => {

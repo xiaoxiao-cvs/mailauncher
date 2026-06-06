@@ -194,6 +194,7 @@ pub fn run() {
             commands::version::get_component_releases,
             commands::version::check_launcher_update,
             commands::version::get_channel_versions,
+            commands::version::install_launcher_update,
             // 配置管理 — KV
             commands::config::get_all_configs,
             commands::config::get_config,

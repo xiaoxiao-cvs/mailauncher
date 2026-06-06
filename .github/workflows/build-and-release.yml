@@ -415,6 +415,44 @@ jobs:
           asset_name: MAI-Launcher-${{ needs.prepare.outputs.version }}-dev-windows-x64.msi
           asset_content_type: application/x-msi
 
+      # 自研"选版本安装"需要每个 Release 单独提供安装包签名(.sig)作为资产,
+      # 资产名 = 安装包资产名 + ".sig",与后端 resolve_install_target 的查找一致。
+      - name: Stage signature assets
+        id: sigs
+        run: |
+          NSIS_SIG=$(find artifacts/windows -name "*.exe.sig" | head -n 1)
+          DMG_SIG=$(find artifacts/macos -name "*.dmg.sig" | head -n 1)
+          if [ -f "$NSIS_SIG" ]; then
+            cp "$NSIS_SIG" ./nsis-installer.exe.sig
+            echo "has_nsis_sig=true" >> $GITHUB_OUTPUT
+          fi
+          if [ -f "$DMG_SIG" ]; then
+            cp "$DMG_SIG" ./dmg-installer.dmg.sig
+            echo "has_dmg_sig=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Windows NSIS signature
+        if: steps.sigs.outputs.has_nsis_sig == 'true'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./nsis-installer.exe.sig
+          asset_name: MAI-Launcher-${{ needs.prepare.outputs.version }}-dev-windows-x64-setup.exe.sig
+          asset_content_type: text/plain
+
+      - name: Upload macOS DMG signature
+        if: steps.sigs.outputs.has_dmg_sig == 'true'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dmg-installer.dmg.sig
+          asset_name: MAI-Launcher-${{ needs.prepare.outputs.version }}-dev-macos-universal.dmg.sig
+          asset_content_type: text/plain
+
       - name: Generate update manifest (latest.json)
         run: |
           cat > latest.json << 'EOF'
