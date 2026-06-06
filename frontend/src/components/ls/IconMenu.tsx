@@ -55,6 +55,10 @@ export function IconMenu({ items, align = "right" }: IconMenuProps) {
 
       <motion.div
         className={`absolute top-0 z-20 overflow-hidden ${edge}`}
+        onPointerLeave={(e) => {
+          // 鼠标/触控笔移出菜单即关(最轻);触摸设备无 hover,仍靠下方 fixed 背板点外部关闭。
+          if (open && e.pointerType !== "touch") setOpen(false);
+        }}
         initial={false}
         animate={{
           width: open ? EXPANDED_WIDTH : CLOSED,
