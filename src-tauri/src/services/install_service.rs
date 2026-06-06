@@ -4,12 +4,14 @@
 /// 负责虚拟环境创建、pip 升级、依赖安装、组件配置生成等。
 use std::path::Path;
 
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use toml_edit::{value, DocumentMut};
 use tracing::{info, warn};
 
 use crate::errors::{AppError, AppResult};
 use crate::services::download_service::run_command_with_output;
+use crate::services::source_proxy_service;
+use crate::state::AppState;
 
 /// NapCat 内置适配器的 SUPPORTED_CONFIG_VERSION。
 ///
@@ -191,14 +193,11 @@ pub async fn upgrade_pip(
 
     info!("升级 pip: {:?}", pip_path);
 
-    let output = run_command_with_output(
-        pip_str,
-        &["install", "--upgrade", "pip", "setuptools", "wheel"],
-        None,
-        app_handle,
-        event_name,
-    )
-    .await?;
+    let pypi_args = resolve_pypi_args(app_handle).await;
+    let mut args: Vec<&str> = vec!["install", "--upgrade", "pip", "setuptools", "wheel"];
+    args.extend(pypi_args.iter().map(String::as_str));
+
+    let output = run_command_with_output(pip_str, &args, None, app_handle, event_name).await?;
 
     if !output.success {
         warn!("pip 升级警告（非致命）: {}", output.stderr);
@@ -237,14 +236,12 @@ pub async fn install_dependencies(
     info!("安装依赖: {:?}", requirements);
     let deps_start = std::time::Instant::now();
 
-    let output = run_command_with_output(
-        pip_str,
-        &["install", "-r", req_str, "--no-warn-script-location"],
-        Some(project_dir),
-        app_handle,
-        event_name,
-    )
-    .await?;
+    let pypi_args = resolve_pypi_args(app_handle).await;
+    let mut args: Vec<&str> = vec!["install", "-r", req_str, "--no-warn-script-location"];
+    args.extend(pypi_args.iter().map(String::as_str));
+
+    let output =
+        run_command_with_output(pip_str, &args, Some(project_dir), app_handle, event_name).await?;
 
     if !output.success {
         let combined = if output.stdout.is_empty() {
@@ -449,6 +446,41 @@ pub async fn setup_adapter_config(
 }
 
 // ==================== 工具函数 ====================
+
+/// 构造 pip 的换源参数（--index-url，必要时附 --trusted-host）。
+///
+/// 取当前生效（启用且优先级最高）的 PyPI 源；官方源(pypi.org/simple)虽默认生效，
+/// 但与 pip 内置默认一致，无需显式注入，返回空以保持命令行干净。
+/// 明文 http 源额外注入 --trusted-host 规避 pip 的 TLS 校验拒绝。
+/// 读取失败或无启用源时返回空（pip 走内置默认源）。
+async fn resolve_pypi_args(app_handle: &AppHandle) -> Vec<String> {
+    let state = app_handle.state::<AppState>();
+    let config = match source_proxy_service::get_source_config(&state.db).await {
+        Ok(c) => c,
+        Err(e) => {
+            warn!("读取下载源配置失败，pip 走默认源: {}", e);
+            return Vec::new();
+        }
+    };
+
+    let Some(active) = source_proxy_service::pick_active_pypi(&config.pypi) else {
+        return Vec::new();
+    };
+
+    let index_url = active.index_url.trim();
+    // 官方默认源无需显式指定（与 pip 内置一致）。
+    if index_url.is_empty() || index_url == "https://pypi.org/simple" {
+        return Vec::new();
+    }
+
+    let mut args = vec!["--index-url".to_string(), index_url.to_string()];
+    if let Some(host) = source_proxy_service::trusted_host_for(index_url) {
+        args.push("--trusted-host".to_string());
+        args.push(host);
+    }
+    info!("pip 使用源: {} ({})", active.name, index_url);
+    args
+}
 
 /// 获取虚拟环境中的 pip 可执行文件路径
 fn get_venv_pip(venv_dir: &Path) -> std::path::PathBuf {

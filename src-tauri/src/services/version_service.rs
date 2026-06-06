@@ -65,8 +65,24 @@ const LAUNCHER_REPO: &str = "mailauncher";
 // ==================== GitHub API 客户端 ====================
 
 /// 创建 HTTP 客户端（带 User-Agent）
+///
+/// 代理来源：进程环境变量 HTTP_PROXY/HTTPS_PROXY/ALL_PROXY。这些 GitHub API 入口
+/// （check_launcher_update / get_channel_versions / get_component_releases）由其
+/// Tauri 命令签名所限拿不到 DB 池，故代理经 source_proxy_service::apply_proxy_to_process_env
+/// 在"保存代理"与"启动"两处同步进入进程环境，再由此显式读取并 .proxy() 注入，
+/// 与 git/pip 子进程的代理 env 来源一致。
 pub(crate) fn github_client() -> reqwest::Client {
     let mut builder = reqwest::Client::builder().user_agent("mailauncher/1.0");
+
+    // 显式应用代理（若进程环境已设置）。reqwest 虽默认探测 env 代理，
+    // 这里显式声明以保证行为可控、意图清晰。
+    if let Some(url) = proxy_url_from_env() {
+        if let Ok(proxy) = reqwest::Proxy::all(&url) {
+            builder = builder.proxy(proxy);
+        } else {
+            warn!("代理地址非法，GitHub 客户端跳过代理: {}", url);
+        }
+    }
 
     // 支持可选 GitHub token，提升速率限制 (60 → 5000 req/hour)
     if let Ok(token) = std::env::var("GITHUB_TOKEN") {
@@ -80,6 +96,28 @@ pub(crate) fn github_client() -> reqwest::Client {
     }
 
     builder.build().unwrap_or_else(|_| reqwest::Client::new())
+}
+
+/// 从进程环境变量读取代理地址（按 HTTPS_PROXY → HTTP_PROXY → ALL_PROXY 优先）。
+///
+/// 未设置任何代理变量时返回 None（客户端走直连）。
+fn proxy_url_from_env() -> Option<String> {
+    for key in [
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+    ] {
+        if let Ok(val) = std::env::var(key) {
+            let val = val.trim();
+            if !val.is_empty() {
+                return Some(val.to_string());
+            }
+        }
+    }
+    None
 }
 
 /// 从 GitHub API 获取最新 commit

@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use chrono::Utc;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Mutex;
 use tracing::{info, warn};
 
@@ -17,6 +17,8 @@ use sqlx::SqlitePool;
 
 use crate::errors::{AppError, AppResult};
 use crate::models::download::*;
+use crate::services::source_proxy_service;
+use crate::state::AppState;
 
 // ==================== 仓库配置 ====================
 
@@ -53,6 +55,40 @@ pub fn get_repo_config(item_type: &DownloadItemType) -> RepoConfig {
 /// NapCat Shell 下载地址
 const NAPCAT_SHELL_URL: &str =
     "https://github.com/NapNeko/NapCatQQ/releases/latest/download/NapCat.Shell.zip";
+
+// ==================== 代理 / 镜像注入 ====================
+
+/// 从 AppHandle 持有的 AppState 读取当前代理配置，构造需注入子进程的环境变量。
+///
+/// 代理未启用或读取失败时返回空列表（不注入任何代理 env），让出站走默认直连。
+/// 之所以在此读：clone_repository / run_command_with_output 只拿得到 app_handle，
+/// 经 `app.state::<AppState>()` 取 db 池，避免改动这两个函数对外的签名与全部调用方。
+async fn resolve_proxy_env(app_handle: &AppHandle) -> Vec<(String, String)> {
+    let state = app_handle.state::<AppState>();
+    match source_proxy_service::get_network_proxy(&state.db).await {
+        Ok(proxy) => source_proxy_service::build_proxy_env(&proxy),
+        Err(e) => {
+            warn!("读取代理配置失败，本次出站不注入代理: {}", e);
+            Vec::new()
+        }
+    }
+}
+
+/// 读取当前生效的 GitHub 镜像前缀（启用且优先级最高者）。
+///
+/// 无启用镜像或读取失败时返回空串（官方直连，URL 原样使用）。
+async fn resolve_github_prefix(app_handle: &AppHandle) -> String {
+    let state = app_handle.state::<AppState>();
+    match source_proxy_service::get_source_config(&state.db).await {
+        Ok(config) => source_proxy_service::pick_active_github(&config.github)
+            .map(|m| m.prefix.clone())
+            .unwrap_or_default(),
+        Err(e) => {
+            warn!("读取下载源配置失败，GitHub 走官方直连: {}", e);
+            String::new()
+        }
+    }
+}
 
 // ==================== 下载管理器 ====================
 
@@ -312,12 +348,20 @@ pub async fn clone_repository(
             .map_err(|e| AppError::FileSystem(format!("清理目标目录失败: {}", e)))?;
     }
 
+    // 应用当前生效的 GitHub 前缀镜像（启用且优先级最高者；无则官方直连原样）。
+    let mirror_prefix = resolve_github_prefix(app_handle).await;
+    let effective_url = source_proxy_service::apply_github_mirror(repo_url, &mirror_prefix);
+    if effective_url != repo_url {
+        info!("应用 GitHub 镜像: {} -> {}", repo_url, effective_url);
+        let _ = app_handle.emit(event_name, &format!("使用镜像源克隆: {}", effective_url));
+    }
+
     let mut args = vec!["clone", "--progress", "--depth", "1"];
     if let Some(b) = branch {
         args.push("-b");
         args.push(b);
     }
-    args.push(repo_url);
+    args.push(&effective_url);
     args.push(
         target_dir
             .to_str()
@@ -620,6 +664,11 @@ pub async fn run_command_with_output(
         // 强制 Python 子进程使用 UTF-8，避免 Windows 中文环境 GBK 编码导致管道断裂
         .env("PYTHONIOENCODING", "utf-8")
         .env("PYTHONUTF8", "1");
+
+    // 注入网络代理环境变量（启用时）。git/pip 均经此处执行，统一在此收口出站代理。
+    for (key, val) in resolve_proxy_env(app_handle).await {
+        cmd.env(key, val);
+    }
 
     if let Some(dir) = cwd {
         cmd.current_dir(dir);

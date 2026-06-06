@@ -18,6 +18,7 @@ import { InstanceTerminalPanel } from "@/components/instances/detail/InstanceTer
 import { InstanceControlBar } from "@/components/instances/detail/InstanceControlBar";
 import { NapcatQrPanel } from "@/components/instances/detail/NapcatQrPanel";
 import { InstanceQuickActions } from "@/components/instances/detail/InstanceQuickActions";
+import { InstanceAutorestartToggle } from "@/components/instances/detail/InstanceAutorestartToggle";
 import {
   useInstanceQuery,
   useComponentStatusQuery,
@@ -209,6 +210,7 @@ export const InstanceDetailPage: React.FC = () => {
             onOpenSchedule={() => setIsScheduleModalOpen(true)}
             onOpenVersionManager={() => setIsVersionManagerOpen(true)}
           />
+          <InstanceAutorestartToggle instanceId={instance.id} />
           <VersionManagementSection instanceId={instance.id} />
         </div>
 

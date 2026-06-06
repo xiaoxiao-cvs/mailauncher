@@ -111,6 +111,15 @@ async fn stop_components_in_order(
     let mut results = Vec::new();
 
     for component in components {
+        // 先置期望态为 Stopped 再停:防止看门狗在停止窗口内把刚停的组件又拉起。
+        // 重启场景下后续 start 会重新置回 Running,故此处统一置 Stopped 是安全的。
+        process_manager
+            .set_desired(
+                instance_id,
+                component.component.internal_key(),
+                crate::services::process_service::DesiredState::Stopped,
+            )
+            .await;
         let success = process_manager
             .stop_process(instance_id, component.component.internal_key(), false)
             .await?;
@@ -152,6 +161,23 @@ async fn start_component_inner(
 
     let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
 
+    // 启动前健壮性把关仅适用本地托管:WSL2 的端口/venv 都在 guest 内,用宿主回环探测与宿主
+    // .venv 路径校验会误判,故跳过(WSL2 的就绪由其运行时路径负责)。
+    // 且仅当本组件确认未在运行时才校验(运行中的本组件自身就占着端口,不算冲突)。
+    if matches!(runtime_kind, crate::models::RuntimeKind::Local)
+        && !process_manager
+            .is_component_running(instance_id, component_spec.component.internal_key())
+            .await
+    {
+        // 端口冲突探测:被占则直接冒泡清晰错误,不启动(避免起一个必然失败的进程)。
+        crate::services::process_service::ensure_component_ports_free(component_spec.component)?;
+
+        // MaiBot 启动前校验 venv 依赖就绪;缺失则冒泡可操作错误指引用户重装。
+        if component_spec.component == ComponentType::Main {
+            crate::services::process_service::ensure_maibot_dependencies_ready(instance_path)?;
+        }
+    }
+
     // NapCat 启动前:幂等修好已存在的 onebot11(本次启动即读到正确配置,覆盖"已登录过的重启"场景)。
     // 失败不阻断启动——大不了退回手动 WebUI 配。
     if component_spec.component == ComponentType::NapCat {
@@ -172,6 +198,15 @@ async fn start_component_inner(
             &env,
         )
         .await?;
+
+    // 用户主动启动 -> 记录期望态为 Running,看门狗据此在进程异常退出时自动重启。
+    process_manager
+        .set_desired(
+            instance_id,
+            component_spec.component.internal_key(),
+            crate::services::process_service::DesiredState::Running,
+        )
+        .await;
 
     // 如果返回了 reader（新启动的进程），启动输出读取任务
     if let Some(reader) = reader {

@@ -30,6 +30,16 @@ enum ProcessAttachmentKind {
     External,
 }
 
+/// 组件的期望运行态(用户意图),与实际进程存活状态分离。
+///
+/// 看门狗仅在期望态为 Running 而进程已退时才考虑自动重启,
+/// 从而把"用户主动停止"与"进程异常崩溃"区分开:前者期望态为 Stopped,绝不重启。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DesiredState {
+    Running,
+    Stopped,
+}
+
 #[derive(Debug, Clone)]
 struct ExternalProcessHandle {
     session_id: String,
@@ -252,6 +262,8 @@ fn external_process_placeholder(process: &crate::runtime::DiscoveredRuntimeProce
 struct ProcessManagerInner {
     /// session_id -> ProcessInfo
     processes: HashMap<String, ProcessInfo>,
+    /// session_id -> 期望运行态(用户意图,看门狗据此决定是否自动重启)
+    desired_states: HashMap<String, DesiredState>,
     /// PTY 行数
     pty_rows: u16,
     /// PTY 列数
@@ -286,6 +298,7 @@ impl ProcessManager {
         Self {
             inner: Arc::new(Mutex::new(ProcessManagerInner {
                 processes: HashMap::new(),
+                desired_states: HashMap::new(),
                 pty_rows,
                 pty_cols,
                 system: System::new(),
@@ -296,6 +309,53 @@ impl ProcessManager {
     /// 生成会话 ID
     fn session_id(instance_id: &str, component: &str) -> String {
         format!("{}::{}", instance_id, component)
+    }
+
+    /// 记录组件的期望运行态。
+    ///
+    /// 用户启动组件时置 Running、停止时置 Stopped;看门狗只重启期望态为 Running 的崩溃组件。
+    pub async fn set_desired(&self, instance_id: &str, component: &str, desired: DesiredState) {
+        let session_id = Self::session_id(instance_id, component);
+        let mut inner = self.inner.lock().await;
+        inner.desired_states.insert(session_id, desired);
+    }
+
+    /// 读取组件的期望运行态;从未设置过返回 None(看门狗据此跳过未被用户管理过的组件)。
+    ///
+    /// 看门狗巡检走更高效的 list_desired_running 批量枚举;此单查方法作为期望态公共 API 保留,
+    /// 供命令层按需精确查询单组件意图(故标注 allow(dead_code),与本文件其它公共 API 方法一致)。
+    #[allow(dead_code)]
+    pub async fn get_desired(&self, instance_id: &str, component: &str) -> Option<DesiredState> {
+        let session_id = Self::session_id(instance_id, component);
+        let inner = self.inner.lock().await;
+        inner.desired_states.get(&session_id).copied()
+    }
+
+    /// 枚举所有期望态为 Running 的 (instance_id, component) 会话,供看门狗轮询巡检。
+    ///
+    /// 仅返回本地托管(非外部接管)的会话:外部进程的存活与停止由其运行时探测路径管理,
+    /// 不在看门狗自动重启职责内。
+    pub async fn list_desired_running(&self) -> Vec<(String, String)> {
+        let inner = self.inner.lock().await;
+        inner
+            .desired_states
+            .iter()
+            .filter(|(_, desired)| matches!(desired, DesiredState::Running))
+            .filter_map(|(session_id, _)| {
+                // 外部接管会话交给运行时探测,不归看门狗重启
+                if inner
+                    .processes
+                    .get(session_id)
+                    .map(|proc| proc.is_external())
+                    .unwrap_or(false)
+                {
+                    return None;
+                }
+                session_id.split_once("::").map(|(instance_id, component)| {
+                    (instance_id.to_string(), component.to_string())
+                })
+            })
+            .collect()
     }
 
     async fn is_external_process_alive(handle: &ExternalProcessHandle) -> bool {
@@ -1089,6 +1149,152 @@ pub fn build_component_command(
     Ok((resolved.command, resolved.args, resolved.cwd))
 }
 
+// ==================== 端口冲突检测 ====================
+
+/// NapCat 作为 OneBot 服务端监听的正向 WS 端口。
+///
+/// 与 `napcat_config::ADAPTER_WS_PORT` 及 `install_service::ADAPTER_DEFAULT_NAPCAT_PORT`
+/// 同源(均为 3001):NapCat 在此端口起 WS 服务端,MaiBot 内置适配器作为客户端连入。
+/// 若上一轮 NapCat 未退干净仍占着 3001,新进程会因端口被占而起不来,故启动前先探测。
+const NAPCAT_FORWARD_WS_PORT: u16 = 3001;
+
+/// 返回某组件启动后会以服务端身份监听的本地端口(用于启动前冲突探测)。
+///
+/// 仅收录代码库中有确切定义来源的端口:NapCat 的 3001。MaiBot 的 bot.py 不由启动器
+/// 绑定固定端口(上游未在本仓暴露 WebUI 端口常量),故返回空,不臆造端口。
+fn component_listen_ports(component: ComponentType) -> &'static [u16] {
+    match component {
+        ComponentType::NapCat => &[NAPCAT_FORWARD_WS_PORT],
+        ComponentType::Main => &[],
+    }
+}
+
+/// 探测 127.0.0.1:port 是否已被占用(能在超时内成功 TCP 连上即视为被占)。
+///
+/// 抽成纯函数便于单测:传入临时监听 socket 的端口应判定为占用,空闲端口应判定为空闲。
+fn is_tcp_port_in_use(port: u16) -> bool {
+    use std::net::{Ipv4Addr, SocketAddr, TcpStream};
+    use std::time::Duration;
+
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
+    // 短超时:本地回环连接要么立即成功(被占),要么立即 RST(空闲),300ms 足够覆盖偶发抖动。
+    TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
+}
+
+/// 启动组件前校验其将监听的端口是否空闲;任一端口被占即返回清晰错误并指出端口与组件,不启动。
+///
+/// 与 `ProcessManager::is_component_running` 配合:仅在本组件确认未在运行时才需要此探测
+/// (运行中的本组件自身就占着端口,不应误判为冲突),调用点在 process_service 启动路径上把关。
+pub fn ensure_component_ports_free(component: ComponentType) -> AppResult<()> {
+    for &port in component_listen_ports(component) {
+        if is_tcp_port_in_use(port) {
+            return Err(AppError::Process(format!(
+                "端口 {} 已被占用,无法启动组件 {};请先停止占用该端口的进程(可能是上一轮未退干净的同组件)后重试",
+                port,
+                component.display_name()
+            )));
+        }
+    }
+    Ok(())
+}
+
+// ==================== 启动前依赖校验 ====================
+
+/// MaiBot venv 就绪必须存在的关键包目录(取自 maibot-ref/MaiBot/requirements.txt 的核心运行时依赖)。
+///
+/// 仅做"装没装过依赖"的存在性校验,不校验版本:任一目录缺失即认为 venv 未就绪。
+/// 选这几个是因为它们是 MaiBot 启动即 import 的硬依赖,缺失必然导致 bot.py 崩在 import 阶段。
+const MAIBOT_REQUIRED_PACKAGE_DIRS: &[&str] = &["fastapi", "uvicorn", "tomlkit", "rich"];
+
+/// 在 venv 的 site-packages 下定位某包的导入目录或 dist-info,判断该包是否已安装。
+///
+/// 兼容两种布局:包目录(如 `site-packages/fastapi/`)与仅有 dist-info 的情形
+/// (如 `site-packages/fastapi-0.x.dist-info/`,namespace/单文件包会走这条)。
+fn package_present_in_site_packages(site_packages: &Path, package: &str) -> bool {
+    if site_packages.join(package).is_dir() {
+        return true;
+    }
+    // 回退:扫 dist-info 目录。wheel/PEP 503 命名为 "<name>-<version>.dist-info",其中包名段
+    // 把 '-' 规范化为 '_'。故取 entry 去掉 .dist-info 后、第一个 '-'(版本分隔符)之前的包名段,
+    // 规范化('-'->'_'、小写)后与目标包名比对。不可整体替换连字符,否则会误伤版本分隔符与后缀。
+    let normalized = package.replace('-', "_").to_lowercase();
+    std::fs::read_dir(site_packages)
+        .ok()
+        .map(|entries| {
+            entries.flatten().any(|entry| {
+                entry
+                    .file_name()
+                    .to_str()
+                    .map(|name| {
+                        let lower = name.to_lowercase();
+                        let Some(stem) = lower.strip_suffix(".dist-info") else {
+                            return false;
+                        };
+                        let pkg_part = stem.split('-').next().unwrap_or("");
+                        pkg_part.replace('-', "_") == normalized
+                    })
+                    .unwrap_or(false)
+            })
+        })
+        .unwrap_or(false)
+}
+
+/// 定位 venv 的 site-packages 目录(跨平台:Windows 在 venv/Lib/site-packages,Unix 在
+/// venv/lib/pythonX.Y/site-packages)。Unix 下逐个匹配 pythonX.Y 子目录,取第一个含 site-packages 的。
+fn locate_site_packages(venv_dir: &Path) -> Option<std::path::PathBuf> {
+    if cfg!(target_os = "windows") {
+        let candidate = venv_dir.join("Lib").join("site-packages");
+        return candidate.is_dir().then_some(candidate);
+    }
+    let lib_dir = venv_dir.join("lib");
+    let entries = std::fs::read_dir(&lib_dir).ok()?;
+    for entry in entries.flatten() {
+        let candidate = entry.path().join("site-packages");
+        if candidate.is_dir() {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+/// 启动 MaiBot 前校验其 venv 依赖是否就绪;未就绪返回清晰的可操作错误,指引用户重装实例依赖。
+///
+/// 设计降级说明:理想路径是缺失时自动补装(复用 install_service::install_dependencies),
+/// 但该函数签名需 &AppHandle 且会向前端推送安装事件,属安装流程职责,且 install_service
+/// 在本切片不可编辑;故此处降级为"校验 + 报错指引",把自动补装的接线留给主循环/安装流程。
+pub fn ensure_maibot_dependencies_ready(instance_root: &Path) -> AppResult<()> {
+    let venv_dir = instance_root.join(".venv");
+    // venv 本身不存在:实例尚未完成依赖安装,直接给出重装指引。
+    if !venv_dir.is_dir() {
+        return Err(AppError::Process(format!(
+            "MaiBot 运行环境(.venv)不存在: {};请在版本管理中重新安装该实例的依赖后再启动",
+            venv_dir.display()
+        )));
+    }
+
+    let site_packages = locate_site_packages(&venv_dir).ok_or_else(|| {
+        AppError::Process(format!(
+            "MaiBot venv 缺少 site-packages 目录(环境损坏): {};请重新安装该实例的依赖",
+            venv_dir.display()
+        ))
+    })?;
+
+    let missing: Vec<&str> = MAIBOT_REQUIRED_PACKAGE_DIRS
+        .iter()
+        .copied()
+        .filter(|package| !package_present_in_site_packages(&site_packages, package))
+        .collect();
+
+    if !missing.is_empty() {
+        return Err(AppError::Process(format!(
+            "MaiBot 依赖未就绪,缺少关键包: {};请在版本管理中重新安装该实例的依赖后再启动",
+            missing.join(", ")
+        )));
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
@@ -1257,5 +1463,175 @@ mod tests {
             .get_output_history("inst_test", "main", 10)
             .await
             .is_empty());
+    }
+
+    // ==================== 期望态 ====================
+
+    #[tokio::test]
+    async fn desired_state_defaults_to_none_then_roundtrips() {
+        use super::DesiredState;
+        let manager = ProcessManager::new();
+
+        // 从未设置过 -> None(看门狗据此跳过未被管理的组件)
+        assert_eq!(manager.get_desired("inst_x", "main").await, None);
+
+        manager
+            .set_desired("inst_x", "main", DesiredState::Running)
+            .await;
+        assert_eq!(
+            manager.get_desired("inst_x", "main").await,
+            Some(DesiredState::Running)
+        );
+
+        manager
+            .set_desired("inst_x", "main", DesiredState::Stopped)
+            .await;
+        assert_eq!(
+            manager.get_desired("inst_x", "main").await,
+            Some(DesiredState::Stopped)
+        );
+    }
+
+    #[tokio::test]
+    async fn list_desired_running_returns_only_running_sessions() {
+        use super::DesiredState;
+        let manager = ProcessManager::new();
+
+        manager
+            .set_desired("inst_a", "main", DesiredState::Running)
+            .await;
+        manager
+            .set_desired("inst_a", "napcat", DesiredState::Stopped)
+            .await;
+        manager
+            .set_desired("inst_b", "napcat", DesiredState::Running)
+            .await;
+
+        let mut running = manager.list_desired_running().await;
+        running.sort();
+
+        assert_eq!(
+            running,
+            vec![
+                ("inst_a".to_string(), "main".to_string()),
+                ("inst_b".to_string(), "napcat".to_string()),
+            ]
+        );
+    }
+
+    // ==================== 端口冲突检测 ====================
+
+    #[test]
+    fn is_tcp_port_in_use_detects_bound_socket() {
+        use std::net::{Ipv4Addr, TcpListener};
+
+        // 临时监听一个 OS 分配的空闲端口,该端口应被判定为占用。
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("绑定临时监听失败");
+        let port = listener.local_addr().expect("读取本地端口失败").port();
+
+        assert!(
+            super::is_tcp_port_in_use(port),
+            "已被监听的端口应判定为占用"
+        );
+
+        // 释放监听后,同一端口应判定为空闲。
+        drop(listener);
+        assert!(!super::is_tcp_port_in_use(port), "释放后的端口应判定为空闲");
+    }
+
+    #[test]
+    fn napcat_listen_ports_include_forward_ws_and_main_has_none() {
+        assert_eq!(
+            super::component_listen_ports(ComponentType::NapCat),
+            &[super::NAPCAT_FORWARD_WS_PORT]
+        );
+        // MaiBot 无启动器绑定的固定端口,不臆造。
+        assert!(super::component_listen_ports(ComponentType::Main).is_empty());
+    }
+
+    #[test]
+    fn ensure_component_ports_free_passes_for_main() {
+        // Main 无监听端口,任何情况下都应放行。
+        assert!(super::ensure_component_ports_free(ComponentType::Main).is_ok());
+    }
+
+    // ==================== 依赖预检 ====================
+
+    #[test]
+    fn ensure_maibot_dependencies_ready_errors_when_venv_missing() {
+        let temp_root =
+            std::env::temp_dir().join(format!("mailauncher-dep-novenv-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("创建测试实例根失败");
+
+        let result = super::ensure_maibot_dependencies_ready(&temp_root);
+        assert!(result.is_err(), "缺少 .venv 应报错");
+        let message = result.unwrap_err().to_string();
+        assert!(
+            message.contains(".venv"),
+            "错误应指出 .venv 缺失: {}",
+            message
+        );
+
+        let _ = std::fs::remove_dir_all(&temp_root);
+    }
+
+    #[test]
+    fn ensure_maibot_dependencies_ready_errors_when_key_package_missing() {
+        let temp_root =
+            std::env::temp_dir().join(format!("mailauncher-dep-partial-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp_root);
+
+        // 构造一个 site-packages,只放一部分关键包,剩余应被判定为缺失。
+        let site_packages = if cfg!(target_os = "windows") {
+            temp_root.join(".venv").join("Lib").join("site-packages")
+        } else {
+            temp_root
+                .join(".venv")
+                .join("lib")
+                .join("python3.12")
+                .join("site-packages")
+        };
+        std::fs::create_dir_all(site_packages.join("fastapi")).expect("创建包目录失败");
+        std::fs::create_dir_all(site_packages.join("uvicorn")).expect("创建包目录失败");
+        // 故意不创建 tomlkit / rich
+
+        let result = super::ensure_maibot_dependencies_ready(&temp_root);
+        assert!(result.is_err(), "关键包缺失应报错");
+        let message = result.unwrap_err().to_string();
+        assert!(message.contains("tomlkit"), "错误应列出缺失包: {}", message);
+        assert!(message.contains("rich"), "错误应列出缺失包: {}", message);
+
+        let _ = std::fs::remove_dir_all(&temp_root);
+    }
+
+    #[test]
+    fn ensure_maibot_dependencies_ready_passes_when_all_present() {
+        let temp_root =
+            std::env::temp_dir().join(format!("mailauncher-dep-ok-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp_root);
+
+        let site_packages = if cfg!(target_os = "windows") {
+            temp_root.join(".venv").join("Lib").join("site-packages")
+        } else {
+            temp_root
+                .join(".venv")
+                .join("lib")
+                .join("python3.12")
+                .join("site-packages")
+        };
+        // fastapi 用包目录,tomlkit 用 dist-info 验证回退路径,其余用包目录。
+        std::fs::create_dir_all(site_packages.join("fastapi")).expect("创建包目录失败");
+        std::fs::create_dir_all(site_packages.join("uvicorn")).expect("创建包目录失败");
+        std::fs::create_dir_all(site_packages.join("tomlkit-0.13.2.dist-info"))
+            .expect("创建 dist-info 失败");
+        std::fs::create_dir_all(site_packages.join("rich")).expect("创建包目录失败");
+
+        assert!(
+            super::ensure_maibot_dependencies_ready(&temp_root).is_ok(),
+            "全部关键包就绪应放行"
+        );
+
+        let _ = std::fs::remove_dir_all(&temp_root);
     }
 }

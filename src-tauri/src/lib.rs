@@ -134,6 +134,18 @@ pub fn run() {
             // 启动计划任务执行器(后台 tick 轮询到点的计划任务并触发实例动作)
             services::schedule_executor::spawn_scheduler(app.handle().clone());
 
+            // 启动进程看门狗(后台 tick 巡检期望运行的本地托管组件,异常退出时带退避自动重启)
+            services::watchdog::spawn_watchdog(app.handle().clone());
+
+            // 启动时把持久化的网络代理应用到进程环境变量,使无 State 的 reqwest 出站(GitHub API/启动器更新)即刻生效
+            let proxy_pool = app.state::<AppState>().db.clone();
+            tauri::async_runtime::spawn(async move {
+                match services::source_proxy_service::get_network_proxy(&proxy_pool).await {
+                    Ok(proxy) => services::source_proxy_service::apply_proxy_to_process_env(&proxy),
+                    Err(e) => tracing::warn!("启动时应用代理配置失败: {}", e),
+                }
+            });
+
             Ok(())
         })
         .manage(app_state)
@@ -228,6 +240,11 @@ pub fn run() {
             commands::schedule::update_schedule,
             commands::schedule::delete_schedule,
             commands::schedule::toggle_schedule,
+            // 网络代理与源管理
+            commands::source_proxy::get_network_proxy,
+            commands::source_proxy::set_network_proxy,
+            commands::source_proxy::get_source_config,
+            commands::source_proxy::save_source_config,
             // 统计数据
             commands::stats::get_stats_overview,
             commands::stats::get_aggregated_stats,

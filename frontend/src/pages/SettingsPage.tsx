@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings, Server, KeyRound } from "lucide-react";
+import { Settings, Server, KeyRound, Globe } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ls";
 import {
@@ -8,6 +8,8 @@ import {
   GitEnvironmentPanel,
   DeploymentPathPanel,
   PythonEnvironmentPanel,
+  NetworkProxyPanel,
+  SourceManagerPanel,
 } from "@/components/settings";
 import { ApiProviderConfig } from "@/components/onboarding/ApiProviderConfig";
 
@@ -46,6 +48,13 @@ export function SettingsPage() {
               <KeyRound className="h-4 w-4" />
               模型 API
             </TabsTrigger>
+            <TabsTrigger
+              value="network"
+              className="inline-flex items-center gap-2"
+            >
+              <Globe className="h-4 w-4" />
+              网络与源
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -68,6 +77,11 @@ export function SettingsPage() {
             <div className="min-h-[480px]">
               <ApiProviderConfig stepColor="var(--ls-life)" />
             </div>
+          </TabsContent>
+
+          <TabsContent value="network" className="mt-0 space-y-6 outline-none">
+            <NetworkProxyPanel />
+            <SourceManagerPanel />
           </TabsContent>
         </div>
       </Tabs>
