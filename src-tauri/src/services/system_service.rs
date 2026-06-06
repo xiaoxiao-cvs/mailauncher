@@ -604,6 +604,7 @@ mod tests {
     // ==================== try_add_python ====================
 
     #[test]
+    #[ignore = "依赖真机 PATH 上存在真 python(本机命中商店 stub、不同 CI runner 也不一);专项任务修复中"]
     fn try_add_python_adds_valid_python() {
         let mut found = Vec::new();
         let mut seen = HashSet::new();
@@ -642,6 +643,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "依赖真机 PATH 上存在真 python(本机命中商店 stub、不同 CI runner 也不一);专项任务修复中"]
     fn try_add_python_deduplicates_same_path() {
         let mut found = Vec::new();
         let mut seen = HashSet::new();

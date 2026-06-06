@@ -9,8 +9,10 @@ env:
 
 jobs:
   # 质量检查阶段：运行测试和代码检查
+  # 在 windows 跑:app 只发 Windows+macOS、不出 Linux 包,在 Linux 上编译整个 Tauri GUI
+  # 仅为过测试门,既要维护 GTK/glib 等系统依赖又冒 Linux 移植性风险;放到真实目标平台测更稳。
   quality-check:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -43,21 +45,6 @@ jobs:
       - name: Run frontend tests
         working-directory: frontend
         run: pnpm test
-
-      # 在 ubuntu 上编译 Tauri(cargo test/clippy)需要 GTK/WebKit/glib 等系统库,
-      # 否则 glib-sys 等的 build script 因 pkg-config 找不到 glib-2.0 而失败。
-      - name: Install Linux system dependencies (Tauri)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libgtk-3-dev \
-            libglib2.0-dev \
-            librsvg2-dev \
-            libayatana-appindicator3-dev \
-            libxdo-dev \
-            libssl-dev \
-            patchelf
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
