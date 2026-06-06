@@ -168,6 +168,18 @@ pub struct NapcatQrCode {
     pub mtime_ms: u64,
 }
 
+/// NapCat 登录成功的日志标记。等扫码阶段不会出现,登录后必现其一:
+/// "登录成功"(QR 登录成功)、"适配器初始化完成"(登录后才初始化协议适配器)、
+/// "接收 <-"(已在线并收到消息)。命中任一即视为已登录。
+const NAPCAT_LOGIN_MARKERS: &[&str] = &["登录成功", "适配器初始化完成", "接收 <-"];
+
+/// 从 NapCat 进程最近输出判断是否已登录(纯函数,便于单测)。
+fn napcat_login_detected(lines: &[String]) -> bool {
+    lines
+        .iter()
+        .any(|line| NAPCAT_LOGIN_MARKERS.iter().any(|m| line.contains(m)))
+}
+
 /// 读取 NapCat 登录二维码。NapCat 在等扫码登录时把二维码存为 `<实例>/NapCat/cache/qrcode.png`,
 /// 本命令读出转 data URL 推前端展示,免去看终端字符二维码。文件不存在(未在等扫码/已登录)返回 None。
 #[tauri::command]
@@ -190,6 +202,15 @@ pub async fn get_napcat_qrcode(
     if !path.is_file() {
         return Ok(None);
     }
+    // 已登录即收回:扫 NapCat 进程最近输出,命中登录成功标记则返回 None,
+    // 让前端立即撤掉作废的二维码(不必等 png 的 mtime 转旧才消失)。
+    let recent = state
+        .process_manager
+        .get_output_history(&instance_id, "NapCat", 200)
+        .await;
+    if napcat_login_detected(&recent) {
+        return Ok(None);
+    }
     let bytes = std::fs::read(&path)?;
     let mtime_ms = std::fs::metadata(&path)?
         .modified()
@@ -203,4 +224,45 @@ pub async fn get_napcat_qrcode(
         data_url: format!("data:image/png;base64,{}", b64),
         mtime_ms,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn login_detected_on_adapter_init() {
+        let lines = vec![
+            "[AdapterManager] 开始初始化协议适配器...".to_string(),
+            "[AdapterManager] OneBot11 适配器初始化完成".to_string(),
+        ];
+        assert!(napcat_login_detected(&lines));
+    }
+
+    #[test]
+    fn login_detected_on_success_marker() {
+        assert!(napcat_login_detected(&["登录成功".to_string()]));
+    }
+
+    #[test]
+    fn login_detected_on_receiving_message() {
+        let lines = vec!["接收 <- 群聊 [测试群(123)] [某人(456)] 在吗".to_string()];
+        assert!(napcat_login_detected(&lines));
+    }
+
+    #[test]
+    fn not_logged_in_while_waiting_for_scan() {
+        // 等扫码阶段的典型输出,无任何登录标记,二维码应保留
+        let lines = vec![
+            "二维码已保存到 .../NapCat/cache/qrcode.png".to_string(),
+            "二维码解码URL: https://txz.qq.com/p?k=xxx&f=1600001604".to_string(),
+            "如果控制台二维码无法扫码,可以复制解码url到二维码生成网站再扫码".to_string(),
+        ];
+        assert!(!napcat_login_detected(&lines));
+    }
+
+    #[test]
+    fn not_detected_on_empty() {
+        assert!(!napcat_login_detected(&[]));
+    }
 }
