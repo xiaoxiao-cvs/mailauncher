@@ -1,13 +1,7 @@
 import { useState } from "react";
-import { Settings, Server, Save } from "lucide-react";
+import { Settings, Server, KeyRound } from "lucide-react";
 
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  TactileButton,
-} from "@/components/ls";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ls";
 import {
   ThemeSettings,
   UpdateCheckSection,
@@ -15,17 +9,10 @@ import {
   DeploymentPathPanel,
   PythonEnvironmentPanel,
 } from "@/components/settings";
+import { ApiProviderConfig } from "@/components/onboarding/ApiProviderConfig";
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState("launcher");
-
-  const [gitPath, setGitPath] = useState("/usr/bin/git");
-  const [deployPath, setDeployPath] = useState(
-    "/Users/xaoxiao/mailauncher-data",
-  );
-  const [pythonPath, setPythonPath] = useState("/usr/bin/python3");
-  const [venvType, setVenvType] = useState("venv");
-  const [isSaving, setIsSaving] = useState(false);
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden">
@@ -55,6 +42,10 @@ export function SettingsPage() {
               <Server className="h-4 w-4" />
               环境配置
             </TabsTrigger>
+            <TabsTrigger value="api" className="inline-flex items-center gap-2">
+              <KeyRound className="h-4 w-4" />
+              模型 API
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -68,34 +59,14 @@ export function SettingsPage() {
             value="environment"
             className="mt-0 space-y-6 outline-none"
           >
-            <GitEnvironmentPanel
-              gitPath={gitPath}
-              onGitPathChange={setGitPath}
-            />
-            <DeploymentPathPanel
-              deployPath={deployPath}
-              onDeployPathChange={setDeployPath}
-            />
-            <PythonEnvironmentPanel
-              pythonPath={pythonPath}
-              onPythonPathChange={setPythonPath}
-              venvType={venvType}
-              onVenvTypeChange={setVenvType}
-            />
+            <GitEnvironmentPanel />
+            <DeploymentPathPanel />
+            <PythonEnvironmentPanel />
+          </TabsContent>
 
-            <div className="flex justify-end pt-2">
-              <TactileButton
-                variant="solid"
-                disabled={isSaving}
-                onClick={() => {
-                  setIsSaving(true);
-                  setTimeout(() => setIsSaving(false), 1500);
-                }}
-                className="px-8"
-              >
-                <Save className="h-4 w-4" />
-                {isSaving ? "保存中..." : "保存配置"}
-              </TactileButton>
+          <TabsContent value="api" className="mt-0 outline-none">
+            <div className="min-h-[480px]">
+              <ApiProviderConfig stepColor="var(--ls-life)" />
             </div>
           </TabsContent>
         </div>
