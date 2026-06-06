@@ -679,7 +679,9 @@ pub fn verify_tauri_signature(data: &[u8], sig_b64: &str, pubkey_b64: &str) -> A
 }
 
 /// 用内置 updater 公钥校验启动器安装包签名。
-#[cfg(target_os = "windows")]
+///
+/// 跨平台编译(不加 cfg):虽然目前只有 Windows 的安装命令调用它,但保持非 cfg 可让
+/// UPDATER_PUBKEY_B64 在所有平台都被引用,避免非 Windows 下 clippy 误报该常量 dead_code。
 pub fn verify_launcher_signature(data: &[u8], sig_b64: &str) -> AppResult<()> {
     verify_tauri_signature(data, sig_b64, UPDATER_PUBKEY_B64)
 }
