@@ -31,27 +31,27 @@ export const GRID_MARGIN: [number, number] = [12, 12];
 /** 容器内边距 [x, y] px(画布外层已给留白,这里置 0 避免双重)。 */
 export const CONTAINER_PADDING: [number, number] = [0, 0];
 
-/** 持久化键;蓝图结构变更时升版以弃旧缓存。 */
-export const STORAGE_KEY = "mailauncher.home.layouts.v1";
+/** 持久化键;蓝图结构变更时升版以弃旧缓存(v2:小指标并入实例总览卡)。 */
+export const STORAGE_KEY = "mailauncher.home.layouts.v2";
 
-// lg(12 列):系统卡左侧方格,右上英雄 + KPI,底排模型 / 麦麦活动 / 小指标。
+// lg(12 列):系统卡左侧方格,右上英雄 + KPI,底排实例总览 / 模型分布 / 麦麦活动。
 const LG: Layout = [
   { i: "system", x: 0, y: 0, w: 4, h: 4, minW: 3, minH: 3 },
   { i: "hero", x: 4, y: 0, w: 8, h: 2, minW: 3, minH: 2 },
   { i: "kpi", x: 4, y: 2, w: 8, h: 2, minW: 3, minH: 2 },
-  { i: "models", x: 0, y: 4, w: 5, h: 3, minW: 3, minH: 2 },
-  { i: "queue", x: 5, y: 4, w: 4, h: 3, minW: 2, minH: 2 },
-  { i: "small", x: 9, y: 4, w: 3, h: 3, minW: 2, minH: 2 },
+  { i: "instances", x: 0, y: 4, w: 5, h: 3, minW: 3, minH: 2 },
+  { i: "models", x: 5, y: 4, w: 4, h: 3, minW: 3, minH: 2 },
+  { i: "queue", x: 9, y: 4, w: 3, h: 3, minW: 2, minH: 2 },
 ];
 
-// md(8 列):系统卡 + 右侧英雄/KPI 竖叠,底排模型/活动并列,小指标横跨。
+// md(8 列):系统卡 + 右侧英雄/KPI 竖叠,底排实例总览/模型并列,麦麦活动横跨。
 const MD: Layout = [
   { i: "system", x: 0, y: 0, w: 4, h: 4, minW: 3, minH: 3 },
   { i: "hero", x: 4, y: 0, w: 4, h: 2, minW: 3, minH: 2 },
   { i: "kpi", x: 4, y: 2, w: 4, h: 2, minW: 3, minH: 2 },
-  { i: "models", x: 0, y: 4, w: 4, h: 3, minW: 3, minH: 2 },
-  { i: "queue", x: 4, y: 4, w: 4, h: 3, minW: 2, minH: 2 },
-  { i: "small", x: 0, y: 7, w: 8, h: 2, minW: 2, minH: 2 },
+  { i: "instances", x: 0, y: 4, w: 4, h: 3, minW: 3, minH: 2 },
+  { i: "models", x: 4, y: 4, w: 4, h: 3, minW: 3, minH: 2 },
+  { i: "queue", x: 0, y: 7, w: 8, h: 2, minW: 2, minH: 2 },
 ];
 
 // sm(4 列):整列竖叠。xs(2 列)由 RGL 从 sm 自动生成。
@@ -59,9 +59,9 @@ const SM: Layout = [
   { i: "system", x: 0, y: 0, w: 4, h: 4, minW: 2, minH: 3 },
   { i: "hero", x: 0, y: 4, w: 4, h: 2, minW: 2, minH: 2 },
   { i: "kpi", x: 0, y: 6, w: 4, h: 2, minW: 2, minH: 2 },
-  { i: "models", x: 0, y: 8, w: 4, h: 3, minW: 2, minH: 2 },
-  { i: "queue", x: 0, y: 11, w: 4, h: 3, minW: 2, minH: 2 },
-  { i: "small", x: 0, y: 14, w: 4, h: 2, minW: 2, minH: 2 },
+  { i: "instances", x: 0, y: 8, w: 4, h: 3, minW: 2, minH: 2 },
+  { i: "models", x: 0, y: 11, w: 4, h: 3, minW: 2, minH: 2 },
+  { i: "queue", x: 0, y: 14, w: 4, h: 3, minW: 2, minH: 2 },
 ];
 
 export const DEFAULT_LAYOUTS: ResponsiveLayouts = { lg: LG, md: MD, sm: SM };

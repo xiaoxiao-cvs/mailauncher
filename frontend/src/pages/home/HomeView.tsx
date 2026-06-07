@@ -3,10 +3,19 @@ import { motion } from "motion/react";
 import { Icon } from "@iconify/react";
 import type { ResponsiveLayouts } from "react-grid-layout";
 
-import { Card, SegmentControl, Sparkline, Stat } from "@/components/ls";
-import { springSettle, springSoft } from "@/design/motion";
+import { SegmentControl } from "@/components/ls";
+import { springSoft } from "@/design/motion";
 import type { SystemInfo, SystemStats } from "@/services/systemApi";
+import type { StatsSummary, ModelStats } from "@/hooks/queries/useStatsQueries";
+import type { MessageQueueResponse } from "@/services/messageQueueApi";
+import type { Instance } from "@/services/instanceApi";
+
 import { SystemCard } from "@/pages/home/system/SystemCard";
+import { MessageHeroCard } from "@/pages/home/cards/MessageHeroCard";
+import { KpiCard } from "@/pages/home/cards/KpiCard";
+import { InstancesCard } from "@/pages/home/cards/InstancesCard";
+import { ModelDistributionCard } from "@/pages/home/cards/ModelDistributionCard";
+import { MessageActivityCard } from "@/pages/home/cards/MessageActivityCard";
 import { HomeGrid, type HomeCard } from "@/pages/home/grid/HomeGrid";
 import {
   loadLayouts,
@@ -14,92 +23,17 @@ import {
   clearLayouts,
   DEFAULT_LAYOUTS,
 } from "@/pages/home/grid/layouts";
-import type { StatsSummary, ModelStats } from "@/hooks/queries/useStatsQueries";
-import type {
-  MessageQueueResponse,
-  MessageStatus,
-} from "@/services/messageQueueApi";
 
 /**
- * 首页纯展示层 —— Living Surfaces 数据看板。
- * 全宽 12 栅格:左上系统面板、右上消息英雄 + KPI、下方模型分布 + 消息队列 + 小指标。
- * 视觉与结构沿用定稿小样 DashboardPreview;不含任何数据请求,数据与回调由容器 HomePage 注入,
- * 以便无 Tauri 也能 Preview。系统数据来自 useSystemMonitor(info 静态 + stats 实时)。
+ * 首页纯展示层 —— Living Surfaces 数据看板,签名 bento 卡矩阵。
+ *
+ * 每张卡都是可展开 bento 卡(点瓦片容器形变铺满整卡钻取详情),由 react-grid-layout 排布于
+ * 自适应网格;"编辑布局"开启后可拖拽/缩放并持久化,"恢复默认"回蓝图(见 grid/layouts.ts)。
+ * 本层不含数据请求,数据与回调由容器 HomePage 注入(便于无 Tauri 也能 Preview)。
  */
 
 const RANGES = ["24h", "7d", "30d"] as const;
 export type HomeRange = (typeof RANGES)[number];
-
-/** 模型分布配色:按花费降序循环取用,与小样一致的暖色 + 生命色调板。 */
-const MODEL_TONES = [
-  "var(--ls-life)",
-  "#cf9442",
-  "#c5563e",
-  "#7f9b6a",
-  "#b07d56",
-] as const;
-
-/**
- * 数值兜底:真实统计接口的部分聚合字段在"无数据"时为 null/缺失(后端聚合空集所致),
- * 显示层一律按 0 处理——这是真·无数据态的合理呈现,非掩盖业务异常。同时挡住 NaN/Infinity。
- */
-function num(v: number | null | undefined): number {
-  return typeof v === "number" && Number.isFinite(v) ? v : 0;
-}
-
-/** 秒 -> "Xh Ym"。系统运行时长 footer 用。 */
-function fmtUptime(seconds: number | null | undefined): string {
-  const s = Math.max(0, Math.floor(num(seconds)));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return `${h}h ${m}m`;
-}
-
-/** 紧凑数字:1284 -> 1.3k,2_340_115 -> 2.3M。大额统计读数用,英雄计数保留原值。 */
-function fmtCompact(value: number | null | undefined): string {
-  const n = num(value);
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + "k";
-  return String(Math.round(n));
-}
-
-/** 英雄计数千分位:12840 -> "12,840"。 */
-function fmtGrouped(value: number | null | undefined): string {
-  return Math.round(num(value)).toLocaleString("en-US");
-}
-
-function fmtCost(usd: number | null | undefined): string {
-  const n = num(usd);
-  return "¥" + (n >= 100 ? n.toFixed(0) : n.toFixed(2));
-}
-
-function fmtSeconds(s: number | null | undefined): string {
-  return num(s).toFixed(2) + "s";
-}
-
-const QUEUE_STATUS_LABEL: Record<MessageStatus, string> = {
-  pending: "待处理",
-  planning: "规划中",
-  generating: "生成中",
-  sending: "发送中",
-  sent: "已发送",
-  failed: "失败",
-};
-
-/** generating/sending 视为活跃(生命色),planning/pending 用暖色,失败用危险色。 */
-const QUEUE_STATUS_TONE: Record<MessageStatus, string> = {
-  pending: "var(--ls-ink-faint)",
-  planning: "var(--ls-warn)",
-  generating: "var(--ls-life)",
-  sending: "var(--ls-life)",
-  sent: "var(--ls-ink-faint)",
-  failed: "var(--ls-danger)",
-};
-
-/** "在途":尚未 sent / failed 的队列条目。 */
-function isInFlight(status: MessageStatus): boolean {
-  return status !== "sent" && status !== "failed";
-}
 
 export interface HomeOverview {
   totalInstances: number;
@@ -111,7 +45,9 @@ export interface HomeOverview {
 export interface HomeViewProps {
   /** 实例数 / 在线数 / 统计概览 / 头部模型,均来自 get_stats_overview。 */
   overview: HomeOverview;
-  /** 全实例消息队列快照,用于队列卡与在途/已处理计数。 */
+  /** 全实例列表,用于实例总览卡(状态/资源/组件)。 */
+  instances: Instance[];
+  /** 全实例消息队列快照,用于麦麦活动卡与在途/已处理计数。 */
   queues: MessageQueueResponse[];
   /** 静态系统信息(OS / CPU 型号 / 内核 / 主机 / 架构等);首屏完成前为 undefined。 */
   systemInfo: SystemInfo | undefined;
@@ -122,269 +58,14 @@ export interface HomeViewProps {
   onRangeChange: (range: HomeRange) => void;
   /**
    * 消息处理时间序列(可选)。后端统计概览目前不提供时间序列,故容器传 undefined,
-   * 此时英雄区只展示总量 + KPI,不渲染走势图(不编造序列数据);Preview 可传 mock 序列演示完整视觉。
+   * 此时英雄卡只展示总量 + 单值,不渲染走势图(不编造序列数据);Preview 可传 mock 序列。
    */
   messageHistory?: number[];
 }
 
-const PLACEHOLDER = "—";
-
-function MessageHero({
-  summary,
-  history,
-}: {
-  summary: StatsSummary | undefined;
-  history: number[] | undefined;
-}) {
-  const peak = history && history.length > 0 ? Math.max(...history) : 0;
-  const avg =
-    history && history.length > 0
-      ? history.reduce((s, v) => s + v, 0) / history.length
-      : 0;
-
-  return (
-    <Card>
-      <div className="flex items-start justify-between">
-        <div
-          className="text-[11px] font-medium"
-          style={{ color: "var(--ls-ink-soft)" }}
-        >
-          消息处理总量
-        </div>
-        <span
-          className="ls-num inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
-          style={{ background: "var(--ls-life-soft)", color: "var(--ls-life)" }}
-        >
-          回复 {summary ? fmtCompact(summary.total_replies) : PLACEHOLDER}
-        </span>
-      </div>
-      <div className="ls-num mt-2 text-[2.5rem] font-semibold leading-none">
-        {summary ? fmtGrouped(summary.total_messages) : PLACEHOLDER}
-      </div>
-      {history && history.length > 1 ? (
-        <div className="mt-3">
-          <Sparkline values={history} />
-          <div
-            className="ls-num mt-2 flex gap-4 text-xs"
-            style={{ color: "var(--ls-ink-soft)" }}
-          >
-            <span>峰值 {fmtCompact(peak)} / 时</span>
-            <span>均值 {fmtCompact(avg)} / 时</span>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-3 text-xs" style={{ color: "var(--ls-ink-soft)" }}>
-          {summary
-            ? `每小时 ${fmtCompact(summary.tokens_per_hour)} Token · 回复率 ${
-                summary.total_messages > 0
-                  ? Math.round(
-                      (summary.total_replies / summary.total_messages) * 100,
-                    )
-                  : 0
-              }%`
-            : PLACEHOLDER}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function KpiGrid({ summary }: { summary: StatsSummary | undefined }) {
-  const replyRate =
-    summary && summary.total_messages > 0
-      ? Math.round((summary.total_replies / summary.total_messages) * 100)
-      : 0;
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <Stat
-        label="总花费"
-        value={summary ? fmtCost(summary.total_cost) : PLACEHOLDER}
-        sub={summary ? `${fmtCost(summary.cost_per_hour)} / 小时` : undefined}
-      />
-      <Stat
-        label="回复"
-        value={summary ? fmtCompact(summary.total_replies) : PLACEHOLDER}
-        sub={summary ? `回复率 ${replyRate}%` : undefined}
-      />
-      <Stat
-        label="Token"
-        value={summary ? fmtCompact(summary.total_tokens) : PLACEHOLDER}
-        sub={
-          summary
-            ? `↑${fmtCompact(summary.input_tokens)} ↓${fmtCompact(summary.output_tokens)}`
-            : undefined
-        }
-      />
-      <Stat
-        label="平均响应"
-        value={summary ? fmtSeconds(summary.avg_response_time) : PLACEHOLDER}
-        sub={
-          summary ? `总请求 ${fmtCompact(summary.total_requests)}` : undefined
-        }
-      />
-    </div>
-  );
-}
-
-interface ModelRow {
-  name: string;
-  cost: number;
-  tone: string;
-}
-
-function ModelDistribution({ models }: { models: ModelStats[] }) {
-  const rows: ModelRow[] = models.map((m, i) => ({
-    name: m.display_name ?? m.model_name,
-    cost: m.total_cost,
-    tone: MODEL_TONES[i % MODEL_TONES.length],
-  }));
-  const total = rows.reduce((s, m) => s + m.cost, 0);
-
-  return (
-    <Card className="col-span-12 lg:col-span-5">
-      <div className="flex items-baseline justify-between">
-        <div className="text-sm font-semibold">模型分布</div>
-        <div className="text-xs" style={{ color: "var(--ls-ink-faint)" }}>
-          按花费
-        </div>
-      </div>
-      {rows.length === 0 ? (
-        <div
-          className="mt-6 text-center text-xs"
-          style={{ color: "var(--ls-ink-soft)" }}
-        >
-          暂无模型调用记录
-        </div>
-      ) : (
-        <>
-          <div className="mt-3 flex h-3 gap-1 overflow-hidden">
-            {rows.map((m) => (
-              <motion.div
-                key={m.name}
-                initial={{ width: 0 }}
-                animate={{
-                  width: total > 0 ? `${(m.cost / total) * 100}%` : "0%",
-                }}
-                transition={{ ...springSettle, delay: 0.2 }}
-                style={{ background: m.tone, borderRadius: 4 }}
-              />
-            ))}
-          </div>
-          <div className="mt-4 space-y-2">
-            {rows.map((m) => (
-              <div key={m.name} className="flex items-center gap-2.5 text-sm">
-                <span
-                  className="h-2 w-2 flex-shrink-0 rounded-full"
-                  style={{ background: m.tone }}
-                />
-                <span className="flex-1 truncate">{m.name}</span>
-                <span className="ls-num w-16 text-right font-semibold">
-                  {fmtCost(m.cost)}
-                </span>
-                <span
-                  className="ls-num w-10 text-right"
-                  style={{ color: "var(--ls-ink-faint)" }}
-                >
-                  {total > 0 ? Math.round((m.cost / total) * 100) : 0}%
-                </span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </Card>
-  );
-}
-
-interface QueueRow {
-  key: string;
-  group: string;
-  status: MessageStatus;
-}
-
-function MessageQueuePanel({ queues }: { queues: MessageQueueResponse[] }) {
-  const inFlight: QueueRow[] = [];
-  let processed = 0;
-  for (const q of queues) {
-    processed += q.total_processed;
-    for (const m of q.messages) {
-      if (isInFlight(m.status)) {
-        inFlight.push({
-          key: m.id,
-          group: m.group_name ?? q.instance_name,
-          status: m.status,
-        });
-      }
-    }
-  }
-
-  return (
-    <Card className="col-span-12 lg:col-span-4">
-      <div className="flex items-baseline justify-between">
-        <div className="text-sm font-semibold">麦麦活动</div>
-        <div
-          className="ls-num text-xs"
-          style={{ color: "var(--ls-ink-faint)" }}
-        >
-          处理中 {inFlight.length} · 已处理 {fmtCompact(processed)}
-        </div>
-      </div>
-      {inFlight.length === 0 ? (
-        <div
-          className="mt-6 text-center text-xs"
-          style={{ color: "var(--ls-ink-soft)" }}
-        >
-          当前没有正在处理的会话
-        </div>
-      ) : (
-        <div className="mt-3 space-y-2">
-          {inFlight.slice(0, 6).map((q) => (
-            <div
-              key={q.key}
-              className="ls-inset flex items-center gap-2.5 px-3 py-2 text-sm"
-            >
-              <span
-                className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                style={{ background: QUEUE_STATUS_TONE[q.status] }}
-              />
-              <span className="flex-1 truncate font-medium">{q.group}</span>
-              <span className="text-xs" style={{ color: "var(--ls-ink-soft)" }}>
-                {QUEUE_STATUS_LABEL[q.status]}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function SmallMetrics({
-  summary,
-  runningInstances,
-  totalInstances,
-}: {
-  summary: StatsSummary | undefined;
-  runningInstances: number;
-  totalInstances: number;
-}) {
-  return (
-    <div className="col-span-12 grid grid-cols-2 gap-3 lg:col-span-3 lg:grid-cols-1">
-      <Stat
-        label="在线时长"
-        value={summary ? fmtUptime(summary.online_time) : PLACEHOLDER}
-      />
-      <Stat
-        label="运行实例"
-        value={`${runningInstances} / ${totalInstances}`}
-        sub={runningInstances > 0 ? "运行中" : "暂无运行"}
-      />
-    </div>
-  );
-}
-
 export function HomeView({
   overview,
+  instances,
   queues,
   systemInfo,
   systemStats,
@@ -421,21 +102,21 @@ export function HomeView({
     },
     {
       id: "hero",
-      node: <MessageHero summary={summary} history={messageHistory} />,
+      node: <MessageHeroCard summary={summary} history={messageHistory} />,
     },
-    { id: "kpi", node: <KpiGrid summary={summary} /> },
-    { id: "models", node: <ModelDistribution models={sortedModels} /> },
-    { id: "queue", node: <MessageQueuePanel queues={queues} /> },
+    { id: "kpi", node: <KpiCard summary={summary} models={sortedModels} /> },
     {
-      id: "small",
+      id: "instances",
       node: (
-        <SmallMetrics
-          summary={summary}
+        <InstancesCard
+          instances={instances}
           runningInstances={runningInstances}
           totalInstances={totalInstances}
         />
       ),
     },
+    { id: "models", node: <ModelDistributionCard models={sortedModels} /> },
+    { id: "queue", node: <MessageActivityCard queues={queues} /> },
   ];
 
   return (

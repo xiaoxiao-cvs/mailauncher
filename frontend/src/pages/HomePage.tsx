@@ -37,6 +37,7 @@ export function HomePage() {
         summary: overview?.summary,
         topModels: overview?.top_models ?? [],
       }}
+      instances={instances}
       queues={queues ?? []}
       systemInfo={systemInfo}
       systemStats={systemStats}
