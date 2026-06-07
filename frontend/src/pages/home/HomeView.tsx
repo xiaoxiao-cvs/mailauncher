@@ -22,6 +22,10 @@ import { ModelDistributionCard } from "@/pages/home/cards/ModelDistributionCard"
 import { MessageActivityCard } from "@/pages/home/cards/MessageActivityCard";
 import { ByInstanceCard } from "@/pages/home/cards/ByInstanceCard";
 import { RequestTypesCard } from "@/pages/home/cards/RequestTypesCard";
+import { DownloadsCard } from "@/pages/home/cards/DownloadsCard";
+import { LauncherUpdateCard } from "@/pages/home/cards/LauncherUpdateCard";
+import { SchedulesCard } from "@/pages/home/cards/SchedulesCard";
+import { NetworkSourceCard } from "@/pages/home/cards/NetworkSourceCard";
 import { HomeGrid, type HomeCard } from "@/pages/home/grid/HomeGrid";
 import {
   loadLayouts,
@@ -131,6 +135,11 @@ export function HomeView({
       id: "requestTypes",
       node: <RequestTypesCard byInstance={byInstance} />,
     },
+    // later 卡:卡内自取数(无需经 props 注入)。
+    { id: "downloads", node: <DownloadsCard /> },
+    { id: "launcher", node: <LauncherUpdateCard /> },
+    { id: "schedules", node: <SchedulesCard /> },
+    { id: "network", node: <NetworkSourceCard /> },
   ];
 
   return (
