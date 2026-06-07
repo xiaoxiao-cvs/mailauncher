@@ -34,7 +34,6 @@ import {
   loadLayouts,
   saveLayouts,
   clearLayouts,
-  DEFAULT_LAYOUTS,
 } from "@/pages/home/grid/layouts";
 
 /**
@@ -97,56 +96,74 @@ export function HomeView({
     [topModels],
   );
 
-  // 布局编辑态与持久化:编辑模式拖/缩卡片,变更落 localStorage;"恢复默认"回蓝图。
+  // 布局:layouts 仅作"种子"喂给 RGL(RGL 内部自管 layout state),onLayoutChange 只持久化、
+  // 绝不 setState 回灌——回灌会触发重渲风暴,在"按下→移动 5px 阈值"窗口里 activeDrag 守卫尚未生效,
+  // 内层 sync effect 会把刚起步的拖动重置回原位(表现为拖不动)。"恢复默认"用 seedKey 换 key 重挂
+  // HomeGrid,以新种子重置 RGL,而非回灌 prop。
   const [editing, setEditing] = useState(false);
-  const [layouts, setLayouts] = useState<ResponsiveLayouts>(() =>
-    loadLayouts(),
-  );
+  const [seedKey, setSeedKey] = useState(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在 seedKey 变化时重读种子(loadLayouts 读 localStorage)
+  const layouts = useMemo<ResponsiveLayouts>(() => loadLayouts(), [seedKey]);
   const handleLayoutsChange = useCallback((next: ResponsiveLayouts) => {
-    setLayouts(next);
     saveLayouts(next);
   }, []);
   const handleReset = useCallback(() => {
     clearLayouts();
-    setLayouts(DEFAULT_LAYOUTS);
+    setSeedKey((k) => k + 1);
   }, []);
 
-  const cards: HomeCard[] = [
-    {
-      id: "system",
-      node: <SystemCard info={systemInfo} stats={systemStats} />,
-    },
-    {
-      id: "hero",
-      node: <MessageHeroCard summary={summary} history={messageHistory} />,
-    },
-    { id: "kpi", node: <KpiCard summary={summary} models={sortedModels} /> },
-    {
-      id: "instances",
-      node: (
-        <InstancesCard
-          instances={instances}
-          runningInstances={runningInstances}
-          totalInstances={totalInstances}
-        />
-      ),
-    },
-    { id: "models", node: <ModelDistributionCard models={sortedModels} /> },
-    { id: "queue", node: <MessageActivityCard queues={queues} /> },
-    { id: "byInstance", node: <ByInstanceCard byInstance={byInstance} /> },
-    {
-      id: "requestTypes",
-      node: <RequestTypesCard byInstance={byInstance} />,
-    },
-    // later 卡:卡内自取数(无需经 props 注入)。
-    { id: "downloads", node: <DownloadsCard /> },
-    { id: "launcher", node: <LauncherUpdateCard /> },
-    { id: "schedules", node: <SchedulesCard /> },
-    { id: "network", node: <NetworkSourceCard /> },
-    { id: "version", node: <VersionCard /> },
-    { id: "logs", node: <LogsCard /> },
-    { id: "health", node: <HealthCard /> },
-  ];
+  // memo 化:数据不变时各卡元素引用稳定,拖拽期间 RGL 的 children 不变身,
+  // 内层 sync effect 不会 setLayout 打断拖动(react-query 默认结构共享,刷新无变化即同引用)。
+  const cards = useMemo<HomeCard[]>(
+    () => [
+      {
+        id: "system",
+        node: <SystemCard info={systemInfo} stats={systemStats} />,
+      },
+      {
+        id: "hero",
+        node: <MessageHeroCard summary={summary} history={messageHistory} />,
+      },
+      { id: "kpi", node: <KpiCard summary={summary} models={sortedModels} /> },
+      {
+        id: "instances",
+        node: (
+          <InstancesCard
+            instances={instances}
+            runningInstances={runningInstances}
+            totalInstances={totalInstances}
+          />
+        ),
+      },
+      { id: "models", node: <ModelDistributionCard models={sortedModels} /> },
+      { id: "queue", node: <MessageActivityCard queues={queues} /> },
+      { id: "byInstance", node: <ByInstanceCard byInstance={byInstance} /> },
+      {
+        id: "requestTypes",
+        node: <RequestTypesCard byInstance={byInstance} />,
+      },
+      // later 卡:卡内自取数(无需经 props 注入)。
+      { id: "downloads", node: <DownloadsCard /> },
+      { id: "launcher", node: <LauncherUpdateCard /> },
+      { id: "schedules", node: <SchedulesCard /> },
+      { id: "network", node: <NetworkSourceCard /> },
+      { id: "version", node: <VersionCard /> },
+      { id: "logs", node: <LogsCard /> },
+      { id: "health", node: <HealthCard /> },
+    ],
+    [
+      systemInfo,
+      systemStats,
+      summary,
+      sortedModels,
+      instances,
+      runningInstances,
+      totalInstances,
+      queues,
+      byInstance,
+      messageHistory,
+    ],
+  );
 
   return (
     <motion.div
@@ -206,6 +223,7 @@ export function HomeView({
 
       <div className="mt-5">
         <HomeGrid
+          key={seedKey}
           cards={cards}
           layouts={layouts}
           editing={editing}

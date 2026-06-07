@@ -1,7 +1,9 @@
+import { useCallback } from "react";
 import type { ReactNode, RefObject } from "react";
 import {
   ResponsiveGridLayout,
   useContainerWidth,
+  type Layout,
   type ResponsiveLayouts,
 } from "react-grid-layout";
 import { BentoEditModeContext } from "@/components/bento";
@@ -53,6 +55,13 @@ export function HomeGrid({
     measureBeforeMount: true,
   });
 
+  // 稳定回调:内联箭头每渲染换 identity 会污染 RGL 内部一串 callback/effect;固定下来。
+  const handleLayoutChange = useCallback(
+    (_layout: Layout, allLayouts: ResponsiveLayouts) =>
+      onLayoutsChange(allLayouts),
+    [onLayoutsChange],
+  );
+
   return (
     <BentoEditModeContext.Provider value={editing}>
       <div
@@ -73,9 +82,7 @@ export function HomeGrid({
             // 编辑态整卡可拖(不设 handle);非编辑态 enabled:false 卡片静止。
             dragConfig={{ enabled: editing, threshold: 5 }}
             resizeConfig={{ enabled: editing, handles: ["se"] }}
-            onLayoutChange={(_layout, allLayouts) =>
-              onLayoutsChange(allLayouts)
-            }
+            onLayoutChange={handleLayoutChange}
           >
             {cards.map((c) => (
               <div key={c.id} className="ls-grid-item relative">
