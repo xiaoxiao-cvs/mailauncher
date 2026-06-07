@@ -312,12 +312,12 @@ function MessageQueuePanel({ queues }: { queues: MessageQueueResponse[] }) {
   return (
     <Card className="col-span-12 lg:col-span-4">
       <div className="flex items-baseline justify-between">
-        <div className="text-sm font-semibold">消息队列</div>
+        <div className="text-sm font-semibold">麦麦活动</div>
         <div
           className="ls-num text-xs"
           style={{ color: "var(--ls-ink-faint)" }}
         >
-          在途 {inFlight.length} · 已处理 {fmtCompact(processed)}
+          处理中 {inFlight.length} · 已处理 {fmtCompact(processed)}
         </div>
       </div>
       {inFlight.length === 0 ? (
@@ -325,7 +325,7 @@ function MessageQueuePanel({ queues }: { queues: MessageQueueResponse[] }) {
           className="mt-6 text-center text-xs"
           style={{ color: "var(--ls-ink-soft)" }}
         >
-          当前没有在途消息
+          当前没有正在处理的会话
         </div>
       ) : (
         <div className="mt-3 space-y-2">

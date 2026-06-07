@@ -42,6 +42,9 @@ portable-pty = "0.8"
 sysinfo = "0.33"
 zip = "2"
 futures-util = "0.3"
+# 麦麦活动(在途会话)实时桥:订阅 MaiBot WebUI 统一 WebSocket(maisaka_monitor 域)。
+# 仅连本机 ws://(无 TLS),故关掉默认 TLS 特性,只留明文连接 + 握手。
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "handshake"] }
 sha2 = "0.10.9"
 # MaiBot bot.py check_eula 用 MD5(EULA.md/PRIVACY.md 内容) 作为 EULA_AGREE/PRIVACY_AGREE 的确认值
 md-5 = "0.10"

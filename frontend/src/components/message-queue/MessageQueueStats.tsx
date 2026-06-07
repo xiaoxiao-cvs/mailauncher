@@ -32,7 +32,7 @@ export function MessageQueueStats({
           className="text-lg font-semibold"
           style={{ color: "var(--ls-ink)" }}
         >
-          消息队列
+          麦麦活动
         </h3>
         <Badge tone={isFast ? "life" : "neutral"} className="gap-1">
           <Timer size={12} />

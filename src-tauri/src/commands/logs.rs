@@ -55,7 +55,7 @@ pub async fn get_instance_message_queue(
     state: State<'_, AppState>,
     instance_id: String,
 ) -> AppResult<MessageQueueResponse> {
-    message_queue_service::get_instance_queue(&state.db, &instance_id).await
+    message_queue_service::get_instance_queue(&state.db, &state.maisaka_monitor, &instance_id).await
 }
 
 /// 获取所有实例的消息队列
@@ -63,5 +63,5 @@ pub async fn get_instance_message_queue(
 pub async fn get_all_message_queues(
     state: State<'_, AppState>,
 ) -> AppResult<Vec<MessageQueueResponse>> {
-    message_queue_service::get_all_queues(&state.db).await
+    message_queue_service::get_all_queues(&state.db, &state.maisaka_monitor).await
 }

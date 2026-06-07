@@ -19,7 +19,6 @@ pub enum MessageStatus {
 
 /// 消息队列项
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct MessageQueueItem {
     pub id: String,
     pub stream_id: String,
@@ -36,7 +35,6 @@ pub struct MessageQueueItem {
 
 /// 消息队列响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct MessageQueueResponse {
     pub instance_id: String,
     pub instance_name: String,

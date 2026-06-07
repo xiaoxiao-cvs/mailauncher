@@ -61,6 +61,7 @@ async fn init_rust_services() -> AppState {
     let terminal_stream_publisher =
         services::terminal_stream_service::ChannelTerminalStreamPublisher::new();
     let system_monitor = services::system_stats_service::SystemMonitor::new();
+    let maisaka_monitor = services::maisaka_monitor_service::MaisakaMonitor::new();
 
     let reconciled = services::lifecycle_service::reconcile_instance_states_on_startup(&pool)
         .await
@@ -95,6 +96,7 @@ async fn init_rust_services() -> AppState {
         process_manager,
         terminal_stream_publisher,
         system_monitor,
+        maisaka_monitor,
         download_manager: services::download_service::DownloadManager::new(pool),
     }
 }
@@ -136,6 +138,9 @@ pub fn run() {
 
             // 启动进程看门狗(后台 tick 巡检期望运行的本地托管组件,异常退出时带退避自动重启)
             services::watchdog::spawn_watchdog(app.handle().clone());
+
+            // 启动麦麦活动监控(后台 reconcile 运行中实例,订阅各自 WebUI WS 取"正在处理的会话")
+            services::maisaka_monitor_service::spawn_maisaka_monitor(app.handle().clone());
 
             // 启动时把持久化的网络代理应用到进程环境变量,使无 State 的 reqwest 出站(GitHub API/启动器更新)即刻生效
             let proxy_pool = app.state::<AppState>().db.clone();
