@@ -6,7 +6,11 @@ import type { ResponsiveLayouts } from "react-grid-layout";
 import { SegmentControl } from "@/components/ls";
 import { springSoft } from "@/design/motion";
 import type { SystemInfo, SystemStats } from "@/services/systemApi";
-import type { StatsSummary, ModelStats } from "@/hooks/queries/useStatsQueries";
+import type {
+  StatsSummary,
+  ModelStats,
+  InstanceStats,
+} from "@/hooks/queries/useStatsQueries";
 import type { MessageQueueResponse } from "@/services/messageQueueApi";
 import type { Instance } from "@/services/instanceApi";
 
@@ -16,6 +20,8 @@ import { KpiCard } from "@/pages/home/cards/KpiCard";
 import { InstancesCard } from "@/pages/home/cards/InstancesCard";
 import { ModelDistributionCard } from "@/pages/home/cards/ModelDistributionCard";
 import { MessageActivityCard } from "@/pages/home/cards/MessageActivityCard";
+import { ByInstanceCard } from "@/pages/home/cards/ByInstanceCard";
+import { RequestTypesCard } from "@/pages/home/cards/RequestTypesCard";
 import { HomeGrid, type HomeCard } from "@/pages/home/grid/HomeGrid";
 import {
   loadLayouts,
@@ -47,6 +53,8 @@ export interface HomeViewProps {
   overview: HomeOverview;
   /** 全实例列表,用于实例总览卡(状态/资源/组件)。 */
   instances: Instance[];
+  /** 按实例聚合统计(get_aggregated_stats.by_instance),喂按实例对比 / 请求类型分布两卡。 */
+  byInstance: InstanceStats[];
   /** 全实例消息队列快照,用于麦麦活动卡与在途/已处理计数。 */
   queues: MessageQueueResponse[];
   /** 静态系统信息(OS / CPU 型号 / 内核 / 主机 / 架构等);首屏完成前为 undefined。 */
@@ -66,6 +74,7 @@ export interface HomeViewProps {
 export function HomeView({
   overview,
   instances,
+  byInstance,
   queues,
   systemInfo,
   systemStats,
@@ -117,6 +126,11 @@ export function HomeView({
     },
     { id: "models", node: <ModelDistributionCard models={sortedModels} /> },
     { id: "queue", node: <MessageActivityCard queues={queues} /> },
+    { id: "byInstance", node: <ByInstanceCard byInstance={byInstance} /> },
+    {
+      id: "requestTypes",
+      node: <RequestTypesCard byInstance={byInstance} />,
+    },
   ];
 
   return (

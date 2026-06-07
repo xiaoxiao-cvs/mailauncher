@@ -31,10 +31,10 @@ export const GRID_MARGIN: [number, number] = [12, 12];
 /** 容器内边距 [x, y] px(画布外层已给留白,这里置 0 避免双重)。 */
 export const CONTAINER_PADDING: [number, number] = [0, 0];
 
-/** 持久化键;蓝图结构变更时升版以弃旧缓存(v2:小指标并入实例总览卡)。 */
-export const STORAGE_KEY = "mailauncher.home.layouts.v2";
+/** 持久化键;蓝图结构变更时升版以弃旧缓存(v3:增按实例对比 / 请求类型分布)。 */
+export const STORAGE_KEY = "mailauncher.home.layouts.v3";
 
-// lg(12 列):系统卡左侧方格,右上英雄 + KPI,底排实例总览 / 模型分布 / 麦麦活动。
+// lg(12 列):系统卡 + 右上英雄/KPI;中排实例总览/模型/活动;底排按实例对比 + 请求类型。
 const LG: Layout = [
   { i: "system", x: 0, y: 0, w: 4, h: 4, minW: 3, minH: 3 },
   { i: "hero", x: 4, y: 0, w: 8, h: 2, minW: 3, minH: 2 },
@@ -42,9 +42,11 @@ const LG: Layout = [
   { i: "instances", x: 0, y: 4, w: 5, h: 3, minW: 3, minH: 2 },
   { i: "models", x: 5, y: 4, w: 4, h: 3, minW: 3, minH: 2 },
   { i: "queue", x: 9, y: 4, w: 3, h: 3, minW: 2, minH: 2 },
+  { i: "byInstance", x: 0, y: 7, w: 8, h: 3, minW: 3, minH: 2 },
+  { i: "requestTypes", x: 8, y: 7, w: 4, h: 3, minW: 3, minH: 2 },
 ];
 
-// md(8 列):系统卡 + 右侧英雄/KPI 竖叠,底排实例总览/模型并列,麦麦活动横跨。
+// md(8 列):上半同 lg 收窄,底排按实例对比 / 请求类型各占整行。
 const MD: Layout = [
   { i: "system", x: 0, y: 0, w: 4, h: 4, minW: 3, minH: 3 },
   { i: "hero", x: 4, y: 0, w: 4, h: 2, minW: 3, minH: 2 },
@@ -52,6 +54,8 @@ const MD: Layout = [
   { i: "instances", x: 0, y: 4, w: 4, h: 3, minW: 3, minH: 2 },
   { i: "models", x: 4, y: 4, w: 4, h: 3, minW: 3, minH: 2 },
   { i: "queue", x: 0, y: 7, w: 8, h: 2, minW: 2, minH: 2 },
+  { i: "byInstance", x: 0, y: 9, w: 8, h: 3, minW: 3, minH: 2 },
+  { i: "requestTypes", x: 0, y: 12, w: 8, h: 2, minW: 3, minH: 2 },
 ];
 
 // sm(4 列):整列竖叠。xs(2 列)由 RGL 从 sm 自动生成。
@@ -62,6 +66,8 @@ const SM: Layout = [
   { i: "instances", x: 0, y: 8, w: 4, h: 3, minW: 2, minH: 2 },
   { i: "models", x: 0, y: 11, w: 4, h: 3, minW: 2, minH: 2 },
   { i: "queue", x: 0, y: 14, w: 4, h: 3, minW: 2, minH: 2 },
+  { i: "byInstance", x: 0, y: 17, w: 4, h: 3, minW: 2, minH: 2 },
+  { i: "requestTypes", x: 0, y: 20, w: 4, h: 3, minW: 2, minH: 2 },
 ];
 
 export const DEFAULT_LAYOUTS: ResponsiveLayouts = { lg: LG, md: MD, sm: SM };

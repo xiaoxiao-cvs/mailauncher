@@ -7,7 +7,10 @@
 import { useState } from "react";
 
 import { useInstancesQuery } from "@/hooks/queries/useInstanceQueries";
-import { useStatsOverviewQuery } from "@/hooks/queries/useStatsQueries";
+import {
+  useStatsOverviewQuery,
+  useAggregatedStatsQuery,
+} from "@/hooks/queries/useStatsQueries";
 import { useAllMessageQueuesQuery } from "@/hooks/queries/useMessageQueueQueries";
 import { useSystemMonitor } from "@/hooks/useSystemMonitor";
 import { HomeView, type HomeRange } from "@/pages/home/HomeView";
@@ -17,6 +20,11 @@ export function HomePage() {
   const [range, setRange] = useState<HomeRange>("24h");
 
   const { data: overview } = useStatsOverviewQuery(range, {
+    refetchInterval: 30000,
+  });
+  // 按实例聚合(by_instance + 各实例 request_type_stats):喂"按实例对比""请求类型分布"两卡。
+  // 单查询喂两卡,不放大 overview 已有的 per-instance N+1。
+  const { data: aggregated } = useAggregatedStatsQuery(range, undefined, {
     refetchInterval: 30000,
   });
   const { data: instanceList } = useInstancesQuery({ refetchInterval: 5000 });
@@ -38,6 +46,7 @@ export function HomePage() {
         topModels: overview?.top_models ?? [],
       }}
       instances={instances}
+      byInstance={aggregated?.by_instance ?? []}
       queues={queues ?? []}
       systemInfo={systemInfo}
       systemStats={systemStats}
