@@ -16,6 +16,12 @@
   z-index: 30;
   will-change: transform;
 }
+/* 正在缩放的卡:同理零过渡才跟手(!important 压过下方 transform/宽高过渡规则)。 */
+.react-grid-item.resizing {
+  transition: none !important;
+  z-index: 30;
+  will-change: width, height;
+}
 
 /* 拖拽落位占位:生命色软调 + 虚线,圆角对齐卡片,过渡更柔。 */
 .react-grid-item.react-grid-placeholder {
