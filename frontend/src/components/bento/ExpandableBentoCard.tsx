@@ -85,15 +85,19 @@ export function ExpandableBentoCard({
 
   const collapse = useCallback(() => setExpanded(null), [setExpanded]);
 
-  // 关闭入口:Esc + 卡外 mousedown(展开铺满整卡,故"外侧"在卡之外的页面)。
+  // 关闭入口:Esc + 点真正的空白处。点卡内由 DetailBody 处理;点"另一张卡"不收起,
+  // 以支持多卡各自独立展开(此前把点别的卡也当成卡外,会误收当前展开的卡)。
   useEffect(() => {
     if (expanded == null) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") collapse();
     };
     const onDown = (e: MouseEvent) => {
-      if (frameRef.current && !frameRef.current.contains(e.target as Node))
-        collapse();
+      const target = e.target as HTMLElement | null;
+      if (!frameRef.current || !target) return;
+      if (frameRef.current.contains(target)) return; // 本卡内:交给 DetailBody 点空白收起
+      if (target.closest(".ls-grid-item")) return; // 点到另一张卡:不收,允许多卡独立展开
+      collapse(); // 仅点真正空白处(页头/卡间空隙)才收
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("mousedown", onDown);
