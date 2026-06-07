@@ -31,15 +31,16 @@ export type CardId =
 export const BREAKPOINTS = { lg: 1200, md: 860, sm: 620, xs: 0 } as const;
 /** 各断点列数。 */
 export const COLS = { lg: 12, md: 8, sm: 4, xs: 2 } as const;
-/** 单行高(px):与列宽约略相等以得近方单元(列宽随容器宽变化)。 */
-export const ROW_HEIGHT = 88;
+/** 单行高(px):由 88 压到 76 收紧留白。下限取 76——系统卡 h4≈340(每行≈98px)恰好容下其
+   Ring+走势瓦片不挤,再低则系统卡折叠态溢出;h2≈164 让摘要卡贴合内容。 */
+export const ROW_HEIGHT = 76;
 /** 卡片间距 [x, y] px。 */
 export const GRID_MARGIN: [number, number] = [12, 12];
 /** 容器内边距 [x, y] px(画布外层已给留白,这里置 0 避免双重)。 */
 export const CONTAINER_PADDING: [number, number] = [0, 0];
 
-/** 持久化键;蓝图结构变更时升版以弃旧缓存(v6:收紧卡高,多数卡 h2 贴合内容,详情走 useAutoRows 自适应)。 */
-export const STORAGE_KEY = "mailauncher.home.layouts.v6";
+/** 持久化键;蓝图结构变更时升版以弃旧缓存(v7:行高压到 64,整体收紧)。 */
+export const STORAGE_KEY = "mailauncher.home.layouts.v7";
 
 // lg(12 列):系统卡为 h4 主展;其余多为 h2 贴合摘要(详情自适应行数),byInstance/请求类型 h3 容表格。
 const LG: Layout = [
