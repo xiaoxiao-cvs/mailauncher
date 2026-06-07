@@ -27,6 +27,8 @@ import { LauncherUpdateCard } from "@/pages/home/cards/LauncherUpdateCard";
 import { SchedulesCard } from "@/pages/home/cards/SchedulesCard";
 import { NetworkSourceCard } from "@/pages/home/cards/NetworkSourceCard";
 import { VersionCard } from "@/pages/home/cards/VersionCard";
+import { LogsCard } from "@/pages/home/cards/LogsCard";
+import { HealthCard } from "@/pages/home/cards/HealthCard";
 import { HomeGrid, type HomeCard } from "@/pages/home/grid/HomeGrid";
 import {
   loadLayouts,
@@ -142,6 +144,8 @@ export function HomeView({
     { id: "schedules", node: <SchedulesCard /> },
     { id: "network", node: <NetworkSourceCard /> },
     { id: "version", node: <VersionCard /> },
+    { id: "logs", node: <LogsCard /> },
+    { id: "health", node: <HealthCard /> },
   ];
 
   return (

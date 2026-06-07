@@ -10,6 +10,7 @@ import { useInstancesQuery } from "@/hooks/queries/useInstanceQueries";
 import {
   useStatsOverviewQuery,
   useAggregatedStatsQuery,
+  useHourlyStatsQuery,
 } from "@/hooks/queries/useStatsQueries";
 import { useAllMessageQueuesQuery } from "@/hooks/queries/useMessageQueueQueries";
 import { useSystemMonitor } from "@/hooks/useSystemMonitor";
@@ -27,9 +28,19 @@ export function HomePage() {
   const { data: aggregated } = useAggregatedStatsQuery(range, undefined, {
     refetchInterval: 30000,
   });
+  // 按小时消息趋势(跨实例求和):喂英雄卡趋势线(此前后端无序列,sparkline 始终缺席)。
+  const { data: hourly } = useHourlyStatsQuery(range, {
+    refetchInterval: 30000,
+  });
   const { data: instanceList } = useInstancesQuery({ refetchInterval: 5000 });
   const { data: queues } = useAllMessageQueuesQuery();
   const { info: systemInfo, stats: systemStats } = useSystemMonitor();
+
+  // 趋势序列:有数据才传(无数据则不渲染走势,不编造序列)。
+  const messageHistory =
+    hourly && hourly.length > 0
+      ? hourly.map((h) => h.message_count)
+      : undefined;
 
   const instances = instanceList?.instances ?? [];
   const runningFromList = instances.filter(
@@ -52,6 +63,7 @@ export function HomePage() {
       systemStats={systemStats}
       range={range}
       onRangeChange={setRange}
+      messageHistory={messageHistory}
     />
   );
 }

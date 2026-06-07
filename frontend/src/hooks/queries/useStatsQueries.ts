@@ -2,12 +2,12 @@
  * 统计数据相关的 React Query hooks
  */
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { tauriInvoke } from '@/services/tauriInvoke';
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { tauriInvoke } from "@/services/tauriInvoke";
 
 // ==================== Types ====================
 
-export type TimeRange = '1h' | '6h' | '12h' | '24h' | '7d' | '30d';
+export type TimeRange = "1h" | "6h" | "12h" | "24h" | "7d" | "30d";
 
 export interface StatsSummary {
   total_requests: number;
@@ -69,17 +69,26 @@ export interface AggregatedStats {
   model_stats: ModelStats[];
 }
 
+export interface HourlyMessageCount {
+  hour_ts: string;
+  message_count: number;
+  reply_count: number;
+}
+
 // ==================== Query Keys ====================
 
 export const statsKeys = {
-  all: ['stats'] as const,
-  overview: (timeRange: TimeRange) => [...statsKeys.all, 'overview', timeRange] as const,
-  aggregated: (timeRange: TimeRange, instanceIds?: string) => 
-    [...statsKeys.all, 'aggregated', timeRange, instanceIds] as const,
-  instance: (instanceId: string, timeRange: TimeRange) => 
-    [...statsKeys.all, 'instance', instanceId, timeRange] as const,
-  instanceModels: (instanceId: string, timeRange: TimeRange) => 
-    [...statsKeys.all, 'instance', instanceId, 'models', timeRange] as const,
+  all: ["stats"] as const,
+  overview: (timeRange: TimeRange) =>
+    [...statsKeys.all, "overview", timeRange] as const,
+  aggregated: (timeRange: TimeRange, instanceIds?: string) =>
+    [...statsKeys.all, "aggregated", timeRange, instanceIds] as const,
+  instance: (instanceId: string, timeRange: TimeRange) =>
+    [...statsKeys.all, "instance", instanceId, timeRange] as const,
+  instanceModels: (instanceId: string, timeRange: TimeRange) =>
+    [...statsKeys.all, "instance", instanceId, "models", timeRange] as const,
+  hourly: (timeRange: TimeRange) =>
+    [...statsKeys.all, "hourly", timeRange] as const,
 };
 
 // ==================== Queries ====================
@@ -88,13 +97,13 @@ export const statsKeys = {
  * 获取统计概览
  */
 export function useStatsOverviewQuery(
-  timeRange: TimeRange = '24h',
-  options?: { refetchInterval?: number | false }
+  timeRange: TimeRange = "24h",
+  options?: { refetchInterval?: number | false },
 ) {
   return useQuery({
     queryKey: statsKeys.overview(timeRange),
     queryFn: async () => {
-      return tauriInvoke<StatsOverview>('get_stats_overview', {
+      return tauriInvoke<StatsOverview>("get_stats_overview", {
         timeRange: timeRange,
       });
     },
@@ -107,18 +116,37 @@ export function useStatsOverviewQuery(
  * 获取聚合统计
  */
 export function useAggregatedStatsQuery(
-  timeRange: TimeRange = '24h',
+  timeRange: TimeRange = "24h",
   instanceIds?: string[],
-  options?: { refetchInterval?: number | false }
+  options?: { refetchInterval?: number | false },
 ) {
-  const idsParam = instanceIds?.join(',');
-  
+  const idsParam = instanceIds?.join(",");
+
   return useQuery({
     queryKey: statsKeys.aggregated(timeRange, idsParam),
     queryFn: async () => {
-      return tauriInvoke<AggregatedStats>('get_aggregated_stats', {
+      return tauriInvoke<AggregatedStats>("get_aggregated_stats", {
         timeRange: timeRange,
         instanceIds: idsParam ?? null,
+      });
+    },
+    refetchInterval: options?.refetchInterval,
+    staleTime: 10000,
+  });
+}
+
+/**
+ * 获取按小时分桶的消息趋势(跨实例求和),供首页英雄卡趋势线。
+ */
+export function useHourlyStatsQuery(
+  timeRange: TimeRange = "24h",
+  options?: { refetchInterval?: number | false },
+) {
+  return useQuery({
+    queryKey: statsKeys.hourly(timeRange),
+    queryFn: async () => {
+      return tauriInvoke<HourlyMessageCount[]>("get_hourly_message_stats", {
+        timeRange: timeRange,
       });
     },
     refetchInterval: options?.refetchInterval,
@@ -131,13 +159,13 @@ export function useAggregatedStatsQuery(
  */
 export function useInstanceStatsQuery(
   instanceId: string | undefined,
-  timeRange: TimeRange = '24h',
-  options?: { refetchInterval?: number | false }
+  timeRange: TimeRange = "24h",
+  options?: { refetchInterval?: number | false },
 ) {
   return useQuery({
     queryKey: statsKeys.instance(instanceId!, timeRange),
     queryFn: async () => {
-      return tauriInvoke<InstanceStats>('get_instance_stats', {
+      return tauriInvoke<InstanceStats>("get_instance_stats", {
         instanceId: instanceId!,
         timeRange: timeRange,
       });
@@ -153,9 +181,9 @@ export function useInstanceStatsQuery(
  */
 export function useInstanceModelStatsQuery(
   instanceId: string | undefined,
-  timeRange: TimeRange = '24h',
+  timeRange: TimeRange = "24h",
   limit: number = 10,
-  options?: { refetchInterval?: number | false }
+  options?: { refetchInterval?: number | false },
 ) {
   return useQuery({
     queryKey: statsKeys.instanceModels(instanceId!, timeRange),
@@ -164,7 +192,7 @@ export function useInstanceModelStatsQuery(
         instance_id: string;
         time_range: string;
         models: ModelStats[];
-      }>('get_instance_model_stats', {
+      }>("get_instance_model_stats", {
         instanceId: instanceId!,
         timeRange: timeRange,
         limit: limit,
@@ -181,11 +209,15 @@ export function useInstanceModelStatsQuery(
  */
 export function useInvalidateStats() {
   const queryClient = useQueryClient();
-  
+
   return {
-    invalidateAll: () => queryClient.invalidateQueries({ queryKey: statsKeys.all }),
-    invalidateOverview: () => queryClient.invalidateQueries({ queryKey: ['stats', 'overview'] }),
-    invalidateInstance: (instanceId: string) => 
-      queryClient.invalidateQueries({ queryKey: ['stats', 'instance', instanceId] }),
+    invalidateAll: () =>
+      queryClient.invalidateQueries({ queryKey: statsKeys.all }),
+    invalidateOverview: () =>
+      queryClient.invalidateQueries({ queryKey: ["stats", "overview"] }),
+    invalidateInstance: (instanceId: string) =>
+      queryClient.invalidateQueries({
+        queryKey: ["stats", "instance", instanceId],
+      }),
   };
 }
