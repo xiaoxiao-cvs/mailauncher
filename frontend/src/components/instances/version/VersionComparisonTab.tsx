@@ -3,7 +3,6 @@ import {
   Loader2,
   Download,
   GitCommit,
-  FileText,
   Shield,
 } from "lucide-react";
 import {
@@ -15,7 +14,7 @@ import {
 } from "@/components/ls";
 import {
   ComponentVersionInfo,
-  UpdateCheckResult,
+  ComponentUpdateCheck,
   getComponentDisplayName,
 } from "@/services/versionApi";
 
@@ -23,7 +22,7 @@ interface VersionComparisonTabProps {
   components: ComponentVersionInfo[];
   selectedComponent: string | null;
   onSelectComponent: (component: string) => void;
-  componentDetail: UpdateCheckResult | undefined;
+  componentDetail: ComponentUpdateCheck | undefined;
   isLoadingDetail: boolean;
   updateConfirmed: boolean;
   onUpdateConfirmedChange: (confirmed: boolean) => void;
@@ -42,13 +41,14 @@ export function VersionComparisonTab({
   onUpdate,
   isUpdating,
 }: VersionComparisonTabProps) {
-  const hasUpdateAvailable = components.some((c) => c.has_update);
-
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3">
         {components.map((component) => {
           const isSelected = selectedComponent === component.component;
+          // 列表项仅展示本地安装快照(version / commit_hash);更新检查在下方选中后按需触发。
+          const localLabel =
+            component.version || component.commit_hash?.slice(0, 7) || "—";
           return (
             <Surface
               key={component.component}
@@ -72,30 +72,15 @@ export function VersionComparisonTab({
                   >
                     {getComponentDisplayName(component.component)}
                   </span>
-                  {component.has_update ? (
-                    <Badge tone="warn">有更新</Badge>
-                  ) : component.status === "up_to_date" ? (
-                    <Badge tone="life">最新</Badge>
-                  ) : null}
+                  <Badge tone="neutral">{component.install_method}</Badge>
                 </div>
-                {component.installed && (
-                  <span
-                    className="ls-num text-sm font-mono"
-                    style={{ color: "var(--ls-ink-soft)" }}
-                  >
-                    {component.local_version || component.local_commit}
-                  </span>
-                )}
-              </div>
-
-              {component.has_update && component.commits_behind && (
-                <div
-                  className="ls-num text-sm"
-                  style={{ color: "var(--ls-warn)" }}
+                <span
+                  className="ls-num text-sm font-mono"
+                  style={{ color: "var(--ls-ink-soft)" }}
                 >
-                  落后 {component.commits_behind} 个提交
-                </div>
-              )}
+                  {localLabel}
+                </span>
+              </div>
             </Surface>
           );
         })}
@@ -132,8 +117,9 @@ export function VersionComparisonTab({
                       className="ls-num font-mono text-sm"
                       style={{ color: "var(--ls-ink)" }}
                     >
-                      {componentDetail.local_version ||
-                        componentDetail.local_commit?.slice(0, 7)}
+                      {componentDetail.current_version ||
+                        componentDetail.current_commit?.slice(0, 7) ||
+                        "—"}
                     </div>
                   </Surface>
                   <Surface variant="card" className="p-3">
@@ -147,66 +133,39 @@ export function VersionComparisonTab({
                       className="ls-num font-mono text-sm"
                       style={{ color: "var(--ls-life)" }}
                     >
-                      {componentDetail.github_info?.latest_version ||
-                        componentDetail.github_info?.latest_commit?.slice(0, 7)}
+                      {componentDetail.latest_version ||
+                        componentDetail.latest_commit?.slice(0, 7) ||
+                        "—"}
                     </div>
                   </Surface>
                 </div>
               </div>
 
-              {componentDetail.comparison &&
-                componentDetail.comparison.commits.length > 0 && (
-                  <div className="space-y-3">
-                    <h4
-                      className="font-semibold flex items-center gap-2"
-                      style={{ color: "var(--ls-ink)" }}
-                    >
-                      <FileText className="w-4 h-4" />
-                      更新内容 (
-                      <span className="ls-num">
-                        {componentDetail.comparison.total_commits}
-                      </span>{" "}
-                      个提交)
-                    </h4>
-                    <div className="max-h-48 overflow-y-auto space-y-2">
-                      {componentDetail.comparison.commits.map(
-                        (commit, index) => (
-                          <Surface
-                            key={index}
-                            variant="card"
-                            className="p-3 text-sm"
-                          >
-                            <div className="flex items-start gap-2">
-                              <code
-                                className="ls-num text-xs font-mono flex-shrink-0"
-                                style={{ color: "var(--ls-life)" }}
-                              >
-                                {commit.sha}
-                              </code>
-                              <div className="flex-1 min-w-0">
-                                <div
-                                  className="truncate"
-                                  style={{ color: "var(--ls-ink)" }}
-                                >
-                                  {commit.message}
-                                </div>
-                                <div
-                                  className="ls-num text-xs mt-1"
-                                  style={{ color: "var(--ls-ink-soft)" }}
-                                >
-                                  {commit.author} ·{" "}
-                                  {new Date(commit.date).toLocaleDateString(
-                                    "zh-CN",
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </Surface>
-                        ),
-                      )}
-                    </div>
+              {componentDetail.commits_behind ? (
+                <div
+                  className="ls-num text-sm"
+                  style={{ color: "var(--ls-warn)" }}
+                >
+                  落后 {componentDetail.commits_behind} 个提交
+                </div>
+              ) : null}
+
+              {componentDetail.update_notes ? (
+                <Surface variant="card" className="p-3">
+                  <div
+                    className="text-xs mb-1"
+                    style={{ color: "var(--ls-ink-soft)" }}
+                  >
+                    更新说明
                   </div>
-                )}
+                  <p
+                    className="text-sm whitespace-pre-line"
+                    style={{ color: "var(--ls-ink)" }}
+                  >
+                    {componentDetail.update_notes}
+                  </p>
+                </Surface>
+              ) : null}
 
               <Surface variant="card" className="p-4">
                 <div className="flex items-start gap-3">
@@ -289,22 +248,22 @@ export function VersionComparisonTab({
         </Surface>
       )}
 
-      {!hasUpdateAvailable && !selectedComponent && (
+      {!selectedComponent && (
         <div
           className="text-center py-12"
           style={{ color: "var(--ls-ink-soft)" }}
         >
-          <CheckCircle
+          <GitCommit
             className="w-16 h-16 mx-auto mb-4"
-            style={{ color: "var(--ls-life)" }}
+            style={{ color: "var(--ls-ink-faint)" }}
           />
           <p
             className="text-lg font-medium mb-2"
             style={{ color: "var(--ls-ink)" }}
           >
-            所有组件都是最新版本
+            选择组件查看更新
           </p>
-          <p className="text-sm">无需更新</p>
+          <p className="text-sm">点击上方组件以检查是否有可用更新</p>
         </div>
       )}
     </div>

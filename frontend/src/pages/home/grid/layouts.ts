@@ -22,7 +22,10 @@ export type CardId =
   | "downloads"
   | "launcher"
   | "schedules"
-  | "network";
+  | "network"
+  | "version"
+  | "logs"
+  | "health";
 
 /** 断点 → 触发的最小容器宽(px);取 width >= 阈值 的最大断点。 */
 export const BREAKPOINTS = { lg: 1200, md: 860, sm: 620, xs: 0 } as const;
@@ -35,8 +38,8 @@ export const GRID_MARGIN: [number, number] = [12, 12];
 /** 容器内边距 [x, y] px(画布外层已给留白,这里置 0 避免双重)。 */
 export const CONTAINER_PADDING: [number, number] = [0, 0];
 
-/** 持久化键;蓝图结构变更时升版以弃旧缓存(v4:增下载/启动器/计划/网络四张 later 卡)。 */
-export const STORAGE_KEY = "mailauncher.home.layouts.v4";
+/** 持久化键;蓝图结构变更时升版以弃旧缓存(v5:增组件版本/日志墙/看门狗健康三卡)。 */
+export const STORAGE_KEY = "mailauncher.home.layouts.v5";
 
 // lg(12 列):系统卡 + 右上英雄/KPI;中排实例总览/模型/活动;底排按实例对比 + 请求类型。
 const LG: Layout = [
@@ -52,6 +55,9 @@ const LG: Layout = [
   { i: "launcher", x: 3, y: 10, w: 3, h: 3, minW: 2, minH: 2 },
   { i: "schedules", x: 6, y: 10, w: 3, h: 3, minW: 2, minH: 2 },
   { i: "network", x: 9, y: 10, w: 3, h: 3, minW: 2, minH: 2 },
+  { i: "version", x: 0, y: 13, w: 4, h: 3, minW: 3, minH: 2 },
+  { i: "logs", x: 4, y: 13, w: 4, h: 3, minW: 3, minH: 2 },
+  { i: "health", x: 8, y: 13, w: 4, h: 3, minW: 3, minH: 2 },
 ];
 
 // md(8 列):上半同 lg 收窄,底排按实例对比 / 请求类型各占整行。
@@ -68,6 +74,9 @@ const MD: Layout = [
   { i: "launcher", x: 4, y: 14, w: 4, h: 3, minW: 2, minH: 2 },
   { i: "schedules", x: 0, y: 17, w: 4, h: 3, minW: 2, minH: 2 },
   { i: "network", x: 4, y: 17, w: 4, h: 3, minW: 2, minH: 2 },
+  { i: "version", x: 0, y: 20, w: 4, h: 3, minW: 3, minH: 2 },
+  { i: "logs", x: 4, y: 20, w: 4, h: 3, minW: 3, minH: 2 },
+  { i: "health", x: 0, y: 23, w: 8, h: 2, minW: 3, minH: 2 },
 ];
 
 // sm(4 列):整列竖叠。xs(2 列)由 RGL 从 sm 自动生成。
@@ -84,6 +93,9 @@ const SM: Layout = [
   { i: "launcher", x: 0, y: 26, w: 4, h: 3, minW: 2, minH: 2 },
   { i: "schedules", x: 0, y: 29, w: 4, h: 3, minW: 2, minH: 2 },
   { i: "network", x: 0, y: 32, w: 4, h: 3, minW: 2, minH: 2 },
+  { i: "version", x: 0, y: 35, w: 4, h: 3, minW: 2, minH: 2 },
+  { i: "logs", x: 0, y: 38, w: 4, h: 3, minW: 2, minH: 2 },
+  { i: "health", x: 0, y: 41, w: 4, h: 3, minW: 2, minH: 2 },
 ];
 
 export const DEFAULT_LAYOUTS: ResponsiveLayouts = { lg: LG, md: MD, sm: SM };

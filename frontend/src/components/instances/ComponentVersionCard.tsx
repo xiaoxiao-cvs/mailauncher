@@ -1,22 +1,14 @@
 /**
  * 组件版本卡片
- * 显示实例各组件的版本信息和更新状态
+ * 显示实例各组件的本地版本快照(component_versions 表),更新检查在版本管理弹层内按需触发。
  */
 import React from "react";
-import {
-  Package,
-  CheckCircle,
-  AlertCircle,
-  RefreshCw,
-  Loader2,
-  ArrowRight,
-} from "lucide-react";
+import { Package, RefreshCw, Loader2, ArrowRight } from "lucide-react";
 import {
   useComponentsVersionQuery,
   useCheckAllUpdates,
 } from "@/hooks/queries/useVersionQueries";
 import { getComponentDisplayName } from "@/services/versionApi";
-import type { ComponentVersionInfo } from "@/services/versionApi";
 import { Card, Surface, TactileButton } from "@/components/ls";
 
 interface ComponentVersionCardProps {
@@ -35,71 +27,14 @@ export const ComponentVersionCard: React.FC<ComponentVersionCardProps> = ({
     },
   );
 
-  const checkAllMutation = useCheckAllUpdates(instanceId);
+  // 重新读取本地版本快照(DB 读取,廉价);更新检查走网络,在版本管理弹层内单组件按需触发。
+  const refreshMutation = useCheckAllUpdates(instanceId);
 
-  // 获取状态图标(颜色走语义 token:正常=life、警示=warn、危险=danger、缺省=faint)
-  const getStatusIcon = (status: string, hasUpdate?: boolean) => {
-    if (status === "checking") {
-      return (
-        <Loader2
-          className="h-3.5 w-3.5 animate-spin"
-          style={{ color: "var(--ls-ink-soft)" }}
-        />
-      );
-    }
-    if (status === "update_available" || hasUpdate) {
-      return (
-        <AlertCircle
-          className="h-3.5 w-3.5"
-          style={{ color: "var(--ls-warn)" }}
-        />
-      );
-    }
-    if (status === "up_to_date") {
-      return (
-        <CheckCircle
-          className="h-3.5 w-3.5"
-          style={{ color: "var(--ls-life)" }}
-        />
-      );
-    }
-    if (status === "not_installed") {
-      return (
-        <AlertCircle
-          className="h-3.5 w-3.5"
-          style={{ color: "var(--ls-ink-faint)" }}
-        />
-      );
-    }
-    if (status === "check_failed") {
-      return (
-        <AlertCircle
-          className="h-3.5 w-3.5"
-          style={{ color: "var(--ls-danger)" }}
-        />
-      );
-    }
-    return null;
-  };
-
-  // 获取状态文本
-  const getStatusText = (component: ComponentVersionInfo) => {
-    if (!component.installed) return "未安装";
-    if (component.status === "checking") return "检查中...";
-    if (component.status === "check_failed") return "检查失败";
-    if (component.has_update) {
-      return component.commits_behind
-        ? `落后 ${component.commits_behind} 个提交`
-        : "有新版本";
-    }
-    return "最新";
-  };
-
-  const handleCheckAll = async () => {
+  const handleRefresh = async () => {
     try {
-      await checkAllMutation.mutateAsync();
+      await refreshMutation.mutateAsync();
     } catch (error) {
-      console.error("检查更新失败:", error);
+      console.error("刷新版本失败:", error);
     }
   };
 
@@ -115,13 +50,13 @@ export const ComponentVersionCard: React.FC<ComponentVersionCardProps> = ({
         </h3>
         <TactileButton
           variant="ghost"
-          onClick={handleCheckAll}
-          disabled={isLoading || checkAllMutation.isPending}
+          onClick={handleRefresh}
+          disabled={isLoading || refreshMutation.isPending}
           className="px-2 py-1.5 disabled:opacity-50"
-          title="检查所有更新"
+          title="刷新版本快照"
         >
           <RefreshCw
-            className={`h-4 w-4 ${checkAllMutation.isPending ? "animate-spin" : ""}`}
+            className={`h-4 w-4 ${refreshMutation.isPending ? "animate-spin" : ""}`}
             style={{ color: "var(--ls-ink-soft)" }}
           />
         </TactileButton>
@@ -139,39 +74,30 @@ export const ComponentVersionCard: React.FC<ComponentVersionCardProps> = ({
           {components.map((component) => (
             <Surface key={component.component} variant="inset" className="p-3">
               <div className="mb-1 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="text-sm font-semibold"
-                    style={{ color: "var(--ls-ink)" }}
-                  >
-                    {getComponentDisplayName(component.component)}
-                  </span>
-                  {getStatusIcon(component.status, component.has_update)}
-                </div>
                 <span
-                  className="text-xs font-medium"
-                  style={{
-                    color: component.has_update
-                      ? "var(--ls-warn)"
-                      : "var(--ls-ink-soft)",
-                  }}
+                  className="text-sm font-semibold"
+                  style={{ color: "var(--ls-ink)" }}
                 >
-                  {getStatusText(component)}
+                  {getComponentDisplayName(component.component)}
+                </span>
+                <span
+                  className="text-xs"
+                  style={{ color: "var(--ls-ink-faint)" }}
+                >
+                  {component.install_method}
                 </span>
               </div>
-              {component.installed && component.local_version && (
-                <div
-                  className="ls-num font-mono text-xs"
-                  style={{ color: "var(--ls-ink-soft)" }}
-                >
-                  {component.local_version}
-                  {component.local_commit && (
-                    <span className="ml-2 text-[10px]">
-                      #{component.local_commit}
-                    </span>
-                  )}
-                </div>
-              )}
+              <div
+                className="ls-num font-mono text-xs"
+                style={{ color: "var(--ls-ink-soft)" }}
+              >
+                {component.version || "—"}
+                {component.commit_hash && (
+                  <span className="ml-2 text-[10px]">
+                    #{component.commit_hash.slice(0, 7)}
+                  </span>
+                )}
+              </div>
             </Surface>
           ))}
 

@@ -3,77 +3,48 @@
  *
  * 通过 Tauri invoke 直接调用 Rust 命令，替代原有的 HTTP API。
  */
-import { tauriInvoke } from '@/services/tauriInvoke';
+import { tauriInvoke } from "@/services/tauriInvoke";
 
 // ==================== 类型定义 ====================
 
+/**
+ * 组件版本信息 —— 与 Rust `ComponentVersionInfo`(models/update.rs)逐字段一致。
+ * 仅来自本地 component_versions 表的只读快照,不含任何更新检查结果。
+ */
 export interface ComponentVersionInfo {
-  component: 'MaiBot' | 'NapCat' | 'MaiBot-Napcat-Adapter';
-  installed: boolean;
-  local_version?: string;
-  local_commit?: string;
-  local_commit_full?: string;
-  status: 'checking' | 'up_to_date' | 'update_available' | 'not_installed' | 'check_failed';
-  has_update?: boolean;
-  commits_behind?: number;
-  latest_version?: string;
-  latest_commit?: string;
-  latest_commit_full?: string;
-  github_info?: GitHubInfo;
-}
-
-export interface GitHubInfo {
-  latest_version?: string;
-  latest_commit?: string;
-  latest_commit_short?: string;
-  commit_message?: string;
-  commit_date?: string;
-  changelog?: string;
-  release_url?: string;
-  published_at?: string;
-  author?: string;
-  html_url?: string;
-  assets?: ReleaseAsset[];
-}
-
-export interface ReleaseAsset {
-  name: string;
-  size: number;
-  download_url: string;
-}
-
-export interface CommitComparison {
-  ahead_by: number;
-  behind_by: number;
-  total_commits: number;
-  commits: CommitInfo[];
-  files_changed: number;
-  files: FileChange[];
-}
-
-export interface CommitInfo {
-  sha: string;
-  message: string;
-  author: string;
-  date: string;
-  url: string;
-}
-
-export interface FileChange {
-  filename: string;
-  status: 'added' | 'modified' | 'removed';
-  additions: number;
-  deletions: number;
-  changes: number;
-}
-
-export interface UpdateCheckResult {
+  /** 组件名称(后端按已安装组件原样返回,不限定枚举) */
   component: string;
-  local_version?: string;
-  local_commit?: string;
-  github_info: GitHubInfo;
+  /** 版本号(未记录时为空) */
+  version?: string;
+  /** Commit hash */
+  commit_hash?: string;
+  /** 安装方式(git / release 等) */
+  install_method: string;
+  /** 安装时间 */
+  installed_at?: string;
+}
+
+/**
+ * 单组件更新检查结果 —— 与 Rust `ComponentUpdateCheck`(models/update.rs)逐字段一致。
+ * 走网络(GitHub),由 check_component_update 返回,需按需触发。
+ */
+export interface ComponentUpdateCheck {
+  /** 组件名称 */
+  component: string;
+  /** 当前版本 */
+  current_version?: string;
+  /** 当前 commit hash */
+  current_commit?: string;
+  /** 最新版本 */
+  latest_version?: string;
+  /** 最新 commit hash */
+  latest_commit?: string;
+  /** 是否有更新 */
   has_update: boolean;
-  comparison?: CommitComparison;
+  /** 更新说明 */
+  update_notes?: string;
+  /** 落后的提交数 */
+  commits_behind?: number;
 }
 
 export interface VersionBackup {
@@ -93,7 +64,7 @@ export interface UpdateHistory {
   to_version?: string;
   from_commit?: string;
   to_commit?: string;
-  status: 'success' | 'failed' | 'rollback';
+  status: "success" | "failed" | "rollback";
   backup_id?: string;
   error_message?: string;
   updated_at: string;
@@ -113,8 +84,13 @@ export interface Release {
 /**
  * 获取实例所有组件的版本信息
  */
-export async function getInstanceComponentsVersion(instanceId: string): Promise<ComponentVersionInfo[]> {
-  return tauriInvoke<ComponentVersionInfo[]>('get_instance_components_version', { instanceId });
+export async function getInstanceComponentsVersion(
+  instanceId: string,
+): Promise<ComponentVersionInfo[]> {
+  return tauriInvoke<ComponentVersionInfo[]>(
+    "get_instance_components_version",
+    { instanceId },
+  );
 }
 
 /**
@@ -122,9 +98,12 @@ export async function getInstanceComponentsVersion(instanceId: string): Promise<
  */
 export async function checkComponentUpdate(
   instanceId: string,
-  component: string
-): Promise<UpdateCheckResult> {
-  return tauriInvoke<UpdateCheckResult>('check_component_update', { instanceId, component });
+  component: string,
+): Promise<ComponentUpdateCheck> {
+  return tauriInvoke<ComponentUpdateCheck>("check_component_update", {
+    instanceId,
+    component,
+  });
 }
 
 /**
@@ -134,7 +113,7 @@ export async function updateComponent(
   instanceId: string,
   component: string,
   createBackup: boolean = true,
-  _updateMethod: 'git' | 'release' = 'git'
+  _updateMethod: "git" | "release" = "git",
 ): Promise<{
   backup_id?: string;
   old_version?: string;
@@ -143,7 +122,7 @@ export async function updateComponent(
   new_commit?: string;
 }> {
   // Rust 命令返回 SuccessResponse，此处适配为兼容返回格式
-  await tauriInvoke('update_component', {
+  await tauriInvoke("update_component", {
     instanceId,
     component,
     createBackup,
@@ -156,9 +135,9 @@ export async function updateComponent(
  */
 export async function getBackups(
   instanceId: string,
-  component?: string
+  component?: string,
 ): Promise<VersionBackup[]> {
-  return tauriInvoke<VersionBackup[]>('get_backups', {
+  return tauriInvoke<VersionBackup[]>("get_backups", {
     instanceId,
     component: component ?? null,
   });
@@ -169,15 +148,15 @@ export async function getBackups(
  */
 export async function restoreBackup(
   instanceId: string,
-  backupId: string
+  backupId: string,
 ): Promise<{
   backup_id: string;
   component: string;
   restored_version?: string;
 }> {
   // Rust 命令返回 SuccessResponse，此处适配为兼容返回格式
-  await tauriInvoke('restore_backup', { instanceId, backupId });
-  return { backup_id: backupId, component: '' };
+  await tauriInvoke("restore_backup", { instanceId, backupId });
+  return { backup_id: backupId, component: "" };
 }
 
 /**
@@ -186,9 +165,9 @@ export async function restoreBackup(
 export async function getUpdateHistory(
   instanceId: string,
   component?: string,
-  limit: number = 20
+  limit: number = 20,
 ): Promise<UpdateHistory[]> {
-  return tauriInvoke<UpdateHistory[]>('get_update_history', {
+  return tauriInvoke<UpdateHistory[]>("get_update_history", {
     instanceId,
     component: component ?? null,
     limit,
@@ -200,18 +179,18 @@ export async function getUpdateHistory(
  */
 export async function getComponentReleases(
   component: string,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<Release[]> {
-  return tauriInvoke<Release[]>('get_component_releases', { component, limit });
+  return tauriInvoke<Release[]>("get_component_releases", { component, limit });
 }
 
 /**
  * 格式化文件大小
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B';
+  if (bytes === 0) return "0 B";
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
@@ -221,9 +200,9 @@ export function formatFileSize(bytes: number): string {
  */
 export function getComponentDisplayName(component: string): string {
   const names: Record<string, string> = {
-    'MaiBot': 'MaiBot',
-    'NapCat': 'NapCat',
-    'MaiBot-Napcat-Adapter': 'Adapter',
+    MaiBot: "MaiBot",
+    NapCat: "NapCat",
+    "MaiBot-Napcat-Adapter": "Adapter",
   };
   return names[component] || component;
 }
