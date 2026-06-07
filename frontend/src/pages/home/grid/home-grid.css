@@ -1,11 +1,28 @@
 /* react-grid-layout 适配「生息」—— 覆盖默认红色占位与黑色缩放手柄,贴合暖哑光语言。 */
 
-/* 拖拽落位占位:生命色软调 + 虚线,替代刺眼的默认红。 */
+/* 卡片位移/缩放过渡:更顺的缓动(快出慢收),拖动中由库自身禁用过渡跟手,落定时平滑归位。 */
+.react-grid-item.cssTransforms {
+  transition:
+    transform 220ms cubic-bezier(0.2, 0, 0, 1),
+    width 220ms cubic-bezier(0.2, 0, 0, 1),
+    height 220ms cubic-bezier(0.2, 0, 0, 1);
+}
+.react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 30;
+  will-change: transform;
+}
+
+/* 拖拽落位占位:生命色软调 + 虚线,圆角对齐卡片,过渡更柔。 */
 .react-grid-item.react-grid-placeholder {
   background: var(--ls-life-soft);
-  border: 1px dashed var(--ls-life);
+  border: 1.5px dashed var(--ls-life);
   border-radius: var(--ls-r-card);
   opacity: 1;
+  transition:
+    transform 180ms cubic-bezier(0.2, 0, 0, 1),
+    width 180ms cubic-bezier(0.2, 0, 0, 1),
+    height 180ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* 缩放手柄箭头:墨色替代默认半透明黑。 */
@@ -14,13 +31,17 @@
   border-bottom-color: var(--ls-ink-faint);
 }
 
-/* 编辑态:每张卡轻描虚线边提示"可拖可缩";整卡可抓取(grab),拖动时禁文字框选。 */
+/* 编辑态:整卡可抓取(grab),拖动时禁文字框选;每张卡一圈柔和虚线提示"可拖可缩",淡入不突兀。 */
 .ls-grid-editing .ls-grid-item {
-  outline: 1px dashed var(--ls-hairline);
-  outline-offset: 3px;
+  outline: 1.5px dashed color-mix(in srgb, var(--ls-ink-faint) 55%, transparent);
+  outline-offset: 4px;
   border-radius: var(--ls-r-card);
   cursor: grab;
   user-select: none;
+  transition: outline-color 160ms ease;
+}
+.ls-grid-editing .ls-grid-item:hover {
+  outline-color: var(--ls-life);
 }
 .ls-grid-editing .ls-grid-item:active {
   cursor: grabbing;
@@ -31,10 +52,11 @@
 }
 
 /* 减少动态效果:RGL 的位移/高度过渡是纯 CSS,绕过 motion 的 reducedMotion,这里一并关停,
-   与根部 <MotionConfig reducedMotion="user"> 对齐,前庭敏感用户全程无位移动画。 */
+   与根部 <MotionConfig reducedMotion="user"> 对齐,前庭敏感用户拖拽/重排/断点切换全程无位移动画。 */
 @media (prefers-reduced-motion: reduce) {
   .react-grid-layout,
-  .react-grid-item.cssTransforms {
+  .react-grid-item.cssTransforms,
+  .react-grid-item.react-grid-placeholder {
     transition: none !important;
   }
 }
