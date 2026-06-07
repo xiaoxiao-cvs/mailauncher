@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type {
+  CSSProperties,
+  MouseEvent as ReactMouseEvent,
+  ReactNode,
+} from "react";
 import { LayoutGroup, motion } from "motion/react";
 import { Icon } from "@iconify/react";
 
@@ -227,7 +231,8 @@ function CollapsedBody({ tile, cardId }: { tile: BentoTile; cardId: string }) {
   );
 }
 
-/** 展开态:可点的详情头(图标 + 标签 morph + 收起角标)+ 详情主体(可含交互控件)。 */
+/** 展开态:详情头(图标 + 标签 morph + 收起角标)+ 详情主体(可含交互控件)。
+    点详情内任意非交互区域即收起;交互控件(button/a/input 等或 [data-no-collapse])点击不收起,避免误收。 */
 function DetailBody({
   tile,
   cardId,
@@ -237,16 +242,27 @@ function DetailBody({
   cardId: string;
   onCollapse: () => void;
 }) {
+  const handleClick = (e: ReactMouseEvent<HTMLDivElement>) => {
+    if (
+      (e.target as HTMLElement).closest(
+        "button, a, input, select, textarea, [data-no-collapse]",
+      )
+    )
+      return;
+    onCollapse();
+  };
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.18, delay: 0.06 }}
+      onClick={handleClick}
       style={{
         display: "flex",
         flexDirection: "column",
         height: "100%",
         minHeight: 0,
+        cursor: "pointer",
       }}
     >
       <button
