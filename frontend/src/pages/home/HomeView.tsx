@@ -426,7 +426,7 @@ export function HomeView({
       >
         <SystemCard info={systemInfo} stats={systemStats} />
 
-        <div className="col-span-12 flex flex-col gap-3 lg:col-span-8">
+        <div className="col-span-12 flex flex-col gap-3 lg:col-span-8 2xl:col-span-9">
           <MessageHero summary={summary} history={messageHistory} />
           <KpiGrid summary={summary} />
         </div>

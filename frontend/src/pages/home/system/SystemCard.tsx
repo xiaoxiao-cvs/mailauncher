@@ -23,11 +23,9 @@ import type { SystemInfo, SystemStats } from "@/services/systemApi";
  * (绝对定位 + 高 z-index,**不透明**,故盖住其余),其余瓦片快速淡出。因为全程只有这一块在动布局、
  * 且它不透明地占据画面,所以"从哪来到哪去"清清楚楚、不会出现两层重叠的鬼影。再点它收回原格。
  *
- * 铁律:卡是固定高度的框,折叠/详情共用同一框、绝不改尺寸。
+ * 铁律:折叠/详情共用同一框、绝不改尺寸(lg+ 锁正方形以得方形单元格,移动端固定高)。
  */
 
-/** 固定框高(px):bento 概览与 CPU 详情共用同一框;加高以容下 bento 五块不挤。 */
-const FRAME_H = 440;
 const TILE_RADIUS = 14;
 const PLACEHOLDER = "—";
 /** 进程行行距(px):据此按进程表可用高度推算可容纳行数,自适应铺满(行高约 16 + 行距)。 */
@@ -82,14 +80,16 @@ export function SystemCard({
 
   return (
     <motion.div
-      className="col-span-12 lg:col-span-4"
+      className="col-span-12 lg:col-span-4 2xl:col-span-3 lg:self-start"
       variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
       transition={springSoft}
     >
       <LayoutGroup>
+        {/* 框:移动端固定 440 高;lg+ 锁正方形,使 3×3 等分轨道得到方形单元格。
+            概览与详情共用同一框,详情绝对铺满、不改尺寸。 */}
         <div
-          className="relative"
-          style={{ height: FRAME_H, ...TILE_VISUAL, borderRadius: 16 }}
+          className="relative h-[440px] w-full lg:h-auto lg:aspect-square lg:max-w-[440px]"
+          style={{ ...TILE_VISUAL, borderRadius: 16 }}
         >
           <div
             style={{
@@ -98,8 +98,8 @@ export function SystemCard({
               padding: 12,
               display: "grid",
               gap: 10,
-              gridTemplateColumns: "1fr 1fr 0.92fr",
-              gridTemplateRows: "1.32fr 1fr 0.92fr",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              gridTemplateRows: "1fr 1fr 1fr",
               gridTemplateAreas: `
                 "cpu cpu mem"
                 "swap disk mem"
@@ -243,17 +243,17 @@ function CpuTile({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 12,
-          marginTop: 8,
+          gap: 10,
+          marginTop: 6,
           flex: 1,
           minHeight: 0,
         }}
       >
         <Ring
           value={Math.round(cpu)}
-          size={72}
-          stroke={7}
-          centerLabel={<RingNum value={cpu} big={18} />}
+          size={54}
+          stroke={6}
+          centerLabel={<RingNum value={cpu} big={15} />}
         />
         <div style={{ minWidth: 0, flex: 1 }}>
           <div
@@ -284,7 +284,7 @@ function CpuTile({
           </div>
         </div>
       </div>
-      <div style={{ height: 30, marginTop: 6 }}>
+      <div style={{ height: 24, marginTop: 4 }}>
         <Sparkline values={cpuHist} className="h-full w-full" />
       </div>
     </>
