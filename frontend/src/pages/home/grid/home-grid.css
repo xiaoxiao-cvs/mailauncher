@@ -14,11 +14,20 @@
   border-bottom-color: var(--ls-ink-faint);
 }
 
-/* 编辑态:每张卡轻描虚线边提示"可拖可缩"。 */
+/* 编辑态:每张卡轻描虚线边提示"可拖可缩";整卡可抓取(grab),拖动时禁文字框选。 */
 .ls-grid-editing .ls-grid-item {
   outline: 1px dashed var(--ls-hairline);
   outline-offset: 3px;
   border-radius: var(--ls-r-card);
+  cursor: grab;
+  user-select: none;
+}
+.ls-grid-editing .ls-grid-item:active {
+  cursor: grabbing;
+}
+/* 编辑态整页禁选,杜绝拖动误触发文字框选(SE 缩放手柄仍可用)。 */
+.ls-grid-editing {
+  user-select: none;
 }
 
 /* 减少动态效果:RGL 的位移/高度过渡是纯 CSS,绕过 motion 的 reducedMotion,这里一并关停,

@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 
 import { springMorph } from "@/design/motion";
 import type { BentoTile, ExpandableBentoCardProps } from "./types";
+import { useBentoEditMode } from "./editMode";
 
 /**
  * 可展开 bento 卡 —— mailauncher 签名交互的无业务基座(机制层抠自已验证的 SystemCard)。
@@ -50,10 +51,13 @@ export function ExpandableBentoCard({
 }: ExpandableBentoCardProps) {
   const single = tiles.length === 1;
 
+  // 编辑模式:整卡交给 RGL 拖拽,故禁展开(不渲染触发按钮、收起已展开)。
+  const editing = useBentoEditMode();
+
   // 受控 / 非受控双模:传 expandedKey 即受控(跨卡协调),否则内部自管。
   const [internal, setInternal] = useState<string | null>(null);
   const controlled = expandedKey !== undefined;
-  const expanded = controlled ? expandedKey : internal;
+  const expanded = editing ? null : controlled ? expandedKey : internal;
 
   const frameRef = useRef<HTMLDivElement>(null);
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -135,7 +139,9 @@ export function ExpandableBentoCard({
                   opacity: { duration: 0.12 },
                 }}
                 animate={{ opacity: dim ? 0 : 1 }}
-                whileHover={isExp || expanded !== null ? undefined : { y: -2 }}
+                whileHover={
+                  editing || isExp || expanded !== null ? undefined : { y: -2 }
+                }
                 aria-hidden={dim || undefined}
                 style={{
                   // 单瓦片卡:瓦片透明、由外框充当唯一暖面,避免卡中套卡的双层发丝边。
@@ -166,19 +172,22 @@ export function ExpandableBentoCard({
                   <>
                     <CollapsedBody tile={t} cardId={cardId} />
                     {/* 全覆盖展开触发:必须透明——绝不挂 ls-item(其 :hover 会铺 --ls-bg-2 暗底盖住内容)。
-                        悬停反馈由外层 motion.div 的 whileHover y:-2 给出,与 SystemCard 一致。 */}
-                    <button
-                      ref={(el) => {
-                        triggerRefs.current[t.key] = el;
-                      }}
-                      type="button"
-                      onClick={() => expand(t.key)}
-                      aria-label={`展开 ${t.label}`}
-                      aria-expanded={false}
-                      tabIndex={dim ? -1 : 0}
-                      className="absolute inset-0"
-                      style={{ zIndex: 2, borderRadius: TILE_RADIUS }}
-                    />
+                        悬停反馈由外层 motion.div 的 whileHover y:-2 给出,与 SystemCard 一致。
+                        编辑态不渲染此按钮:让 mousedown 直达 RGL 网格项,实现整卡拖拽、不误触发展开。 */}
+                    {!editing && (
+                      <button
+                        ref={(el) => {
+                          triggerRefs.current[t.key] = el;
+                        }}
+                        type="button"
+                        onClick={() => expand(t.key)}
+                        aria-label={`展开 ${t.label}`}
+                        aria-expanded={false}
+                        tabIndex={dim ? -1 : 0}
+                        className="absolute inset-0"
+                        style={{ zIndex: 2, borderRadius: TILE_RADIUS }}
+                      />
+                    )}
                   </>
                 )}
               </motion.div>

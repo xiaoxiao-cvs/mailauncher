@@ -5,3 +5,4 @@
 export { ExpandableBentoCard } from "./ExpandableBentoCard";
 export type { BentoTile, ExpandableBentoCardProps } from "./types";
 export { useAutoRows } from "./useAutoRows";
+export { BentoEditModeContext, useBentoEditMode } from "./editMode";
