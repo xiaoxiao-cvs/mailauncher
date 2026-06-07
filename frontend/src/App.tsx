@@ -6,6 +6,7 @@ import {
   Navigate,
   useNavigate,
 } from "react-router-dom";
+import { MotionConfig } from "motion/react";
 import { OnboardingPage } from "@/components/onboarding";
 import { HomePage } from "@/pages/HomePage";
 import { InstancesPage } from "@/pages/InstancesPage";
@@ -105,17 +106,21 @@ function App() {
   }, []);
 
   return (
-    <Router>
-      <NotificationProvider>
-        <InstallTaskProvider>
-          {/* 全局 WebSocket 管理器 - 在任何页面都保持连接 */}
-          <GlobalWebSocketManager />
-          <ErrorBoundary>
-            <AppRoutes />
-          </ErrorBoundary>
-        </InstallTaskProvider>
-      </NotificationProvider>
-    </Router>
+    // reducedMotion="user" 尊重系统"减少动态效果":偏好开启时容器形变/位移瞬时落位(仍保留淡入淡出),
+    // 招牌钻取交互对前庭敏感用户不致眩晕。
+    <MotionConfig reducedMotion="user">
+      <Router>
+        <NotificationProvider>
+          <InstallTaskProvider>
+            {/* 全局 WebSocket 管理器 - 在任何页面都保持连接 */}
+            <GlobalWebSocketManager />
+            <ErrorBoundary>
+              <AppRoutes />
+            </ErrorBoundary>
+          </InstallTaskProvider>
+        </NotificationProvider>
+      </Router>
+    </MotionConfig>
   );
 }
 
