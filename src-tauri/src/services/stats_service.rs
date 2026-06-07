@@ -58,11 +58,12 @@ fn find_maibot_db(instance_path: &str) -> Option<PathBuf> {
     None
 }
 
-/// 统计 mai_messages 表在指定时间区间内的消息数与回复数
+/// 统计指定时间区间内的消息数(mai_messages)与回复数(tool_records 中 tool_name='reply')
 ///
-/// MaiBot 重写后消息表名为 `mai_messages`，时间列为 `timestamp`（DateTime，
-/// 字符串形如 'YYYY-MM-DD HH:MM:SS'），与 llm_usage 一致按字符串边界比较。
-/// 当表不存在时返回 (0, 0)，以兼容尚未产生消息记录的实例数据库。
+/// MaiBot 现代 schema:消息表 `mai_messages`、工具调用表 `tool_records`,时间列均为 `timestamp`
+/// (DateTime 字符串形如 'YYYY-MM-DD HH:MM:SS...'),与 llm_usage 一致按字符串边界比较。
+/// 回复数对齐 MaiBot 控制台口径——取工具调用 reply(而非 mai_messages.reply_to,该列在现代库
+/// 几乎恒空)。两表分别探测存在性,缺失时各自回退 0,兼容尚未产生记录的实例数据库。
 async fn count_messages(pool: &SqlitePool, start_time: &str, end_time: &str) -> (i64, i64) {
     let msg_table: Option<(String,)> =
         sqlx::query_as("SELECT name FROM sqlite_master WHERE type='table' AND name='mai_messages'")
@@ -82,16 +83,54 @@ async fn count_messages(pool: &SqlitePool, start_time: &str, end_time: &str) -> 
             .await
             .unwrap_or((0,));
 
-    let reply_count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM mai_messages WHERE timestamp >= ? AND timestamp <= ? AND reply_to IS NOT NULL"
-    )
-    .bind(start_time)
-    .bind(end_time)
-    .fetch_one(pool)
-    .await
-    .unwrap_or((0,));
+    // 回复数:对齐 MaiBot 控制台口径——回复来自 tool_records 中 tool_name='reply' 的工具调用,
+    // 而非 mai_messages.reply_to(现代库该列几乎恒空:真实库 100+ 行仅 1 行非空)。
+    // tool_records 表不存在(旧库/空库)时回退 0。
+    let tool_table: Option<(String,)> =
+        sqlx::query_as("SELECT name FROM sqlite_master WHERE type='table' AND name='tool_records'")
+            .fetch_optional(pool)
+            .await
+            .unwrap_or(None);
+    let reply_count: (i64,) = if tool_table.is_some() {
+        sqlx::query_as(
+            "SELECT COUNT(*) FROM tool_records WHERE timestamp >= ? AND timestamp <= ? AND tool_name = 'reply'"
+        )
+        .bind(start_time)
+        .bind(end_time)
+        .fetch_one(pool)
+        .await
+        .unwrap_or((0,))
+    } else {
+        (0,)
+    };
 
     (msg_count.0, reply_count.0)
+}
+
+/// 统计某实例近 `time_range` 窗口内的消息数与回复数(供消息队列"已处理"等跨服务复用,
+/// 口径与首页统计卡一致)。实例无 DB / 表缺失 / 连接失败时安全返回 (0, 0)。
+pub(crate) async fn count_instance_messages(instance_path: &str, time_range: &str) -> (i64, i64) {
+    let Some(db_path) = find_maibot_db(instance_path) else {
+        return (0, 0);
+    };
+    let db_url = format!("sqlite:{}?mode=ro", db_path.display());
+    let Ok(options) = db_url.parse::<SqliteConnectOptions>() else {
+        return (0, 0);
+    };
+    let Ok(pool) = sqlx::SqlitePool::connect_with(options).await else {
+        return (0, 0);
+    };
+    let hours = time_range_to_hours(time_range);
+    let end = Local::now().naive_local();
+    let start = end - chrono::Duration::seconds((hours * 3600.0) as i64);
+    let result = count_messages(
+        &pool,
+        &start.format("%Y-%m-%d %H:%M:%S").to_string(),
+        &end.format("%Y-%m-%d %H:%M:%S").to_string(),
+    )
+    .await;
+    pool.close().await;
+    result
 }
 
 /// query_llm_usage 按模型聚合的累加值:
@@ -508,6 +547,17 @@ mod tests {
         .execute(&pool)
         .await
         .expect("建表失败");
+        sqlx::query(
+            "CREATE TABLE tool_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tool_id VARCHAR(255),
+                timestamp DATETIME NOT NULL,
+                tool_name VARCHAR(255) NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .expect("建 tool_records 表失败");
         pool
     }
 
@@ -529,22 +579,39 @@ mod tests {
         .expect("插入消息失败");
     }
 
+    async fn insert_tool_record(pool: &SqlitePool, timestamp: &str, tool_name: &str) {
+        sqlx::query("INSERT INTO tool_records (timestamp, tool_name) VALUES (?, ?)")
+            .bind(timestamp)
+            .bind(tool_name)
+            .execute(pool)
+            .await
+            .expect("插入工具记录失败");
+    }
+
     #[tokio::test]
     async fn count_messages_filters_by_timestamp_window_and_counts_replies() {
         let pool = setup_messages_db().await;
-        // 窗口内：3 条消息，其中 2 条是回复
+        // 窗口内：3 条消息
         insert_message(&pool, "m1", "2026-06-03 10:00:00", None).await;
-        insert_message(&pool, "m2", "2026-06-03 10:30:00", Some("m1")).await;
-        insert_message(&pool, "m3", "2026-06-03 11:00:00", Some("m2")).await;
+        insert_message(&pool, "m2", "2026-06-03 10:30:00", None).await;
+        insert_message(&pool, "m3", "2026-06-03 11:00:00", None).await;
         // 窗口外（早于起点 / 晚于终点）：均不应计入
-        insert_message(&pool, "m0", "2026-06-03 09:59:59", Some("x")).await;
-        insert_message(&pool, "m4", "2026-06-03 12:00:01", Some("y")).await;
+        insert_message(&pool, "m0", "2026-06-03 09:59:59", None).await;
+        insert_message(&pool, "m4", "2026-06-03 12:00:01", None).await;
+        // 回复=tool_records.tool_name='reply'：窗口内 2 条 reply、1 条非 reply、窗口外 1 条 reply
+        insert_tool_record(&pool, "2026-06-03 10:15:00", "reply").await;
+        insert_tool_record(&pool, "2026-06-03 11:30:00", "reply").await;
+        insert_tool_record(&pool, "2026-06-03 10:45:00", "no_action").await;
+        insert_tool_record(&pool, "2026-06-03 09:00:00", "reply").await;
 
         let (total, replies) =
             count_messages(&pool, "2026-06-03 10:00:00", "2026-06-03 12:00:00").await;
 
         assert_eq!(total, 3, "仅应统计 timestamp 落在区间内的消息");
-        assert_eq!(replies, 2, "仅应统计 reply_to 非空的回复");
+        assert_eq!(
+            replies, 2,
+            "回复仅统计窗口内 tool_records.tool_name='reply'"
+        );
     }
 
     #[tokio::test]
@@ -552,13 +619,15 @@ mod tests {
         let pool = setup_messages_db().await;
         // 恰好落在区间两端，闭区间应计入
         insert_message(&pool, "start", "2026-06-03 10:00:00", None).await;
-        insert_message(&pool, "end", "2026-06-03 12:00:00", Some("start")).await;
+        insert_message(&pool, "end", "2026-06-03 12:00:00", None).await;
+        // 边界处的 reply 工具记录(取终点端验证闭区间)
+        insert_tool_record(&pool, "2026-06-03 12:00:00", "reply").await;
 
         let (total, replies) =
             count_messages(&pool, "2026-06-03 10:00:00", "2026-06-03 12:00:00").await;
 
         assert_eq!(total, 2, ">= 与 <= 边界应包含端点消息");
-        assert_eq!(replies, 1);
+        assert_eq!(replies, 1, "边界处的 reply 工具记录应计入");
     }
 
     #[tokio::test]

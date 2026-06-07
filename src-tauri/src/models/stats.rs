@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 
 /// 统计摘要
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
 pub struct StatsSummary {
     pub total_requests: i64,
     pub total_cost: f64,
@@ -22,7 +21,6 @@ pub struct StatsSummary {
 
 /// 模型使用统计
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ModelStats {
     pub model_name: String,
     pub display_name: Option<String>,
@@ -36,7 +34,6 @@ pub struct ModelStats {
 
 /// 请求类型统计
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct RequestTypeStats {
     pub request_type: String,
     pub request_count: i64,
@@ -46,7 +43,6 @@ pub struct RequestTypeStats {
 
 /// 单实例统计
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct InstanceStats {
     pub instance_id: String,
     pub instance_name: String,
@@ -59,7 +55,6 @@ pub struct InstanceStats {
 
 /// 统计概览（首页）
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct StatsOverview {
     pub total_instances: i64,
     pub running_instances: i64,
@@ -71,7 +66,6 @@ pub struct StatsOverview {
 
 /// 聚合统计
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct AggregatedStats {
     pub instance_count: i64,
     pub time_range: String,
@@ -83,7 +77,6 @@ pub struct AggregatedStats {
 
 /// 实例模型统计响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct InstanceModelStatsResponse {
     pub instance_id: String,
     pub time_range: String,

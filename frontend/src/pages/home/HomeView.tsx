@@ -61,7 +61,7 @@ function fmtGrouped(value: number | null | undefined): string {
 
 function fmtCost(usd: number | null | undefined): string {
   const n = num(usd);
-  return "$" + (n >= 100 ? n.toFixed(0) : n.toFixed(2));
+  return "¥" + (n >= 100 ? n.toFixed(0) : n.toFixed(2));
 }
 
 function fmtSeconds(s: number | null | undefined): string {
