@@ -13,7 +13,6 @@ import {
   useHourlyStatsQuery,
 } from "@/hooks/queries/useStatsQueries";
 import { useAllMessageQueuesQuery } from "@/hooks/queries/useMessageQueueQueries";
-import { useSystemMonitor } from "@/hooks/useSystemMonitor";
 import { HomeView, type HomeRange } from "@/pages/home/HomeView";
 
 export function HomePage() {
@@ -34,7 +33,6 @@ export function HomePage() {
   });
   const { data: instanceList } = useInstancesQuery({ refetchInterval: 5000 });
   const { data: queues } = useAllMessageQueuesQuery();
-  const { info: systemInfo, stats: systemStats } = useSystemMonitor();
 
   // 趋势序列:有数据才传(无数据则不渲染走势,不编造序列)。
   const messageHistory =
@@ -59,8 +57,6 @@ export function HomePage() {
       instances={instances}
       byInstance={aggregated?.by_instance ?? []}
       queues={queues ?? []}
-      systemInfo={systemInfo}
-      systemStats={systemStats}
       range={range}
       onRangeChange={setRange}
       messageHistory={messageHistory}

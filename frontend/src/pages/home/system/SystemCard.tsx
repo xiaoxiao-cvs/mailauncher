@@ -10,6 +10,7 @@ import { useNetHistory } from "@/services/netHistoryStore";
 import { useTimeSeries } from "@/services/metrics/timeSeriesStore";
 import { HOST_SCOPE } from "@/services/metrics/types";
 import { getTopProcesses } from "@/services/systemApi";
+import { useSystemMonitor } from "@/hooks/useSystemMonitor";
 import { fmtBytes, fmtGB, fmtRate, num } from "@/utils/format";
 import type { SystemInfo, SystemStats } from "@/services/systemApi";
 
@@ -53,13 +54,9 @@ function tone(pct: number): { tone: string; soft: string } {
     : { tone: "var(--ls-life)", soft: "var(--ls-life-soft)" };
 }
 
-export function SystemCard({
-  info,
-  stats,
-}: {
-  info: SystemInfo | undefined;
-  stats: SystemStats | undefined;
-}) {
+// 自取数:系统资源每秒刷新一次,关在本卡内部(此前经 props 注入会带着整个首页每秒重渲、卡顿)。
+export function SystemCard() {
+  const { info, stats } = useSystemMonitor();
   const netHist = useNetHistory();
   const cpuHist = useTimeSeries(HOST_SCOPE, "cpu");
 

@@ -5,7 +5,6 @@ import type { ResponsiveLayouts } from "react-grid-layout";
 
 import { SegmentControl } from "@/components/ls";
 import { springSoft } from "@/design/motion";
-import type { SystemInfo, SystemStats } from "@/services/systemApi";
 import type {
   StatsSummary,
   ModelStats,
@@ -63,10 +62,6 @@ export interface HomeViewProps {
   byInstance: InstanceStats[];
   /** 全实例消息队列快照,用于麦麦活动卡与在途/已处理计数。 */
   queues: MessageQueueResponse[];
-  /** 静态系统信息(OS / CPU 型号 / 内核 / 主机 / 架构等);首屏完成前为 undefined。 */
-  systemInfo: SystemInfo | undefined;
-  /** 实时系统资源快照(CPU / 内存 / 磁盘 / 网络 / 运行时长);首屏完成前为 undefined。 */
-  systemStats: SystemStats | undefined;
   /** 当前统计时间窗。 */
   range: HomeRange;
   onRangeChange: (range: HomeRange) => void;
@@ -82,8 +77,6 @@ export function HomeView({
   instances,
   byInstance,
   queues,
-  systemInfo,
-  systemStats,
   range,
   onRangeChange,
   messageHistory,
@@ -112,56 +105,86 @@ export function HomeView({
     setSeedKey((k) => k + 1);
   }, []);
 
-  // memo 化:数据不变时各卡元素引用稳定,拖拽期间 RGL 的 children 不变身,
-  // 内层 sync effect 不会 setLayout 打断拖动(react-query 默认结构共享,刷新无变化即同引用)。
+  // 各卡节点单独 memo:仅当自身数据变化才重建、引用稳定。系统卡已自取数(每秒刷新关在卡内),
+  // 故此处不再因系统资源每秒变动而整页重渲;其余卡按各自数据(5s/30s)隔离重渲。
+  // 自取数卡(downloads 等)无 props,memo([]) 仅建一次,内部各自 useQuery 独立更新。
+  const systemNode = useMemo(() => <SystemCard />, []);
+  const heroNode = useMemo(
+    () => <MessageHeroCard summary={summary} history={messageHistory} />,
+    [summary, messageHistory],
+  );
+  const kpiNode = useMemo(
+    () => <KpiCard summary={summary} models={sortedModels} />,
+    [summary, sortedModels],
+  );
+  const instancesNode = useMemo(
+    () => (
+      <InstancesCard
+        instances={instances}
+        runningInstances={runningInstances}
+        totalInstances={totalInstances}
+      />
+    ),
+    [instances, runningInstances, totalInstances],
+  );
+  const modelsNode = useMemo(
+    () => <ModelDistributionCard models={sortedModels} />,
+    [sortedModels],
+  );
+  const queueNode = useMemo(
+    () => <MessageActivityCard queues={queues} />,
+    [queues],
+  );
+  const byInstanceNode = useMemo(
+    () => <ByInstanceCard byInstance={byInstance} />,
+    [byInstance],
+  );
+  const requestTypesNode = useMemo(
+    () => <RequestTypesCard byInstance={byInstance} />,
+    [byInstance],
+  );
+  const downloadsNode = useMemo(() => <DownloadsCard />, []);
+  const launcherNode = useMemo(() => <LauncherUpdateCard />, []);
+  const schedulesNode = useMemo(() => <SchedulesCard />, []);
+  const networkNode = useMemo(() => <NetworkSourceCard />, []);
+  const versionNode = useMemo(() => <VersionCard />, []);
+  const logsNode = useMemo(() => <LogsCard />, []);
+  const healthNode = useMemo(() => <HealthCard />, []);
+
   const cards = useMemo<HomeCard[]>(
     () => [
-      {
-        id: "system",
-        node: <SystemCard info={systemInfo} stats={systemStats} />,
-      },
-      {
-        id: "hero",
-        node: <MessageHeroCard summary={summary} history={messageHistory} />,
-      },
-      { id: "kpi", node: <KpiCard summary={summary} models={sortedModels} /> },
-      {
-        id: "instances",
-        node: (
-          <InstancesCard
-            instances={instances}
-            runningInstances={runningInstances}
-            totalInstances={totalInstances}
-          />
-        ),
-      },
-      { id: "models", node: <ModelDistributionCard models={sortedModels} /> },
-      { id: "queue", node: <MessageActivityCard queues={queues} /> },
-      { id: "byInstance", node: <ByInstanceCard byInstance={byInstance} /> },
-      {
-        id: "requestTypes",
-        node: <RequestTypesCard byInstance={byInstance} />,
-      },
-      // later 卡:卡内自取数(无需经 props 注入)。
-      { id: "downloads", node: <DownloadsCard /> },
-      { id: "launcher", node: <LauncherUpdateCard /> },
-      { id: "schedules", node: <SchedulesCard /> },
-      { id: "network", node: <NetworkSourceCard /> },
-      { id: "version", node: <VersionCard /> },
-      { id: "logs", node: <LogsCard /> },
-      { id: "health", node: <HealthCard /> },
+      { id: "system", node: systemNode },
+      { id: "hero", node: heroNode },
+      { id: "kpi", node: kpiNode },
+      { id: "instances", node: instancesNode },
+      { id: "models", node: modelsNode },
+      { id: "queue", node: queueNode },
+      { id: "byInstance", node: byInstanceNode },
+      { id: "requestTypes", node: requestTypesNode },
+      { id: "downloads", node: downloadsNode },
+      { id: "launcher", node: launcherNode },
+      { id: "schedules", node: schedulesNode },
+      { id: "network", node: networkNode },
+      { id: "version", node: versionNode },
+      { id: "logs", node: logsNode },
+      { id: "health", node: healthNode },
     ],
     [
-      systemInfo,
-      systemStats,
-      summary,
-      sortedModels,
-      instances,
-      runningInstances,
-      totalInstances,
-      queues,
-      byInstance,
-      messageHistory,
+      systemNode,
+      heroNode,
+      kpiNode,
+      instancesNode,
+      modelsNode,
+      queueNode,
+      byInstanceNode,
+      requestTypesNode,
+      downloadsNode,
+      launcherNode,
+      schedulesNode,
+      networkNode,
+      versionNode,
+      logsNode,
+      healthNode,
     ],
   );
 
