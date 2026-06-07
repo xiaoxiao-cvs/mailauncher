@@ -165,7 +165,8 @@ export function ExpandableBentoCard({
                 ) : (
                   <>
                     <CollapsedBody tile={t} cardId={cardId} />
-                    {/* 全覆盖展开触发(透明);形变元素恒为外层 div,故触发用独立按钮。 */}
+                    {/* 全覆盖展开触发:必须透明——绝不挂 ls-item(其 :hover 会铺 --ls-bg-2 暗底盖住内容)。
+                        悬停反馈由外层 motion.div 的 whileHover y:-2 给出,与 SystemCard 一致。 */}
                     <button
                       ref={(el) => {
                         triggerRefs.current[t.key] = el;
@@ -175,7 +176,7 @@ export function ExpandableBentoCard({
                       aria-label={`展开 ${t.label}`}
                       aria-expanded={false}
                       tabIndex={dim ? -1 : 0}
-                      className="ls-item absolute inset-0"
+                      className="absolute inset-0"
                       style={{ zIndex: 2, borderRadius: TILE_RADIUS }}
                     />
                   </>
