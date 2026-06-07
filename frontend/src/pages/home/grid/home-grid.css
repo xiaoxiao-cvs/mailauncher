@@ -9,8 +9,10 @@
     width 220ms cubic-bezier(0.2, 0, 0, 1),
     height 220ms cubic-bezier(0.2, 0, 0, 1);
 }
+/* 正在拖的卡:零过渡才跟手。!important 确保压过编辑态等同特异度规则(否则被它们的 transform
+   过渡赢走会变成橡皮筋黏在光标后 = 卡顿)。其余卡的重排过渡不受影响。 */
 .react-grid-item.react-draggable-dragging {
-  transition: none;
+  transition: none !important;
   z-index: 30;
   will-change: transform;
 }
