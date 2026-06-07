@@ -20,8 +20,10 @@ interface NotificationPopoverProps {
   onClose: () => void;
   /** 点击通知项 */
   onNotificationClick: (notification: Notification) => void;
-  /** 侧边栏是否收起 */
-  isCollapsed: boolean;
+  /** 气泡左缘像素位置(贴栏右缘,由侧栏计算) */
+  anchorLeft: number;
+  /** 气泡上缘像素位置(对齐铃铛纵向位置) */
+  anchorTop: number;
 }
 
 /** 列表交错入场:父级编排、子项落定(替代原 anime.js stack-item 动画)。 */
@@ -49,7 +51,8 @@ export function NotificationPopover({
   onClearAll,
   onClose,
   onNotificationClick,
-  isCollapsed,
+  anchorLeft,
+  anchorTop,
 }: NotificationPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
   const [isStackExpanded, setIsStackExpanded] = useState(false);
@@ -78,9 +81,6 @@ export function NotificationPopover({
 
   if (!isOpen) return null;
 
-  // 根据侧边栏状态计算气泡位置
-  const popoverLeft = isCollapsed ? "4.5rem" : "17rem";
-
   // 是否显示堆叠视图
   const showStack = notifications.length > 1 && !isStackExpanded;
 
@@ -97,8 +97,8 @@ export function NotificationPopover({
         "flex flex-col",
       )}
       style={{
-        left: popoverLeft,
-        bottom: "1.2rem",
+        left: anchorLeft,
+        top: anchorTop,
       }}
     >
       {/* 头部 */}

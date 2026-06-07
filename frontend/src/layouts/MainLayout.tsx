@@ -7,10 +7,8 @@ export function MainLayout() {
       className="flex h-screen w-screen overflow-hidden"
       style={{ background: "var(--ls-bg)" }}
     >
-      {/* Sidebar Container - Floating with padding */}
-      <div className="h-full flex-shrink-0 p-4 pr-0">
-        <Sidebar />
-      </div>
+      {/* 浮岛坞:自带预留列宽与定位(垂直居中、上下露底),故直接作为 flex 子项 */}
+      <Sidebar />
 
       {/* Main Content Area */}
       <main className="scrollbar-thin flex-1 overflow-auto p-4">

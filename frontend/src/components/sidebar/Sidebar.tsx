@@ -1,11 +1,10 @@
-import { SidebarNavItemComponent } from "./SidebarNavItem";
-import { SIDEBAR_NAV_ITEMS, SIDEBAR_BOTTOM_ITEMS } from "./constants";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
+import { DockSlot } from "./DockSlot";
+import { SidebarDockNav } from "./SidebarDockNav";
+import { MaiMark } from "./MaiMark";
 import { NotificationPopover } from "@/components/notifications/NotificationPopover";
-import { cn } from "@/lib/utils";
-// import { useSidebar } from '@/hooks/useSidebar'
 import { useNotificationContext } from "@/contexts/NotificationContext";
-import { useState, useEffect } from "react";
 import InstallLogModal from "../install/InstallLogModal";
 import { Notification } from "@/types/notification";
 import {
@@ -14,19 +13,19 @@ import {
 } from "@/utils/notificationTestTool";
 
 /**
- * 侧边栏组件
- * 职责：提供应用导航
+ * 侧边栏 —— 左侧顶对齐的紧凑实心栏(生息 Living Surfaces)
  *
- * 设计特点（生息 Living Surfaces）：
- * - 始终展开状态
- * - 悬浮圆角矩形设计
- * - 实色哑光面：--ls-surface 背景 + 发丝边 + 柔影 + 顶高光，零玻璃
- * - 当前页面高亮显示
- * - 通知中心功能
+ * 形态:贴左缘、顶对齐的紧凑窄栏(约 60px,纯图标),内容多高就多高、下方留白,
+ * 不沾满高度、不浮岛居中、不展开折叠。实色哑光面三件套,零玻璃。
+ * 激活态是一块会滑行落定的「方块高面」(见 SidebarDockNav);设置独立方块激活。
+ * 导航纯图标,靠 title tooltip 认路。
  */
+
+// 通知气泡贴栏右缘:外层 p-4 左留白(16)+ 栏宽(60)+ 气槽(10)
+const POPOVER_LEFT = 16 + 60 + 10;
+
 export function Sidebar() {
-  // 始终保持展开状态
-  const isCollapsed = false;
+  const location = useLocation();
 
   // 通知管理
   const {
@@ -44,7 +43,7 @@ export function Sidebar() {
     updateTaskProgress,
   } = useNotificationContext();
 
-  // 注册测试工具（开发环境）
+  // 注册测试工具(开发环境)
   useEffect(() => {
     if (import.meta.env.DEV) {
       registerNotificationHandlers({
@@ -90,81 +89,86 @@ export function Sidebar() {
     closePopover();
   };
 
+  // 通知气泡纵向锚点:贴齐铃铛(栏顶对齐后铃铛在上方,气泡随之上移、不再钉在底部)。
+  const bellWrapRef = useRef<HTMLDivElement>(null);
+  const [popoverTop, setPopoverTop] = useState(0);
+  useLayoutEffect(() => {
+    if (isPopoverOpen && bellWrapRef.current) {
+      setPopoverTop(bellWrapRef.current.getBoundingClientRect().top);
+    }
+  }, [isPopoverOpen]);
+
+  const settingsActive = location.pathname.startsWith("/settings");
+
   return (
-    <aside
-      className={cn(
-        // 实色哑光面 + 布局
-        "h-full flex flex-col relative z-50",
-        // 宽度
-        "w-64",
-      )}
-      style={{
-        background: "var(--ls-surface)",
-        border: "1px solid var(--ls-hairline)",
-        borderRadius: "var(--ls-r-panel)",
-        boxShadow: "var(--ls-shadow-soft), inset 0 1px 0 var(--ls-top-hi)",
-      }}
-    >
-      {/* 顶部：Logo 区域 */}
-      <div
-        className="px-4 py-6 overflow-hidden"
-        style={{ borderBottom: "1px solid var(--ls-hairline)" }}
+    <div className="flex h-full flex-shrink-0 items-start p-4 pr-0">
+      <aside
+        aria-label="主导航"
+        className="flex w-[60px] flex-col items-center gap-1.5 p-2"
+        style={{
+          background: "var(--ls-surface)",
+          border: "1px solid var(--ls-hairline)",
+          borderRadius: "var(--ls-r-panel)",
+          boxShadow: "var(--ls-shadow-soft), inset 0 1px 0 var(--ls-top-hi)",
+        }}
       >
-        <div className="flex items-center gap-3 justify-start">
-          {/* Logo 图标 —— 生命色克制点缀 */}
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{
-              background: "var(--ls-life)",
-              boxShadow: "inset 0 1px 0 var(--ls-top-hi)",
-            }}
-          >
-            <span className="font-bold text-sm" style={{ color: "#fff" }}>
-              MAI
-            </span>
-          </div>
-
-          {/* Logo 文字 */}
-          <span
-            className="text-lg font-semibold whitespace-nowrap"
-            style={{ color: "var(--ls-ink)" }}
-          >
-            mailauncher
-          </span>
+        {/* 顶:品牌徽标 —— 麦麦头顶的嫩芽(生命色),立在素纸方片上 */}
+        <div
+          className="flex h-11 w-11 flex-shrink-0 items-center justify-center"
+          style={{
+            background: "var(--ls-surface-hi)",
+            border: "1px solid var(--ls-hairline)",
+            borderRadius: "var(--ls-r-control)",
+            boxShadow: "var(--ls-shadow-soft), inset 0 1px 0 var(--ls-top-hi)",
+          }}
+        >
+          <MaiMark size={28} />
         </div>
-      </div>
 
-      {/* 中间：主导航区域 */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-thin">
-        {SIDEBAR_NAV_ITEMS.map((item) => (
-          <SidebarNavItemComponent
-            key={item.id}
-            item={item}
-            isCollapsed={isCollapsed}
-          />
-        ))}
-      </nav>
-
-      {/* 底部：通知和设置 */}
-      <div className="px-3 pb-4 space-y-2 pt-4 mt-auto">
-        {/* 通知铃铛 */}
-        <NotificationBell
-          unreadCount={unreadCount}
-          isCollapsed={isCollapsed}
-          onClick={togglePopover}
+        <div
+          className="h-px w-7"
+          style={{ background: "var(--ls-hairline)" }}
         />
 
-        {/* 设置按钮 */}
-        {SIDEBAR_BOTTOM_ITEMS.map((item) => (
-          <SidebarNavItemComponent
-            key={item.id}
-            item={item}
-            isCollapsed={isCollapsed}
-          />
-        ))}
-      </div>
+        {/* 中:导航(主路由共用方块滑块) */}
+        <SidebarDockNav />
 
-      {/* 通知气泡 */}
+        <div
+          className="h-px w-7"
+          style={{ background: "var(--ls-hairline)" }}
+        />
+
+        {/* 底:通知(非路由,弹气泡)+ 设置(独立方块激活) */}
+        <div ref={bellWrapRef}>
+          <DockSlot
+            icon="ph:bell-thin"
+            label="通知"
+            onClick={togglePopover}
+            badgeCount={unreadCount}
+          />
+        </div>
+        <DockSlot
+          icon="ph:gear-thin"
+          label="设置"
+          active={settingsActive}
+          to="/settings"
+        >
+          {settingsActive && (
+            <span
+              aria-hidden
+              className="absolute inset-1"
+              style={{
+                background: "var(--ls-surface-hi)",
+                borderRadius: "var(--ls-r-control)",
+                boxShadow:
+                  "var(--ls-shadow-soft), inset 0 1px 0 var(--ls-top-hi)",
+              }}
+            />
+          )}
+        </DockSlot>
+      </aside>
+
+      {/* 通知气泡 —— 贴栏右缘、对齐铃铛纵向位置 */}
       <NotificationPopover
         isOpen={isPopoverOpen}
         notifications={notifications}
@@ -172,7 +176,8 @@ export function Sidebar() {
         onClearAll={clearAllNotifications}
         onClose={closePopover}
         onNotificationClick={handleNotificationClick}
-        isCollapsed={isCollapsed}
+        anchorLeft={POPOVER_LEFT}
+        anchorTop={popoverTop}
       />
 
       {/* 通知详情模态框 */}
@@ -181,6 +186,6 @@ export function Sidebar() {
         notification={logModal.notification}
         onClose={() => setLogModal({ isOpen: false, notification: null })}
       />
-    </aside>
+    </div>
   );
 }
