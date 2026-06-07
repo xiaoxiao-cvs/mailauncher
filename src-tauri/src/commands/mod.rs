@@ -13,3 +13,4 @@ pub mod source_proxy;
 pub mod stats;
 pub mod system;
 pub mod version;
+pub mod watchdog;

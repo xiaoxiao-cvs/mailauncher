@@ -7,7 +7,7 @@ use tauri::State;
 use crate::errors::AppResult;
 use crate::models::log::*;
 use crate::models::message_queue::*;
-use crate::services::{log_service, message_queue_service};
+use crate::services::{instance_service, log_service, maibot_log, message_queue_service};
 use crate::state::AppState;
 
 // ==================== 前端日志命令 ====================
@@ -45,6 +45,56 @@ pub fn export_logs() -> AppResult<String> {
 #[tauri::command]
 pub fn clear_logs() -> AppResult<()> {
     log_service::clear_logs()
+}
+
+/// 全局最近错误/警告(首页"全局日志墙"供数)。
+///
+/// 遍历所有实例,读取各自 MaiBot 结构化日志尾部(read_logs 取末 200 条),筛 level 属于
+/// ERROR/WARN(大小写不敏感),打上来源实例 id/name 后合并;按 ts 倒序、截断到 limit(默认 100)。
+/// 单实例读取失败(日志目录缺失/未启动等)忽略,不中断整体聚合。
+#[tauri::command]
+pub async fn get_recent_errors(
+    state: State<'_, AppState>,
+    limit: Option<usize>,
+) -> AppResult<Vec<AggregatedLogRecord>> {
+    let cap = limit.unwrap_or(100);
+    let instances = instance_service::get_all_instances(&state.db)
+        .await?
+        .instances;
+
+    let mut aggregated: Vec<AggregatedLogRecord> = Vec::new();
+    for instance in &instances {
+        let instance_root = crate::utils::platform::get_instances_dir().join(
+            instance
+                .instance_path
+                .clone()
+                .unwrap_or_else(|| instance.name.clone()),
+        );
+        // 单实例读取失败不应拖垮整体聚合(日志目录可能尚未生成)。
+        let chunk = match maibot_log::read_logs(&instance_root, None, 200) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        for rec in chunk.records {
+            let level_upper = rec.level.to_uppercase();
+            if level_upper != "ERROR" && level_upper != "WARN" {
+                continue;
+            }
+            aggregated.push(AggregatedLogRecord {
+                instance_id: instance.id.clone(),
+                instance_name: instance.name.clone(),
+                ts: rec.ts,
+                level: rec.level,
+                module: rec.module,
+                message: rec.message,
+            });
+        }
+    }
+
+    // 按 ts 倒序(最新在前);ts 为 ISO 风格字符串,字典序与时间序一致。
+    aggregated.sort_by(|a, b| b.ts.cmp(&a.ts));
+    aggregated.truncate(cap);
+    Ok(aggregated)
 }
 
 // ==================== 消息队列命令 ====================

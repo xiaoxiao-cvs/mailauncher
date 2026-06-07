@@ -58,6 +58,23 @@ fn find_maibot_db(instance_path: &str) -> Option<PathBuf> {
     None
 }
 
+/// 把 `time_range`(如 "24h"/"7d")折算为 [start, end] 起止字符串(格式 "%Y-%m-%d %H:%M:%S",
+/// 与 count_messages / query_llm_usage 的边界比较口径一致)。end 取当前本地时刻。
+pub(crate) fn time_range_to_bounds(time_range: &str) -> (String, String) {
+    let hours = time_range_to_hours(time_range);
+    let end = Local::now().naive_local();
+    let start = end - chrono::Duration::seconds((hours * 3600.0) as i64);
+    (
+        start.format("%Y-%m-%d %H:%M:%S").to_string(),
+        end.format("%Y-%m-%d %H:%M:%S").to_string(),
+    )
+}
+
+/// 解析某实例的 MaiBot.db 路径(复用 find_maibot_db 的多候选探测)。无库返回 None。
+pub(crate) fn resolve_maibot_db(instance_path: &str) -> Option<PathBuf> {
+    find_maibot_db(instance_path)
+}
+
 /// 统计指定时间区间内的消息数(mai_messages)与回复数(tool_records 中 tool_name='reply')
 ///
 /// MaiBot 现代 schema:消息表 `mai_messages`、工具调用表 `tool_records`,时间列均为 `timestamp`
@@ -131,6 +148,92 @@ pub(crate) async fn count_instance_messages(instance_path: &str, time_range: &st
     .await;
     pool.close().await;
     result
+}
+
+/// 对实例 MaiBot.db 按小时分桶统计消息数与回复数(首页趋势线供数)。
+///
+/// message_count 取 mai_messages 行数;reply_count 复用本项目"回复=tool_records.tool_name='reply'"
+/// 口径(与 count_messages 一致)。两表分别按 `strftime('%Y-%m-%d %H:00:00', timestamp)` GROUP BY
+/// 聚合,再在 Rust 端按 hour_ts 合并(避免跨表 JOIN 的笛卡尔放大)。表不存在则该维度回退空,
+/// 整体安全返回(可能为空 Vec)。结果按 hour_ts 升序。
+pub async fn query_hourly_message_count(
+    db_path: &Path,
+    start: &str,
+    end: &str,
+) -> AppResult<Vec<HourlyMessageCount>> {
+    let db_url = format!("sqlite:{}?mode=ro", db_path.display());
+    let options: SqliteConnectOptions = db_url
+        .parse()
+        .map_err(|e| AppError::Database(format!("无法解析 MaiBot 数据库路径: {}", e)))?;
+    let pool = sqlx::SqlitePool::connect_with(options)
+        .await
+        .map_err(|e| AppError::Database(format!("无法连接 MaiBot 数据库: {}", e)))?;
+
+    // hour_ts -> (message_count, reply_count),按 hour_ts 合并两表桶聚合结果
+    let mut buckets: HashMap<String, (i64, i64)> = HashMap::new();
+
+    let msg_table: Option<(String,)> =
+        sqlx::query_as("SELECT name FROM sqlite_master WHERE type='table' AND name='mai_messages'")
+            .fetch_optional(&pool)
+            .await?;
+    if msg_table.is_some() {
+        let rows = sqlx::query(
+            "SELECT strftime('%Y-%m-%d %H:00:00', timestamp) AS hour_ts, COUNT(*) AS cnt \
+             FROM mai_messages WHERE timestamp >= ? AND timestamp <= ? \
+             GROUP BY hour_ts",
+        )
+        .bind(start)
+        .bind(end)
+        .fetch_all(&pool)
+        .await?;
+        for row in &rows {
+            let hour_ts: String = row.try_get("hour_ts").unwrap_or_default();
+            if hour_ts.is_empty() {
+                continue;
+            }
+            let cnt: i64 = row.try_get("cnt").unwrap_or(0);
+            buckets.entry(hour_ts).or_insert((0, 0)).0 += cnt;
+        }
+    }
+
+    let tool_table: Option<(String,)> =
+        sqlx::query_as("SELECT name FROM sqlite_master WHERE type='table' AND name='tool_records'")
+            .fetch_optional(&pool)
+            .await?;
+    if tool_table.is_some() {
+        let rows = sqlx::query(
+            "SELECT strftime('%Y-%m-%d %H:00:00', timestamp) AS hour_ts, COUNT(*) AS cnt \
+             FROM tool_records WHERE timestamp >= ? AND timestamp <= ? AND tool_name = 'reply' \
+             GROUP BY hour_ts",
+        )
+        .bind(start)
+        .bind(end)
+        .fetch_all(&pool)
+        .await?;
+        for row in &rows {
+            let hour_ts: String = row.try_get("hour_ts").unwrap_or_default();
+            if hour_ts.is_empty() {
+                continue;
+            }
+            let cnt: i64 = row.try_get("cnt").unwrap_or(0);
+            buckets.entry(hour_ts).or_insert((0, 0)).1 += cnt;
+        }
+    }
+
+    pool.close().await;
+
+    let mut result: Vec<HourlyMessageCount> = buckets
+        .into_iter()
+        .map(
+            |(hour_ts, (message_count, reply_count))| HourlyMessageCount {
+                hour_ts,
+                message_count,
+                reply_count,
+            },
+        )
+        .collect();
+    result.sort_by(|a, b| a.hour_ts.cmp(&b.hour_ts));
+    Ok(result)
 }
 
 /// query_llm_usage 按模型聚合的累加值:

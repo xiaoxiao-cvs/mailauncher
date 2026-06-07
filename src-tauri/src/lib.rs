@@ -256,15 +256,19 @@ pub fn run() {
             commands::stats::get_aggregated_stats,
             commands::stats::get_instance_stats,
             commands::stats::get_instance_model_stats,
+            commands::stats::get_hourly_message_stats,
             // 日志管理
             commands::logs::save_frontend_logs,
             commands::logs::list_log_files,
             commands::logs::get_log_content,
             commands::logs::export_logs,
             commands::logs::clear_logs,
+            commands::logs::get_recent_errors,
             // 消息队列
             commands::logs::get_instance_message_queue,
             commands::logs::get_all_message_queues,
+            // 看门狗只读状态
+            commands::watchdog::get_watchdog_status,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri 应用运行失败");

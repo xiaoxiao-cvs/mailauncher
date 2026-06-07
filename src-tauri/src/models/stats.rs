@@ -82,3 +82,15 @@ pub struct InstanceModelStatsResponse {
     pub time_range: String,
     pub models: Vec<ModelStats>,
 }
+
+/// 按小时分桶的消息/回复计数(首页趋势线供数)。
+///
+/// `hour_ts` 为 SQLite `strftime('%Y-%m-%d %H:00:00', timestamp)` 产出的整点字符串,
+/// 同一小时内 message_count(mai_messages 行数)与 reply_count(tool_records.tool_name='reply')
+/// 跨实例求和后按 hour_ts 升序返回。
+#[derive(Debug, Clone, Serialize)]
+pub struct HourlyMessageCount {
+    pub hour_ts: String,
+    pub message_count: i64,
+    pub reply_count: i64,
+}

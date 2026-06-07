@@ -13,6 +13,7 @@ pub mod schedule;
 pub mod stats;
 pub mod update;
 pub mod version;
+pub mod watchdog;
 
 // 重导出常用类型
 #[allow(unused_imports)]
