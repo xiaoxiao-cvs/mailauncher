@@ -1,10 +1,19 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { motion } from "motion/react";
+import { Icon } from "@iconify/react";
+import type { ResponsiveLayouts } from "react-grid-layout";
 
 import { Card, SegmentControl, Sparkline, Stat } from "@/components/ls";
 import { springSettle, springSoft } from "@/design/motion";
 import type { SystemInfo, SystemStats } from "@/services/systemApi";
 import { SystemCard } from "@/pages/home/system/SystemCard";
+import { HomeGrid, type HomeCard } from "@/pages/home/grid/HomeGrid";
+import {
+  loadLayouts,
+  saveLayouts,
+  clearLayouts,
+  DEFAULT_LAYOUTS,
+} from "@/pages/home/grid/layouts";
 import type { StatsSummary, ModelStats } from "@/hooks/queries/useStatsQueries";
 import type {
   MessageQueueResponse,
@@ -391,9 +400,47 @@ export function HomeView({
     [topModels],
   );
 
+  // 布局编辑态与持久化:编辑模式拖/缩卡片,变更落 localStorage;"恢复默认"回蓝图。
+  const [editing, setEditing] = useState(false);
+  const [layouts, setLayouts] = useState<ResponsiveLayouts>(() =>
+    loadLayouts(),
+  );
+  const handleLayoutsChange = useCallback((next: ResponsiveLayouts) => {
+    setLayouts(next);
+    saveLayouts(next);
+  }, []);
+  const handleReset = useCallback(() => {
+    clearLayouts();
+    setLayouts(DEFAULT_LAYOUTS);
+  }, []);
+
+  const cards: HomeCard[] = [
+    {
+      id: "system",
+      node: <SystemCard info={systemInfo} stats={systemStats} />,
+    },
+    {
+      id: "hero",
+      node: <MessageHero summary={summary} history={messageHistory} />,
+    },
+    { id: "kpi", node: <KpiGrid summary={summary} /> },
+    { id: "models", node: <ModelDistribution models={sortedModels} /> },
+    { id: "queue", node: <MessageQueuePanel queues={queues} /> },
+    {
+      id: "small",
+      node: (
+        <SmallMetrics
+          summary={summary}
+          runningInstances={runningInstances}
+          totalInstances={totalInstances}
+        />
+      ),
+    },
+  ];
+
   return (
     <motion.div
-      className="px-2 py-1"
+      className="mx-auto w-full max-w-[1600px] px-2 py-1"
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={springSoft}
@@ -408,37 +455,53 @@ export function HomeView({
           </div>
           <h1 className="mt-1 text-2xl font-semibold">全部实例</h1>
         </div>
-        <SegmentControl
-          options={RANGES}
-          value={range}
-          onChange={onRangeChange}
-        />
+        <div className="flex items-center gap-2">
+          {editing && (
+            <button
+              type="button"
+              onClick={handleReset}
+              className="ls-item rounded-[12px] px-3 py-1.5 text-xs"
+              style={{
+                color: "var(--ls-ink-soft)",
+                border: "1px solid var(--ls-hairline)",
+              }}
+            >
+              恢复默认
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setEditing((e) => !e)}
+            className="ls-item flex items-center gap-1.5 rounded-[12px] px-3 py-1.5 text-xs font-medium"
+            style={{
+              background: editing ? "var(--ls-life-soft)" : "var(--ls-surface)",
+              color: editing ? "var(--ls-life)" : "var(--ls-ink-soft)",
+              border: "1px solid var(--ls-hairline)",
+            }}
+          >
+            <Icon
+              icon={editing ? "ph:check-bold" : "ph:squares-four-thin"}
+              width={14}
+              height={14}
+            />
+            {editing ? "完成" : "编辑布局"}
+          </button>
+          <SegmentControl
+            options={RANGES}
+            value={range}
+            onChange={onRangeChange}
+          />
+        </div>
       </header>
 
-      <motion.div
-        className="mt-5 grid grid-cols-12 gap-3"
-        initial="hidden"
-        animate="show"
-        variants={{
-          hidden: {},
-          show: { transition: { staggerChildren: 0.05, delayChildren: 0.04 } },
-        }}
-      >
-        <SystemCard info={systemInfo} stats={systemStats} />
-
-        <div className="col-span-12 flex flex-col gap-3 lg:col-span-8 2xl:col-span-9">
-          <MessageHero summary={summary} history={messageHistory} />
-          <KpiGrid summary={summary} />
-        </div>
-
-        <ModelDistribution models={sortedModels} />
-        <MessageQueuePanel queues={queues} />
-        <SmallMetrics
-          summary={summary}
-          runningInstances={runningInstances}
-          totalInstances={totalInstances}
+      <div className="mt-5">
+        <HomeGrid
+          cards={cards}
+          layouts={layouts}
+          editing={editing}
+          onLayoutsChange={handleLayoutsChange}
         />
-      </motion.div>
+      </div>
     </motion.div>
   );
 }

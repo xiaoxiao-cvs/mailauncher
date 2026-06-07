@@ -1,0 +1,22 @@
+/* react-grid-layout 适配「生息」—— 覆盖默认红色占位与黑色缩放手柄,贴合暖哑光语言。 */
+
+/* 拖拽落位占位:生命色软调 + 虚线,替代刺眼的默认红。 */
+.react-grid-item.react-grid-placeholder {
+  background: var(--ls-life-soft);
+  border: 1px dashed var(--ls-life);
+  border-radius: var(--ls-r-card);
+  opacity: 1;
+}
+
+/* 缩放手柄箭头:墨色替代默认半透明黑。 */
+.react-grid-item > .react-resizable-handle::after {
+  border-right-color: var(--ls-ink-faint);
+  border-bottom-color: var(--ls-ink-faint);
+}
+
+/* 编辑态:每张卡轻描虚线边提示"可拖可缩"。 */
+.ls-grid-editing .ls-grid-item {
+  outline: 1px dashed var(--ls-hairline);
+  outline-offset: 3px;
+  border-radius: var(--ls-r-card);
+}

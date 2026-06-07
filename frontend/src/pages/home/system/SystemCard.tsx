@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { MirrorGraph, Ring, Sparkline } from "@/components/ls";
 import { ExpandableBentoCard, useAutoRows } from "@/components/bento";
 import type { BentoTile } from "@/components/bento";
-import { springSettle, springSoft } from "@/design/motion";
+import { springSettle } from "@/design/motion";
 import { useNetHistory } from "@/services/netHistoryStore";
 import { useTimeSeries } from "@/services/metrics/timeSeriesStore";
 import { HOST_SCOPE } from "@/services/metrics/types";
@@ -109,21 +109,16 @@ export function SystemCard({
     },
   ];
 
+  // 尺寸由所在网格单元决定(填满 RGL 项);折叠/详情共用同一外框、不改尺寸的铁律仍在基座内。
   return (
-    <motion.div
-      className="col-span-12 lg:col-span-4 2xl:col-span-3 lg:self-start"
-      variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
-      transition={springSoft}
-    >
-      <ExpandableBentoCard
-        cardId="system"
-        tiles={tiles}
-        areas={SYSTEM_AREAS}
-        columns="1fr 1fr 1fr"
-        rows="1fr 1fr 1fr"
-        frameClassName="relative h-[440px] w-full lg:h-auto lg:aspect-square lg:max-w-[440px]"
-      />
-    </motion.div>
+    <ExpandableBentoCard
+      cardId="system"
+      tiles={tiles}
+      areas={SYSTEM_AREAS}
+      columns="1fr 1fr 1fr"
+      rows="1fr 1fr 1fr"
+      frameClassName="relative h-full w-full"
+    />
   );
 }
 
