@@ -20,3 +20,12 @@
   outline-offset: 3px;
   border-radius: var(--ls-r-card);
 }
+
+/* 减少动态效果:RGL 的位移/高度过渡是纯 CSS,绕过 motion 的 reducedMotion,这里一并关停,
+   与根部 <MotionConfig reducedMotion="user"> 对齐,前庭敏感用户全程无位移动画。 */
+@media (prefers-reduced-motion: reduce) {
+  .react-grid-layout,
+  .react-grid-item.cssTransforms {
+    transition: none !important;
+  }
+}
