@@ -6,7 +6,6 @@ import {
   Navigate,
   useNavigate,
 } from "react-router-dom";
-import { MotionConfig } from "motion/react";
 import { OnboardingPage } from "@/components/onboarding";
 import { HomePage } from "@/pages/HomePage";
 import { InstancesPage } from "@/pages/InstancesPage";
@@ -106,21 +105,20 @@ function App() {
   }, []);
 
   return (
-    // reducedMotion="user" 尊重系统"减少动态效果":偏好开启时容器形变/位移瞬时落位(仍保留淡入淡出),
-    // 招牌钻取交互对前庭敏感用户不致眩晕。
-    <MotionConfig reducedMotion="user">
-      <Router>
-        <NotificationProvider>
-          <InstallTaskProvider>
-            {/* 全局 WebSocket 管理器 - 在任何页面都保持连接 */}
-            <GlobalWebSocketManager />
-            <ErrorBoundary>
-              <AppRoutes />
-            </ErrorBoundary>
-          </InstallTaskProvider>
-        </NotificationProvider>
-      </Router>
-    </MotionConfig>
+    // 不跟随系统"减少动态效果"——本启动器以用户明确诉求(要丝滑动画)为准,招牌容器形变/网格重排
+    // 始终播放(此前 reducedMotion="user" 会在系统关动画时把动画判没、变瞬切)。日后如需尊重系统
+    // 可做成应用内开关。
+    <Router>
+      <NotificationProvider>
+        <InstallTaskProvider>
+          {/* 全局 WebSocket 管理器 - 在任何页面都保持连接 */}
+          <GlobalWebSocketManager />
+          <ErrorBoundary>
+            <AppRoutes />
+          </ErrorBoundary>
+        </InstallTaskProvider>
+      </NotificationProvider>
+    </Router>
   );
 }
 
