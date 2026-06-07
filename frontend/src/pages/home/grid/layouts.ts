@@ -31,16 +31,16 @@ export type CardId =
 export const BREAKPOINTS = { lg: 1200, md: 860, sm: 620, xs: 0 } as const;
 /** 各断点列数。 */
 export const COLS = { lg: 12, md: 8, sm: 4, xs: 2 } as const;
-/** 单行高(px):由 88 压到 76 收紧留白。下限取 76——系统卡 h4≈340(每行≈98px)恰好容下其
-   Ring+走势瓦片不挤,再低则系统卡折叠态溢出;h2≈164 让摘要卡贴合内容。 */
-export const ROW_HEIGHT = 76;
+/** 单行高(px):88 是不挤的基线(系统卡 h4≈388、摘要卡 h2≈188 内容都放得开)。
+   摘要卡偏空不靠压全局行高治(会把内容挤撞,见 v7 教训),改由各卡内容自适应填满。 */
+export const ROW_HEIGHT = 88;
 /** 卡片间距 [x, y] px。 */
 export const GRID_MARGIN: [number, number] = [12, 12];
 /** 容器内边距 [x, y] px(画布外层已给留白,这里置 0 避免双重)。 */
 export const CONTAINER_PADDING: [number, number] = [0, 0];
 
-/** 持久化键;蓝图结构变更时升版以弃旧缓存(v7:行高压到 64,整体收紧)。 */
-export const STORAGE_KEY = "mailauncher.home.layouts.v7";
+/** 持久化键;蓝图结构变更时升版以弃旧缓存(v8:行高退回 88 解决拥挤)。 */
+export const STORAGE_KEY = "mailauncher.home.layouts.v8";
 
 // lg(12 列):系统卡为 h4 主展;其余多为 h2 贴合摘要(详情自适应行数),byInstance/请求类型 h3 容表格。
 const LG: Layout = [
