@@ -17,10 +17,10 @@ import {
   GRID_MARGIN,
   CONTAINER_PADDING,
 } from "./layouts";
-import type { CardId } from "./layouts";
 
 export interface HomeCard {
-  id: CardId;
+  /** 组件实例 uid;同时作为 React key 与 RGL layout 键(默认 uid=kind)。 */
+  uid: string;
   node: ReactNode;
 }
 
@@ -85,7 +85,7 @@ export function HomeGrid({
             onLayoutChange={handleLayoutChange}
           >
             {cards.map((c) => (
-              <div key={c.id} className="ls-grid-item relative">
+              <div key={c.uid} className="ls-grid-item relative">
                 <div className="h-full w-full">{c.node}</div>
               </div>
             ))}

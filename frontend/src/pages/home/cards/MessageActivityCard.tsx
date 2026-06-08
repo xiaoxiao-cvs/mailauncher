@@ -8,6 +8,7 @@ import type {
   MessageQueueItem,
   MessageQueueResponse,
 } from "@/services/messageQueueApi";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 /**
  * 麦麦活动卡 —— 在途会话(消息队列)的 bento 磁贴(单瓦片,摘要 -> 详情原位钻取)。
@@ -67,6 +68,8 @@ export function MessageActivityCard({
   queues,
 }: {
   queues: MessageQueueResponse[];
+  /** P1 占位入参(尺寸槽);P1 不改密度、默认行为不变,改密度在 P2。 */
+  size?: WidgetSize;
 }) {
   const tiles: BentoTile[] = [
     {

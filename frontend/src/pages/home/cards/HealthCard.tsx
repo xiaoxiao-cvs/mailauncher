@@ -7,6 +7,7 @@ import {
   useWatchdogStatusQuery,
   type WatchdogInstanceStatus,
 } from "@/hooks/queries/useWatchdogStatusQuery";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 /**
  * 看门狗健康卡 —— 单瓦片 bento:折叠态给"存活/总数"读数 + 前几个看护组件的紧凑摘要,
@@ -21,7 +22,7 @@ const ROW_PITCH = 38;
 /** 详情列表最少行数(容器极矮时的下限)。 */
 const MIN_ROWS = 3;
 
-export function HealthCard() {
+export function HealthCard(_props: { size?: WidgetSize } = {}) {
   const { data } = useWatchdogStatusQuery();
   const items = data ?? [];
   const aliveCount = items.filter((it) => it.is_alive).length;

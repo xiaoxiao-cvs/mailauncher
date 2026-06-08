@@ -6,6 +6,7 @@ import { SectionHead } from "@/pages/home/cards/CardKit";
 import { fmtCost, fmtCompact, fmtSeconds } from "@/pages/home/cards/format";
 import { num } from "@/utils/format";
 import type { ModelStats } from "@/hooks/queries/useStatsQueries";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 /**
  * 模型分布卡 —— 各模型的调用花费占比(折叠)与完整调用明细(展开,可切排序)。
@@ -48,7 +49,13 @@ function sortModels(models: ModelStats[], by: SortKey): ModelStats[] {
   return [...models].sort((a, b) => pick(b) - pick(a));
 }
 
-export function ModelDistributionCard({ models }: { models: ModelStats[] }) {
+export function ModelDistributionCard({
+  models,
+}: {
+  models: ModelStats[];
+  /** P1 占位入参(尺寸槽);P1 不改密度、默认行为不变,改密度在 P2。 */
+  size?: WidgetSize;
+}) {
   const tiles: BentoTile[] = [
     {
       key: "models",

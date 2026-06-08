@@ -7,6 +7,7 @@ import {
   useCurrentVersionQuery,
 } from "@/hooks/queries/useUpdateQueries";
 import type { UpdateChannel } from "@/types/update";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 /**
  * 启动器自更新卡 —— 单瓦片 bento:折叠态给当前版本大字 + 有无新版徽标,
@@ -32,7 +33,7 @@ const MIN_ROWS = 2;
 /** 比对更新查询固定走的通道(稳定通道);列表本身仍含该响应回报的全部通道。 */
 const CHECK_CHANNEL = "main";
 
-export function LauncherUpdateCard() {
+export function LauncherUpdateCard(_props: { size?: WidgetSize } = {}) {
   const tiles: BentoTile[] = [
     {
       key: "launcher",

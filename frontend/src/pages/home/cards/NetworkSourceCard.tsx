@@ -14,6 +14,7 @@ import type {
   NetworkProxy,
   PypiSource,
 } from "@/hooks/queries/useSourceProxyQueries";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 /**
  * 网络与源状态卡 —— 单瓦片 bento:折叠态给 GitHub/PyPI 连通点 + 代理一行;
@@ -70,7 +71,7 @@ function proxyText(proxy: NetworkProxy | undefined): string {
   return proxy.enabled ? `${proxy.host}:${proxy.port}` : "未启用";
 }
 
-export function NetworkSourceCard() {
+export function NetworkSourceCard(_props: { size?: WidgetSize } = {}) {
   const tiles: BentoTile[] = [
     {
       key: "network",

@@ -5,6 +5,7 @@ import { num } from "@/utils/format";
 import { fmtCompact, fmtCost, fmtSeconds } from "@/pages/home/cards/format";
 import { Cell, MiniBar, SectionHead } from "@/pages/home/cards/CardKit";
 import type { ModelStats, StatsSummary } from "@/hooks/queries/useStatsQueries";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 import { Icon } from "@iconify/react";
 
 /**
@@ -29,9 +30,11 @@ const KPI_AREAS = `
 interface KpiCardProps {
   summary: StatsSummary | undefined;
   models: ModelStats[];
+  /** P1 占位入参(尺寸槽);P1 不改密度、默认行为不变,改密度在 P2。 */
+  size?: WidgetSize;
 }
 
-export function KpiCard({ summary, models }: KpiCardProps) {
+export function KpiCard({ summary, models, size: _size }: KpiCardProps) {
   const tiles: BentoTile[] = [
     {
       key: "cost",

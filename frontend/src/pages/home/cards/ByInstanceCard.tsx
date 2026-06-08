@@ -6,6 +6,7 @@ import { SectionHead, MiniBar } from "@/pages/home/cards/CardKit";
 import { fmtCompact, fmtCost, fmtSeconds } from "@/pages/home/cards/format";
 import { num } from "@/utils/format";
 import type { InstanceStats } from "@/hooks/queries/useStatsQueries";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 /**
  * 按实例对比卡 —— 单瓦片 bento:折叠态给各实例消息量的横向迷你条对比(一眼看谁最忙),
@@ -43,9 +44,14 @@ function sortInstances(list: InstanceStats[], by: SortKey): InstanceStats[] {
 
 export interface ByInstanceCardProps {
   byInstance: InstanceStats[];
+  /** P1 占位入参(尺寸槽);P1 不改密度、默认行为不变,改密度在 P2。 */
+  size?: WidgetSize;
 }
 
-export function ByInstanceCard({ byInstance }: ByInstanceCardProps) {
+export function ByInstanceCard({
+  byInstance,
+  size: _size,
+}: ByInstanceCardProps) {
   const tiles: BentoTile[] = [
     {
       key: "byInstance",

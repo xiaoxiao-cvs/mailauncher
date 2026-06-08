@@ -6,6 +6,7 @@ import { useRecentErrorsQuery } from "@/hooks/queries/useRecentErrorsQuery";
 import type { AggregatedLogRecord } from "@/hooks/queries/useRecentErrorsQuery";
 import { SectionHead } from "@/pages/home/cards/CardKit";
 import { num } from "@/utils/format";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 /**
  * 近期错误日志墙 —— 单瓦片 bento:折叠态给错误/警告计数 + 最近几条速览,
@@ -46,7 +47,7 @@ function shortTs(ts: string): string {
   return m ? m[1] : ts;
 }
 
-export function LogsCard() {
+export function LogsCard(_props: { size?: WidgetSize } = {}) {
   const { data } = useRecentErrorsQuery(100);
   const records = data ?? [];
   const errCount = records.filter((r) => normLevel(r.level) === "error").length;

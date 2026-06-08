@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { motion } from "motion/react";
 import { Icon } from "@iconify/react";
 import type { ResponsiveLayouts } from "react-grid-layout";
@@ -13,33 +14,26 @@ import type {
 import type { MessageQueueResponse } from "@/services/messageQueueApi";
 import type { Instance } from "@/services/instanceApi";
 
-import { SystemCard } from "@/pages/home/system/SystemCard";
-import { MessageHeroCard } from "@/pages/home/cards/MessageHeroCard";
-import { KpiCard } from "@/pages/home/cards/KpiCard";
-import { InstancesCard } from "@/pages/home/cards/InstancesCard";
-import { ModelDistributionCard } from "@/pages/home/cards/ModelDistributionCard";
-import { MessageActivityCard } from "@/pages/home/cards/MessageActivityCard";
-import { ByInstanceCard } from "@/pages/home/cards/ByInstanceCard";
-import { RequestTypesCard } from "@/pages/home/cards/RequestTypesCard";
-import { DownloadsCard } from "@/pages/home/cards/DownloadsCard";
-import { LauncherUpdateCard } from "@/pages/home/cards/LauncherUpdateCard";
-import { SchedulesCard } from "@/pages/home/cards/SchedulesCard";
-import { NetworkSourceCard } from "@/pages/home/cards/NetworkSourceCard";
-import { VersionCard } from "@/pages/home/cards/VersionCard";
-import { LogsCard } from "@/pages/home/cards/LogsCard";
-import { HealthCard } from "@/pages/home/cards/HealthCard";
 import { HomeGrid, type HomeCard } from "@/pages/home/grid/HomeGrid";
 import {
   loadLayouts,
+  loadWidgets,
   saveLayouts,
   clearLayouts,
 } from "@/pages/home/grid/layouts";
+import { WIDGET_REGISTRY } from "@/pages/home/widgets/registry";
+import type { WidgetRenderContext } from "@/pages/home/widgets/registry";
+import type { WidgetKind } from "@/pages/home/widgets/types";
 
 /**
  * 首页纯展示层 —— Living Surfaces 数据看板,签名 bento 卡矩阵。
  *
- * 每张卡都是可展开 bento 卡(点瓦片容器形变铺满整卡钻取详情),由 react-grid-layout 排布于
- * 自适应网格;"编辑布局"开启后可拖拽/缩放并持久化,"恢复默认"回蓝图(见 grid/layouts.ts)。
+ * 按 WidgetInstance[] 渲染:每个组件实例的 uid 既是 React key 也是 RGL layout 键;渲染走
+ * WIDGET_REGISTRY[kind].render,复用既有 15 张卡组件。每个 kind 的节点单独 memo、引用稳定:
+ * 数据卡按各自数据切片(summary/instances/byInstance/queues 等)隔离重渲,自取数卡(system 每秒、
+ * downloads 等)无数据依赖、memo([]) 仅建一次,绝不带动整页/整网格高频重渲。
+ *
+ * "编辑布局"开启后可拖拽并持久化,"恢复默认"用 seedKey 换 key 重挂回默认配置(见 grid/layouts.ts)。
  * 本层不含数据请求,数据与回调由容器 HomePage 注入(便于无 Tauri 也能 Preview)。
  */
 
@@ -72,6 +66,22 @@ export interface HomeViewProps {
   messageHistory?: number[];
 }
 
+/**
+ * 渲染上下文的中性占位:供各卡按自身数据切片构造最小 ctx,未读到的字段取这些稳定缺省值。
+ * 各卡 render 只读自己关心的切片(如 hero 只读 summary/messageHistory),故占位字段对结果无影响,
+ * 仅用于满足 WidgetRenderContext 形状,使每个节点的 useMemo 仅依赖其真实数据切片、隔离重渲。
+ */
+const NEUTRAL_CTX: WidgetRenderContext = {
+  sortedModels: [],
+  summary: undefined,
+  runningInstances: 0,
+  totalInstances: 0,
+  instances: [],
+  byInstance: [],
+  queues: [],
+  messageHistory: undefined,
+};
+
 export function HomeView({
   overview,
   instances,
@@ -92,11 +102,13 @@ export function HomeView({
   // 布局:layouts 仅作"种子"喂给 RGL(RGL 内部自管 layout state),onLayoutChange 只持久化、
   // 绝不 setState 回灌——回灌会触发重渲风暴,在"按下→移动 5px 阈值"窗口里 activeDrag 守卫尚未生效,
   // 内层 sync effect 会把刚起步的拖动重置回原位(表现为拖不动)。"恢复默认"用 seedKey 换 key 重挂
-  // HomeGrid,以新种子重置 RGL,而非回灌 prop。
+  // HomeGrid,以新种子重置 RGL,而非回灌 prop。组件集同样仅在 seedKey 变化时重读(P1 恒为默认)。
   const [editing, setEditing] = useState(false);
   const [seedKey, setSeedKey] = useState(0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在 seedKey 变化时重读种子(loadLayouts 读 localStorage)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在 seedKey 变化时重读种子(读 localStorage)
   const layouts = useMemo<ResponsiveLayouts>(() => loadLayouts(), [seedKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在 seedKey 变化时重读组件集(读 localStorage)
+  const widgets = useMemo(() => loadWidgets(), [seedKey]);
   const handleLayoutsChange = useCallback((next: ResponsiveLayouts) => {
     saveLayouts(next);
   }, []);
@@ -105,70 +117,148 @@ export function HomeView({
     setSeedKey((k) => k + 1);
   }, []);
 
-  // 各卡节点单独 memo:仅当自身数据变化才重建、引用稳定。系统卡已自取数(每秒刷新关在卡内),
-  // 故此处不再因系统资源每秒变动而整页重渲;其余卡按各自数据(5s/30s)隔离重渲。
-  // 自取数卡(downloads 等)无 props,memo([]) 仅建一次,内部各自 useQuery 独立更新。
-  const systemNode = useMemo(() => <SystemCard />, []);
+  // 各 kind 节点单独 memo:走注册表 render(复用既有卡组件),deps 取该卡真实数据切片;ctx 由
+  // NEUTRAL_CTX 叠加切片即时构造,故节点仅在其切片变化时重建、引用稳定。自取数卡 ctx 无关、memo([]) 仅建一次。
+  const systemNode = useMemo(
+    () =>
+      WIDGET_REGISTRY.system.render(
+        NEUTRAL_CTX,
+        WIDGET_REGISTRY.system.defaultSize,
+      ),
+    [],
+  );
   const heroNode = useMemo(
-    () => <MessageHeroCard summary={summary} history={messageHistory} />,
+    () =>
+      WIDGET_REGISTRY.hero.render(
+        { ...NEUTRAL_CTX, summary, messageHistory },
+        WIDGET_REGISTRY.hero.defaultSize,
+      ),
     [summary, messageHistory],
   );
   const kpiNode = useMemo(
-    () => <KpiCard summary={summary} models={sortedModels} />,
+    () =>
+      WIDGET_REGISTRY.kpi.render(
+        { ...NEUTRAL_CTX, summary, sortedModels },
+        WIDGET_REGISTRY.kpi.defaultSize,
+      ),
     [summary, sortedModels],
   );
   const instancesNode = useMemo(
-    () => (
-      <InstancesCard
-        instances={instances}
-        runningInstances={runningInstances}
-        totalInstances={totalInstances}
-      />
-    ),
+    () =>
+      WIDGET_REGISTRY.instances.render(
+        { ...NEUTRAL_CTX, instances, runningInstances, totalInstances },
+        WIDGET_REGISTRY.instances.defaultSize,
+      ),
     [instances, runningInstances, totalInstances],
   );
   const modelsNode = useMemo(
-    () => <ModelDistributionCard models={sortedModels} />,
+    () =>
+      WIDGET_REGISTRY.models.render(
+        { ...NEUTRAL_CTX, sortedModels },
+        WIDGET_REGISTRY.models.defaultSize,
+      ),
     [sortedModels],
   );
   const queueNode = useMemo(
-    () => <MessageActivityCard queues={queues} />,
+    () =>
+      WIDGET_REGISTRY.queue.render(
+        { ...NEUTRAL_CTX, queues },
+        WIDGET_REGISTRY.queue.defaultSize,
+      ),
     [queues],
   );
   const byInstanceNode = useMemo(
-    () => <ByInstanceCard byInstance={byInstance} />,
+    () =>
+      WIDGET_REGISTRY.byInstance.render(
+        { ...NEUTRAL_CTX, byInstance },
+        WIDGET_REGISTRY.byInstance.defaultSize,
+      ),
     [byInstance],
   );
   const requestTypesNode = useMemo(
-    () => <RequestTypesCard byInstance={byInstance} />,
+    () =>
+      WIDGET_REGISTRY.requestTypes.render(
+        { ...NEUTRAL_CTX, byInstance },
+        WIDGET_REGISTRY.requestTypes.defaultSize,
+      ),
     [byInstance],
   );
-  const downloadsNode = useMemo(() => <DownloadsCard />, []);
-  const launcherNode = useMemo(() => <LauncherUpdateCard />, []);
-  const schedulesNode = useMemo(() => <SchedulesCard />, []);
-  const networkNode = useMemo(() => <NetworkSourceCard />, []);
-  const versionNode = useMemo(() => <VersionCard />, []);
-  const logsNode = useMemo(() => <LogsCard />, []);
-  const healthNode = useMemo(() => <HealthCard />, []);
+  const downloadsNode = useMemo(
+    () =>
+      WIDGET_REGISTRY.downloads.render(
+        NEUTRAL_CTX,
+        WIDGET_REGISTRY.downloads.defaultSize,
+      ),
+    [],
+  );
+  const launcherNode = useMemo(
+    () =>
+      WIDGET_REGISTRY.launcher.render(
+        NEUTRAL_CTX,
+        WIDGET_REGISTRY.launcher.defaultSize,
+      ),
+    [],
+  );
+  const schedulesNode = useMemo(
+    () =>
+      WIDGET_REGISTRY.schedules.render(
+        NEUTRAL_CTX,
+        WIDGET_REGISTRY.schedules.defaultSize,
+      ),
+    [],
+  );
+  const networkNode = useMemo(
+    () =>
+      WIDGET_REGISTRY.network.render(
+        NEUTRAL_CTX,
+        WIDGET_REGISTRY.network.defaultSize,
+      ),
+    [],
+  );
+  const versionNode = useMemo(
+    () =>
+      WIDGET_REGISTRY.version.render(
+        NEUTRAL_CTX,
+        WIDGET_REGISTRY.version.defaultSize,
+      ),
+    [],
+  );
+  const logsNode = useMemo(
+    () =>
+      WIDGET_REGISTRY.logs.render(
+        NEUTRAL_CTX,
+        WIDGET_REGISTRY.logs.defaultSize,
+      ),
+    [],
+  );
+  const healthNode = useMemo(
+    () =>
+      WIDGET_REGISTRY.health.render(
+        NEUTRAL_CTX,
+        WIDGET_REGISTRY.health.defaultSize,
+      ),
+    [],
+  );
 
-  const cards = useMemo<HomeCard[]>(
-    () => [
-      { id: "system", node: systemNode },
-      { id: "hero", node: heroNode },
-      { id: "kpi", node: kpiNode },
-      { id: "instances", node: instancesNode },
-      { id: "models", node: modelsNode },
-      { id: "queue", node: queueNode },
-      { id: "byInstance", node: byInstanceNode },
-      { id: "requestTypes", node: requestTypesNode },
-      { id: "downloads", node: downloadsNode },
-      { id: "launcher", node: launcherNode },
-      { id: "schedules", node: schedulesNode },
-      { id: "network", node: networkNode },
-      { id: "version", node: versionNode },
-      { id: "logs", node: logsNode },
-      { id: "health", node: healthNode },
-    ],
+  // kind -> 已 memo 的节点;按 WidgetInstance[] 装配为 HomeCard[](uid 作 key)。
+  const nodeByKind = useMemo<Record<WidgetKind, ReactNode>>(
+    () => ({
+      system: systemNode,
+      hero: heroNode,
+      kpi: kpiNode,
+      instances: instancesNode,
+      models: modelsNode,
+      queue: queueNode,
+      byInstance: byInstanceNode,
+      requestTypes: requestTypesNode,
+      downloads: downloadsNode,
+      launcher: launcherNode,
+      schedules: schedulesNode,
+      network: networkNode,
+      version: versionNode,
+      logs: logsNode,
+      health: healthNode,
+    }),
     [
       systemNode,
       heroNode,
@@ -186,6 +276,11 @@ export function HomeView({
       logsNode,
       healthNode,
     ],
+  );
+
+  const cards = useMemo<HomeCard[]>(
+    () => widgets.map((w) => ({ uid: w.uid, node: nodeByKind[w.kind] })),
+    [widgets, nodeByKind],
   );
 
   return (

@@ -9,6 +9,7 @@ import type {
   Instance,
   InstanceStatus,
 } from "@/services/instanceApi";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 /**
  * 实例总览卡 —— 单瓦片 bento:折叠态给状态点串 + 前几个实例的紧凑摘要,
@@ -75,12 +76,15 @@ export interface InstancesCardProps {
   instances: Instance[];
   runningInstances: number;
   totalInstances: number;
+  /** P1 占位入参(尺寸槽);P1 不改密度、默认行为不变,改密度在 P2。 */
+  size?: WidgetSize;
 }
 
 export function InstancesCard({
   instances,
   runningInstances,
   totalInstances,
+  size: _size,
 }: InstancesCardProps) {
   const tiles: BentoTile[] = [
     {

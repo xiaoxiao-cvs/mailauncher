@@ -6,6 +6,7 @@ import { SectionHead } from "@/pages/home/cards/CardKit";
 import { fmtCompact, fmtCost } from "@/pages/home/cards/format";
 import { num } from "@/utils/format";
 import type { InstanceStats } from "@/hooks/queries/useStatsQueries";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 /**
  * 请求类型分布卡 —— 单瓦片 bento:折叠态给堆叠占比条 + 前几名摘要,
@@ -37,6 +38,8 @@ interface AggregatedType {
 
 export interface RequestTypesCardProps {
   byInstance: InstanceStats[];
+  /** P1 占位入参(尺寸槽);P1 不改密度、默认行为不变,改密度在 P2。 */
+  size?: WidgetSize;
 }
 
 /**
@@ -65,7 +68,10 @@ function aggregateTypes(byInstance: InstanceStats[]): AggregatedType[] {
   return [...acc.values()].sort((a, b) => b.request_count - a.request_count);
 }
 
-export function RequestTypesCard({ byInstance }: RequestTypesCardProps) {
+export function RequestTypesCard({
+  byInstance,
+  size: _size,
+}: RequestTypesCardProps) {
   const types = useMemo(() => aggregateTypes(byInstance), [byInstance]);
 
   const tiles: BentoTile[] = [

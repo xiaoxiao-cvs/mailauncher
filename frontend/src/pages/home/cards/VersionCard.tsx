@@ -19,6 +19,7 @@ import type {
   ComponentUpdateCheck,
 } from "@/services/versionApi";
 import type { Instance } from "@/services/instanceApi";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 /**
  * 组件版本卡 —— 单瓦片 bento。自取数:先列实例,再对每个实例并发拉本地组件版本快照
@@ -73,7 +74,7 @@ function useInstanceVersions(): {
   return { groups, totalComponents, isLoading };
 }
 
-export function VersionCard() {
+export function VersionCard(_props: { size?: WidgetSize } = {}) {
   const { groups, totalComponents } = useInstanceVersions();
 
   const tiles: BentoTile[] = [

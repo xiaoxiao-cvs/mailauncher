@@ -13,6 +13,7 @@ import { getTopProcesses } from "@/services/systemApi";
 import { useSystemMonitor } from "@/hooks/useSystemMonitor";
 import { fmtBytes, fmtGB, fmtRate, num } from "@/utils/format";
 import type { SystemInfo, SystemStats } from "@/services/systemApi";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 /**
  * 系统卡 —— 暖色 bento 拟物磁贴(方案 D),容器形变钻取由 ExpandableBentoCard 基座承载。
@@ -55,7 +56,8 @@ function tone(pct: number): { tone: string; soft: string } {
 }
 
 // 自取数:系统资源每秒刷新一次,关在本卡内部(此前经 props 注入会带着整个首页每秒重渲、卡顿)。
-export function SystemCard() {
+// size 为 P1 占位入参(尺寸槽),P1 阶段不改密度、默认行为不变;改密度在 P2。
+export function SystemCard(_props: { size?: WidgetSize } = {}) {
   const { info, stats } = useSystemMonitor();
   const netHist = useNetHistory();
   const cpuHist = useTimeSeries(HOST_SCOPE, "cpu");

@@ -7,6 +7,7 @@ import type {
   ScheduleAction,
   ScheduleType,
 } from "@/services/scheduleApi";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 /**
  * 计划任务卡 —— 单瓦片 bento。卡内自取数(useSchedulesQuery 不传 instanceId 取全部任务),
@@ -46,7 +47,7 @@ function typeText(type: ScheduleType): string {
   return TYPE_LABEL[type] ?? type;
 }
 
-export function SchedulesCard() {
+export function SchedulesCard(_props: { size?: WidgetSize } = {}) {
   const { data: schedules = [] } = useSchedulesQuery();
   const enabledCount = schedules.filter((s) => s.enabled).length;
 

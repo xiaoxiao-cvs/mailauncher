@@ -5,6 +5,7 @@ import { Cell, SectionHead } from "@/pages/home/cards/CardKit";
 import { fmtCompact, fmtGrouped, fmtSeconds } from "@/pages/home/cards/format";
 import { num } from "@/utils/format";
 import type { StatsSummary } from "@/hooks/queries/useStatsQueries";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 /**
  * 消息处理总量(英雄区)—— 单瓦片 bento 卡:折叠态突出 total_messages 大计数,
@@ -21,6 +22,8 @@ export interface MessageHeroCardProps {
   summary: StatsSummary | undefined;
   /** 可选的每小时消息量历史序列;长度 >1 才渲染趋势(峰值=max,均值=平均)。 */
   history?: number[];
+  /** P1 占位入参(尺寸槽);P1 不改密度、默认行为不变,改密度在 P2。 */
+  size?: WidgetSize;
 }
 
 /** 回复率 %:无消息时回退 0(分母为 0 是"真无数据",非业务异常)。 */
@@ -38,7 +41,11 @@ function historyStats(history: number[]): { peak: number; avg: number } {
   return { peak, avg };
 }
 
-export function MessageHeroCard({ summary, history }: MessageHeroCardProps) {
+export function MessageHeroCard({
+  summary,
+  history,
+  size: _size,
+}: MessageHeroCardProps) {
   const hasTrend = !!history && history.length > 1;
 
   const tiles: BentoTile[] = [

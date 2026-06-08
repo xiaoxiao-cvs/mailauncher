@@ -8,6 +8,7 @@ import {
   type DownloadStatus,
   type DownloadTask,
 } from "@/hooks/queries/useDownloadQueries";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 /**
  * 下载/安装任务卡 —— 单瓦片 bento,卡内自取数(useDownloadTasksQuery)。
@@ -54,7 +55,7 @@ const ROW_PITCH = 46;
 /** 详情列表最少行数(容器极矮时下限)。 */
 const MIN_ROWS = 2;
 
-export function DownloadsCard() {
+export function DownloadsCard(_props: { size?: WidgetSize } = {}) {
   const { data } = useDownloadTasksQuery();
   const tasks = data ?? [];
   const activeCount = tasks.filter(isActive).length;
