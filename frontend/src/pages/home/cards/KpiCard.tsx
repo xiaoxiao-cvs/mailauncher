@@ -16,6 +16,8 @@ import { Icon } from "@iconify/react";
  */
 
 const PLACEHOLDER = "—";
+/** 折叠态四象限大数字号按尺寸分档:S 紧凑、M 标准、L 醒目(展开钻取与尺寸无关)。 */
+const BIG_FONT: Record<WidgetSize, number> = { s: 18, m: 22, l: 28 };
 /** 模型表行距(px):据此按展开后可用高度推算可容纳行数。 */
 const ROW_PITCH = 24;
 /** 模型表最少行数(容器极矮时下限)。 */
@@ -30,18 +32,18 @@ const KPI_AREAS = `
 interface KpiCardProps {
   summary: StatsSummary | undefined;
   models: ModelStats[];
-  /** P1 占位入参(尺寸槽);P1 不改密度、默认行为不变,改密度在 P2。 */
+  /** 尺寸槽:仅调四象限折叠态大数字号(L 较 M 更醒目)。展开钻取与尺寸无关。 */
   size?: WidgetSize;
 }
 
-export function KpiCard({ summary, models, size: _size }: KpiCardProps) {
+export function KpiCard({ summary, models, size = "m" }: KpiCardProps) {
   const tiles: BentoTile[] = [
     {
       key: "cost",
       icon: "ph:currency-cny-thin",
       label: "花费",
       area: "cost",
-      collapsed: <CostCollapsed summary={summary} />,
+      collapsed: <CostCollapsed summary={summary} size={size} />,
       detail: <CostDetail summary={summary} models={models} />,
     },
     {
@@ -49,7 +51,7 @@ export function KpiCard({ summary, models, size: _size }: KpiCardProps) {
       icon: "ph:arrow-bend-up-left-thin",
       label: "回复",
       area: "reply",
-      collapsed: <ReplyCollapsed summary={summary} />,
+      collapsed: <ReplyCollapsed summary={summary} size={size} />,
       detail: <ReplyDetail summary={summary} />,
     },
     {
@@ -57,7 +59,7 @@ export function KpiCard({ summary, models, size: _size }: KpiCardProps) {
       icon: "ph:coins-thin",
       label: "Token",
       area: "token",
-      collapsed: <TokenCollapsed summary={summary} />,
+      collapsed: <TokenCollapsed summary={summary} size={size} />,
       detail: <TokenDetail summary={summary} />,
     },
     {
@@ -65,7 +67,7 @@ export function KpiCard({ summary, models, size: _size }: KpiCardProps) {
       icon: "ph:timer-thin",
       label: "平均响应",
       area: "resp",
-      collapsed: <RespCollapsed summary={summary} />,
+      collapsed: <RespCollapsed summary={summary} size={size} />,
       detail: <RespDetail summary={summary} models={models} />,
     },
   ];
@@ -87,13 +89,15 @@ function replyRate(summary: StatsSummary): number {
   return msgs > 0 ? (num(summary.total_replies) / msgs) * 100 : 0;
 }
 
-/** 折叠态英雄读数:大数值 + 副文案,垂直居中铺满瓦片(对齐 ls Stat 密度)。 */
+/** 折叠态英雄读数:大数值 + 副文案,垂直居中铺满瓦片(对齐 ls Stat 密度);字号按尺寸分档。 */
 function StatBody({
   big,
   sub,
+  size,
 }: {
   big: React.ReactNode;
   sub: React.ReactNode;
+  size: WidgetSize;
 }) {
   return (
     <div
@@ -109,7 +113,7 @@ function StatBody({
       <div
         className="ls-num"
         style={{
-          fontSize: 22,
+          fontSize: BIG_FONT[size],
           fontWeight: 600,
           color: "var(--ls-ink)",
           lineHeight: 1.05,
@@ -126,9 +130,16 @@ function StatBody({
   );
 }
 
-function CostCollapsed({ summary }: { summary: StatsSummary | undefined }) {
+function CostCollapsed({
+  summary,
+  size,
+}: {
+  summary: StatsSummary | undefined;
+  size: WidgetSize;
+}) {
   return (
     <StatBody
+      size={size}
       big={summary ? fmtCost(summary.total_cost) : PLACEHOLDER}
       sub={
         summary ? (
@@ -143,9 +154,16 @@ function CostCollapsed({ summary }: { summary: StatsSummary | undefined }) {
   );
 }
 
-function ReplyCollapsed({ summary }: { summary: StatsSummary | undefined }) {
+function ReplyCollapsed({
+  summary,
+  size,
+}: {
+  summary: StatsSummary | undefined;
+  size: WidgetSize;
+}) {
   return (
     <StatBody
+      size={size}
       big={summary ? fmtCompact(summary.total_replies) : PLACEHOLDER}
       sub={
         summary ? (
@@ -161,9 +179,16 @@ function ReplyCollapsed({ summary }: { summary: StatsSummary | undefined }) {
   );
 }
 
-function TokenCollapsed({ summary }: { summary: StatsSummary | undefined }) {
+function TokenCollapsed({
+  summary,
+  size,
+}: {
+  summary: StatsSummary | undefined;
+  size: WidgetSize;
+}) {
   return (
     <StatBody
+      size={size}
       big={summary ? fmtCompact(summary.total_tokens) : PLACEHOLDER}
       sub={
         summary ? (
@@ -198,9 +223,16 @@ function TokenCollapsed({ summary }: { summary: StatsSummary | undefined }) {
   );
 }
 
-function RespCollapsed({ summary }: { summary: StatsSummary | undefined }) {
+function RespCollapsed({
+  summary,
+  size,
+}: {
+  summary: StatsSummary | undefined;
+  size: WidgetSize;
+}) {
   return (
     <StatBody
+      size={size}
       big={summary ? fmtSeconds(summary.avg_response_time) : PLACEHOLDER}
       sub={
         summary ? (

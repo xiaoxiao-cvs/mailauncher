@@ -55,7 +55,7 @@ const ROW_PITCH = 46;
 /** 详情列表最少行数(容器极矮时下限)。 */
 const MIN_ROWS = 2;
 
-export function DownloadsCard(_props: { size?: WidgetSize } = {}) {
+export function DownloadsCard({ size = "m" }: { size?: WidgetSize } = {}) {
   const { data } = useDownloadTasksQuery();
   const tasks = data ?? [];
   const activeCount = tasks.filter(isActive).length;
@@ -74,7 +74,7 @@ export function DownloadsCard(_props: { size?: WidgetSize } = {}) {
           进行中 {activeCount}
         </span>
       ),
-      collapsed: <DownloadsCollapsed tasks={tasks} />,
+      collapsed: <DownloadsCollapsed tasks={tasks} size={size} />,
       detail: <DownloadsDetail tasks={tasks} />,
     },
   ];
@@ -82,7 +82,13 @@ export function DownloadsCard(_props: { size?: WidgetSize } = {}) {
   return <ExpandableBentoCard cardId="downloads" tiles={tiles} />;
 }
 
-function DownloadsCollapsed({ tasks }: { tasks: DownloadTask[] }) {
+function DownloadsCollapsed({
+  tasks,
+  size,
+}: {
+  tasks: DownloadTask[];
+  size: WidgetSize;
+}) {
   // 取首个进行中任务作英雄展示;无进行中(含全空/全终态)则给空态文案。
   const active = tasks.find(isActive);
   if (!active) {
@@ -155,7 +161,8 @@ function DownloadsCollapsed({ tasks }: { tasks: DownloadTask[] }) {
             {STATUS_LABEL[active.status]}
           </span>
         </div>
-        {active.progress.message ? (
+        {/* S 尺寸隐去步骤文案,只留进度环 + 实例名 + 状态,保持紧凑 */}
+        {size !== "s" && active.progress.message ? (
           <div
             style={{
               marginTop: 3,

@@ -26,6 +26,8 @@ import type { WidgetSize } from "@/pages/home/widgets/types";
  */
 
 const PLACEHOLDER = "—";
+/** 折叠态当前版本大字号按尺寸分档:S 紧凑、M 标准。 */
+const BIG_FONT: Record<WidgetSize, number> = { s: 19, m: 24, l: 30 };
 /** 通道分节行距(px):据此按展开后可用高度推算可容纳行数,自适应铺满。 */
 const ROW_PITCH = 40;
 /** 通道分节最少行数(容器极矮时下限)。 */
@@ -33,7 +35,7 @@ const MIN_ROWS = 2;
 /** 比对更新查询固定走的通道(稳定通道);列表本身仍含该响应回报的全部通道。 */
 const CHECK_CHANNEL = "main";
 
-export function LauncherUpdateCard(_props: { size?: WidgetSize } = {}) {
+export function LauncherUpdateCard({ size = "m" }: { size?: WidgetSize } = {}) {
   const tiles: BentoTile[] = [
     {
       key: "launcher",
@@ -41,7 +43,7 @@ export function LauncherUpdateCard(_props: { size?: WidgetSize } = {}) {
       label: "启动器",
       pad: 16,
       trailing: <UpdateBadge />,
-      collapsed: <LauncherCollapsed />,
+      collapsed: <LauncherCollapsed size={size} />,
       detail: <LauncherDetail />,
     },
   ];
@@ -60,7 +62,7 @@ function UpdateBadge() {
   );
 }
 
-function LauncherCollapsed() {
+function LauncherCollapsed({ size }: { size: WidgetSize }) {
   // 当前版本以 Tauri 版本为准,缺失时退回 check.current_version,再不济占位。
   const { data: currentVersion } = useCurrentVersionQuery();
   const { data: check } = useCheckUpdateQuery(CHECK_CHANNEL);
@@ -89,7 +91,7 @@ function LauncherCollapsed() {
       <div
         className="ls-num"
         style={{
-          fontSize: 24,
+          fontSize: BIG_FONT[size],
           fontWeight: 600,
           color: "var(--ls-ink)",
           lineHeight: 1.05,

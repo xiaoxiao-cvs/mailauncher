@@ -16,8 +16,8 @@ import type { WidgetSize } from "@/pages/home/widgets/types";
  * 入参 byInstance 为查询结果,所有排序/截断均走防御性副本,绝不原地改入参。
  */
 
-/** 折叠态对比条上限:超出靠 trailing 计数体现总量,避免小卡溢出。 */
-const COLLAPSED_MAX = 5;
+/** 折叠态对比条上限:S 紧凑,M 维持,L 略多;超出靠 trailing 计数体现总量,避免小卡溢出。 */
+const COLLAPSED_MAX: Record<WidgetSize, number> = { s: 3, m: 5, l: 7 };
 /** 详情矩阵行距 px:据此按展开后可用高度推算可容纳行数(行高约 18 + 行距)。 */
 const ROW_PITCH = 26;
 /** 详情矩阵最少行数(容器极矮时的下限)。 */
@@ -44,13 +44,13 @@ function sortInstances(list: InstanceStats[], by: SortKey): InstanceStats[] {
 
 export interface ByInstanceCardProps {
   byInstance: InstanceStats[];
-  /** P1 占位入参(尺寸槽);P1 不改密度、默认行为不变,改密度在 P2。 */
+  /** 尺寸槽:S 折叠态对比条更少,M 维持,L 略多。展开钻取与尺寸无关。 */
   size?: WidgetSize;
 }
 
 export function ByInstanceCard({
   byInstance,
-  size: _size,
+  size = "m",
 }: ByInstanceCardProps) {
   const tiles: BentoTile[] = [
     {
@@ -65,7 +65,7 @@ export function ByInstanceCard({
           {byInstance.length} 个实例
         </span>
       ),
-      collapsed: <ByInstanceCollapsed byInstance={byInstance} />,
+      collapsed: <ByInstanceCollapsed byInstance={byInstance} size={size} />,
       detail: <ByInstanceDetail byInstance={byInstance} />,
     },
   ];
@@ -74,7 +74,13 @@ export function ByInstanceCard({
   return <ExpandableBentoCard cardId="byInstance" tiles={tiles} />;
 }
 
-function ByInstanceCollapsed({ byInstance }: { byInstance: InstanceStats[] }) {
+function ByInstanceCollapsed({
+  byInstance,
+  size,
+}: {
+  byInstance: InstanceStats[];
+  size: WidgetSize;
+}) {
   if (byInstance.length === 0) {
     return (
       <div
@@ -92,7 +98,7 @@ function ByInstanceCollapsed({ byInstance }: { byInstance: InstanceStats[] }) {
     (acc, s) => Math.max(acc, num(s.summary.total_messages)),
     0,
   );
-  const shown = ranked.slice(0, COLLAPSED_MAX);
+  const shown = ranked.slice(0, COLLAPSED_MAX[size]);
 
   return (
     <div

@@ -18,11 +18,18 @@ import type { WidgetSize } from "@/pages/home/widgets/types";
 
 const PLACEHOLDER = "—";
 
+/** 折叠态总量大数字号按尺寸分档:S 紧凑、M 标准、L 醒目。 */
+const BIG_FONT: Record<WidgetSize, string> = {
+  s: "2rem",
+  m: "2.5rem",
+  l: "3.25rem",
+};
+
 export interface MessageHeroCardProps {
   summary: StatsSummary | undefined;
   /** 可选的每小时消息量历史序列;长度 >1 才渲染趋势(峰值=max,均值=平均)。 */
   history?: number[];
-  /** P1 占位入参(尺寸槽);P1 不改密度、默认行为不变,改密度在 P2。 */
+  /** 尺寸槽:S 折叠态大数更小,M 维持,L 醒目。展开钻取与尺寸无关。 */
   size?: WidgetSize;
 }
 
@@ -44,7 +51,7 @@ function historyStats(history: number[]): { peak: number; avg: number } {
 export function MessageHeroCard({
   summary,
   history,
-  size: _size,
+  size = "m",
 }: MessageHeroCardProps) {
   const hasTrend = !!history && history.length > 1;
 
@@ -61,6 +68,7 @@ export function MessageHeroCard({
         <HeroCollapsed
           summary={summary}
           history={hasTrend ? history : undefined}
+          size={size}
         />
       ),
       detail: (
@@ -79,9 +87,11 @@ export function MessageHeroCard({
 function HeroCollapsed({
   summary,
   history,
+  size,
 }: {
   summary: StatsSummary | undefined;
   history: number[] | undefined;
+  size: WidgetSize;
 }) {
   const trend = history ? historyStats(history) : null;
   return (
@@ -98,7 +108,7 @@ function HeroCollapsed({
       <div
         className="ls-num"
         style={{
-          fontSize: "2.5rem",
+          fontSize: BIG_FONT[size],
           fontWeight: 600,
           lineHeight: 1,
           color: "var(--ls-ink)",

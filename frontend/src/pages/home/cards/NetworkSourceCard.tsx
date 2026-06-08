@@ -71,13 +71,13 @@ function proxyText(proxy: NetworkProxy | undefined): string {
   return proxy.enabled ? `${proxy.host}:${proxy.port}` : "未启用";
 }
 
-export function NetworkSourceCard(_props: { size?: WidgetSize } = {}) {
+export function NetworkSourceCard({ size = "m" }: { size?: WidgetSize } = {}) {
   const tiles: BentoTile[] = [
     {
       key: "network",
       icon: "ph:globe-simple-thin",
       label: "网络与源",
-      collapsed: <NetworkCollapsed />,
+      collapsed: <NetworkCollapsed size={size} />,
       detail: <NetworkDetail />,
     },
   ];
@@ -85,7 +85,7 @@ export function NetworkSourceCard(_props: { size?: WidgetSize } = {}) {
   return <ExpandableBentoCard cardId="network" tiles={tiles} />;
 }
 
-function NetworkCollapsed() {
+function NetworkCollapsed({ size }: { size: WidgetSize }) {
   const { data: conn, isLoading: connLoading } = useConnectivityQuery();
   const { data: proxy } = useNetworkProxyQuery();
 
@@ -114,20 +114,23 @@ function NetworkCollapsed() {
           PyPI {connLoading ? PLACEHOLDER : pypiOk ? "通" : "断"}
         </span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <Icon
-          icon="ph:plugs-connected-thin"
-          width={13}
-          height={13}
-          style={{ color: "var(--ls-ink-faint)" }}
-        />
-        <span
-          className="ls-num"
-          style={{ fontSize: 11, color: "var(--ls-ink-soft)" }}
-        >
-          代理 {proxyText(proxy)}
-        </span>
-      </div>
+      {/* S 尺寸隐去代理行,只留连通点串保持紧凑;M 维持现状 */}
+      {size !== "s" ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon
+            icon="ph:plugs-connected-thin"
+            width={13}
+            height={13}
+            style={{ color: "var(--ls-ink-faint)" }}
+          />
+          <span
+            className="ls-num"
+            style={{ fontSize: 11, color: "var(--ls-ink-soft)" }}
+          >
+            代理 {proxyText(proxy)}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

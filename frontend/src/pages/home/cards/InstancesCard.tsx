@@ -21,8 +21,8 @@ import type { WidgetSize } from "@/pages/home/widgets/types";
  */
 
 const PLACEHOLDER = "—";
-/** 折叠态最多列出的实例条数,超出靠状态点串与 trailing 计数体现整体。 */
-const COLLAPSED_MAX = 4;
+/** 折叠态各尺寸列出的实例条数:S 紧凑少行,M 维持现状,L 略多;超出靠状态点串与 trailing 计数体现整体。 */
+const COLLAPSED_MAX: Record<WidgetSize, number> = { s: 2, m: 4, l: 6 };
 /** 详情每行行距 px:据此按可用高度推算可容纳行数,自适应铺满(行高约 30 + 间距)。 */
 const ROW_PITCH = 38;
 /** 详情列表最少行数(容器极矮时的下限)。 */
@@ -76,7 +76,7 @@ export interface InstancesCardProps {
   instances: Instance[];
   runningInstances: number;
   totalInstances: number;
-  /** P1 占位入参(尺寸槽);P1 不改密度、默认行为不变,改密度在 P2。 */
+  /** 尺寸槽:S 折叠态更紧凑(少行、隐次要资源读数),M 维持,L 略多行。展开钻取与尺寸无关。 */
   size?: WidgetSize;
 }
 
@@ -84,7 +84,7 @@ export function InstancesCard({
   instances,
   runningInstances,
   totalInstances,
-  size: _size,
+  size = "m",
 }: InstancesCardProps) {
   const tiles: BentoTile[] = [
     {
@@ -100,7 +100,7 @@ export function InstancesCard({
           运行 {runningInstances}/{totalInstances}
         </span>
       ),
-      collapsed: <InstancesCollapsed instances={instances} />,
+      collapsed: <InstancesCollapsed instances={instances} size={size} />,
       detail: <InstancesDetail instances={instances} />,
     },
   ];
@@ -158,7 +158,13 @@ function ComponentDots({ states }: { states: Instance["component_states"] }) {
   );
 }
 
-function InstancesCollapsed({ instances }: { instances: Instance[] }) {
+function InstancesCollapsed({
+  instances,
+  size,
+}: {
+  instances: Instance[];
+  size: WidgetSize;
+}) {
   if (instances.length === 0) {
     return (
       <div
@@ -176,7 +182,9 @@ function InstancesCollapsed({ instances }: { instances: Instance[] }) {
       </div>
     );
   }
-  const shown = instances.slice(0, COLLAPSED_MAX);
+  // S 尺寸隐去每行右侧的 CPU/内存读数,只留状态点 + 名称,信息更紧凑。
+  const showMetrics = size !== "s";
+  const shown = instances.slice(0, COLLAPSED_MAX[size]);
   return (
     <div
       style={{
@@ -245,8 +253,8 @@ function InstancesCollapsed({ instances }: { instances: Instance[] }) {
                   {inst.qq_account}
                 </span>
               ) : null}
-              {/* 只在采到资源时占右侧位,避免一排 "—" 噪声 */}
-              {cpu !== PLACEHOLDER || mem !== PLACEHOLDER ? (
+              {/* 只在采到资源时占右侧位,避免一排 "—" 噪声;S 尺寸整列隐去保持紧凑 */}
+              {showMetrics && (cpu !== PLACEHOLDER || mem !== PLACEHOLDER) ? (
                 <span
                   className="ls-num"
                   style={{

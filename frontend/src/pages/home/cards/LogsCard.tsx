@@ -17,8 +17,8 @@ import type { WidgetSize } from "@/pages/home/widgets/types";
  * 故前端再大写后做 includes 判定,ERROR 优先于 WARN,落到 danger / warn 两色。
  */
 
-/** 折叠态最多列出的条目数,超出靠 trailing 计数体现整体。 */
-const COLLAPSED_MAX = 4;
+/** 折叠态各尺寸列出的条目数:S 紧凑,M 维持,L 略多;超出靠 trailing 计数体现整体。 */
+const COLLAPSED_MAX: Record<WidgetSize, number> = { s: 2, m: 4, l: 6 };
 /** 详情每行行距 px:据此按可用高度推算可容纳行数,自适应铺满。 */
 const ROW_PITCH = 34;
 /** 详情列表最少行数(容器极矮时的下限)。 */
@@ -47,7 +47,7 @@ function shortTs(ts: string): string {
   return m ? m[1] : ts;
 }
 
-export function LogsCard(_props: { size?: WidgetSize } = {}) {
+export function LogsCard({ size = "m" }: { size?: WidgetSize } = {}) {
   const { data } = useRecentErrorsQuery(100);
   const records = data ?? [];
   const errCount = records.filter((r) => normLevel(r.level) === "error").length;
@@ -64,7 +64,7 @@ export function LogsCard(_props: { size?: WidgetSize } = {}) {
           <span className="ls-num">{num(warnCount)}</span>
         </span>
       ),
-      collapsed: <LogsCollapsed records={records} />,
+      collapsed: <LogsCollapsed records={records} size={size} />,
       detail: <LogsDetail records={records} />,
     },
   ];
@@ -105,9 +105,15 @@ function EmptyState() {
   );
 }
 
-function LogsCollapsed({ records }: { records: AggregatedLogRecord[] }) {
+function LogsCollapsed({
+  records,
+  size,
+}: {
+  records: AggregatedLogRecord[];
+  size: WidgetSize;
+}) {
   if (records.length === 0) return <EmptyState />;
-  const shown = records.slice(0, COLLAPSED_MAX);
+  const shown = records.slice(0, COLLAPSED_MAX[size]);
   return (
     <div
       style={{

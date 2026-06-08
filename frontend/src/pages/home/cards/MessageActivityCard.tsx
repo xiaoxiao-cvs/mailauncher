@@ -20,6 +20,8 @@ import type { WidgetSize } from "@/pages/home/widgets/types";
  * 未连为空属正常空态(实例未开监控或刚启动),不当错误处理。
  */
 
+/** 折叠态在途会话列出上限:S 紧凑,M 维持,L 略多;超出由 trailing 计数体现。 */
+const COLLAPSED_MAX: Record<WidgetSize, number> = { s: 3, m: 6, l: 8 };
 /** 行行距(px):据此按详情列表可用高度推算可容纳行数(行高约 28 + 间距)。 */
 const ROW_PITCH = 34;
 /** 详情列表最少行数(容器极矮时的下限)。 */
@@ -66,9 +68,10 @@ function StatusDot({ color }: { color: string }) {
 
 export function MessageActivityCard({
   queues,
+  size = "m",
 }: {
   queues: MessageQueueResponse[];
-  /** P1 占位入参(尺寸槽);P1 不改密度、默认行为不变,改密度在 P2。 */
+  /** 尺寸槽:S 折叠态在途列表更短,M 维持,L 略多。展开钻取与尺寸无关。 */
   size?: WidgetSize;
 }) {
   const tiles: BentoTile[] = [
@@ -77,7 +80,7 @@ export function MessageActivityCard({
       icon: "ph:pulse-thin",
       label: "麦麦活动",
       trailing: <QueueTrailing queues={queues} />,
-      collapsed: <QueueCollapsed queues={queues} />,
+      collapsed: <QueueCollapsed queues={queues} size={size} />,
       detail: <QueueDetail queues={queues} />,
     },
   ];
@@ -103,8 +106,14 @@ function QueueTrailing({ queues }: { queues: MessageQueueResponse[] }) {
   );
 }
 
-/** 折叠态:跨实例筛出在途会话,最多约 6 行;无在途给居中空态。 */
-function QueueCollapsed({ queues }: { queues: MessageQueueResponse[] }) {
+/** 折叠态:跨实例筛出在途会话,按尺寸限行;无在途给居中空态。 */
+function QueueCollapsed({
+  queues,
+  size,
+}: {
+  queues: MessageQueueResponse[];
+  size: WidgetSize;
+}) {
   // 摘要不关心来自哪个实例的细节,只摊平在途项;会话名优先 group_name,回退实例名。
   const inFlight = queues.flatMap((q) =>
     q.messages
@@ -139,7 +148,7 @@ function QueueCollapsed({ queues }: { queues: MessageQueueResponse[] }) {
         overflow: "hidden",
       }}
     >
-      {inFlight.slice(0, 6).map((it) => {
+      {inFlight.slice(0, COLLAPSED_MAX[size]).map((it) => {
         const meta = STATUS_META[it.status];
         return (
           <div

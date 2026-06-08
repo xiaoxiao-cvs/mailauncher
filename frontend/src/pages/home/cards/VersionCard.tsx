@@ -34,8 +34,8 @@ const PLACEHOLDER = "—";
 const ROW_PITCH = 44;
 const MIN_ROWS = 3;
 
-/** 折叠态每实例最多列出的组件条数,超出靠 trailing 总数体现。 */
-const COLLAPSED_PER_INSTANCE = 3;
+/** 折叠态每实例列出的组件条数:S 紧凑,M 维持,L 略多;超出靠 trailing 总数体现。 */
+const COLLAPSED_PER_INSTANCE: Record<WidgetSize, number> = { s: 2, m: 3, l: 5 };
 
 interface InstanceVersions {
   instance: Instance;
@@ -74,7 +74,7 @@ function useInstanceVersions(): {
   return { groups, totalComponents, isLoading };
 }
 
-export function VersionCard(_props: { size?: WidgetSize } = {}) {
+export function VersionCard({ size = "m" }: { size?: WidgetSize } = {}) {
   const { groups, totalComponents } = useInstanceVersions();
 
   const tiles: BentoTile[] = [
@@ -91,7 +91,9 @@ export function VersionCard(_props: { size?: WidgetSize } = {}) {
           {num(totalComponents)} 个组件
         </span>
       ),
-      collapsed: <VersionCollapsed groups={groups} total={totalComponents} />,
+      collapsed: (
+        <VersionCollapsed groups={groups} total={totalComponents} size={size} />
+      ),
       detail: <VersionDetail groups={groups} />,
     },
   ];
@@ -120,9 +122,11 @@ function EmptyState({ text }: { text: string }) {
 function VersionCollapsed({
   groups,
   total,
+  size,
 }: {
   groups: InstanceVersions[];
   total: number;
+  size: WidgetSize;
 }) {
   const withComponents = groups.filter((g) => g.components.length > 0);
   if (total === 0) {
@@ -163,7 +167,7 @@ function VersionCollapsed({
                 marginTop: 2,
               }}
             >
-              {g.components.slice(0, COLLAPSED_PER_INSTANCE).map((c) => (
+              {g.components.slice(0, COLLAPSED_PER_INSTANCE[size]).map((c) => (
                 <div
                   key={c.component}
                   style={{

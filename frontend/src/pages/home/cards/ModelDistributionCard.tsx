@@ -17,8 +17,8 @@ import type { WidgetSize } from "@/pages/home/widgets/types";
 /** 按花费降序循环的配色板(首位用生命色,其余暖系点缀,克制不刺眼)。 */
 const PALETTE = ["var(--ls-life)", "#cf9442", "#c5563e", "#7f9b6a", "#b07d56"];
 
-/** 折叠态前几名上限:堆叠条之下的名次列表,避免小卡溢出。 */
-const COLLAPSED_TOP = 4;
+/** 折叠态前几名上限(堆叠条之下的名次列表):S 紧凑,M 维持,L 略多,避免小卡溢出。 */
+const COLLAPSED_TOP: Record<WidgetSize, number> = { s: 2, m: 4, l: 6 };
 
 /** 详情表行距(px):据此按可用高度推算可容纳行数,自适应铺满(行高约 18 + 行距)。 */
 const ROW_PITCH = 30;
@@ -51,9 +51,10 @@ function sortModels(models: ModelStats[], by: SortKey): ModelStats[] {
 
 export function ModelDistributionCard({
   models,
+  size = "m",
 }: {
   models: ModelStats[];
-  /** P1 占位入参(尺寸槽);P1 不改密度、默认行为不变,改密度在 P2。 */
+  /** 尺寸槽:S 折叠态名次列表更短,M 维持,L 略多。展开钻取与尺寸无关。 */
   size?: WidgetSize;
 }) {
   const tiles: BentoTile[] = [
@@ -66,7 +67,7 @@ export function ModelDistributionCard({
           按花费
         </span>
       ),
-      collapsed: <ModelsCollapsed models={models} />,
+      collapsed: <ModelsCollapsed models={models} size={size} />,
       detail: <ModelsDetail models={models} />,
     },
   ];
@@ -75,7 +76,13 @@ export function ModelDistributionCard({
   return <ExpandableBentoCard cardId="models" tiles={tiles} />;
 }
 
-function ModelsCollapsed({ models }: { models: ModelStats[] }) {
+function ModelsCollapsed({
+  models,
+  size,
+}: {
+  models: ModelStats[];
+  size: WidgetSize;
+}) {
   if (models.length === 0) {
     return (
       <div
@@ -89,7 +96,7 @@ function ModelsCollapsed({ models }: { models: ModelStats[] }) {
 
   const ranked = sortModels(models, "cost");
   const totalCost = ranked.reduce((sum, m) => sum + num(m.total_cost), 0);
-  const top = ranked.slice(0, COLLAPSED_TOP);
+  const top = ranked.slice(0, COLLAPSED_TOP[size]);
 
   return (
     <div

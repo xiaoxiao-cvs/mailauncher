@@ -16,8 +16,8 @@ import type { WidgetSize } from "@/pages/home/widgets/types";
  * (启用状态着色、action/schedule_type 中文映射、时间字段原样展示不臆造格式)。
  */
 
-/** 折叠态最多列出的任务条数,超出靠 trailing 计数体现整体。 */
-const COLLAPSED_MAX = 4;
+/** 折叠态各尺寸列出的任务条数:S 紧凑,M 维持,L 略多;超出靠 trailing 计数体现整体。 */
+const COLLAPSED_MAX: Record<WidgetSize, number> = { s: 2, m: 4, l: 6 };
 /** 详情每行行距 px:据此按可用高度推算可容纳行数,自适应铺满。 */
 const ROW_PITCH = 34;
 /** 详情列表最少行数(容器极矮时下限)。 */
@@ -47,7 +47,7 @@ function typeText(type: ScheduleType): string {
   return TYPE_LABEL[type] ?? type;
 }
 
-export function SchedulesCard(_props: { size?: WidgetSize } = {}) {
+export function SchedulesCard({ size = "m" }: { size?: WidgetSize } = {}) {
   const { data: schedules = [] } = useSchedulesQuery();
   const enabledCount = schedules.filter((s) => s.enabled).length;
 
@@ -65,7 +65,7 @@ export function SchedulesCard(_props: { size?: WidgetSize } = {}) {
           {enabledCount}/{schedules.length} 启用
         </span>
       ),
-      collapsed: <SchedulesCollapsed schedules={schedules} />,
+      collapsed: <SchedulesCollapsed schedules={schedules} size={size} />,
       detail: <SchedulesDetail schedules={schedules} />,
     },
   ];
@@ -113,11 +113,17 @@ function EmptyCenter({ text }: { text: string }) {
   );
 }
 
-function SchedulesCollapsed({ schedules }: { schedules: Schedule[] }) {
+function SchedulesCollapsed({
+  schedules,
+  size,
+}: {
+  schedules: Schedule[];
+  size: WidgetSize;
+}) {
   if (schedules.length === 0) {
     return <EmptyCenter text="暂无计划任务" />;
   }
-  const shown = schedules.slice(0, COLLAPSED_MAX);
+  const shown = schedules.slice(0, COLLAPSED_MAX[size]);
   return (
     <div
       style={{

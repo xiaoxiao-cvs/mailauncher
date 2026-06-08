@@ -15,14 +15,14 @@ import type { WidgetSize } from "@/pages/home/widgets/types";
  * 本文件只负责看护语义(存活着色、自动重启徽标、详情行布局),数据自取(无 props)。
  */
 
-/** 折叠态最多列出的组件条数,超出靠 trailing 计数与详情体现整体。 */
-const COLLAPSED_MAX = 4;
+/** 折叠态各尺寸列出的组件条数:S 紧凑,M 维持,L 略多;超出靠 trailing 计数与详情体现整体。 */
+const COLLAPSED_MAX: Record<WidgetSize, number> = { s: 2, m: 4, l: 6 };
 /** 详情每行行距 px:据此按可用高度推算可容纳行数,自适应铺满。 */
 const ROW_PITCH = 38;
 /** 详情列表最少行数(容器极矮时的下限)。 */
 const MIN_ROWS = 3;
 
-export function HealthCard(_props: { size?: WidgetSize } = {}) {
+export function HealthCard({ size = "m" }: { size?: WidgetSize } = {}) {
   const { data } = useWatchdogStatusQuery();
   const items = data ?? [];
   const aliveCount = items.filter((it) => it.is_alive).length;
@@ -42,7 +42,7 @@ export function HealthCard(_props: { size?: WidgetSize } = {}) {
           {num(aliveCount)}/{num(total)} 存活
         </span>
       ),
-      collapsed: <HealthCollapsed items={items} />,
+      collapsed: <HealthCollapsed items={items} size={size} />,
       detail: (
         <HealthDetail
           items={items}
@@ -99,9 +99,15 @@ function EmptyHint() {
   );
 }
 
-function HealthCollapsed({ items }: { items: WatchdogInstanceStatus[] }) {
+function HealthCollapsed({
+  items,
+  size,
+}: {
+  items: WatchdogInstanceStatus[];
+  size: WidgetSize;
+}) {
   if (items.length === 0) return <EmptyHint />;
-  const shown = items.slice(0, COLLAPSED_MAX);
+  const shown = items.slice(0, COLLAPSED_MAX[size]);
   return (
     <div
       style={{

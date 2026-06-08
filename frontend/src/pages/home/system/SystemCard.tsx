@@ -26,6 +26,15 @@ import type { WidgetSize } from "@/pages/home/widgets/types";
  */
 
 const PLACEHOLDER = "—";
+/** 折叠态 CPU/内存环按尺寸分档(直径 px / 描边 px):M 维持现状,L 略大更醒目。 */
+const RING: Record<
+  WidgetSize,
+  { cpu: number; cpuStroke: number; mem: number; memStroke: number }
+> = {
+  s: { cpu: 46, cpuStroke: 5, mem: 54, memStroke: 6 },
+  m: { cpu: 54, cpuStroke: 6, mem: 64, memStroke: 7 },
+  l: { cpu: 64, cpuStroke: 7, mem: 76, memStroke: 8 },
+};
 /** 进程行行距(px):据此按进程表可用高度推算可容纳行数,自适应铺满(行高约 16 + 行距)。 */
 const ROW_PITCH = 22;
 /** 进程表最少行数(容器极矮时的下限)。 */
@@ -56,8 +65,8 @@ function tone(pct: number): { tone: string; soft: string } {
 }
 
 // 自取数:系统资源每秒刷新一次,关在本卡内部(此前经 props 注入会带着整个首页每秒重渲、卡顿)。
-// size 为 P1 占位入参(尺寸槽),P1 阶段不改密度、默认行为不变;改密度在 P2。
-export function SystemCard(_props: { size?: WidgetSize } = {}) {
+// size 调折叠态 CPU/内存环的尺寸密度:M 维持现状,L 略大更醒目;展开钻取与尺寸无关。
+export function SystemCard({ size = "m" }: { size?: WidgetSize } = {}) {
   const { info, stats } = useSystemMonitor();
   const netHist = useNetHistory();
   const cpuHist = useTimeSeries(HOST_SCOPE, "cpu");
@@ -69,7 +78,9 @@ export function SystemCard(_props: { size?: WidgetSize } = {}) {
       label: META.cpu.label,
       area: META.cpu.area,
       trailing: <CpuFreq info={info} stats={stats} />,
-      collapsed: <CpuCollapsed info={info} stats={stats} cpuHist={cpuHist} />,
+      collapsed: (
+        <CpuCollapsed info={info} stats={stats} cpuHist={cpuHist} size={size} />
+      ),
       detail: <CpuDetail stats={stats} />,
     },
     {
@@ -77,7 +88,7 @@ export function SystemCard(_props: { size?: WidgetSize } = {}) {
       icon: META.memory.icon,
       label: META.memory.label,
       area: META.memory.area,
-      collapsed: <MemCollapsed info={info} stats={stats} />,
+      collapsed: <MemCollapsed info={info} stats={stats} size={size} />,
       detail: <MemoryDetail info={info} stats={stats} />,
     },
     {
@@ -149,10 +160,12 @@ function CpuCollapsed({
   info,
   stats,
   cpuHist,
+  size,
 }: {
   info: SystemInfo | undefined;
   stats: SystemStats | undefined;
   cpuHist: number[];
+  size: WidgetSize;
 }) {
   const cpu = stats ? num(stats.cpu_usage) : 0;
   return (
@@ -169,8 +182,8 @@ function CpuCollapsed({
       >
         <Ring
           value={Math.round(cpu)}
-          size={54}
-          stroke={6}
+          size={RING[size].cpu}
+          stroke={RING[size].cpuStroke}
           centerLabel={<RingNum value={cpu} big={15} />}
         />
         <div style={{ minWidth: 0, flex: 1 }}>
@@ -212,9 +225,11 @@ function CpuCollapsed({
 function MemCollapsed({
   info,
   stats,
+  size,
 }: {
   info: SystemInfo | undefined;
   stats: SystemStats | undefined;
+  size: WidgetSize;
 }) {
   const used = stats ? num(stats.memory_used) : 0;
   const total = stats ? num(stats.memory_total) : 0;
@@ -233,8 +248,8 @@ function MemCollapsed({
     >
       <Ring
         value={Math.round(pct)}
-        size={64}
-        stroke={7}
+        size={RING[size].mem}
+        stroke={RING[size].memStroke}
         centerLabel={<RingNum value={pct} big={17} />}
       />
       <div style={{ textAlign: "center", lineHeight: 1.35 }}>
