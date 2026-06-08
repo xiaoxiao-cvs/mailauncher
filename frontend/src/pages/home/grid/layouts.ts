@@ -1,7 +1,12 @@
 import type { Layout, ResponsiveLayouts } from "react-grid-layout";
 
 import { WIDGET_REGISTRY } from "@/pages/home/widgets/registry";
-import type { WidgetInstance, WidgetKind } from "@/pages/home/widgets/types";
+import type {
+  MetricKey,
+  WidgetInstance,
+  WidgetKind,
+  WidgetSize,
+} from "@/pages/home/widgets/types";
 
 /**
  * 首页 bento 网格的布局蓝图 + 小组件配置 —— 单一数据源(壳/芯分离的"壳"侧)。
@@ -45,6 +50,41 @@ export const CONTAINER_PADDING: [number, number] = [0, 0];
 
 /** 持久化键;结构变更时升版以弃旧缓存(v9:从纯 layouts 升为 { widgets, layouts } 组件配置)。 */
 export const STORAGE_KEY = "mailauncher.home.v9";
+
+/** 持久化布局所覆盖的断点(xs 由 RGL 从 sm 自动派生,不显式存)。 */
+type SeededBreakpoint = "lg" | "md" | "sm";
+
+/** 一个尺寸槽在某断点的网格占位(w/h 单元数);minW/minH 锁定为同值(自由 resize 已关,仅作守卫)。 */
+interface SizeCell {
+  w: number;
+  h: number;
+}
+
+/**
+ * 离散尺寸 S/M/L 在各断点的网格占位预设(取代 RGL 自由缩放)。
+ * lg(12 列):S=2x2、M=4x2、L=6x3;md(8 列)同档但 L 收窄到 6 列内;sm(4 列)整列竖叠,
+ * L 不超 4 列。按 ROW_HEIGHT=88 调到内容不挤不空,与既有富卡 h 区间(摘要 h2 / 表格 h3 / 系统 h4)对齐。
+ */
+export const SIZE_PRESETS: Record<
+  WidgetSize,
+  Record<SeededBreakpoint, SizeCell>
+> = {
+  s: {
+    lg: { w: 2, h: 2 },
+    md: { w: 2, h: 2 },
+    sm: { w: 2, h: 2 },
+  },
+  m: {
+    lg: { w: 4, h: 2 },
+    md: { w: 4, h: 2 },
+    sm: { w: 4, h: 2 },
+  },
+  l: {
+    lg: { w: 6, h: 3 },
+    md: { w: 6, h: 3 },
+    sm: { w: 4, h: 3 },
+  },
+};
 
 // lg(12 列):系统卡为 h4 主展;其余多为 h2 贴合摘要(详情自适应行数),byInstance/请求类型 h3 容表格。
 const LG: Layout = [
@@ -169,4 +209,103 @@ export function saveLayouts(layouts: ResponsiveLayouts): void {
 /** 恢复默认:清缓存,下次读取回退默认配置(HomeView 用换 key 重挂触发重读)。 */
 export function clearLayouts(): void {
   localStorage.removeItem(STORAGE_KEY);
+}
+
+/** 持久化整份配置(组件集 + 布局)。增删 / 改尺寸均经此整体写回。 */
+function saveConfig(config: HomeConfig): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+}
+
+/** 本配置覆盖的断点序(派生自 SIZE_PRESETS.s 的键,单一来源避免漏断点)。 */
+const SEEDED_BREAKPOINTS = Object.keys(SIZE_PRESETS.s) as SeededBreakpoint[];
+
+/** 某断点布局里"追加到末尾"的 y(取最底卡的 y+h;空布局为 0)。 */
+function nextRow(items: Layout): number {
+  return items.reduce((max, it) => Math.max(max, it.y + it.h), 0);
+}
+
+/** 按尺寸预设为某 uid 在某断点构造一个布局项(放在该断点末尾整行起始)。 */
+function presetItem(
+  uid: string,
+  size: WidgetSize,
+  bp: SeededBreakpoint,
+  y: number,
+) {
+  const cell = SIZE_PRESETS[size][bp];
+  return {
+    i: uid,
+    x: 0,
+    y,
+    w: cell.w,
+    h: cell.h,
+    minW: cell.w,
+    minH: cell.h,
+  };
+}
+
+/** 生成一个新组件实例 uid(允许同 kind 多个,如多张 stat)。 */
+function newUid(kind: WidgetKind): string {
+  return `${kind}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+/**
+ * 添加一个组件:分配 uid、取注册表默认尺寸,按尺寸预设追加到各断点布局末尾,整体写回。
+ * 返回更新后的配置(HomeView 据此换 seedKey 重挂网格)。
+ */
+export function addWidget(kind: WidgetKind, metric?: MetricKey): HomeConfig {
+  const current = loadConfig();
+  const size = WIDGET_REGISTRY[kind].defaultSize;
+  const uid = newUid(kind);
+  const widget: WidgetInstance = { uid, kind, size, metric };
+
+  const layouts: ResponsiveLayouts = { ...current.layouts };
+  for (const bp of SEEDED_BREAKPOINTS) {
+    const items = current.layouts[bp] ?? [];
+    layouts[bp] = [...items, presetItem(uid, size, bp, nextRow(items))];
+  }
+
+  const next: HomeConfig = { widgets: [...current.widgets, widget], layouts };
+  saveConfig(next);
+  return next;
+}
+
+/** 删除一个组件:从组件集与各断点布局移除该 uid,整体写回。返回更新后的配置。 */
+export function removeWidget(uid: string): HomeConfig {
+  const current = loadConfig();
+  const layouts: ResponsiveLayouts = { ...current.layouts };
+  for (const bp of SEEDED_BREAKPOINTS) {
+    const items = current.layouts[bp];
+    if (items) layouts[bp] = items.filter((it) => it.i !== uid);
+  }
+  const next: HomeConfig = {
+    widgets: current.widgets.filter((w) => w.uid !== uid),
+    layouts,
+  };
+  saveConfig(next);
+  return next;
+}
+
+/**
+ * 切换某组件尺寸:更新组件 size + 按预设改各断点该 uid 的 w/h(位置 x/y 保留,重挂后 RGL 解碰撞)。
+ * 返回更新后的配置。
+ */
+export function setWidgetSize(uid: string, size: WidgetSize): HomeConfig {
+  const current = loadConfig();
+  const layouts: ResponsiveLayouts = { ...current.layouts };
+  for (const bp of SEEDED_BREAKPOINTS) {
+    const items = current.layouts[bp];
+    if (!items) continue;
+    const cell = SIZE_PRESETS[size][bp];
+    layouts[bp] = items.map((it) =>
+      it.i === uid
+        ? { ...it, w: cell.w, h: cell.h, minW: cell.w, minH: cell.h }
+        : it,
+    );
+  }
+  const next: HomeConfig = {
+    widgets: current.widgets.map((w) => (w.uid === uid ? { ...w, size } : w)),
+    layouts,
+  };
+  saveConfig(next);
+  return next;
 }

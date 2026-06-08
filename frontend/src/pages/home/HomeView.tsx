@@ -1,5 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Icon } from "@iconify/react";
 import type { ResponsiveLayouts } from "react-grid-layout";
@@ -20,20 +19,29 @@ import {
   loadWidgets,
   saveLayouts,
   clearLayouts,
+  addWidget,
+  removeWidget,
+  setWidgetSize,
 } from "@/pages/home/grid/layouts";
 import { WIDGET_REGISTRY } from "@/pages/home/widgets/registry";
 import type { WidgetRenderContext } from "@/pages/home/widgets/registry";
-import type { WidgetKind } from "@/pages/home/widgets/types";
+import { WidgetGallery } from "@/pages/home/widgets/WidgetGallery";
+import type {
+  MetricKey,
+  WidgetKind,
+  WidgetSize,
+} from "@/pages/home/widgets/types";
 
 /**
  * 首页纯展示层 —— Living Surfaces 数据看板,签名 bento 卡矩阵。
  *
- * 按 WidgetInstance[] 渲染:每个组件实例的 uid 既是 React key 也是 RGL layout 键;渲染走
- * WIDGET_REGISTRY[kind].render,复用既有 15 张卡组件。每个 kind 的节点单独 memo、引用稳定:
- * 数据卡按各自数据切片(summary/instances/byInstance/queues 等)隔离重渲,自取数卡(system 每秒、
- * downloads 等)无数据依赖、memo([]) 仅建一次,绝不带动整页/整网格高频重渲。
+ * 按 WidgetInstance[] 渲染:每个组件实例的 uid 既是 React key 也是 RGL layout 键;渲染经 memo 化的
+ * WidgetHost 走 WIDGET_REGISTRY[kind].render(复用既有 15 张卡 + stat 通用小卡)。重渲隔离:数据卡 /
+ * stat 拿单次 memo 的 dataCtx(仅查询刷新时换 identity,每 5~30s 一次,非每秒),自取数卡(system /
+ * downloads 等)拿不变的 NEUTRAL_CTX,故 WidgetHost.memo 在挂载后绝不因数据刷新重渲,不带动整页 / 整网格。
  *
- * "编辑布局"开启后可拖拽并持久化,"恢复默认"用 seedKey 换 key 重挂回默认配置(见 grid/layouts.ts)。
+ * "编辑布局"开启后:整卡可拖并持久化、每卡浮出 S/M/L + 删除工具条、顶部"添加组件"开画廊;增删 /
+ * 改尺寸 / "恢复默认"均写 localStorage 后用 seedKey 换 key 重挂网格(以新种子重置 RGL,不回灌 prop)。
  * 本层不含数据请求,数据与回调由容器 HomePage 注入(便于无 Tauri 也能 Preview)。
  */
 
@@ -82,6 +90,42 @@ const NEUTRAL_CTX: WidgetRenderContext = {
   messageHistory: undefined,
 };
 
+/**
+ * 读 dataCtx 的 kind(数据卡 + stat)。其余为自取数卡(system/downloads/launcher/schedules/
+ * network/version/logs/health),拿不变的 NEUTRAL_CTX,故 WidgetHost.memo 在挂载后不因数据刷新重渲。
+ */
+const DATA_KINDS = new Set<WidgetKind>([
+  "stat",
+  "hero",
+  "kpi",
+  "instances",
+  "models",
+  "queue",
+  "byInstance",
+  "requestTypes",
+]);
+
+/**
+ * 单组件渲染宿主 —— memo 隔离每个组件实例的重渲。
+ *
+ * 走注册表 render(复用既有卡 / stat 小卡)。自取数卡拿稳定的 NEUTRAL_CTX,props 全程不变,memo
+ * 挡住父层(HomeView 每 5~30s 因查询刷新重渲)的级联;数据卡 / stat 拿 dataCtx,仅在底层数据切片
+ * 变化(ctx 换 identity)时重渲。size 变更经 seedKey 重挂网格落地,故 size 改变天然触发新宿主挂载。
+ */
+const WidgetHost = memo(function WidgetHost({
+  kind,
+  size,
+  metric,
+  ctx,
+}: {
+  kind: WidgetKind;
+  size: WidgetSize;
+  metric: MetricKey | undefined;
+  ctx: WidgetRenderContext;
+}) {
+  return <>{WIDGET_REGISTRY[kind].render(ctx, size, metric)}</>;
+});
+
 export function HomeView({
   overview,
   instances,
@@ -104,6 +148,7 @@ export function HomeView({
   // 内层 sync effect 会把刚起步的拖动重置回原位(表现为拖不动)。"恢复默认"用 seedKey 换 key 重挂
   // HomeGrid,以新种子重置 RGL,而非回灌 prop。组件集同样仅在 seedKey 变化时重读(P1 恒为默认)。
   const [editing, setEditing] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [seedKey, setSeedKey] = useState(0);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在 seedKey 变化时重读种子(读 localStorage)
   const layouts = useMemo<ResponsiveLayouts>(() => loadLayouts(), [seedKey]);
@@ -117,170 +162,67 @@ export function HomeView({
     setSeedKey((k) => k + 1);
   }, []);
 
-  // 各 kind 节点单独 memo:走注册表 render(复用既有卡组件),deps 取该卡真实数据切片;ctx 由
-  // NEUTRAL_CTX 叠加切片即时构造,故节点仅在其切片变化时重建、引用稳定。自取数卡 ctx 无关、memo([]) 仅建一次。
-  const systemNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.system.render(
-        NEUTRAL_CTX,
-        WIDGET_REGISTRY.system.defaultSize,
-      ),
-    [],
-  );
-  const heroNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.hero.render(
-        { ...NEUTRAL_CTX, summary, messageHistory },
-        WIDGET_REGISTRY.hero.defaultSize,
-      ),
-    [summary, messageHistory],
-  );
-  const kpiNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.kpi.render(
-        { ...NEUTRAL_CTX, summary, sortedModels },
-        WIDGET_REGISTRY.kpi.defaultSize,
-      ),
-    [summary, sortedModels],
-  );
-  const instancesNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.instances.render(
-        { ...NEUTRAL_CTX, instances, runningInstances, totalInstances },
-        WIDGET_REGISTRY.instances.defaultSize,
-      ),
-    [instances, runningInstances, totalInstances],
-  );
-  const modelsNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.models.render(
-        { ...NEUTRAL_CTX, sortedModels },
-        WIDGET_REGISTRY.models.defaultSize,
-      ),
-    [sortedModels],
-  );
-  const queueNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.queue.render(
-        { ...NEUTRAL_CTX, queues },
-        WIDGET_REGISTRY.queue.defaultSize,
-      ),
-    [queues],
-  );
-  const byInstanceNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.byInstance.render(
-        { ...NEUTRAL_CTX, byInstance },
-        WIDGET_REGISTRY.byInstance.defaultSize,
-      ),
-    [byInstance],
-  );
-  const requestTypesNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.requestTypes.render(
-        { ...NEUTRAL_CTX, byInstance },
-        WIDGET_REGISTRY.requestTypes.defaultSize,
-      ),
-    [byInstance],
-  );
-  const downloadsNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.downloads.render(
-        NEUTRAL_CTX,
-        WIDGET_REGISTRY.downloads.defaultSize,
-      ),
-    [],
-  );
-  const launcherNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.launcher.render(
-        NEUTRAL_CTX,
-        WIDGET_REGISTRY.launcher.defaultSize,
-      ),
-    [],
-  );
-  const schedulesNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.schedules.render(
-        NEUTRAL_CTX,
-        WIDGET_REGISTRY.schedules.defaultSize,
-      ),
-    [],
-  );
-  const networkNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.network.render(
-        NEUTRAL_CTX,
-        WIDGET_REGISTRY.network.defaultSize,
-      ),
-    [],
-  );
-  const versionNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.version.render(
-        NEUTRAL_CTX,
-        WIDGET_REGISTRY.version.defaultSize,
-      ),
-    [],
-  );
-  const logsNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.logs.render(
-        NEUTRAL_CTX,
-        WIDGET_REGISTRY.logs.defaultSize,
-      ),
-    [],
-  );
-  const healthNode = useMemo(
-    () =>
-      WIDGET_REGISTRY.health.render(
-        NEUTRAL_CTX,
-        WIDGET_REGISTRY.health.defaultSize,
-      ),
-    [],
-  );
-
-  // kind -> 已 memo 的节点;按 WidgetInstance[] 装配为 HomeCard[](uid 作 key)。
-  const nodeByKind = useMemo<Record<WidgetKind, ReactNode>>(
+  // 富卡数据上下文:单次 memo,仅在底层数据切片变化时换 identity(每 5~30s 查询刷新一次,非每秒)。
+  // 数据卡(hero/kpi/instances/models/queue/byInstance/requestTypes)与 stat 读它;自取数卡(见
+  // DATA_KINDS 之外)拿不变的 NEUTRAL_CTX,配合 WidgetHost 的 memo 在挂载后绝不因数据刷新重渲。
+  const dataCtx = useMemo<WidgetRenderContext>(
     () => ({
-      system: systemNode,
-      hero: heroNode,
-      kpi: kpiNode,
-      instances: instancesNode,
-      models: modelsNode,
-      queue: queueNode,
-      byInstance: byInstanceNode,
-      requestTypes: requestTypesNode,
-      downloads: downloadsNode,
-      launcher: launcherNode,
-      schedules: schedulesNode,
-      network: networkNode,
-      version: versionNode,
-      logs: logsNode,
-      health: healthNode,
+      ...NEUTRAL_CTX,
+      summary,
+      sortedModels,
+      runningInstances,
+      totalInstances,
+      instances,
+      byInstance,
+      queues,
+      messageHistory,
     }),
     [
-      systemNode,
-      heroNode,
-      kpiNode,
-      instancesNode,
-      modelsNode,
-      queueNode,
-      byInstanceNode,
-      requestTypesNode,
-      downloadsNode,
-      launcherNode,
-      schedulesNode,
-      networkNode,
-      versionNode,
-      logsNode,
-      healthNode,
+      summary,
+      sortedModels,
+      runningInstances,
+      totalInstances,
+      instances,
+      byInstance,
+      queues,
+      messageHistory,
     ],
   );
 
+  // 编辑态增删 / 改尺寸:写 localStorage 后换 seedKey 重挂网格(以新种子重置 RGL),而非回灌 prop
+  // (回灌会在拖拽阈值窗口打断拖动,见上方注释)。这三类是显式用户动作、非拖拽手势中,故重挂安全。
+  const handleAdd = useCallback((kind: WidgetKind, metric?: MetricKey) => {
+    addWidget(kind, metric);
+    setSeedKey((k) => k + 1);
+  }, []);
+  const handleRemove = useCallback((uid: string) => {
+    removeWidget(uid);
+    setSeedKey((k) => k + 1);
+  }, []);
+  const handleSize = useCallback((uid: string, size: WidgetSize) => {
+    setWidgetSize(uid, size);
+    setSeedKey((k) => k + 1);
+  }, []);
+
   const cards = useMemo<HomeCard[]>(
-    () => widgets.map((w) => ({ uid: w.uid, node: nodeByKind[w.kind] })),
-    [widgets, nodeByKind],
+    () =>
+      widgets.map((w) => {
+        const def = WIDGET_REGISTRY[w.kind];
+        return {
+          uid: w.uid,
+          size: w.size,
+          sizes: def.sizes,
+          node: (
+            <WidgetHost
+              kind={w.kind}
+              size={w.size}
+              metric={w.metric}
+              ctx={DATA_KINDS.has(w.kind) ? dataCtx : NEUTRAL_CTX}
+            />
+          ),
+        };
+      }),
+    [widgets, dataCtx],
   );
 
   return (
@@ -302,17 +244,31 @@ export function HomeView({
         </div>
         <div className="flex items-center gap-2">
           {editing && (
-            <button
-              type="button"
-              onClick={handleReset}
-              className="ls-item rounded-[12px] px-3 py-1.5 text-xs"
-              style={{
-                color: "var(--ls-ink-soft)",
-                border: "1px solid var(--ls-hairline)",
-              }}
-            >
-              恢复默认
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setGalleryOpen(true)}
+                className="ls-item flex items-center gap-1.5 rounded-[12px] px-3 py-1.5 text-xs"
+                style={{
+                  color: "var(--ls-ink-soft)",
+                  border: "1px solid var(--ls-hairline)",
+                }}
+              >
+                <Icon icon="ph:plus-thin" width={14} height={14} />
+                添加组件
+              </button>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="ls-item rounded-[12px] px-3 py-1.5 text-xs"
+                style={{
+                  color: "var(--ls-ink-soft)",
+                  border: "1px solid var(--ls-hairline)",
+                }}
+              >
+                恢复默认
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -346,8 +302,16 @@ export function HomeView({
           layouts={layouts}
           editing={editing}
           onLayoutsChange={handleLayoutsChange}
+          onSize={handleSize}
+          onRemove={handleRemove}
         />
       </div>
+
+      <WidgetGallery
+        open={galleryOpen}
+        onOpenChange={setGalleryOpen}
+        onAdd={handleAdd}
+      />
     </motion.div>
   );
 }

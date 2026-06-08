@@ -15,6 +15,7 @@ import { NetworkSourceCard } from "@/pages/home/cards/NetworkSourceCard";
 import { VersionCard } from "@/pages/home/cards/VersionCard";
 import { LogsCard } from "@/pages/home/cards/LogsCard";
 import { HealthCard } from "@/pages/home/cards/HealthCard";
+import { StatWidget } from "@/pages/home/widgets/StatWidget";
 
 import type {
   ModelStats,
@@ -23,17 +24,16 @@ import type {
 } from "@/hooks/queries/useStatsQueries";
 import type { Instance } from "@/services/instanceApi";
 import type { MessageQueueResponse } from "@/services/messageQueueApi";
-import type { WidgetKind, WidgetSize } from "./types";
+import type { MetricKey, WidgetKind, WidgetSize } from "./types";
 
 /**
  * 首页小组件注册表 —— kind 到"元信息 + 渲染"的单一映射。
  *
  * 壳/芯分离里这属于"芯"的索引:HomeView 集中取一次数据(单查询喂多卡,不放大 N+1),经
- * WidgetRenderContext 下发给 render;render 复用 develop 上既有的 15 张卡组件。memo 粒度仍由
- * HomeView 按各卡实际数据依赖控制(见 HomeView 的 nodeByKind),本表只声明"怎么渲染",不决定"何时重渲"。
+ * WidgetRenderContext 下发给 render;render 复用 develop 上既有的 15 张卡组件 + stat 通用小卡。
+ * 重渲粒度由 HomeView 的 WidgetHost(memo,按 uid)控制,本表只声明"怎么渲染",不决定"何时重渲"。
  *
- * P1:render 透传 size 给卡组件,但卡组件 P1 阶段忽略 size、默认行为不变,故外观与现状一致;
- * 尺寸真正改变密度在 P2。
+ * render 透传 size(P2 起 stat 按 size 调字号;富卡的密度适配留待 P2b)与 metric(仅 stat 用)。
  */
 
 /** 富卡数据上下文:HomeView 集中取数后下发,供需要数据的卡渲染(自取数卡不读这些字段)。 */
@@ -61,11 +61,31 @@ export interface WidgetDef {
   sizes: WidgetSize[];
   /** 默认尺寸。 */
   defaultSize: WidgetSize;
-  /** 渲染:复用既有卡组件;size 透传(P1 卡组件忽略 size)。 */
-  render: (ctx: WidgetRenderContext, size: WidgetSize) => ReactNode;
+  /** stat 卡需选 metric:画廊"添加 stat 后选指标"用,富卡为 false。 */
+  needsMetric?: boolean;
+  /**
+   * 渲染:复用既有卡组件;size 透传(P1 卡组件忽略 size,P2 起按 size 调密度)。
+   * metric 仅 kind="stat" 用(决定显示哪个标量),富卡忽略。
+   */
+  render: (
+    ctx: WidgetRenderContext,
+    size: WidgetSize,
+    metric?: MetricKey,
+  ) => ReactNode;
 }
 
 export const WIDGET_REGISTRY: Record<WidgetKind, WidgetDef> = {
+  stat: {
+    kind: "stat",
+    title: "指标小卡",
+    icon: "ph:number-square-one-thin",
+    sizes: ["s", "m"],
+    defaultSize: "s",
+    needsMetric: true,
+    render: (ctx, size, metric) => (
+      <StatWidget ctx={ctx} metric={metric} size={size} />
+    ),
+  },
   system: {
     kind: "system",
     title: "系统资源",

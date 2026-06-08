@@ -17,19 +17,29 @@ import {
   GRID_MARGIN,
   CONTAINER_PADDING,
 } from "./layouts";
+import { WidgetEditToolbar } from "@/pages/home/widgets/WidgetEditToolbar";
+import type { WidgetSize } from "@/pages/home/widgets/types";
 
 export interface HomeCard {
   /** 组件实例 uid;同时作为 React key 与 RGL layout 键(默认 uid=kind)。 */
   uid: string;
   node: ReactNode;
+  /** 当前尺寸,供编辑态工具条高亮。 */
+  size: WidgetSize;
+  /** 该组件支持的尺寸档(注册表声明),供编辑态工具条只列可选档。 */
+  sizes: WidgetSize[];
 }
 
 interface HomeGridProps {
   cards: HomeCard[];
   layouts: ResponsiveLayouts;
-  /** 编辑态:整卡可拖 + SE 角缩放;关闭则卡片静止、点瓦片即展开。 */
+  /** 编辑态:整卡可拖 + 浮出尺寸/删除工具条;关闭则卡片静止、点瓦片即展开。 */
   editing: boolean;
   onLayoutsChange: (layouts: ResponsiveLayouts) => void;
+  /** 编辑态切换某组件尺寸(经 S/M/L 工具条)。 */
+  onSize: (uid: string, size: WidgetSize) => void;
+  /** 编辑态删除某组件。 */
+  onRemove: (uid: string) => void;
 }
 
 /**
@@ -50,6 +60,8 @@ export function HomeGrid({
   layouts,
   editing,
   onLayoutsChange,
+  onSize,
+  onRemove,
 }: HomeGridProps) {
   const { width, containerRef, mounted } = useContainerWidth({
     measureBeforeMount: true,
@@ -81,11 +93,20 @@ export function HomeGrid({
             containerPadding={CONTAINER_PADDING}
             // 编辑态整卡可拖(不设 handle);非编辑态 enabled:false 卡片静止。
             dragConfig={{ enabled: editing, threshold: 5 }}
-            resizeConfig={{ enabled: editing, handles: ["se"] }}
+            // 自由 resize 已取消(P2):尺寸只经工具条 S/M/L 切换,故恒关闭缩放手柄。
+            resizeConfig={{ enabled: false, handles: ["se"] }}
             onLayoutChange={handleLayoutChange}
           >
             {cards.map((c) => (
               <div key={c.uid} className="ls-grid-item relative">
+                {editing && (
+                  <WidgetEditToolbar
+                    size={c.size}
+                    sizes={c.sizes}
+                    onSize={(s) => onSize(c.uid, s)}
+                    onRemove={() => onRemove(c.uid)}
+                  />
+                )}
                 <div className="h-full w-full">{c.node}</div>
               </div>
             ))}

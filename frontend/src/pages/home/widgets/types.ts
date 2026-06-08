@@ -10,10 +10,11 @@
 export type WidgetSize = "s" | "m" | "l";
 
 /**
- * 组件种类。当前为 develop 上已存在的 15 种富卡;stat(通用指标小卡)在 P2、
- * backups/env 在 P4 接入,届时再补入本联合。
+ * 组件种类。stat = 通用指标小卡(P2 起,metric 决定显示哪个标量);其余为 develop 上既有的
+ * 15 种富卡。backups/env 在 P4 接入,届时再补入本联合。
  */
 export type WidgetKind =
+  | "stat"
   | "system"
   | "hero"
   | "kpi"
@@ -31,8 +32,9 @@ export type WidgetKind =
   | "health";
 
 /**
- * 通用 stat 小卡可选的标量指标键(P2 起 kind="stat" 用 metric 决定显示哪个标量)。
- * P1 暂无 stat 实例,此处先定义类型契约,供 WidgetInstance.metric 引用。
+ * 通用 stat 小卡可选的标量指标键(kind="stat" 用 metric 决定显示哪个标量)。
+ * 除 errors 外均可从首页集中取的 overview/summary 读出(见 widgets/StatWidget 的 METRIC_READERS);
+ * errors 需 get_recent_errors(不在集中数据里),留待 P4 补齐数据缺口后再纳入画廊可选项。
  */
 export type MetricKey =
   | "cost"
