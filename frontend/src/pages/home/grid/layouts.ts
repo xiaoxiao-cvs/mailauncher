@@ -62,8 +62,14 @@ interface SizeCell {
 
 /**
  * 离散尺寸 S/M/L 在各断点的网格占位预设(取代 RGL 自由缩放)。
- * lg(12 列):S=2x2、M=4x2、L=6x3;md(8 列)同档但 L 收窄到 6 列内;sm(4 列)整列竖叠,
- * L 不超 4 列。按 ROW_HEIGHT=88 调到内容不挤不空,与既有富卡 h 区间(摘要 h2 / 表格 h3 / 系统 h4)对齐。
+ *
+ * 高度按 ROW_HEIGHT=88 + GRID_MARGIN.y=12 推算实际像素(h 行 → h*88 + (h-1)*12),调到内容不挤不空:
+ * - S=2x2 → 188px:stat 单读数 / instances·queue 状态点串折叠态正好,不空。
+ * - M=4x3 → 288px(P5:从 h2=188 调高):支持档为 [m,l] 的富卡(kpi/hero/models/byInstance/
+ *   requestTypes 等)折叠态多为 2x2 象限或带走势图,h2 时象限只 ~78px 偏挤;h3 后象限 ~130px,
+ *   与既有蓝图里这些卡的呼吸感对齐。stat 在 M 仅垂直居中留白、不显空,且 stat 默认档为 S。
+ * - L=6x4 → 388px(P5:从 h3=288 调高):对齐系统卡蓝图 h4(进程表/分区表自适应行数铺满更从容)。
+ * md(8 列)同档高;sm(4 列)整列竖叠,L 宽不超 4 列。
  */
 export const SIZE_PRESETS: Record<
   WidgetSize,
@@ -75,14 +81,14 @@ export const SIZE_PRESETS: Record<
     sm: { w: 2, h: 2 },
   },
   m: {
-    lg: { w: 4, h: 2 },
-    md: { w: 4, h: 2 },
-    sm: { w: 4, h: 2 },
+    lg: { w: 4, h: 3 },
+    md: { w: 4, h: 3 },
+    sm: { w: 4, h: 3 },
   },
   l: {
-    lg: { w: 6, h: 3 },
-    md: { w: 6, h: 3 },
-    sm: { w: 4, h: 3 },
+    lg: { w: 6, h: 4 },
+    md: { w: 6, h: 4 },
+    sm: { w: 4, h: 4 },
   },
 };
 

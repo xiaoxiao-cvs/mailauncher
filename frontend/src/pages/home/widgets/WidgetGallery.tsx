@@ -3,7 +3,11 @@ import { Icon } from "@iconify/react";
 
 import { Modal } from "@/components/ls";
 import { WIDGET_REGISTRY, type WidgetDef } from "@/pages/home/widgets/registry";
-import { STAT_METRICS, metricLabel } from "@/pages/home/widgets/statMetrics";
+import {
+  STAT_METRICS,
+  metricLabel,
+  metricIcon,
+} from "@/pages/home/widgets/statMetrics";
 import type { MetricKey, WidgetKind } from "@/pages/home/widgets/types";
 
 /**
@@ -72,7 +76,7 @@ export function WidgetGallery({
             {STAT_METRICS.map((m) => (
               <GalleryTile
                 key={m}
-                icon={WIDGET_REGISTRY.stat.icon}
+                icon={metricIcon(m)}
                 title={metricLabel(m)}
                 onClick={() => handlePickMetric(m)}
               />

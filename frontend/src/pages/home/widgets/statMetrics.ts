@@ -107,3 +107,8 @@ export const STAT_METRICS: MetricKey[] = [
 export function metricLabel(metric: MetricKey): string {
   return METRIC_READERS[metric]?.label ?? metric;
 }
+
+/** 画廊展示 metric 图标:复用 reader 的 icon(与该 metric 在卡上的实际图标一致),无 reader 时回落问号。 */
+export function metricIcon(metric: MetricKey): string {
+  return METRIC_READERS[metric]?.icon ?? "ph:question-thin";
+}

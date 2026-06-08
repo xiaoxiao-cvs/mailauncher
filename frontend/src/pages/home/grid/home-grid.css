@@ -23,16 +23,17 @@
   will-change: width, height;
 }
 
-/* 拖拽落位占位:生命色软调 + 虚线,圆角对齐卡片,过渡更柔。 */
+/* 拖拽落位占位:生命色软调 + 虚线,圆角对齐卡片。过渡与卡片重排同步(220ms 同缓动),
+   使占位框与它代表的那张卡在重排时步调一致(此前 180ms 略快于卡片,落位会有半拍错位)。 */
 .react-grid-item.react-grid-placeholder {
   background: var(--ls-life-soft);
   border: 1.5px dashed var(--ls-life);
   border-radius: var(--ls-r-card);
   opacity: 1;
   transition:
-    transform 180ms cubic-bezier(0.2, 0, 0, 1),
-    width 180ms cubic-bezier(0.2, 0, 0, 1),
-    height 180ms cubic-bezier(0.2, 0, 0, 1);
+    transform 220ms cubic-bezier(0.2, 0, 0, 1),
+    width 220ms cubic-bezier(0.2, 0, 0, 1),
+    height 220ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* 缩放手柄箭头:墨色替代默认半透明黑。 */
