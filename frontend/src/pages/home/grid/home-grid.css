@@ -64,3 +64,61 @@
 .ls-grid-editing {
   user-select: none;
 }
+
+/* —— 一页化 peek:首屏裁剪 + 渐隐遮罩 + 箭头条 —— */
+
+/* 裁剪壳:maxHeight 在收(一屏)/展(完整)两态间补间。手感与卡片重排同一缓动,丝滑不突兀。 */
+.ls-peek-clip {
+  transition: max-height 320ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* 底部箭头条容器:贴在裁剪壳下沿,内部叠放渐隐遮罩(上浮)与箭头按钮。 */
+.ls-peek-footer {
+  position: relative;
+  height: 56px;
+  margin-top: -56px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+}
+/* 渐隐遮罩:从透明到背景色,盖住被裁断的卡片下沿,形成"还有更多"的提示。 */
+.ls-peek-fade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent, var(--ls-bg) 88%);
+}
+
+/* 展开/收起箭头按钮:暖哑光胶囊,生命色描边轻提示;footer 内重新放开点击。 */
+.ls-peek-arrow {
+  position: relative;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  margin-bottom: 6px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--ls-ink-soft);
+  background: var(--ls-surface);
+  border: 1px solid var(--ls-hairline);
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms cubic-bezier(0.2, 0, 0, 1);
+}
+.ls-peek-arrow:hover {
+  color: var(--ls-life);
+  border-color: var(--ls-life);
+}
+.ls-peek-arrow:active {
+  transform: scale(0.96);
+}
+
+/* 展开态的收起条:居中一颗收起按钮,与底部留白。 */
+.ls-peek-collapse-bar {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}

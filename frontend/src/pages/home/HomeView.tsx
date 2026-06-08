@@ -14,6 +14,7 @@ import type { MessageQueueResponse } from "@/services/messageQueueApi";
 import type { Instance } from "@/services/instanceApi";
 
 import { HomeGrid, type HomeCard } from "@/pages/home/grid/HomeGrid";
+import { HomePeek } from "@/pages/home/grid/HomePeek";
 import {
   loadLayouts,
   loadWidgets,
@@ -150,6 +151,8 @@ export function HomeView({
   const [editing, setEditing] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [seedKey, setSeedKey] = useState(0);
+  // peek 一页化:默认精简(首屏一屏高),箭头/滚轮展开看全部。编辑态禁用 peek(见 HomePeek.disabled)。
+  const [peekExpanded, setPeekExpanded] = useState(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在 seedKey 变化时重读种子(读 localStorage)
   const layouts = useMemo<ResponsiveLayouts>(() => loadLayouts(), [seedKey]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在 seedKey 变化时重读组件集(读 localStorage)
@@ -296,15 +299,21 @@ export function HomeView({
       </header>
 
       <div className="mt-5">
-        <HomeGrid
-          key={seedKey}
-          cards={cards}
-          layouts={layouts}
-          editing={editing}
-          onLayoutsChange={handleLayoutsChange}
-          onSize={handleSize}
-          onRemove={handleRemove}
-        />
+        <HomePeek
+          expanded={peekExpanded}
+          onExpandedChange={setPeekExpanded}
+          disabled={editing}
+        >
+          <HomeGrid
+            key={seedKey}
+            cards={cards}
+            layouts={layouts}
+            editing={editing}
+            onLayoutsChange={handleLayoutsChange}
+            onSize={handleSize}
+            onRemove={handleRemove}
+          />
+        </HomePeek>
       </div>
 
       <WidgetGallery
