@@ -15,6 +15,8 @@ import { tauriInvoke } from "@/services/tauriInvoke";
  * 单个看护中组件的状态快照。与后端 Rust `WatchdogInstanceStatus`(serde 默认命名)对齐。
  * autorestart_enabled:自动重启偏好(缺省视为开启,仅显式关闭为 false)。
  * is_alive:进程当前是否存活(实时探测)。
+ * retry_count:看门狗对该会话已连续自动重启的次数(进程恢复或用户操作后清零;从未崩溃为 0)。
+ * next_attempt_at:下次允许尝试自动重启的最早时刻(退避用,RFC3339 字符串);无退避计划时为 null。
  */
 export interface WatchdogInstanceStatus {
   instance_id: string;
@@ -22,6 +24,8 @@ export interface WatchdogInstanceStatus {
   component: string;
   autorestart_enabled: boolean;
   is_alive: boolean;
+  retry_count: number;
+  next_attempt_at: string | null;
 }
 
 // ==================== Queries ====================

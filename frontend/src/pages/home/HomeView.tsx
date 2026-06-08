@@ -73,6 +73,8 @@ export interface HomeViewProps {
    * 此时英雄卡只展示总量 + 单值,不渲染走势图(不编造序列数据);Preview 可传 mock 序列。
    */
   messageHistory?: number[];
+  /** 每小时回复量时间序列(与 messageHistory 同源等长);英雄卡趋势图叠加回复对比线。 */
+  replyHistory?: number[];
 }
 
 /**
@@ -89,6 +91,7 @@ const NEUTRAL_CTX: WidgetRenderContext = {
   byInstance: [],
   queues: [],
   messageHistory: undefined,
+  replyHistory: undefined,
 };
 
 /**
@@ -135,6 +138,7 @@ export function HomeView({
   range,
   onRangeChange,
   messageHistory,
+  replyHistory,
 }: HomeViewProps) {
   const { summary, topModels, runningInstances, totalInstances } = overview;
 
@@ -179,6 +183,7 @@ export function HomeView({
       byInstance,
       queues,
       messageHistory,
+      replyHistory,
     }),
     [
       summary,
@@ -189,6 +194,7 @@ export function HomeView({
       byInstance,
       queues,
       messageHistory,
+      replyHistory,
     ],
   );
 

@@ -15,6 +15,8 @@ import { NetworkSourceCard } from "@/pages/home/cards/NetworkSourceCard";
 import { VersionCard } from "@/pages/home/cards/VersionCard";
 import { LogsCard } from "@/pages/home/cards/LogsCard";
 import { HealthCard } from "@/pages/home/cards/HealthCard";
+import { BackupsCard } from "@/pages/home/cards/BackupsCard";
+import { EnvCard } from "@/pages/home/cards/EnvCard";
 import { StatWidget } from "@/pages/home/widgets/StatWidget";
 
 import type {
@@ -49,6 +51,8 @@ export interface WidgetRenderContext {
   queues: MessageQueueResponse[];
   /** 英雄卡可选的每小时消息量历史序列;无则只展示总量(不编造序列)。 */
   messageHistory: number[] | undefined;
+  /** 英雄卡可选的每小时回复量历史序列(与 messageHistory 同源等长);用于趋势图叠加回复对比线。 */
+  replyHistory: number[] | undefined;
 }
 
 export interface WidgetDef {
@@ -104,6 +108,7 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetDef> = {
       <MessageHeroCard
         summary={ctx.summary}
         history={ctx.messageHistory}
+        replyHistory={ctx.replyHistory}
         size={size}
       />
     ),
@@ -228,5 +233,21 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetDef> = {
     sizes: ["m", "l"],
     defaultSize: "m",
     render: (_ctx, size) => <HealthCard size={size} />,
+  },
+  backups: {
+    kind: "backups",
+    title: "备份",
+    icon: "ph:archive-thin",
+    sizes: ["m", "l"],
+    defaultSize: "m",
+    render: (_ctx, size) => <BackupsCard size={size} />,
+  },
+  env: {
+    kind: "env",
+    title: "环境就绪",
+    icon: "ph:wrench-thin",
+    sizes: ["m", "l"],
+    defaultSize: "m",
+    render: (_ctx, size) => <EnvCard size={size} />,
   },
 };

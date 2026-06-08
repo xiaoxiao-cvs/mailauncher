@@ -42,3 +42,39 @@ export function fmtInstanceMem(mb: number | null | undefined): string {
   const v = num(mb);
   return v >= 1024 ? `${(v / 1024).toFixed(2)} GB` : `${v.toFixed(0)} MB`;
 }
+
+/** 时刻:RFC3339/ISO 字符串 -> 本地 "HH:MM";空或不可解析返回 null(不编造时间)。 */
+export function fmtClock(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+/** 日期+时刻:RFC3339/ISO 字符串 -> 本地 "MM-DD HH:MM";空或不可解析返回 null。 */
+export function fmtDateTime(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${mo}-${da} ${hh}:${mi}`;
+}
+
+/** 字节大小 -> "X.X KB/MB/GB";0 或负显示 "0 B"。备份大小展示用。 */
+export function fmtBytes(bytes: number | null | undefined): string {
+  const n = num(bytes);
+  if (n <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let v = n;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${i === 0 ? v.toFixed(0) : v.toFixed(1)} ${units[i]}`;
+}

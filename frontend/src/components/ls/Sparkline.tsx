@@ -10,6 +10,14 @@ import { motion } from "motion/react";
 export interface SparklineProps {
   /** 折线采样值序列(至少两个点) */
   values: number[];
+  /**
+   * 可选第二条对比序列(如消息量主线 + 回复量副线)。与 values 共用同一 y 标度(取两序列并集的
+   * min/max),使两线在同一坐标系内可比;只画描边线、不画填充区。长度与 values 不一致时各自按
+   * 自身索引取点(通常二者同源等长)。
+   */
+  secondary?: number[];
+  /** 第二条线的描边色(默认柔墨色,与主线生命色区分);仅 secondary 提供时生效。 */
+  secondaryColor?: string;
   className?: string;
 }
 
@@ -38,19 +46,29 @@ function smoothPath(points: Pt[]): string {
 
 export function Sparkline({
   values,
+  secondary,
+  secondaryColor = "var(--ls-ink-soft)",
   className = "h-16 w-full",
 }: SparklineProps) {
   const gradientId = React.useId();
-  const max = Math.max(...values);
-  const min = Math.min(...values);
+  // 两序列共用 y 标度:范围取并集,使主/副线在同一坐标系内可比(回复量恒 <= 消息量,副线落于主线下方)。
+  const all =
+    secondary && secondary.length > 0 ? [...values, ...secondary] : values;
+  const max = Math.max(...all);
+  const min = Math.min(...all);
   const range = max - min || 1;
-  const step = W / (values.length - 1);
-  const pts: Pt[] = values.map((v, i) => ({
-    x: i * step,
-    y: H - ((v - min) / range) * (H - 6) - 3,
-  }));
+  const toPts = (vals: number[]): Pt[] => {
+    const step = W / (vals.length - 1);
+    return vals.map((v, i) => ({
+      x: i * step,
+      y: H - ((v - min) / range) * (H - 6) - 3,
+    }));
+  };
+  const pts = toPts(values);
   const line = smoothPath(pts);
   const area = `${line} L${W},${H} L0,${H} Z`;
+  const secLine =
+    secondary && secondary.length > 1 ? smoothPath(toPts(secondary)) : "";
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
@@ -70,6 +88,21 @@ export function Sparkline({
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       />
+      {secLine ? (
+        <motion.path
+          d={secLine}
+          fill="none"
+          stroke={secondaryColor}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray="3 3"
+          vectorEffect="non-scaling-stroke"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        />
+      ) : null}
       <motion.path
         d={line}
         fill="none"

@@ -34,11 +34,14 @@ export function HomePage() {
   const { data: instanceList } = useInstancesQuery({ refetchInterval: 5000 });
   const { data: queues } = useAllMessageQueuesQuery();
 
-  // 趋势序列:有数据才传(无数据则不渲染走势,不编造序列)。
+  // 趋势序列:有数据才传(无数据则不渲染走势,不编造序列)。消息与回复同源(get_hourly_message_stats),
+  // 等长按 hour_ts 对齐,故 replyHistory 与 messageHistory 同条件派生,供英雄卡叠加回复对比线。
   const messageHistory =
     hourly && hourly.length > 0
       ? hourly.map((h) => h.message_count)
       : undefined;
+  const replyHistory =
+    hourly && hourly.length > 0 ? hourly.map((h) => h.reply_count) : undefined;
 
   const instances = instanceList?.instances ?? [];
   const runningFromList = instances.filter(
@@ -60,6 +63,7 @@ export function HomePage() {
       range={range}
       onRangeChange={setRange}
       messageHistory={messageHistory}
+      replyHistory={replyHistory}
     />
   );
 }

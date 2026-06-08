@@ -11,7 +11,8 @@ export type WidgetSize = "s" | "m" | "l";
 
 /**
  * 组件种类。stat = 通用指标小卡(P2 起,metric 决定显示哪个标量);其余为 develop 上既有的
- * 15 种富卡。backups/env 在 P4 接入,届时再补入本联合。
+ * 15 种富卡。backups(备份/更新历史)、env(Git/Python 环境就绪)在 P4 接入,经画廊按需添加,
+ * 不入默认组件集(默认外观保持现状)。
  */
 export type WidgetKind =
   | "stat"
@@ -29,7 +30,9 @@ export type WidgetKind =
   | "network"
   | "version"
   | "logs"
-  | "health";
+  | "health"
+  | "backups"
+  | "env";
 
 /**
  * 通用 stat 小卡可选的标量指标键(kind="stat" 用 metric 决定显示哪个标量)。

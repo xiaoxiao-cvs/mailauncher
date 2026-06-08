@@ -12,8 +12,9 @@ import type { WidgetSize } from "@/pages/home/widgets/types";
  * 钻取后原位铺开成多维单值摘要(回复率 / Token 进出 / 请求 / 响应)。
  *
  * 单瓦片(tiles.length===1):头部由基座 morph,collapsed/detail 只给"头部以下"主体。
- * 因后端暂无小时序列,展开不强求趋势线;仅当上层传入 history(>1 点)时才补一条
- * Sparkline + 峰值/均值,无数据时各处用占位 "—",绝不以 0 伪装真实读数。
+ * 上层传入 history(消息量,>1 点)时补一条 Sparkline + 峰值/均值;若同时传入 replyHistory
+ * (回复量,get_hourly_message_stats.reply_count),则在同图叠加第二条对比线(共用 y 标度)。
+ * 无数据时各处用占位 "—",绝不以 0 伪装真实读数。
  */
 
 const PLACEHOLDER = "—";
@@ -29,6 +30,8 @@ export interface MessageHeroCardProps {
   summary: StatsSummary | undefined;
   /** 可选的每小时消息量历史序列;长度 >1 才渲染趋势(峰值=max,均值=平均)。 */
   history?: number[];
+  /** 可选的每小时回复量历史序列(与 history 同源等长);存在则在趋势图叠加第二条对比线。 */
+  replyHistory?: number[];
   /** 尺寸槽:S 折叠态大数更小,M 维持,L 醒目。展开钻取与尺寸无关。 */
   size?: WidgetSize;
 }
@@ -51,9 +54,15 @@ function historyStats(history: number[]): { peak: number; avg: number } {
 export function MessageHeroCard({
   summary,
   history,
+  replyHistory,
   size = "m",
 }: MessageHeroCardProps) {
   const hasTrend = !!history && history.length > 1;
+  // 回复副线仅在主趋势成立且回复序列同样有 >1 点时叠加(同源等长场景)。
+  const reply =
+    hasTrend && replyHistory && replyHistory.length > 1
+      ? replyHistory
+      : undefined;
 
   const tiles: BentoTile[] = [
     {
@@ -68,6 +77,7 @@ export function MessageHeroCard({
         <HeroCollapsed
           summary={summary}
           history={hasTrend ? history : undefined}
+          replyHistory={reply}
           size={size}
         />
       ),
@@ -75,6 +85,7 @@ export function MessageHeroCard({
         <HeroDetail
           summary={summary}
           history={hasTrend ? history : undefined}
+          replyHistory={reply}
         />
       ),
     },
@@ -87,10 +98,12 @@ export function MessageHeroCard({
 function HeroCollapsed({
   summary,
   history,
+  replyHistory,
   size,
 }: {
   summary: StatsSummary | undefined;
   history: number[] | undefined;
+  replyHistory: number[] | undefined;
   size: WidgetSize;
 }) {
   const trend = history ? historyStats(history) : null;
@@ -119,7 +132,11 @@ function HeroCollapsed({
       {history && trend ? (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ flex: 1, minWidth: 0, height: 22 }}>
-            <Sparkline values={history} className="h-full w-full" />
+            <Sparkline
+              values={history}
+              secondary={replyHistory}
+              className="h-full w-full"
+            />
           </div>
           <span
             className="ls-num"
@@ -149,9 +166,11 @@ function HeroCollapsed({
 function HeroDetail({
   summary,
   history,
+  replyHistory,
 }: {
   summary: StatsSummary | undefined;
   history: number[] | undefined;
+  replyHistory: number[] | undefined;
 }) {
   const trend = history ? historyStats(history) : null;
   return (
@@ -162,7 +181,17 @@ function HeroDetail({
             title="消息走势"
             hint={`峰值 ${fmtCompact(trend.peak)}/时 · 均值 ${fmtCompact(trend.avg)}/时`}
           />
-          <Sparkline values={history} className="mt-1.5 h-16 w-full" />
+          <Sparkline
+            values={history}
+            secondary={replyHistory}
+            className="mt-1.5 h-16 w-full"
+          />
+          {replyHistory ? (
+            <div className="mt-1.5 flex items-center gap-4 text-[10px]">
+              <LegendDot color="var(--ls-life)" label="消息" />
+              <LegendDot color="var(--ls-ink-soft)" label="回复" dashed />
+            </div>
+          ) : null}
         </div>
       ) : null}
       <div className="grid min-h-0 flex-1 grid-cols-3 content-start gap-2">
@@ -204,5 +233,33 @@ function HeroDetail({
         />
       </div>
     </div>
+  );
+}
+
+/** 趋势图图例项:色段(可虚线)+ 标签,用于区分消息主线与回复副线。 */
+function LegendDot({
+  color,
+  label,
+  dashed = false,
+}: {
+  color: string;
+  label: string;
+  dashed?: boolean;
+}) {
+  return (
+    <span
+      className="flex items-center gap-1.5"
+      style={{ color: "var(--ls-ink-faint)" }}
+    >
+      <span
+        style={{
+          width: 14,
+          height: 0,
+          borderTop: `2px ${dashed ? "dashed" : "solid"} ${color}`,
+          flexShrink: 0,
+        }}
+      />
+      {label}
+    </span>
   );
 }

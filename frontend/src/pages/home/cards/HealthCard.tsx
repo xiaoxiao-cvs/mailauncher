@@ -2,6 +2,7 @@ import { ExpandableBentoCard, useAutoRows } from "@/components/bento";
 import type { BentoTile } from "@/components/bento";
 import { Badge } from "@/components/ls";
 import { SectionHead } from "@/pages/home/cards/CardKit";
+import { fmtClock } from "@/pages/home/cards/format";
 import { num } from "@/utils/format";
 import {
   useWatchdogStatusQuery,
@@ -199,6 +200,10 @@ function HealthDetail({
 }
 
 function HealthRow({ item }: { item: WatchdogInstanceStatus }) {
+  // 重启簿记副信息:已连续重启次数(>0 才显)与下次允许重启时刻(退避计划存在才显)。
+  // 二者皆"无记录/未排程"时不渲染该行,避免对从未崩溃的会话堆无意义的 0/空。
+  const nextAt = fmtClock(item.next_attempt_at);
+  const showBookkeeping = item.retry_count > 0 || nextAt !== null;
   return (
     <div
       className="rounded-lg px-2.5 py-1.5"
@@ -230,6 +235,20 @@ function HealthRow({ item }: { item: WatchdogInstanceStatus }) {
           <AutorestartBadge enabled={item.autorestart_enabled} />
         </span>
       </div>
+      {showBookkeeping ? (
+        <div className="mt-1 flex items-center gap-2.5 text-[10px]">
+          {item.retry_count > 0 ? (
+            <span style={{ color: "var(--ls-warn)" }}>
+              已重启 <span className="ls-num">{num(item.retry_count)}</span> 次
+            </span>
+          ) : null}
+          {nextAt ? (
+            <span style={{ color: "var(--ls-ink-faint)" }}>
+              下次重启 <span className="ls-num">{nextAt}</span>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
