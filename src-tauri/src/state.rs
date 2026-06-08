@@ -11,6 +11,7 @@ use crate::services::maisaka_monitor_service::MaisakaMonitor;
 use crate::services::process_service::ProcessManager;
 use crate::services::system_stats_service::SystemMonitor;
 use crate::services::terminal_stream_service::ChannelTerminalStreamPublisher;
+use crate::services::watchdog::WatchdogRegistry;
 
 /// 应用状态，持有数据库连接池和进程管理器等共享资源
 pub struct AppState {
@@ -30,4 +31,6 @@ pub struct AppState {
     pub system_monitor: SystemMonitor,
     /// 下载管理器（管理下载任务的生命周期和进度）
     pub download_manager: DownloadManager,
+    /// 看门狗重启簿记共享态（看门狗循环写、get_watchdog_status 只读，暴露 retry_count/next_attempt_at）
+    pub watchdog_registry: WatchdogRegistry,
 }

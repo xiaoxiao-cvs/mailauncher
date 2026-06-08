@@ -15,9 +15,12 @@
 //!   该组件存活,或用户手动操作(start 重置期望态/stop 置 Stopped),计数清零,避免无限重启风暴。
 
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::Duration;
 
+use chrono::{DateTime, Utc};
 use tauri::{AppHandle, Manager};
+use tokio::sync::Mutex;
 use tracing::{error, info, warn};
 
 use crate::services::config_service;
@@ -35,13 +38,16 @@ const BACKOFF_SECS: [u64; 3] = [5, 15, 45];
 /// 自动重启偏好的 config KV key 前缀,实际 key 形如 "autorestart:<instance_id>"。
 const AUTORESTART_KEY_PREFIX: &str = "autorestart:";
 
-/// 单个组件会话的重启簿记(仅看门狗内部内存态,不持久化)。
+/// 单个组件会话的重启簿记(看门狗内存态,不持久化)。
+///
+/// 用 chrono::DateTime<Utc> 记 next_attempt_at(而非 std::time::Instant):退避比较 Utc::now() < next_at
+/// 与单调时钟等价,但 DateTime<Utc> 可序列化为墙钟时刻,供 get_watchdog_status 直接回前端显示"下次重启时刻"。
 #[derive(Debug, Clone)]
-struct RestartBookkeeping {
+pub struct RestartBookkeeping {
     /// 已连续自动重启次数(存活或用户操作后清零)
-    retry_count: u32,
+    pub retry_count: u32,
     /// 下次允许尝试重启的最早时刻(退避用);None 表示可立即尝试。
-    next_attempt_at: Option<Instant>,
+    pub next_attempt_at: Option<DateTime<Utc>>,
 }
 
 impl RestartBookkeeping {
@@ -50,6 +56,28 @@ impl RestartBookkeeping {
             retry_count: 0,
             next_attempt_at: None,
         }
+    }
+}
+
+/// 看门狗重启簿记的共享态。
+///
+/// 看门狗循环以前把 `HashMap<session_id, RestartBookkeeping>` 私有在 spawn 闭包里,只读命令拿不到。
+/// 现搬到此共享态(`Arc<Mutex<..>>`,与 ProcessManager 同构),作为 AppState 字段在看门狗循环与
+/// get_watchdog_status 之间共享:循环是唯一写者(读改写簿记),命令只读快照。
+/// session_id 形如 "<instance_id>::<component>",与 process_manager 会话 ID 口径一致。
+#[derive(Clone, Default)]
+pub struct WatchdogRegistry {
+    inner: Arc<Mutex<HashMap<String, RestartBookkeeping>>>,
+}
+
+impl WatchdogRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// 拷贝指定会话当前簿记快照(只读,不存在返回 None)。
+    pub async fn snapshot(&self, session_id: &str) -> Option<RestartBookkeeping> {
+        self.inner.lock().await.get(session_id).cloned()
     }
 }
 
@@ -85,8 +113,6 @@ async fn autorestart_enabled(
 pub fn spawn_watchdog(app_handle: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut ticker = tokio::time::interval(Duration::from_secs(TICK_SECS));
-        // session_id("inst::comp") -> 重启簿记
-        let mut bookkeeping: HashMap<String, RestartBookkeeping> = HashMap::new();
         info!(
             "[看门狗] 已启动,tick={}s,单组件最多重启 {} 次",
             TICK_SECS, MAX_RETRIES
@@ -96,9 +122,14 @@ pub fn spawn_watchdog(app_handle: AppHandle) {
             ticker.tick().await;
 
             // 克隆出本 tick 需要的句柄,避免把 State 跨 await 借用 AppHandle。
-            let (pool, process_manager) = {
+            // registry 是 Arc<Mutex<..>> 的克隆,与 AppState 中的实例共享同一份簿记。
+            let (pool, process_manager, registry) = {
                 let state = app_handle.state::<AppState>();
-                (state.db.clone(), state.process_manager.clone())
+                (
+                    state.db.clone(),
+                    state.process_manager.clone(),
+                    state.watchdog_registry.clone(),
+                )
             };
 
             let desired_running = process_manager.list_desired_running().await;
@@ -108,7 +139,10 @@ pub fn spawn_watchdog(app_handle: AppHandle) {
                 .iter()
                 .map(|(instance_id, component)| format!("{}::{}", instance_id, component))
                 .collect();
-            bookkeeping.retain(|session_id, _| still_tracked.contains(session_id));
+            {
+                let mut book = registry.inner.lock().await;
+                book.retain(|session_id, _| still_tracked.contains(session_id));
+            }
 
             for (instance_id, component) in desired_running {
                 let session_id = format!("{}::{}", instance_id, component);
@@ -119,7 +153,7 @@ pub fn spawn_watchdog(app_handle: AppHandle) {
 
                 // 存活:清零该会话计数(下次崩溃从第 1 次退避重新开始),无需重启。
                 if alive {
-                    bookkeeping.remove(&session_id);
+                    registry.inner.lock().await.remove(&session_id);
                     continue;
                 }
 
@@ -134,10 +168,11 @@ pub fn spawn_watchdog(app_handle: AppHandle) {
                     }
                 };
 
-                // 先把所需簿记值拷出(retry_count/next_attempt_at 均 Copy),随即释放对 bookkeeping
-                // 的借用,避免把 &mut 跨 start_component 的 await 持有;await 后再用 get_mut 回写。
+                // 先把所需簿记值拷出后随即释放锁,避免把 MutexGuard 跨 start_component 的 await 持有
+                // (那会卡住只读命令);await 后再次取锁回写。
                 let (retry_count, next_attempt_at) = {
-                    let entry = bookkeeping
+                    let mut book = registry.inner.lock().await;
+                    let entry = book
                         .entry(session_id.clone())
                         .or_insert_with(RestartBookkeeping::fresh);
                     (entry.retry_count, entry.next_attempt_at)
@@ -150,7 +185,7 @@ pub fn spawn_watchdog(app_handle: AppHandle) {
                             "[看门狗] {} 已连续重启 {} 次仍未存活,停止自动重启,等待用户介入",
                             session_id, MAX_RETRIES
                         );
-                        if let Some(entry) = bookkeeping.get_mut(&session_id) {
+                        if let Some(entry) = registry.inner.lock().await.get_mut(&session_id) {
                             entry.retry_count += 1;
                         }
                     }
@@ -159,7 +194,7 @@ pub fn spawn_watchdog(app_handle: AppHandle) {
 
                 // 退避未到点则本 tick 先不动手。
                 if let Some(next_at) = next_attempt_at {
-                    if Instant::now() < next_at {
+                    if Utc::now() < next_at {
                         continue;
                     }
                 }
@@ -193,9 +228,10 @@ pub fn spawn_watchdog(app_handle: AppHandle) {
                     .get((attempt as usize).saturating_sub(1))
                     .copied()
                     .unwrap_or(*BACKOFF_SECS.last().unwrap());
-                if let Some(entry) = bookkeeping.get_mut(&session_id) {
+                if let Some(entry) = registry.inner.lock().await.get_mut(&session_id) {
                     entry.retry_count = attempt;
-                    entry.next_attempt_at = Some(Instant::now() + Duration::from_secs(backoff));
+                    entry.next_attempt_at =
+                        Some(Utc::now() + chrono::Duration::seconds(backoff as i64));
                 }
             }
         }
@@ -248,6 +284,34 @@ mod tests {
             MAX_RETRIES + 1,
             MAX_RETRIES
         ));
+    }
+
+    #[tokio::test]
+    async fn registry_snapshot_reflects_bookkeeping_and_absence() {
+        let registry = WatchdogRegistry::new();
+
+        // 未簿记会话:快照为 None(命令层据此回退 retry_count=0 / next_attempt_at=None)。
+        assert!(registry.snapshot("inst_a::main").await.is_none());
+
+        // 写入一条簿记后,快照应取回同样的 retry_count 与 next_attempt_at。
+        let next_at = Utc::now() + chrono::Duration::seconds(15);
+        registry.inner.lock().await.insert(
+            "inst_a::main".to_string(),
+            RestartBookkeeping {
+                retry_count: 2,
+                next_attempt_at: Some(next_at),
+            },
+        );
+
+        let snap = registry
+            .snapshot("inst_a::main")
+            .await
+            .expect("已写入的会话快照不应为 None");
+        assert_eq!(snap.retry_count, 2);
+        assert_eq!(snap.next_attempt_at, Some(next_at));
+
+        // 另一未簿记会话仍为 None,确认快照按 session_id 精确取。
+        assert!(registry.snapshot("inst_b::napcat").await.is_none());
     }
 
     #[test]

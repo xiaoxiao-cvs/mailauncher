@@ -98,6 +98,7 @@ async fn init_rust_services() -> AppState {
         system_monitor,
         maisaka_monitor,
         download_manager: services::download_service::DownloadManager::new(pool),
+        watchdog_registry: services::watchdog::WatchdogRegistry::new(),
     }
 }
 
