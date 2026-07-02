@@ -236,6 +236,127 @@ pub async fn query_hourly_message_count(
     Ok(result)
 }
 
+/// 按天聚合单实例 llm_usage 的请求数/花费/token(仪表盘"日粒度"卡供数,P2-29)。
+///
+/// 口径与 query_hourly_message_count 一致:llm_usage 表不存在时安全返回空 Vec,
+/// 而非报错(兼容尚未产生 LLM 调用记录的实例数据库)。结果按 date 升序。
+pub async fn query_daily_stats(
+    db_path: &Path,
+    start: &str,
+    end: &str,
+) -> AppResult<Vec<DailyStatsPoint>> {
+    let db_url = format!("sqlite:{}?mode=ro", db_path.display());
+    let options: SqliteConnectOptions = db_url
+        .parse()
+        .map_err(|e| AppError::Database(format!("无法解析 MaiBot 数据库路径: {}", e)))?;
+    let pool = sqlx::SqlitePool::connect_with(options)
+        .await
+        .map_err(|e| AppError::Database(format!("无法连接 MaiBot 数据库: {}", e)))?;
+
+    let table: Option<(String,)> =
+        sqlx::query_as("SELECT name FROM sqlite_master WHERE type='table' AND name='llm_usage'")
+            .fetch_optional(&pool)
+            .await?;
+    if table.is_none() {
+        pool.close().await;
+        return Ok(Vec::new());
+    }
+
+    let rows = sqlx::query(
+        "SELECT strftime('%Y-%m-%d', timestamp) AS date, COUNT(*) AS cnt, \
+         COALESCE(SUM(cost), 0.0) AS day_cost, COALESCE(SUM(total_tokens), 0) AS day_tokens \
+         FROM llm_usage WHERE timestamp >= ? AND timestamp <= ? GROUP BY date",
+    )
+    .bind(start)
+    .bind(end)
+    .fetch_all(&pool)
+    .await?;
+    pool.close().await;
+
+    let mut result: Vec<DailyStatsPoint> = rows
+        .iter()
+        .filter_map(|row| {
+            let date: String = row.try_get("date").unwrap_or_default();
+            if date.is_empty() {
+                return None;
+            }
+            Some(DailyStatsPoint {
+                date,
+                requests: row.try_get("cnt").unwrap_or(0),
+                cost: row.try_get("day_cost").unwrap_or(0.0),
+                tokens: row.try_get("day_tokens").unwrap_or(0),
+            })
+        })
+        .collect();
+    result.sort_by(|a, b| a.date.cmp(&b.date));
+    Ok(result)
+}
+
+/// 取单实例最近 `limit` 条 LLM 调用活动(仪表盘"最近活动流"卡供数,P2-29)。
+///
+/// 附带调用方传入的 instance_id/instance_name(单实例数据库本身不含这两个字段),
+/// 供命令层跨实例合并后仍可区分来源。llm_usage 表不存在时返回空 Vec。
+pub async fn query_recent_activity(
+    db_path: &Path,
+    instance_id: &str,
+    instance_name: &str,
+    limit: i64,
+) -> AppResult<Vec<RecentActivityItem>> {
+    let db_url = format!("sqlite:{}?mode=ro", db_path.display());
+    let options: SqliteConnectOptions = db_url
+        .parse()
+        .map_err(|e| AppError::Database(format!("无法解析 MaiBot 数据库路径: {}", e)))?;
+    let pool = sqlx::SqlitePool::connect_with(options)
+        .await
+        .map_err(|e| AppError::Database(format!("无法连接 MaiBot 数据库: {}", e)))?;
+
+    let table: Option<(String,)> =
+        sqlx::query_as("SELECT name FROM sqlite_master WHERE type='table' AND name='llm_usage'")
+            .fetch_optional(&pool)
+            .await?;
+    if table.is_none() {
+        pool.close().await;
+        return Ok(Vec::new());
+    }
+
+    let rows = sqlx::query(
+        "SELECT timestamp, model_name, model_assign_name, request_type, total_tokens, cost, time_cost \
+         FROM llm_usage ORDER BY timestamp DESC LIMIT ?",
+    )
+    .bind(limit)
+    .fetch_all(&pool)
+    .await?;
+    pool.close().await;
+
+    Ok(rows
+        .iter()
+        .map(|row| {
+            let model_name: String = row.try_get("model_name").unwrap_or_default();
+            let display_name: Option<String> = row
+                .try_get::<String, _>("model_assign_name")
+                .ok()
+                .filter(|s| !s.is_empty());
+            let model = display_name.or(if model_name.is_empty() {
+                None
+            } else {
+                Some(model_name)
+            });
+            RecentActivityItem {
+                timestamp: row.try_get("timestamp").unwrap_or_default(),
+                instance_id: instance_id.to_string(),
+                instance_name: instance_name.to_string(),
+                model,
+                request_type: row
+                    .try_get("request_type")
+                    .unwrap_or_else(|_| "unknown".into()),
+                tokens: row.try_get("total_tokens").unwrap_or(0),
+                cost: row.try_get("cost").unwrap_or(0.0),
+                time_cost: row.try_get("time_cost").unwrap_or(0.0),
+            }
+        })
+        .collect())
+}
+
 /// query_llm_usage 按模型聚合的累加值:
 /// (展示名, 请求数, 总 token, 输入 token, 输出 token, 累计花费, 累计耗时)
 type ModelAccumulator = (Option<String>, i64, i64, i64, i64, f64, f64);
@@ -760,5 +881,220 @@ mod tests {
         assert_eq!(time_range_to_hours("30d"), 720.0);
         // 未知取值回落到 24 小时
         assert_eq!(time_range_to_hours("unknown"), 24.0);
+    }
+
+    /// query_daily_stats / query_recent_activity 按文件路径打开数据库(供多连接场景复用),
+    /// 内存库 "sqlite::memory:" 每条连接各自独立、无法跨连接共享，须落地到临时文件。
+    async fn setup_llm_usage_db(dir: &std::path::Path) -> PathBuf {
+        let db_path = dir.join("MaiBot.db");
+        let db_url = format!("sqlite:{}?mode=rwc", db_path.display());
+        let pool = SqlitePool::connect(&db_url)
+            .await
+            .expect("创建文件数据库失败");
+        sqlx::query(
+            "CREATE TABLE llm_usage (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_name VARCHAR(255) NOT NULL,
+                model_assign_name VARCHAR(255),
+                request_type VARCHAR(255) NOT NULL,
+                prompt_tokens INTEGER NOT NULL DEFAULT 0,
+                completion_tokens INTEGER NOT NULL DEFAULT 0,
+                total_tokens INTEGER NOT NULL DEFAULT 0,
+                cost REAL NOT NULL DEFAULT 0.0,
+                time_cost REAL NOT NULL DEFAULT 0.0,
+                timestamp DATETIME NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .expect("建 llm_usage 表失败");
+        pool.close().await;
+        db_path
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn insert_llm_usage(
+        db_path: &Path,
+        model_name: &str,
+        model_assign_name: Option<&str>,
+        request_type: &str,
+        total_tokens: i64,
+        cost: f64,
+        time_cost: f64,
+        timestamp: &str,
+    ) {
+        let db_url = format!("sqlite:{}?mode=rw", db_path.display());
+        let pool = SqlitePool::connect(&db_url)
+            .await
+            .expect("连接文件数据库失败");
+        sqlx::query(
+            "INSERT INTO llm_usage \
+             (model_name, model_assign_name, request_type, prompt_tokens, completion_tokens, \
+              total_tokens, cost, time_cost, timestamp) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(model_name)
+        .bind(model_assign_name)
+        .bind(request_type)
+        .bind(total_tokens / 2)
+        .bind(total_tokens - total_tokens / 2)
+        .bind(total_tokens)
+        .bind(cost)
+        .bind(time_cost)
+        .bind(timestamp)
+        .execute(&pool)
+        .await
+        .expect("插入 llm_usage 失败");
+        pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn query_daily_stats_groups_by_date_and_sums_cost_tokens() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let db_path = setup_llm_usage_db(dir.path()).await;
+
+        // 同一天两条、次日一条、窗口外一条(不应计入)
+        insert_llm_usage(
+            &db_path,
+            "gpt-4",
+            None,
+            "chat",
+            100,
+            0.01,
+            0.5,
+            "2026-06-03 09:00:00",
+        )
+        .await;
+        insert_llm_usage(
+            &db_path,
+            "gpt-4",
+            None,
+            "chat",
+            200,
+            0.02,
+            0.5,
+            "2026-06-03 15:00:00",
+        )
+        .await;
+        insert_llm_usage(
+            &db_path,
+            "gpt-4",
+            None,
+            "chat",
+            50,
+            0.005,
+            0.5,
+            "2026-06-04 08:00:00",
+        )
+        .await;
+        insert_llm_usage(
+            &db_path,
+            "gpt-4",
+            None,
+            "chat",
+            9999,
+            9.99,
+            0.5,
+            "2026-05-01 00:00:00",
+        )
+        .await;
+
+        let points = query_daily_stats(&db_path, "2026-06-03 00:00:00", "2026-06-04 23:59:59")
+            .await
+            .expect("查询日粒度统计失败");
+
+        assert_eq!(points.len(), 2, "应仅产出窗口内的两天");
+        assert_eq!(points[0].date, "2026-06-03");
+        assert_eq!(points[0].requests, 2);
+        assert_eq!(points[0].tokens, 300);
+        assert!((points[0].cost - 0.03).abs() < 1e-9);
+        assert_eq!(points[1].date, "2026-06-04");
+        assert_eq!(points[1].requests, 1);
+        assert_eq!(points[1].tokens, 50);
+    }
+
+    #[tokio::test]
+    async fn query_daily_stats_returns_empty_when_table_absent() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let db_path = dir.path().join("empty.db");
+        let db_url = format!("sqlite:{}?mode=rwc", db_path.display());
+        let pool = SqlitePool::connect(&db_url)
+            .await
+            .expect("创建空数据库失败");
+        pool.close().await;
+
+        let points = query_daily_stats(&db_path, "2026-06-03 00:00:00", "2026-06-04 23:59:59")
+            .await
+            .expect("llm_usage 表缺失时不应报错");
+        assert!(points.is_empty());
+    }
+
+    #[tokio::test]
+    async fn query_recent_activity_orders_desc_and_respects_limit() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let db_path = setup_llm_usage_db(dir.path()).await;
+
+        insert_llm_usage(
+            &db_path,
+            "gpt-4",
+            Some("主模型"),
+            "chat",
+            100,
+            0.01,
+            0.5,
+            "2026-06-03 09:00:00",
+        )
+        .await;
+        insert_llm_usage(
+            &db_path,
+            "gpt-4",
+            Some("主模型"),
+            "chat",
+            200,
+            0.02,
+            0.6,
+            "2026-06-03 11:00:00",
+        )
+        .await;
+        insert_llm_usage(
+            &db_path,
+            "gpt-3.5",
+            None,
+            "tool",
+            50,
+            0.005,
+            0.2,
+            "2026-06-03 10:00:00",
+        )
+        .await;
+
+        let items = query_recent_activity(&db_path, "inst-1", "实例A", 2)
+            .await
+            .expect("查询最近活动失败");
+
+        assert_eq!(items.len(), 2, "limit=2 应仅返回最新两条");
+        assert_eq!(items[0].timestamp, "2026-06-03 11:00:00");
+        assert_eq!(items[0].model.as_deref(), Some("主模型"));
+        assert_eq!(items[0].instance_id, "inst-1");
+        assert_eq!(items[0].instance_name, "实例A");
+        assert_eq!(items[1].timestamp, "2026-06-03 10:00:00");
+        // model_assign_name 为空时应回退到 model_name
+        assert_eq!(items[1].model.as_deref(), Some("gpt-3.5"));
+    }
+
+    #[tokio::test]
+    async fn query_recent_activity_returns_empty_when_table_absent() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let db_path = dir.path().join("empty2.db");
+        let db_url = format!("sqlite:{}?mode=rwc", db_path.display());
+        let pool = SqlitePool::connect(&db_url)
+            .await
+            .expect("创建空数据库失败");
+        pool.close().await;
+
+        let items = query_recent_activity(&db_path, "inst-1", "实例A", 10)
+            .await
+            .expect("llm_usage 表缺失时不应报错");
+        assert!(items.is_empty());
     }
 }

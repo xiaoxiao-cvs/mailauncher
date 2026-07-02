@@ -103,3 +103,85 @@ pub async fn get_hourly_message_stats(
     result.sort_by(|a, b| a.hour_ts.cmp(&b.hour_ts));
     Ok(result)
 }
+
+/// 按天聚合的 LLM 使用趋势(仪表盘"日粒度"卡供数,对齐官方 WebUI daily_data,P2-29)。
+///
+/// 遍历所有实例,逐实例解析 MaiBot.db 按天聚合 requests/cost/tokens,再跨实例按 date
+/// 求和合并,升序返回。无库的实例跳过(不报错)。
+#[tauri::command]
+pub async fn get_daily_stats(
+    state: State<'_, AppState>,
+    time_range: Option<String>,
+) -> AppResult<Vec<DailyStatsPoint>> {
+    let tr = time_range.as_deref().unwrap_or("30d");
+    let (start, end) = stats_service::time_range_to_bounds(tr);
+
+    let instances = instance_service::get_all_instances(&state.db)
+        .await?
+        .instances;
+
+    // date -> (requests, cost, tokens),跨实例求和
+    let mut merged: HashMap<String, (i64, f64, i64)> = HashMap::new();
+    for instance in &instances {
+        let path = instance
+            .instance_path
+            .clone()
+            .unwrap_or_else(|| instance.name.clone());
+        let Some(db_path) = stats_service::resolve_maibot_db(&path) else {
+            continue;
+        };
+        let points = stats_service::query_daily_stats(&db_path, &start, &end).await?;
+        for p in points {
+            let entry = merged.entry(p.date).or_insert((0, 0.0, 0));
+            entry.0 += p.requests;
+            entry.1 += p.cost;
+            entry.2 += p.tokens;
+        }
+    }
+
+    let mut result: Vec<DailyStatsPoint> = merged
+        .into_iter()
+        .map(|(date, (requests, cost, tokens))| DailyStatsPoint {
+            date,
+            requests,
+            cost: (cost * 10000.0).round() / 10000.0,
+            tokens,
+        })
+        .collect();
+    result.sort_by(|a, b| a.date.cmp(&b.date));
+    Ok(result)
+}
+
+/// 跨实例最近 LLM 调用活动流(仪表盘"最近活动"卡供数,对齐官方 WebUI recent_activity,P2-29)。
+///
+/// 逐实例各取 `limit` 条候选(足够覆盖合并后截断),跨实例按 timestamp 倒序合并、
+/// 截断到 `limit`。无库的实例跳过(不报错)。
+#[tauri::command]
+pub async fn get_recent_activity(
+    state: State<'_, AppState>,
+    limit: Option<i64>,
+) -> AppResult<Vec<RecentActivityItem>> {
+    let cap = limit.unwrap_or(20);
+    let instances = instance_service::get_all_instances(&state.db)
+        .await?
+        .instances;
+
+    let mut merged: Vec<RecentActivityItem> = Vec::new();
+    for instance in &instances {
+        let path = instance
+            .instance_path
+            .clone()
+            .unwrap_or_else(|| instance.name.clone());
+        let Some(db_path) = stats_service::resolve_maibot_db(&path) else {
+            continue;
+        };
+        let items =
+            stats_service::query_recent_activity(&db_path, &instance.id, &instance.name, cap)
+                .await?;
+        merged.extend(items);
+    }
+
+    merged.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    merged.truncate(cap.max(0) as usize);
+    Ok(merged)
+}

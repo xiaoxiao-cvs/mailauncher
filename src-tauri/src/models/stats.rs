@@ -94,3 +94,32 @@ pub struct HourlyMessageCount {
     pub message_count: i64,
     pub reply_count: i64,
 }
+
+/// 按天分桶的 LLM 请求/花费/token 聚合(仪表盘"日粒度"卡供数,对齐官方 WebUI
+/// `DashboardData.daily_data`/`TimeSeriesData` 语义,见 docs/research 差距清单 P2-29)。
+///
+/// `date` 为 SQLite `strftime('%Y-%m-%d', timestamp)` 产出的日期字符串,跨实例求和后
+/// 按 date 升序返回。
+#[derive(Debug, Clone, Serialize)]
+pub struct DailyStatsPoint {
+    pub date: String,
+    pub requests: i64,
+    pub cost: f64,
+    pub tokens: i64,
+}
+
+/// 最近一条 LLM 调用活动(仪表盘"最近活动流"供数,对齐官方 WebUI `recent_activity` 语义,
+/// 见 docs/research 差距清单 P2-29)。
+///
+/// 附加 instance_id/instance_name 供多实例场景下区分来源(官方单实例 WebUI 无此维度)。
+#[derive(Debug, Clone, Serialize)]
+pub struct RecentActivityItem {
+    pub timestamp: String,
+    pub instance_id: String,
+    pub instance_name: String,
+    pub model: Option<String>,
+    pub request_type: String,
+    pub tokens: i64,
+    pub cost: f64,
+    pub time_cost: f64,
+}

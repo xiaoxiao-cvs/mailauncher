@@ -11,6 +11,8 @@ import { MessageQueuePanel } from "@/components/message-queue/MessageQueuePanel"
 import { StatsControlBar } from "./StatsControlBar";
 import { StatsOverviewCards } from "./StatsOverviewCards";
 import { ModelDistributionChart } from "./ModelDistributionChart";
+import { DailyTrendChart } from "./DailyTrendChart";
+import { RecentActivityFeed } from "./RecentActivityFeed";
 
 const HISTORY_MAX_POINTS = 12;
 
@@ -181,6 +183,11 @@ export function StatsDashboard() {
         />
 
         <MessageQueuePanel instanceId={selectedInstance} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <DailyTrendChart timeRange={timeRange} />
+        <RecentActivityFeed />
       </div>
     </div>
   );
