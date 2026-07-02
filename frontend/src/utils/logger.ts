@@ -1,75 +1,99 @@
 /**
  * 日志系统配置
  * 使用 consola 提供结构化日志功能
- * 
+ *
  * 功能：
  * 1. 控制台彩色输出
  * 2. 文件保存到后端 data/Log/frontend/ 目录（JSON Lines 格式）
  * 3. 按天创建日志文件（每天一个文件，格式：frontend_YYYYMMDD.jsonl）
- * 4. 自动压缩历史日志（每天第一次写入时压缩昨天及更早的日志）
- * 5. 自动清理旧日志（后端保留最近 7 个压缩文件）
- * 6. 支持不同模块的标签
+ * 4. 支持不同模块的标签
+ *
+ * 注：跨天压缩与旧日志清理由后端 log_service::save_frontend_logs 在每次落盘时
+ * 顺带触发（见 compress_stale_logs，保留最近 7 个压缩包），前端这里只管攒批发送，
+ * 不知道、也不需要知道压缩发生在何时——之前这里的注释声称前端参与"每天第一次写入时
+ * 压缩"的判断，但实际判断逻辑完全在后端，前端从未做过这件事，故予以更正。
  */
 
-import { createConsola, LogLevels, LogLevel } from 'consola'
-import { tauriInvoke } from '@/services/tauriInvoke'
+import { createConsola, LogLevels, LogLevel } from "consola";
+import { tauriInvoke } from "@/services/tauriInvoke";
 
 interface LogEntry {
-  timestamp: string
-  level: string
-  tag?: string
-  message: string
-  args?: unknown[]
+  timestamp: string;
+  level: string;
+  tag?: string;
+  message: string;
+  args?: unknown[];
   error?: {
-    message: string
-    stack?: string
-    name?: string
-  }
+    message: string;
+    stack?: string;
+    name?: string;
+  };
 }
 
 class LoggerConfig {
-  private logBuffer: LogEntry[] = []
-  private readonly BUFFER_SIZE = 50 // 每 50 条日志保存一次
-  private readonly SAVE_INTERVAL = 30000 // 30秒自动保存一次
-  private saveTimer: number | null = null
-  private isSaving = false
+  private logBuffer: LogEntry[] = [];
+  private readonly BUFFER_SIZE = 50; // 每 50 条日志保存一次
+  private readonly SAVE_INTERVAL = 30000; // 30秒自动保存一次
+  private saveTimer: number | null = null;
+  private isSaving = false;
 
   constructor() {
-    this.setupAutoSave()
+    this.setupAutoSave();
   }
 
   /**
    * 添加日志条目
    */
-  addLog(level: LogLevel, tag: string | undefined, message: string, args?: unknown[]): void {
+  addLog(
+    level: LogLevel,
+    tag: string | undefined,
+    message: string,
+    args?: unknown[],
+  ): void {
     // 将 level 数字转换为字符串
-    const levelName = ['silent', 'fatal', 'error', 'warn', 'log', 'info', 'success', 'fail', 'ready', 'start', 'box', 'debug', 'trace', 'verbose'][level] || 'info'
-    
+    const levelName =
+      [
+        "silent",
+        "fatal",
+        "error",
+        "warn",
+        "log",
+        "info",
+        "success",
+        "fail",
+        "ready",
+        "start",
+        "box",
+        "debug",
+        "trace",
+        "verbose",
+      ][level] || "info";
+
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       level: levelName,
       tag,
       message,
-      args: args && args.length > 0 ? args : undefined
-    }
+      args: args && args.length > 0 ? args : undefined,
+    };
 
     // 处理错误对象
     if (args && args.length > 0) {
-      const errorArg = args.find(arg => arg instanceof Error)
+      const errorArg = args.find((arg) => arg instanceof Error);
       if (errorArg instanceof Error) {
         entry.error = {
           message: errorArg.message,
           stack: errorArg.stack,
-          name: errorArg.name
-        }
+          name: errorArg.name,
+        };
       }
     }
 
-    this.logBuffer.push(entry)
+    this.logBuffer.push(entry);
 
     // 缓冲区满时自动保存
     if (this.logBuffer.length >= this.BUFFER_SIZE) {
-      this.flush()
+      this.flush();
     }
   }
 
@@ -77,22 +101,22 @@ class LoggerConfig {
    * 刷新缓冲区，发送到后端保存
    */
   async flush(): Promise<void> {
-    if (this.logBuffer.length === 0 || this.isSaving) return
+    if (this.logBuffer.length === 0 || this.isSaving) return;
 
-    this.isSaving = true
-    const logsToSave = [...this.logBuffer]
-    this.logBuffer = [] // 立即清空缓冲区
+    this.isSaving = true;
+    const logsToSave = [...this.logBuffer];
+    this.logBuffer = []; // 立即清空缓冲区
 
     try {
-      await tauriInvoke<void>('save_frontend_logs', {
-        entries: logsToSave
-      })
+      await tauriInvoke<void>("save_frontend_logs", {
+        entries: logsToSave,
+      });
     } catch (error) {
       // 保存失败时，日志只保留在控制台
-      console.error('[Logger] 保存日志到后端失败:', error)
+      console.error("[Logger] 保存日志到后端失败:", error);
       // 不要把日志放回缓冲区，避免无限重试
     } finally {
-      this.isSaving = false
+      this.isSaving = false;
     }
   }
 
@@ -101,26 +125,28 @@ class LoggerConfig {
    */
   private setupAutoSave(): void {
     // 页面关闭前保存
-    window.addEventListener('beforeunload', () => {
+    window.addEventListener("beforeunload", () => {
       // 使用 tauriInvoke 发送剩余日志（fire-and-forget）
       if (this.logBuffer.length > 0) {
-        const logsToSave = [...this.logBuffer]
-        this.logBuffer = []
-        tauriInvoke('save_frontend_logs', { entries: logsToSave }).catch(() => {})
+        const logsToSave = [...this.logBuffer];
+        this.logBuffer = [];
+        tauriInvoke("save_frontend_logs", { entries: logsToSave }).catch(
+          () => {},
+        );
       }
-    })
+    });
 
     // 定时保存
     this.saveTimer = window.setInterval(() => {
-      this.flush()
-    }, this.SAVE_INTERVAL)
+      this.flush();
+    }, this.SAVE_INTERVAL);
 
     // 页面可见性变化时保存
-    document.addEventListener('visibilitychange', () => {
+    document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
-        this.flush()
+        this.flush();
       }
-    })
+    });
   }
 
   /**
@@ -128,15 +154,15 @@ class LoggerConfig {
    */
   destroy(): void {
     if (this.saveTimer !== null) {
-      clearInterval(this.saveTimer)
-      this.saveTimer = null
+      clearInterval(this.saveTimer);
+      this.saveTimer = null;
     }
-    this.flush()
+    this.flush();
   }
 }
 
 // 创建日志配置实例
-const loggerConfig = new LoggerConfig()
+const loggerConfig = new LoggerConfig();
 
 // 创建 consola 实例
 const logger = createConsola({
@@ -144,7 +170,7 @@ const logger = createConsola({
   formatOptions: {
     colors: true,
     compact: false,
-    date: true
+    date: true,
   },
   reporters: [
     {
@@ -154,29 +180,29 @@ const logger = createConsola({
           logObj.level,
           logObj.tag,
           logObj.args[0] as string,
-          logObj.args.slice(1)
-        )
-      }
-    }
-  ]
-})
+          logObj.args.slice(1),
+        );
+      },
+    },
+  ],
+});
 
 /**
  * 为不同模块创建带标签的 logger
  */
-export const connectivityLogger = logger.withTag('connectivity')
-export const environmentLogger = logger.withTag('environment')
-export const apiLogger = logger.withTag('api')
-export const routerLogger = logger.withTag('router')
-export const themeLogger = logger.withTag('theme')
-export const storageLogger = logger.withTag('storage')
+export const connectivityLogger = logger.withTag("connectivity");
+export const environmentLogger = logger.withTag("environment");
+export const apiLogger = logger.withTag("api");
+export const routerLogger = logger.withTag("router");
+export const themeLogger = logger.withTag("theme");
+export const storageLogger = logger.withTag("storage");
 
 /**
  * 导出日志管理函数
  */
 export const logManager = {
   flush: () => loggerConfig.flush(),
-  destroy: () => loggerConfig.destroy()
-}
+  destroy: () => loggerConfig.destroy(),
+};
 
-export default logger
+export default logger;

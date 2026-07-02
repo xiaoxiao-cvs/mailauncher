@@ -130,6 +130,47 @@ pub async fn get_recent_errors(
     Ok(aggregated)
 }
 
+// ==================== 麦麦历史日志文件命令 ====================
+
+/// 解析实例的部署根目录(与 `commands::instance::get_maibot_logs` 保持一致的路径规则)。
+async fn resolve_instance_root(
+    db: &sqlx::SqlitePool,
+    instance_id: &str,
+) -> AppResult<std::path::PathBuf> {
+    let instance = instance_service::get_instance(db, instance_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
+    Ok(crate::utils::platform::get_instances_dir().join(
+        instance
+            .instance_path
+            .unwrap_or_else(|| instance.name.clone()),
+    ))
+}
+
+/// 列出指定实例的麦麦历史日志轮转文件(供前端历史日志选择器展示)。
+#[tauri::command]
+pub async fn list_maibot_log_files(
+    state: State<'_, AppState>,
+    instance_id: String,
+) -> AppResult<Vec<maibot_log::MaibotLogFileInfo>> {
+    let instance_root = resolve_instance_root(&state.db, &instance_id).await?;
+    maibot_log::list_log_files(&instance_root)
+}
+
+/// 一次性读取指定实例的某个麦麦历史日志文件全部(或末尾 `tail_limit` 条)记录。
+///
+/// 非增量读取(区别于 `get_maibot_logs` 的游标增量),供前端"选中历史文件后整份加载 + 本地检索"使用。
+#[tauri::command]
+pub async fn read_maibot_log_file(
+    state: State<'_, AppState>,
+    instance_id: String,
+    file_name: String,
+    tail_limit: Option<usize>,
+) -> AppResult<Vec<maibot_log::MaibotLogRecord>> {
+    let instance_root = resolve_instance_root(&state.db, &instance_id).await?;
+    maibot_log::read_log_file(&instance_root, &file_name, tail_limit)
+}
+
 // ==================== 消息队列命令 ====================
 
 /// 获取单个实例的消息队列
