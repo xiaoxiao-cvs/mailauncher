@@ -34,6 +34,7 @@ import {
 } from "@/components/config";
 import { ConfigTextEditor } from "@/components/config/ConfigTextEditor";
 import { ConfigTreeEditor } from "@/components/config/ConfigTreeEditor";
+import { ConfigImportButton } from "@/components/config/ConfigImportButton";
 
 export const ConfigModal: React.FC<ConfigModalProps> = ({
   isOpen,
@@ -377,6 +378,12 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
                   );
                 }}
                 onClose={onClose}
+                extraActions={
+                  <ConfigImportButton
+                    instanceId={instanceId}
+                    onImported={() => loadConfigs()}
+                  />
+                }
               />
 
               <div

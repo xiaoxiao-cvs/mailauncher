@@ -40,6 +40,7 @@ export const ConfigHeader: React.FC<ConfigHeaderProps> = ({
   onConfigChange,
   onEditModeChange,
   onClose,
+  extraActions,
 }) => {
   return (
     <div
@@ -106,6 +107,15 @@ export const ConfigHeader: React.FC<ConfigHeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-2 md:gap-4">
+        {extraActions}
+
+        {extraActions && (
+          <div
+            className="h-6 w-px mx-1 md:mx-2"
+            style={{ background: "var(--ls-hairline)" }}
+          />
+        )}
+
         {/* 编辑模式切换 - 只在非 NapCat 配置时显示 */}
         {activeConfig !== "napcat" && (
           <SegmentControl

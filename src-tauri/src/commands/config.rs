@@ -7,7 +7,7 @@ use tauri::State;
 
 use crate::errors::AppResult;
 use crate::models::{LauncherConfig, PathConfig, PythonEnvironment, SuccessResponse};
-use crate::services::config_service;
+use crate::services::config_service::{self, ImportConfigTarget, TomlConfigWithComments};
 use crate::state::AppState;
 
 // ==================== 启动器 KV 配置 ====================
@@ -122,6 +122,23 @@ pub async fn get_toml_config(
         config_service::resolve_config_dir(&state.db, instance_id.as_deref(), &config_type).await?;
     let config_path = config_dir.join(&filename);
     config_service::read_toml_as_json(&config_path)
+}
+
+/// 获取 TOML 配置（结构化 JSON + 官方字段说明）
+///
+/// 与 `get_toml_config` 的区别：额外透传官方 TOML 源文件中每个字段上方的 `#` 注释，
+/// 供前端 tree 模式展示字段说明。
+#[tauri::command]
+pub async fn get_toml_config_with_comments(
+    state: State<'_, AppState>,
+    instance_id: Option<String>,
+    config_type: String,
+    filename: String,
+) -> AppResult<TomlConfigWithComments> {
+    let config_dir =
+        config_service::resolve_config_dir(&state.db, instance_id.as_deref(), &config_type).await?;
+    let config_path = config_dir.join(&filename);
+    config_service::read_toml_with_comments(&config_path)
 }
 
 /// 获取 TOML 配置原始文本
@@ -265,4 +282,29 @@ pub async fn delete_toml_array_item(
         config_service::resolve_config_dir(&state.db, instance_id.as_deref(), &config_type).await?;
     let config_path = config_dir.join(&filename);
     config_service::delete_toml_array_item(&config_path, &array_path, index)
+}
+
+// ==================== 外部文件导入 ====================
+
+/// 从外部文件导入配置或数据库到实例目录
+///
+/// 覆盖前对目标文件打时间戳快照备份；要求实例已停止（非活跃状态），避免与运行中进程竞争。
+#[tauri::command]
+pub async fn import_external_file(
+    state: State<'_, AppState>,
+    instance_id: String,
+    target: ImportConfigTarget,
+    source_path: String,
+) -> AppResult<SuccessResponse> {
+    let dest = config_service::import_external_file(
+        &state.db,
+        &instance_id,
+        target,
+        std::path::Path::new(&source_path),
+    )
+    .await?;
+    Ok(SuccessResponse::ok(format!(
+        "已导入到 {}",
+        dest.display()
+    )))
 }

@@ -5,8 +5,11 @@
 /// 分为两部分：
 /// 1. 启动器 KV 配置 — 数据库持久化（LauncherConfig / PythonEnvironment / PathConfig）
 /// 2. MAIBot TOML 配置 — 直接读写 TOML 文件（bot_config.toml / model_config.toml / adapter config.toml）
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use chrono::Local;
+use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use toml_edit::DocumentMut;
 use tracing::{info, warn};
@@ -14,6 +17,24 @@ use tracing::{info, warn};
 use crate::errors::{AppError, AppResult};
 use crate::models::config::*;
 use crate::utils::platform;
+
+/// `import_external_file` 的导入目标：三种可覆盖写入的实例文件。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ImportConfigTarget {
+    BotConfig,
+    ModelConfig,
+    MaibotDb,
+}
+
+/// 结构化 TOML 配置 + 官方字段说明（取自 TOML 源文件中键值上方的 `#` 注释）。
+///
+/// `comments` 以点分 key_path 为键（数组项形如 `api_providers[0].base_url`），
+/// 与前端 groupBotConfig/groupModelConfig 构建 TreeNode 时使用的 path 格式一致。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TomlConfigWithComments {
+    pub data: serde_json::Value,
+    pub comments: HashMap<String, String>,
+}
 
 // ==================== 1. 启动器 KV 配置 ====================
 
@@ -254,6 +275,69 @@ pub fn read_toml_as_json(config_path: &Path) -> AppResult<serde_json::Value> {
     Ok(json)
 }
 
+/// 获取 TOML 配置（结构化 JSON + 官方字段说明）
+///
+/// 用 `toml_edit` 解析以保留每个键的 decor（前置注释），叠加到 `read_toml_as_json`
+/// 产出的结构化数据上，供前端 tree 模式渲染字段说明（Info 提示气泡）。
+pub fn read_toml_with_comments(config_path: &Path) -> AppResult<TomlConfigWithComments> {
+    let content = std::fs::read_to_string(config_path)
+        .map_err(|e| AppError::FileSystem(format!("读取配置文件失败: {}", e)))?;
+    let doc = content
+        .parse::<DocumentMut>()
+        .map_err(|e| AppError::Config(format!("TOML 解析失败: {}", e)))?;
+
+    let mut comments = HashMap::new();
+    collect_toml_comments(doc.as_table(), "", &mut comments);
+
+    let data = read_toml_as_json(config_path)?;
+    Ok(TomlConfigWithComments { data, comments })
+}
+
+/// 递归遍历 TOML 表，把每个键上方的注释按点分路径收集进 `out`。
+///
+/// 数组表（`[[section]]`）按索引展开为 `section[0]`、`section[1]`……与前端
+/// groupModelConfig/buildTreeData 构建 api_providers[N].xxx 叶子路径的写法保持一致。
+fn collect_toml_comments(table: &toml_edit::Table, prefix: &str, out: &mut HashMap<String, String>) {
+    for (key, item) in table.iter() {
+        let path = if prefix.is_empty() {
+            key.to_string()
+        } else {
+            format!("{}.{}", prefix, key)
+        };
+        if let Some(key_ref) = table.key(key) {
+            if let Some(comment) = extract_comment(key_ref.leaf_decor()) {
+                out.insert(path.clone(), comment);
+            }
+        }
+        if let Some(sub_table) = item.as_table() {
+            collect_toml_comments(sub_table, &path, out);
+        } else if let Some(array) = item.as_array_of_tables() {
+            for (idx, sub_table) in array.iter().enumerate() {
+                collect_toml_comments(sub_table, &format!("{}[{}]", path, idx), out);
+            }
+        }
+    }
+}
+
+/// 从 decor 的 prefix（键前的原始空白与注释文本）中抽出注释正文。
+///
+/// 逐行剥离 `#` 前缀与首尾空白，忽略非注释的空行；多行注释按行拼接，无注释返回 `None`。
+fn extract_comment(decor: &toml_edit::Decor) -> Option<String> {
+    let prefix = decor.prefix()?.as_str()?;
+    let lines: Vec<&str> = prefix
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.starts_with('#'))
+        .map(|line| line.trim_start_matches('#').trim())
+        .filter(|line| !line.is_empty())
+        .collect();
+    if lines.is_empty() {
+        None
+    } else {
+        Some(lines.join("\n"))
+    }
+}
+
 /// 获取 TOML 配置原始文本
 pub fn read_toml_raw(config_path: &Path) -> AppResult<String> {
     std::fs::read_to_string(config_path)
@@ -262,17 +346,100 @@ pub fn read_toml_raw(config_path: &Path) -> AppResult<String> {
 
 /// 保存 TOML 原始文本
 ///
-/// 先验证语法再写入文件。
+/// 先验证语法，再对原文件打时间戳快照备份，最后覆盖写入，便于手动回滚。
 pub fn save_toml_raw(config_path: &Path, content: &str) -> AppResult<()> {
     // 验证 TOML 语法
     content
         .parse::<DocumentMut>()
         .map_err(|e| AppError::Config(format!("TOML 语法错误: {}", e)))?;
+    backup_existing_file(config_path)?;
     // 写入文件
     std::fs::write(config_path, content)
         .map_err(|e| AppError::FileSystem(format!("写入配置文件失败: {}", e)))?;
     info!("保存 TOML 配置: {:?}", config_path);
     Ok(())
+}
+
+/// 为已存在的文件生成时间戳快照备份（`<path>.bak.<YYYYMMDD_HHMMSS>`）。
+///
+/// 文件尚不存在（如首次部署、目标文件从未生成过）视为无需备份，返回 `Ok(None)`。
+fn backup_existing_file(path: &Path) -> AppResult<Option<PathBuf>> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    let timestamp = Local::now().format("%Y%m%d_%H%M%S");
+    let backup_path = PathBuf::from(format!("{}.bak.{}", path.display(), timestamp));
+    std::fs::copy(path, &backup_path)
+        .map_err(|e| AppError::FileSystem(format!("备份文件失败: {}", e)))?;
+    info!("已备份文件: {:?} -> {:?}", path, backup_path);
+    Ok(Some(backup_path))
+}
+
+/// 把 source 复制到 dest；dest 已存在时先打快照备份再覆盖，dest 所在目录不存在则自动创建
+/// （兼容尚未运行过一次、MaiBot/data 目录还未生成的实例）。
+fn copy_with_backup(source: &Path, dest: &Path) -> AppResult<()> {
+    if !source.is_file() {
+        return Err(AppError::InvalidInput(format!(
+            "源文件不存在或不是文件: {:?}",
+            source
+        )));
+    }
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| AppError::FileSystem(format!("创建目标目录失败: {}", e)))?;
+    }
+    backup_existing_file(dest)?;
+    std::fs::copy(source, dest)
+        .map_err(|e| AppError::FileSystem(format!("导入文件失败: {}", e)))?;
+    Ok(())
+}
+
+/// 从外部文件导入配置或数据库到实例目录
+///
+/// 覆盖前对已存在的目标文件打时间戳备份；要求实例处于非活跃状态（未在运行/启动/停止中），
+/// 避免导入内容与运行中进程的读写产生竞争。返回导入后的目标文件路径。
+pub async fn import_external_file(
+    pool: &SqlitePool,
+    instance_id: &str,
+    target: ImportConfigTarget,
+    source_path: &Path,
+) -> AppResult<PathBuf> {
+    let instance = crate::services::instance_service::get_instance(pool, instance_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("实例不存在: {}", instance_id)))?;
+
+    if instance.status.is_active() {
+        return Err(AppError::InvalidInput(
+            "实例运行中，请先停止实例后再导入配置".to_string(),
+        ));
+    }
+
+    let dest_path = match target {
+        ImportConfigTarget::BotConfig => resolve_config_dir(pool, Some(instance_id), "bot")
+            .await?
+            .join("bot_config.toml"),
+        ImportConfigTarget::ModelConfig => resolve_config_dir(pool, Some(instance_id), "model")
+            .await?
+            .join("model_config.toml"),
+        ImportConfigTarget::MaibotDb => {
+            let instance_path = instance
+                .instance_path
+                .clone()
+                .unwrap_or_else(|| instance.name.clone());
+            // 已存在的库沿用其真实候选路径（大小写历史差异）；否则回退到现代 schema 的规范路径
+            crate::services::stats_service::resolve_maibot_db(&instance_path).unwrap_or_else(|| {
+                platform::get_instances_dir()
+                    .join(&instance_path)
+                    .join("MaiBot")
+                    .join("data")
+                    .join("MaiBot.db")
+            })
+        }
+    };
+
+    copy_with_backup(source_path, &dest_path)?;
+    info!("导入外部文件: {:?} -> {:?}", source_path, dest_path);
+    Ok(dest_path)
 }
 
 /// 更新 TOML 中的某个值（通过 key_path）
@@ -626,7 +793,50 @@ mod tests {
         .await
         .expect("建表失败");
 
+        // 供 import_external_file 测试复用：与 instance_service 测试模块同构的 instances 表
+        sqlx::query(
+            "CREATE TABLE instances (
+                id VARCHAR(50) PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                instance_path VARCHAR(500),
+                bot_type VARCHAR(20) NOT NULL,
+                bot_version VARCHAR(50),
+                description TEXT,
+                status VARCHAR(20) NOT NULL DEFAULT 'stopped',
+                python_path VARCHAR(500),
+                config_path VARCHAR(500),
+                created_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
+                updated_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
+                last_run DATETIME,
+                run_time INTEGER NOT NULL DEFAULT 0,
+                qq_account VARCHAR(20),
+                runtime_profile TEXT,
+                component_runtime_profiles TEXT,
+                last_error TEXT,
+                last_status_reason TEXT,
+                component_state TEXT
+            )",
+        )
+        .execute(&pool)
+        .await
+        .expect("建表失败");
+
         pool
+    }
+
+    /// 插入一条测试用实例记录，返回其 id
+    async fn insert_instance(pool: &SqlitePool, id: &str, status: &str) {
+        sqlx::query(
+            "INSERT INTO instances (id, name, instance_path, bot_type, status, run_time)
+             VALUES (?, ?, ?, 'maibot', ?, 0)",
+        )
+        .bind(id)
+        .bind(id)
+        .bind(id)
+        .bind(status)
+        .execute(pool)
+        .await
+        .expect("插入实例失败");
     }
 
     #[tokio::test]
@@ -668,5 +878,199 @@ mod tests {
         assert_eq!(configs.len(), 2);
         assert_eq!(configs[0].key, "aaa");
         assert_eq!(configs[1].key, "zzz");
+    }
+
+    // ==================== P1-12: save_toml_raw 覆盖前备份 ====================
+
+    #[test]
+    fn save_toml_raw_backs_up_existing_file_before_overwrite() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let config_path = dir.path().join("bot_config.toml");
+        std::fs::write(&config_path, "a = 1\n").expect("写入初始文件失败");
+
+        save_toml_raw(&config_path, "a = 2\n").expect("保存失败");
+
+        // 主文件已更新为新内容
+        assert_eq!(std::fs::read_to_string(&config_path).unwrap(), "a = 2\n");
+
+        // 目录下应出现且仅出现一份 .bak. 快照，内容为覆盖前的原文
+        let backups: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().contains(".bak."))
+            .collect();
+        assert_eq!(backups.len(), 1, "应恰好生成一份备份文件");
+        let backup_content = std::fs::read_to_string(backups[0].path()).unwrap();
+        assert_eq!(backup_content, "a = 1\n");
+    }
+
+    #[test]
+    fn save_toml_raw_skips_backup_when_file_did_not_exist() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let config_path = dir.path().join("new_config.toml");
+
+        save_toml_raw(&config_path, "a = 1\n").expect("保存失败");
+
+        let entries: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .collect();
+        assert_eq!(entries.len(), 1, "首次写入不应产生备份文件");
+    }
+
+    #[test]
+    fn save_toml_raw_rejects_invalid_syntax_without_touching_disk() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let config_path = dir.path().join("bot_config.toml");
+        std::fs::write(&config_path, "a = 1\n").expect("写入初始文件失败");
+
+        let err = save_toml_raw(&config_path, "a = [1, 2").unwrap_err();
+        assert!(matches!(err, AppError::Config(_)));
+        // 语法校验失败应在写入前拦截，原文件必须原封不动
+        assert_eq!(std::fs::read_to_string(&config_path).unwrap(), "a = 1\n");
+    }
+
+    // ==================== P1-11: import_external_file ====================
+
+    #[tokio::test]
+    async fn import_external_file_returns_not_found_for_missing_instance() {
+        let pool = setup_test_db().await;
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let source = dir.path().join("source.toml");
+        std::fs::write(&source, "a = 1\n").unwrap();
+
+        let err = import_external_file(
+            &pool,
+            "inst_missing",
+            ImportConfigTarget::BotConfig,
+            &source,
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn import_external_file_rejects_running_instance() {
+        let pool = setup_test_db().await;
+        insert_instance(&pool, "inst_running", "running").await;
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let source = dir.path().join("source.toml");
+        std::fs::write(&source, "a = 1\n").unwrap();
+
+        let err = import_external_file(
+            &pool,
+            "inst_running",
+            ImportConfigTarget::BotConfig,
+            &source,
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(err, AppError::InvalidInput(_)));
+    }
+
+    #[test]
+    fn copy_with_backup_backs_up_existing_dest_and_copies_new_content() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let source = dir.path().join("source.toml");
+        let dest = dir.path().join("bot_config.toml");
+        std::fs::write(&source, "new content\n").unwrap();
+        std::fs::write(&dest, "old content\n").unwrap();
+
+        copy_with_backup(&source, &dest).expect("导入失败");
+
+        assert_eq!(std::fs::read_to_string(&dest).unwrap(), "new content\n");
+        let backups: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().contains(".bak."))
+            .collect();
+        assert_eq!(backups.len(), 1);
+        assert_eq!(
+            std::fs::read_to_string(backups[0].path()).unwrap(),
+            "old content\n"
+        );
+    }
+
+    #[test]
+    fn copy_with_backup_creates_missing_dest_dir() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let source = dir.path().join("source.db");
+        std::fs::write(&source, b"DBDATA").unwrap();
+        let dest = dir.path().join("MaiBot").join("data").join("MaiBot.db");
+
+        copy_with_backup(&source, &dest).expect("导入失败");
+
+        assert_eq!(std::fs::read(&dest).unwrap(), b"DBDATA");
+    }
+
+    #[test]
+    fn copy_with_backup_rejects_missing_source() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let source = dir.path().join("does_not_exist.toml");
+        let dest = dir.path().join("bot_config.toml");
+
+        let err = copy_with_backup(&source, &dest).unwrap_err();
+        assert!(matches!(err, AppError::InvalidInput(_)));
+        assert!(!dest.exists());
+    }
+
+    // ==================== P2-31: TOML 注释透传 ====================
+
+    #[test]
+    fn read_toml_with_comments_extracts_nested_and_array_of_tables_comments() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let config_path = dir.path().join("model_config.toml");
+        std::fs::write(
+            &config_path,
+            r#"
+# 机器人昵称
+nickname = "麦麦"
+
+[personality]
+# 人格描述，建议详细填写
+personality = "开朗活泼"
+
+[[api_providers]]
+# API 基础地址
+base_url = "https://example.com"
+
+[[api_providers]]
+base_url = "https://example2.com"
+"#,
+        )
+        .unwrap();
+
+        let result = read_toml_with_comments(&config_path).expect("解析失败");
+
+        assert_eq!(
+            result.comments.get("nickname").map(String::as_str),
+            Some("机器人昵称")
+        );
+        assert_eq!(
+            result.comments.get("personality.personality").map(String::as_str),
+            Some("人格描述，建议详细填写")
+        );
+        assert_eq!(
+            result
+                .comments
+                .get("api_providers[0].base_url")
+                .map(String::as_str),
+            Some("API 基础地址")
+        );
+        // 第二个数组项没有注释，不应被误插入
+        assert!(!result.comments.contains_key("api_providers[1].base_url"));
+        // 结构化数据应与 read_toml_as_json 等价，字段本身可正常读到
+        assert_eq!(result.data["nickname"].clone(), serde_json::json!("麦麦"));
+    }
+
+    #[test]
+    fn read_toml_with_comments_ignores_blank_line_prefix() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let config_path = dir.path().join("bot_config.toml");
+        std::fs::write(&config_path, "\n\na = 1\n").unwrap();
+
+        let result = read_toml_with_comments(&config_path).expect("解析失败");
+        assert!(result.comments.is_empty(), "纯空白前缀不应生成注释");
     }
 }
