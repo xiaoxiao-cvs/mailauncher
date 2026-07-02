@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { motion } from "motion/react";
-import { TactileButton } from "@/components/ls";
+import { toast } from "sonner";
+import { TactileButton, Surface, Input, Label } from "@/components/ls";
 import { InstallOverview } from "@/components/install/InstallOverview";
 import { InstanceConfigPanel } from "@/components/downloads/InstanceConfigPanel";
 import { DownloadComponentSelector } from "@/components/downloads/DownloadComponentSelector";
@@ -10,7 +11,8 @@ import { useInstallTask } from "@/contexts/InstallTaskContext";
 import { useNotificationContext } from "@/contexts/NotificationContext";
 import { springSettle, springSoft } from "@/design/motion";
 import { TaskStatus } from "@/types/notification";
-import { useEffect } from "react";
+import { tauriInvoke } from "@/services/tauriInvoke";
+import { useEffect, useState } from "react";
 
 // 看板交错入场:根容器 springSoft 浮起,子项(标题 + 两块面板)逐个 springSettle 落定。
 const containerVariants = {
@@ -50,6 +52,12 @@ export function DownloadsPage() {
     useNotificationContext();
   const { currentTask, startTask } = useInstallTask();
 
+  // P2-21：可选录入 QQ 号，装机完成后写入实例记录，首启 NapCat 免二次手填直连该账号。
+  const [qqAccount, setQqAccount] = useState("");
+  const qqAccountTrimmed = qqAccount.trim();
+  const qqAccountInvalid =
+    qqAccountTrimmed !== "" && !/^\d{5,11}$/.test(qqAccountTrimmed);
+
   useEffect(() => {
     if (currentTask && currentTask.isActive) {
       console.log("[DownloadsPage] 恢复活跃任务:", currentTask);
@@ -88,7 +96,8 @@ export function DownloadsPage() {
     deploymentPath.trim() !== "" &&
     instanceName.trim() !== "" &&
     !isDownloading &&
-    selectedItems.size > 0;
+    selectedItems.size > 0 &&
+    !qqAccountInvalid;
 
   const handleStartInstall = async () => {
     const components = Array.from(selectedItems);
@@ -114,6 +123,23 @@ export function DownloadsPage() {
 
     console.log("[Install] 任务 ID 获取成功:", taskId);
     updateTaskId(tempTaskId, taskId);
+
+    // 把可选录入的 QQ 号登记给这次安装任务；装机流程建好实例记录时会消费它写入
+    // qq_account，首次启动 NapCat 即可直连，免去用户在配置面板二次手填。
+    // 这是非关键副作用：登记失败不阻断装机主流程，仅提示用户随后自行在配置面板补填。
+    if (qqAccountTrimmed !== "") {
+      try {
+        await tauriInvoke("set_download_task_qq_account", {
+          taskId,
+          qqAccount: qqAccountTrimmed,
+        });
+      } catch (error) {
+        console.error("[Install] 登记 QQ 号失败:", error);
+        toast.warning(
+          "QQ 号登记失败，安装仍会继续，之后可在实例配置面板中手动填写",
+        );
+      }
+    }
 
     startTask({
       taskId,
@@ -184,6 +210,53 @@ export function DownloadsPage() {
                 toggleItemSelection={toggleItemSelection}
               />
             </div>
+
+            <motion.div variants={itemChild}>
+              <Surface variant="panel" className="p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <Icon
+                    icon="ph:qr-code-bold"
+                    className="w-5 h-5"
+                    style={{ color: "var(--ls-ink-soft)" }}
+                  />
+                  <h3
+                    className="text-sm font-semibold"
+                    style={{ color: "var(--ls-ink)" }}
+                  >
+                    QQ 号直连（可选）
+                  </h3>
+                </div>
+                <p
+                  className="text-xs mb-3"
+                  style={{ color: "var(--ls-ink-soft)" }}
+                >
+                  录入后装机完成会自动绑定到该实例，首次启动 NapCat
+                  即可直接指定该账号登录，免去在配置面板二次手填。
+                </p>
+                <div className="max-w-xs">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={qqAccount}
+                    onChange={(e) =>
+                      setQqAccount(e.target.value.replace(/[^\d]/g, ""))
+                    }
+                    placeholder="留空则跳过，稍后可在配置面板中填写"
+                    disabled={hasDownloading}
+                    maxLength={11}
+                    className="px-4 py-2.5 disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                  {qqAccountInvalid && (
+                    <Label
+                      className="mt-1.5 block"
+                      style={{ color: "var(--ls-warn)" }}
+                    >
+                      QQ 号应为 5~11 位纯数字
+                    </Label>
+                  )}
+                </div>
+              </Surface>
+            </motion.div>
           </motion.div>
 
           <div className="fixed bottom-6 left-0 md:left-[272px] right-0 z-50 px-6 flex justify-center pointer-events-none">

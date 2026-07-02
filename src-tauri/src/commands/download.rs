@@ -7,6 +7,9 @@
 /// - `download-log-{taskId}` — 日志消息（字符串载荷）
 /// - `download-status-{taskId}` — 状态变更（字符串载荷）
 /// - `download-progress-{taskId}` — 结构化进度（JSON 载荷）
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 use tracing::{error, info, warn};
@@ -136,6 +139,48 @@ pub async fn cancel_download_task(state: State<'_, AppState>, task_id: String) -
 pub async fn get_maibot_versions() -> AppResult<VersionsResponse> {
     let repo = download_service::get_repo_config(&DownloadItemType::Maibot);
     download_service::get_available_versions(repo.url).await
+}
+
+// ==================== QQ 号直连（P2-21） ====================
+
+/// 下载期间用户可选录入的 QQ 号缓存（task_id -> qq_account）。
+///
+/// 创建下载任务时实例尚未落库（`create_instance` 要等组件全部装完才跑），此时还没有
+/// 实例 ID 可供 `update_instance` 使用；故借 task_id 作跨请求桥接键，在 `execute_download_task`
+/// 建好实例记录那一刻取用并清空，避免常驻内存泄漏。`DownloadTaskCreate` 本身不收 qq 字段。
+fn pending_qq_accounts() -> &'static Mutex<HashMap<String, String>> {
+    static MAP: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+    MAP.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// 校验 QQ 号格式：5~11 位纯数字（QQ 号实际取值范围）。
+fn validate_qq_account(qq: &str) -> AppResult<()> {
+    let qq = qq.trim();
+    if qq.is_empty() {
+        return Err(AppError::InvalidInput("QQ 号不能为空".to_string()));
+    }
+    if qq.len() < 5 || qq.len() > 11 || !qq.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(AppError::InvalidInput(
+            "QQ 号格式不正确（应为 5~11 位纯数字）".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// 为一个下载任务登记首启直连的 QQ 号。
+///
+/// 前端在拿到 `create_download_task` 返回的 task_id 后立即调用。任务实际跑到
+/// "创建实例记录"那一步时会取用该值写入 `instances.qq_account`，届时首次启动
+/// NapCat 就会带 `-q <qq>` 直连，免去用户在配置面板二次手填。
+/// 这是尽力而为的可选增强：QQ 号留空则跳过，格式校验失败不影响装机主流程之外的部分。
+#[tauri::command]
+pub async fn set_download_task_qq_account(task_id: String, qq_account: String) -> AppResult<()> {
+    validate_qq_account(&qq_account)?;
+    pending_qq_accounts()
+        .lock()
+        .map_err(|_| AppError::Internal("QQ 号缓存锁中毒".to_string()))?
+        .insert(task_id, qq_account.trim().to_string());
+    Ok(())
 }
 
 // ==================== 路径验证 ====================
@@ -564,6 +609,25 @@ async fn execute_download_task(
         .await
         .map_err(|e: sqlx::Error| AppError::Database(e.to_string()))?;
 
+    // 若用户为本次安装录入了 QQ 号，幂等取出并写入实例记录，首启 NapCat 即可 -q 直连该账号。
+    let pending_qq = pending_qq_accounts()
+        .lock()
+        .map_err(|_| AppError::Internal("QQ 号缓存锁中毒".to_string()))?
+        .remove(task_id);
+    if let Some(qq_account) = pending_qq {
+        sqlx::query("UPDATE instances SET qq_account = ? WHERE id = ?")
+            .bind(&qq_account)
+            .bind(&instance.id)
+            .execute(pool)
+            .await
+            .map_err(|e: sqlx::Error| AppError::Database(e.to_string()))?;
+        dm.add_log(
+            task_id,
+            format!("已绑定 QQ 号 {} 用于首启直连", qq_account),
+        )
+        .await;
+    }
+
     // 5. 标记完成
     dm.mark_completed(task_id, Some(instance.id.clone())).await;
     let _ = app_handle.emit(&status_event, "completed");
@@ -641,5 +705,71 @@ mod tests {
         assert!(validate_deployment_path("foo|bar").is_err());
         assert!(validate_deployment_path("foo?bar").is_err());
         assert!(validate_deployment_path("foo*bar").is_err());
+    }
+
+    // ==================== validate_qq_account（P2-21） ====================
+
+    #[test]
+    fn validate_qq_account_accepts_valid_lengths() {
+        assert!(validate_qq_account("10001").is_ok()); // 5 位下限
+        assert!(validate_qq_account("123456789").is_ok());
+        assert!(validate_qq_account("12345678901").is_ok()); // 11 位上限
+        assert!(validate_qq_account("  10001  ").is_ok(), "首尾空白应被 trim 后再校验");
+    }
+
+    #[test]
+    fn validate_qq_account_rejects_empty_or_blank() {
+        assert!(validate_qq_account("").is_err());
+        assert!(validate_qq_account("   ").is_err());
+    }
+
+    #[test]
+    fn validate_qq_account_rejects_wrong_length() {
+        assert!(validate_qq_account("1234").is_err(), "4 位过短");
+        assert!(validate_qq_account("123456789012").is_err(), "12 位过长");
+    }
+
+    #[test]
+    fn validate_qq_account_rejects_non_digits() {
+        assert!(validate_qq_account("abc12345").is_err());
+        assert!(validate_qq_account("1234-5678").is_err());
+        assert!(validate_qq_account("１２３４５６７").is_err(), "全角数字非 ASCII 数字应拒绝");
+    }
+
+    // ==================== set_download_task_qq_account / pending_qq_accounts 桥接（P2-21） ====================
+
+    #[tokio::test]
+    async fn set_download_task_qq_account_rejects_invalid_format_without_caching() {
+        let task_id = format!("test_task_invalid_{}", uuid::Uuid::new_v4());
+        let result = set_download_task_qq_account(task_id.clone(), "abc".to_string()).await;
+        assert!(result.is_err(), "非法 QQ 号格式必须报错");
+
+        // 校验失败不应留下缓存条目，避免脏数据被后续安装误消费
+        assert!(
+            !pending_qq_accounts().lock().unwrap().contains_key(&task_id),
+            "校验失败的 QQ 号不应写入缓存"
+        );
+    }
+
+    #[tokio::test]
+    async fn set_download_task_qq_account_caches_trimmed_value_and_is_consumed_once() {
+        let task_id = format!("test_task_valid_{}", uuid::Uuid::new_v4());
+        set_download_task_qq_account(task_id.clone(), "  10086  ".to_string())
+            .await
+            .expect("合法 QQ 号应写入成功");
+
+        // 缓存应保存 trim 后的值
+        {
+            let map = pending_qq_accounts().lock().unwrap();
+            assert_eq!(map.get(&task_id).map(String::as_str), Some("10086"));
+        }
+
+        // 模拟 execute_download_task 消费该值：remove 之后必须不可再取到（幂等清空，防内存泄漏）
+        let consumed = pending_qq_accounts().lock().unwrap().remove(&task_id);
+        assert_eq!(consumed, Some("10086".to_string()));
+        assert!(
+            !pending_qq_accounts().lock().unwrap().contains_key(&task_id),
+            "消费后缓存必须清空"
+        );
     }
 }
