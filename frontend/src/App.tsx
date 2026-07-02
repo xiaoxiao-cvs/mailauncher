@@ -21,6 +21,8 @@ import { MainLayout } from "@/layouts/MainLayout";
 import logger, { routerLogger } from "@/utils/logger";
 import { useOnboardingState } from "@/hooks/useOnboardingState";
 import { startMetrics } from "@/services/metrics/timeSeriesStore";
+import { Toaster } from "sonner";
+import { useTheme } from "@/components/theme";
 import "./App.css";
 
 /**
@@ -99,6 +101,9 @@ function AppRoutes() {
  * 职责：路由管理和组件组合
  */
 function App() {
+  // Toaster 跟随应用主题(sonner 默认不感知我们自绘的 .dark class,需显式传入 resolvedTheme)。
+  const { resolvedTheme } = useTheme();
+
   // 应用挂载即启动全局指标累积(CPU/内存/磁盘/网络/负载),跨页面常驻(切到别的页面也持续监测)。
   useEffect(() => {
     startMetrics();
@@ -109,6 +114,13 @@ function App() {
     // 始终播放(此前 reducedMotion="user" 会在系统关动画时把动画判没、变瞬切)。日后如需尊重系统
     // 可做成应用内开关。
     <Router>
+      {/* 全局 Toast 出口:此前从未挂载,导致各处 toast.success/error 全部静默无反馈 */}
+      <Toaster
+        theme={resolvedTheme}
+        position="top-center"
+        richColors
+        closeButton
+      />
       <NotificationProvider>
         <InstallTaskProvider>
           {/* 全局 WebSocket 管理器 - 在任何页面都保持连接 */}
