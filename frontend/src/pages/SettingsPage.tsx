@@ -10,6 +10,7 @@ import {
   PythonEnvironmentPanel,
   NetworkProxyPanel,
   SourceManagerPanel,
+  DiagnosticsSection,
 } from "@/components/settings";
 import { ApiProviderConfig } from "@/components/onboarding/ApiProviderConfig";
 
@@ -62,6 +63,7 @@ export function SettingsPage() {
           <TabsContent value="launcher" className="mt-0 space-y-6 outline-none">
             <ThemeSettings />
             <UpdateCheckSection />
+            <DiagnosticsSection />
           </TabsContent>
 
           <TabsContent

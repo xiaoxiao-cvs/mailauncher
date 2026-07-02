@@ -265,6 +265,7 @@ pub fn run() {
             commands::logs::export_logs,
             commands::logs::clear_logs,
             commands::logs::get_recent_errors,
+            commands::logs::open_log_directory,
             // 消息队列
             commands::logs::get_instance_message_queue,
             commands::logs::get_all_message_queues,

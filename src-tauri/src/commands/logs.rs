@@ -2,9 +2,9 @@
 ///
 /// 提供前端日志管理（保存、列表、查看、导出、清理）
 /// 以及 MaiBot 实例消息队列查询的 Tauri 命令。
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
-use crate::errors::AppResult;
+use crate::errors::{AppError, AppResult};
 use crate::models::log::*;
 use crate::models::message_queue::*;
 use crate::services::{instance_service, log_service, maibot_log, message_queue_service};
@@ -16,6 +16,39 @@ use crate::state::AppState;
 #[tauri::command]
 pub fn save_frontend_logs(entries: Vec<LogEntry>) -> AppResult<()> {
     log_service::save_frontend_logs(entries)
+}
+
+// ==================== 日志目录 ====================
+
+/// 在系统文件管理器中打开后端日志目录。
+///
+/// tauri-plugin-log 默认写入 `app_log_dir`,此前没有任何可见入口能定位到它,
+/// 用户排查后端问题时无从下手。目录可能尚未生成,先确保存在再打开。
+#[tauri::command]
+pub fn open_log_directory(app_handle: AppHandle) -> AppResult<()> {
+    let log_dir = app_handle
+        .path()
+        .app_log_dir()
+        .map_err(|e| AppError::Internal(format!("无法解析日志目录: {}", e)))?;
+    std::fs::create_dir_all(&log_dir)?;
+    open_path_in_file_manager(&log_dir)
+}
+
+/// 用系统默认文件管理器打开一个目录(跨平台)。
+fn open_path_in_file_manager(path: &std::path::Path) -> AppResult<()> {
+    #[cfg(target_os = "windows")]
+    let program = "explorer";
+    #[cfg(target_os = "macos")]
+    let program = "open";
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let program = "xdg-open";
+
+    // explorer 打开成功也可能返回非零退出码,故只在无法启动(找不到程序)时报错。
+    std::process::Command::new(program)
+        .arg(path)
+        .spawn()
+        .map_err(|e| AppError::Process(format!("打开文件管理器失败: {}", e)))?;
+    Ok(())
 }
 
 /// 列出所有前端日志文件
