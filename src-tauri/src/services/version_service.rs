@@ -707,6 +707,40 @@ pub async fn get_update_history(
     Ok(history)
 }
 
+/// 写入一条组件更新历史。
+///
+/// 列名严格对齐 `update_history` 表结构。无论更新成功或失败都应落库:
+/// git pull 已经成功、却因为这条写库语句用了不存在的列名(update_method/created_at)
+/// 而让整个更新命令报错,是必须消灭的确定性缺陷。
+#[allow(clippy::too_many_arguments)]
+pub async fn record_update_history(
+    pool: &SqlitePool,
+    instance_id: &str,
+    component: &str,
+    from_commit: &str,
+    to_commit: Option<&str>,
+    status: &str,
+    backup_id: Option<&str>,
+    error_message: Option<&str>,
+) -> AppResult<()> {
+    sqlx::query(
+        "INSERT INTO update_history \
+         (instance_id, component, from_commit, to_commit, status, backup_id, error_message) \
+         VALUES (?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(instance_id)
+    .bind(component)
+    .bind(from_commit)
+    .bind(to_commit)
+    .bind(status)
+    .bind(backup_id)
+    .bind(error_message)
+    .execute(pool)
+    .await
+    .map_err(|e| AppError::Database(format!("记录更新历史失败: {}", e)))?;
+    Ok(())
+}
+
 // ==================== 启动器自身更新 ====================
 
 /// 检查启动器更新
@@ -1791,5 +1825,80 @@ mod tests {
         assert_eq!(result[0].from_commit, Some("aaa1111".to_string()));
         assert_eq!(result[0].to_commit, Some("bbb2222".to_string()));
         assert_eq!(result[0].error_message, Some("Git pull 超时".to_string()));
+    }
+
+    // ==================== DB: record_update_history ====================
+
+    #[tokio::test]
+    async fn record_update_history_persists_completed_row() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_uh_rec").await;
+
+        // backup_id 有外键约束(REFERENCES version_backups(id)),先落一条真实备份记录。
+        sqlx::query(
+            "INSERT INTO version_backups (id, instance_id, component, backup_path, backup_size)
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind("bak_rec_1")
+        .bind("inst_uh_rec")
+        .bind("MaiBot")
+        .bind("/tmp/bak_rec_1")
+        .bind(0i64)
+        .execute(&pool)
+        .await
+        .expect("插入备份记录失败");
+
+        // 若列名写错(如 update_method/created_at),这条 INSERT 会直接失败并让本测试挂掉。
+        record_update_history(
+            &pool,
+            "inst_uh_rec",
+            "MaiBot",
+            "aaa1111",
+            Some("bbb2222"),
+            "success",
+            Some("bak_rec_1"),
+            None,
+        )
+        .await
+        .expect("记录成功历史失败");
+
+        let rows = get_update_history(&pool, "inst_uh_rec", None, None)
+            .await
+            .expect("查询失败");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].status, "success");
+        assert_eq!(rows[0].from_commit, Some("aaa1111".to_string()));
+        assert_eq!(rows[0].to_commit, Some("bbb2222".to_string()));
+        assert_eq!(rows[0].backup_id, Some("bak_rec_1".to_string()));
+        assert_eq!(rows[0].error_message, None);
+    }
+
+    #[tokio::test]
+    async fn record_update_history_persists_failed_row_with_error() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_uh_fail").await;
+
+        record_update_history(
+            &pool,
+            "inst_uh_fail",
+            "NapCat",
+            "ccc3333",
+            None,
+            "failed",
+            None,
+            Some("git pull 冲突"),
+        )
+        .await
+        .expect("记录失败历史失败");
+
+        let rows = get_update_history(&pool, "inst_uh_fail", None, None)
+            .await
+            .expect("查询失败");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].status, "failed");
+        assert_eq!(rows[0].from_commit, Some("ccc3333".to_string()));
+        assert_eq!(rows[0].to_commit, None);
+        assert_eq!(rows[0].backup_id, None);
+        assert_eq!(rows[0].error_message, Some("git pull 冲突".to_string()));
     }
 }

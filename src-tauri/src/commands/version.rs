@@ -75,8 +75,12 @@ pub async fn update_component(
 
     let event_name = format!("update-log-{}-{}", instance_id, component);
 
+    // 记录更新前 commit,作为 update_history 的 from_commit(成功/失败都要落库)
+    let from_commit = version_service::get_local_commit(&component_dir).unwrap_or_default();
+
     // 更新前自动备份配置与数据(代码由 Git 兜底无需备份);默认开,可显式传 false 关闭。
     // 备份失败直接中止更新——宁可不更新,也不让用户在没有退路的情况下动数据。
+    let mut backup_id: Option<String> = None;
     if create_backup.unwrap_or(true) {
         let _ = app_handle.emit(&event_name, "正在备份配置与数据...");
         match version_service::backup_component_data(
@@ -89,6 +93,7 @@ pub async fn update_component(
         {
             Some(id) => {
                 let _ = app_handle.emit(&event_name, format!("配置与数据已备份: {}", id));
+                backup_id = Some(id);
             }
             None => {
                 let _ = app_handle.emit(&event_name, "无配置/数据需备份,跳过");
@@ -96,29 +101,43 @@ pub async fn update_component(
         }
     }
 
-    // 执行更新 (git pull / checkout)
+    // 执行更新 (git pull / checkout)。失败时也要落一条 failed 历史,再把原始错误抛给上层。
     let _ = app_handle.emit(&event_name, "正在更新组件...");
-    version_service::update_component_git(
+    if let Err(e) = version_service::update_component_git(
         &component_dir,
         target_version.as_deref(),
         &app_handle,
         &event_name,
     )
-    .await?;
-
-    // 记录更新历史
-    let current_version = version_service::get_local_commit(&component_dir).unwrap_or_default();
-    sqlx::query(
-        "INSERT INTO update_history (instance_id, component, from_version, to_version, update_method, status, created_at)
-         VALUES (?, ?, ?, ?, 'git', 'completed', datetime('now'))",
-    )
-    .bind(&instance_id)
-    .bind(&component)
-    .bind("")
-    .bind(&current_version)
-    .execute(&state.db)
     .await
-    .map_err(|e: sqlx::Error| AppError::Database(e.to_string()))?;
+    {
+        let _ = version_service::record_update_history(
+            &state.db,
+            &instance_id,
+            &component,
+            &from_commit,
+            None,
+            "failed",
+            backup_id.as_deref(),
+            Some(&e.to_string()),
+        )
+        .await;
+        return Err(e);
+    }
+
+    // 记录更新历史(成功)
+    let to_commit = version_service::get_local_commit(&component_dir).unwrap_or_default();
+    version_service::record_update_history(
+        &state.db,
+        &instance_id,
+        &component,
+        &from_commit,
+        Some(&to_commit),
+        "success",
+        backup_id.as_deref(),
+        None,
+    )
+    .await?;
 
     let _ = app_handle.emit(&event_name, "组件更新完成");
     info!("组件更新完成: {} / {}", instance_id, component);
