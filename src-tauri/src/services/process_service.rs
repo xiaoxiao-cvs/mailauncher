@@ -657,7 +657,7 @@ impl ProcessManager {
 
     /// 停止组件进程
     ///
-    /// `force=false`：先发送 Ctrl+C（\x03）尝试优雅退出，等待最多 2 秒，超时后强制 kill。
+    /// `force=false`：先发送 Ctrl+C（\x03）尝试优雅退出，等待最多 10 秒，超时后强制 kill。
     /// `force=true`：直接 kill 进程。
     pub async fn stop_process(
         &self,
@@ -665,6 +665,9 @@ impl ProcessManager {
         component: &str,
         force: bool,
     ) -> AppResult<bool> {
+        // 优雅停止等待窗口:100 × 100ms = 10s,对齐官方一键包 STOP_FORCE_AFTER_MS=10000。
+        // MaiBot 收到 Ctrl+C 后要落盘/断连,2 秒常不够,过早强杀会丢数据或留残连接。
+        const GRACE_POLLS: usize = 100;
         let session_id = Self::session_id(instance_id, component);
 
         let ctrl_c_sent;
@@ -717,7 +720,7 @@ impl ProcessManager {
             } else {
                 Self::stop_external_process(&handle, false).await?;
                 let mut exited = false;
-                for _ in 0..20 {
+                for _ in 0..GRACE_POLLS {
                     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
                     if !Self::is_external_process_alive(&handle).await {
                         exited = true;
@@ -740,7 +743,7 @@ impl ProcessManager {
         if !force && ctrl_c_sent {
             // 锁外等待进程优雅退出，最多 2 秒
             let mut exited = false;
-            for _ in 0..20 {
+            for _ in 0..GRACE_POLLS {
                 tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
                 let mut inner = self.inner.lock().await;
                 if let Some(proc) = inner.processes.get_mut(&session_id) {
