@@ -187,6 +187,7 @@ pub fn run() {
             commands::download::get_all_download_tasks,
             commands::download::cancel_download_task,
             commands::download::get_maibot_versions,
+            commands::download::set_download_task_qq_account,
             // 运行时与 WSL2
             commands::runtime::list_wsl_distributions,
             commands::runtime::set_instance_runtime_profile,
@@ -204,6 +205,10 @@ pub fn run() {
             commands::version::check_launcher_update,
             commands::version::get_channel_versions,
             commands::version::install_launcher_update,
+            commands::version::reinstall_instance_dependencies,
+            commands::version::list_component_commits,
+            commands::version::create_manual_backup,
+            commands::version::reset_instance_data,
             // 配置管理 — KV
             commands::config::get_all_configs,
             commands::config::get_config,
@@ -228,6 +233,8 @@ pub fn run() {
             commands::config::add_toml_array_item,
             commands::config::update_toml_array_item,
             commands::config::delete_toml_array_item,
+            commands::config::get_toml_config_with_comments,
+            commands::config::import_external_file,
             // 系统工具
             commands::system::ping,
             commands::system::check_git_environment,
@@ -261,6 +268,8 @@ pub fn run() {
             commands::stats::get_instance_stats,
             commands::stats::get_instance_model_stats,
             commands::stats::get_hourly_message_stats,
+            commands::stats::get_daily_stats,
+            commands::stats::get_recent_activity,
             // 日志管理
             commands::logs::save_frontend_logs,
             commands::logs::list_log_files,
@@ -269,11 +278,15 @@ pub fn run() {
             commands::logs::clear_logs,
             commands::logs::get_recent_errors,
             commands::logs::open_log_directory,
+            commands::logs::list_maibot_log_files,
+            commands::logs::read_maibot_log_file,
             // 消息队列
             commands::logs::get_instance_message_queue,
             commands::logs::get_all_message_queues,
             // 看门狗只读状态
             commands::watchdog::get_watchdog_status,
+            // 已装插件
+            commands::plugin::list_installed_plugins,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri 应用运行失败");

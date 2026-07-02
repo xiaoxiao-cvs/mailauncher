@@ -5,6 +5,7 @@ pub mod config;
 pub mod download;
 pub mod instance;
 pub mod logs;
+pub mod plugin;
 pub mod process;
 pub mod python;
 pub mod runtime;

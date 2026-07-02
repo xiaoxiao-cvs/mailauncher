@@ -404,6 +404,43 @@ class InstanceApiClient {
       instanceId,
     });
   }
+
+  /** 列出实例的麦麦历史日志轮转文件(供历史日志选择器)。 */
+  async listMaibotLogFiles(instanceId: string): Promise<MaibotLogFileInfo[]> {
+    return tauriInvoke<MaibotLogFileInfo[]>("list_maibot_log_files", {
+      instanceId,
+    });
+  }
+
+  /** 整份读取某个麦麦历史日志文件(可选只取末尾 tailLimit 条)。 */
+  async readMaibotLogFile(
+    instanceId: string,
+    fileName: string,
+    tailLimit?: number,
+  ): Promise<MaibotLogRecord[]> {
+    return tauriInvoke<MaibotLogRecord[]>("read_maibot_log_file", {
+      instanceId,
+      fileName,
+      tailLimit,
+    });
+  }
+
+  /** 列出实例已装的 MaiBot 插件(只读)。 */
+  async listInstalledPlugins(instanceId: string): Promise<InstalledPlugin[]> {
+    return tauriInvoke<InstalledPlugin[]>("list_installed_plugins", {
+      instanceId,
+    });
+  }
+
+  /** 日粒度统计(仪表盘日趋势)。 */
+  async getDailyStats(timeRange?: string): Promise<DailyStatsPoint[]> {
+    return tauriInvoke<DailyStatsPoint[]>("get_daily_stats", { timeRange });
+  }
+
+  /** 最近活动流(仪表盘)。 */
+  async getRecentActivity(limit?: number): Promise<RecentActivityItem[]> {
+    return tauriInvoke<RecentActivityItem[]>("get_recent_activity", { limit });
+  }
 }
 
 /** 麦麦结构化日志一条记录(对应 Rust MaibotLogRecord)。 */
@@ -424,6 +461,44 @@ export interface MaibotLogCursor {
 export interface MaibotLogChunk {
   records: MaibotLogRecord[];
   cursor: MaibotLogCursor;
+}
+
+/** 麦麦历史日志文件信息(对应 Rust MaibotLogFileInfo)。 */
+export interface MaibotLogFileInfo {
+  name: string;
+  size: number;
+  modified: string;
+}
+
+/** 已装插件展示信息(对应 Rust InstalledPlugin,字段为 snake_case)。 */
+export interface InstalledPlugin {
+  dir_name: string;
+  name: string;
+  version: string;
+  author: string | null;
+  description: string | null;
+  enabled: boolean;
+  manifest_invalid: boolean;
+}
+
+/** 日粒度统计点(对应 Rust DailyStatsPoint)。 */
+export interface DailyStatsPoint {
+  date: string;
+  requests: number;
+  cost: number;
+  tokens: number;
+}
+
+/** 最近活动项(对应 Rust RecentActivityItem,字段为 snake_case)。 */
+export interface RecentActivityItem {
+  timestamp: string;
+  instance_id: string;
+  instance_name: string;
+  model: string | null;
+  request_type: string;
+  tokens: number;
+  cost: number;
+  time_cost: number;
 }
 
 /** NapCat 登录二维码(对应 Rust NapcatQrCode)。 */
