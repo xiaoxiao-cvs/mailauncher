@@ -1,9 +1,12 @@
 import { motion } from "motion/react";
-import { Clock, Server, History, type LucideIcon } from "lucide-react";
+import { Clock, Server, History, Globe, type LucideIcon } from "lucide-react";
+import { toast } from "sonner";
 import { Surface, TactileButton } from "@/components/ls";
 import { springSoft } from "@/design/motion";
+import { instanceApi } from "@/services/instanceApi";
 
 interface InstanceQuickActionsProps {
+  instanceId: string;
   onOpenConfig: () => void;
   onOpenSchedule: () => void;
   onOpenVersionManager: () => void;
@@ -38,10 +41,26 @@ function ActionTile({
 }
 
 export function InstanceQuickActions({
+  instanceId,
   onOpenConfig,
   onOpenSchedule,
   onOpenVersionManager,
 }: InstanceQuickActionsProps) {
+  // 打开 MaiBot WebUI:向后端取 token 直登 URL,再用临时 <a target=_blank> 交由 Tauri
+  // 按外链方式打开(与引导页外链同一机制,无需 opener 插件)。实例没起时后端会明确报错。
+  const openWebUI = async () => {
+    try {
+      const url = await instanceApi.getInstanceWebUiUrl(instanceId);
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.click();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -59,11 +78,11 @@ export function InstanceQuickActions({
         <div className="grid grid-cols-2 gap-3">
           <ActionTile icon={Server} label="配置" onClick={onOpenConfig} />
           <ActionTile icon={Clock} label="计划" onClick={onOpenSchedule} />
+          <ActionTile icon={Globe} label="打开 WebUI" onClick={openWebUI} />
           <ActionTile
             icon={History}
             label="版本管理"
             onClick={onOpenVersionManager}
-            className="col-span-2"
           />
         </div>
       </Surface>

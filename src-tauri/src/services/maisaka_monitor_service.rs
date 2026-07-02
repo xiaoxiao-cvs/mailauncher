@@ -338,8 +338,18 @@ fn read_webui_token(instance_path: &str) -> Option<String> {
         .map(|s| s.to_string())
 }
 
+/// 拼出 MaiBot WebUI 的 token 直登 URL:`http://{host}:{port}/auth?token={token}`。
+///
+/// WebUI 未启用、配置读不到、或会话令牌尚未生成(实例还没启动/首启)时返回 None。
+/// token 为 hex/base64url,天然 URL-safe,无需再编码。
+pub(crate) fn build_webui_login_url(instance_path: &str) -> Option<String> {
+    let (host, port) = read_webui_config(instance_path)?;
+    let token = read_webui_token(instance_path)?;
+    Some(format!("http://{host}:{port}/auth?token={token}"))
+}
+
 /// 取实例的部署路径(instance_path 为空时回退实例名,与 config_service 口径一致)。
-async fn fetch_instance_path(db: &SqlitePool, instance_id: &str) -> Option<String> {
+pub(crate) async fn fetch_instance_path(db: &SqlitePool, instance_id: &str) -> Option<String> {
     let row: Option<(Option<String>, String)> =
         sqlx::query_as("SELECT instance_path, name FROM instances WHERE id = ?")
             .bind(instance_id)

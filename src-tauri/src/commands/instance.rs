@@ -115,6 +115,28 @@ pub async fn update_instance(
     Ok(updated)
 }
 
+/// 获取实例 MaiBot WebUI 的 token 直登 URL。
+///
+/// 供前端"打开 WebUI"入口用 `<a target=_blank>` 直接打开。实例未启动、或 WebUI 会话令牌
+/// 尚未生成时返回明确错误,提示用户先启动实例。
+#[tauri::command]
+pub async fn get_instance_webui_url(
+    state: State<'_, AppState>,
+    instance_id: String,
+) -> AppResult<String> {
+    let instance_path =
+        crate::services::maisaka_monitor_service::fetch_instance_path(&state.db, &instance_id)
+            .await
+            .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
+    crate::services::maisaka_monitor_service::build_webui_login_url(&instance_path).ok_or_else(
+        || {
+            AppError::InvalidInput(
+                "WebUI 尚未就绪:请先启动实例,待 MaiBot WebUI 生成会话令牌后再打开".to_string(),
+            )
+        },
+    )
+}
+
 /// 删除实例
 #[tauri::command]
 pub async fn delete_instance(

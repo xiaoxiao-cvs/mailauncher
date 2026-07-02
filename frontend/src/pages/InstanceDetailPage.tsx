@@ -206,6 +206,7 @@ export const InstanceDetailPage: React.FC = () => {
       <div className="grid min-h-0 flex-1 grid-cols-12 gap-6">
         <div className="scrollbar-thin col-span-4 flex flex-col gap-6 overflow-y-auto pb-2 pr-2">
           <InstanceQuickActions
+            instanceId={instance.id}
             onOpenConfig={() => setIsConfigModalOpen(true)}
             onOpenSchedule={() => setIsScheduleModalOpen(true)}
             onOpenVersionManager={() => setIsVersionManagerOpen(true)}

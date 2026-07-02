@@ -255,6 +255,14 @@ class InstanceApiClient {
   }
 
   /**
+   * 获取实例 MaiBot WebUI 的 token 直登 URL。
+   * 实例未启动或 WebUI 会话令牌尚未生成时,后端会以明确错误 reject。
+   */
+  async getInstanceWebUiUrl(instanceId: string): Promise<string> {
+    return tauriInvoke<string>("get_instance_webui_url", { instanceId });
+  }
+
+  /**
    * 启动指定组件
    */
   async startComponent(
