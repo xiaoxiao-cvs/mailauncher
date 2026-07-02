@@ -314,6 +314,19 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
       setOriginalQQAccount(selectedQQAccount);
       toast.success("保存成功");
       setHasChanges(false);
+
+      // 软提示:同一 QQ 号若还配在别的实例上,同时在线会互相顶下线
+      if (selectedQQAccount) {
+        const conflicts = await instanceApi.findQqAccountConflicts(
+          selectedQQAccount,
+          instanceId!,
+        );
+        if (conflicts.length > 0) {
+          toast.warning(
+            `该 QQ 号还配置在实例:${conflicts.join("、")}。同号同时在线会互相顶下线`,
+          );
+        }
+      }
     } catch (error) {
       console.error("保存失败:", error);
       toast.error("保存失败");

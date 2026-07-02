@@ -137,6 +137,18 @@ pub async fn get_instance_webui_url(
     )
 }
 
+/// 查询某 QQ 号是否已被其它实例占用(返回冲突实例名列表)。
+///
+/// 供前端在选/存账号时做"同号多开会互相顶下线"的软提示,不做硬拦截。
+#[tauri::command]
+pub async fn find_qq_account_conflicts(
+    state: State<'_, AppState>,
+    qq_account: String,
+    exclude_instance_id: String,
+) -> AppResult<Vec<String>> {
+    instance_service::find_qq_account_conflicts(&state.db, &qq_account, &exclude_instance_id).await
+}
+
 /// 获取实例 NapCat 管理面板的 token 直登 URL。
 ///
 /// 供前端"打开 NapCat 面板"入口用。NapCat 尚未首次运行/登录(webui.json 未生成或缺 token)时

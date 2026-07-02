@@ -166,6 +166,7 @@ pub fn run() {
             commands::instance::get_napcat_accounts,
             commands::instance::get_instance_webui_url,
             commands::instance::get_instance_napcat_url,
+            commands::instance::find_qq_account_conflicts,
             commands::instance::get_maibot_logs,
             commands::instance::get_napcat_qrcode,
             // 进程管理

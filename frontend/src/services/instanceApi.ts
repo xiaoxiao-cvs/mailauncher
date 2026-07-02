@@ -271,6 +271,19 @@ class InstanceApiClient {
   }
 
   /**
+   * 查询某 QQ 号是否已被其它实例占用,返回冲突实例名列表(用于同号多开软提示)。
+   */
+  async findQqAccountConflicts(
+    qqAccount: string,
+    excludeInstanceId: string,
+  ): Promise<string[]> {
+    return tauriInvoke<string[]>("find_qq_account_conflicts", {
+      qqAccount,
+      excludeInstanceId,
+    });
+  }
+
+  /**
    * 启动指定组件
    */
   async startComponent(

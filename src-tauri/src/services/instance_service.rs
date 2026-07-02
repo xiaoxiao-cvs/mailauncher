@@ -103,6 +103,28 @@ pub fn validate_instance_name(name: &str) -> AppResult<()> {
     Ok(())
 }
 
+/// 查询除 `exclude_instance_id` 外,还有哪些实例配置了相同的 QQ 号(返回实例名)。
+///
+/// 用于"同一 QQ 配到多个实例"的软提示:两个实例用同一 QQ 同时在线会互相把对方顶下线。
+/// 这是提示而非硬限制(用户可能只是想切换、不会同时开),故只返回冲突方名单交由前端预警。
+/// 空 QQ 号直接返回空(未配号不算冲突)。
+pub async fn find_qq_account_conflicts(
+    pool: &SqlitePool,
+    qq_account: &str,
+    exclude_instance_id: &str,
+) -> AppResult<Vec<String>> {
+    if qq_account.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    let rows: Vec<(String,)> =
+        sqlx::query_as("SELECT name FROM instances WHERE qq_account = ? AND id != ? ORDER BY name")
+            .bind(qq_account)
+            .bind(exclude_instance_id)
+            .fetch_all(pool)
+            .await?;
+    Ok(rows.into_iter().map(|(name,)| name).collect())
+}
+
 /// 创建新实例
 ///
 /// 逻辑与 Python `InstanceService.create_instance` 保持一致：
@@ -379,6 +401,42 @@ mod tests {
                 "应拒绝: {name:?}"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn find_qq_account_conflicts_excludes_self_and_empty() {
+        let pool = setup_test_db().await;
+        for (id, qq) in [("inst_a", "1001"), ("inst_b", "1001"), ("inst_c", "2002")] {
+            sqlx::query(
+                "INSERT INTO instances (id, name, instance_path, bot_type, qq_account, status, run_time)
+                 VALUES (?, ?, ?, 'maibot', ?, 'stopped', 0)",
+            )
+            .bind(id)
+            .bind(id)
+            .bind(id)
+            .bind(qq)
+            .execute(&pool)
+            .await
+            .expect("插入实例失败");
+        }
+
+        // inst_a 视角:1001 还被 inst_b 占用
+        let conflicts = find_qq_account_conflicts(&pool, "1001", "inst_a")
+            .await
+            .expect("查询失败");
+        assert_eq!(conflicts, vec!["inst_b".to_string()]);
+
+        // 2002 只有 inst_c 自己 → 排除自己后无冲突
+        let none = find_qq_account_conflicts(&pool, "2002", "inst_c")
+            .await
+            .expect("查询失败");
+        assert!(none.is_empty());
+
+        // 空 QQ 不算冲突
+        let empty = find_qq_account_conflicts(&pool, "", "inst_a")
+            .await
+            .expect("查询失败");
+        assert!(empty.is_empty());
     }
 
     async fn setup_test_db() -> SqlitePool {
