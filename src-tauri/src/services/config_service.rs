@@ -814,7 +814,8 @@ mod tests {
                 component_runtime_profiles TEXT,
                 last_error TEXT,
                 last_status_reason TEXT,
-                component_state TEXT
+                component_state TEXT,
+                port_base INTEGER
             )",
         )
         .execute(&pool)

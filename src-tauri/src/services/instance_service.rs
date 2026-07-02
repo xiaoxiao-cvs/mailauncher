@@ -188,6 +188,10 @@ pub async fn create_instance(
     .execute(pool)
     .await?;
 
+    // 创建即分配独立端口块(G10-1),使多实例并发运行时端口不撞;其余 INSERT 路径由启动前
+    // reconcile 惰性兜底分配。
+    crate::services::instance_ports::ensure_instance_ports(pool, &id).await?;
+
     info!("创建实例: {} ({})", data.name, id);
 
     // 返回完整实例数据
@@ -463,7 +467,8 @@ mod tests {
                 component_runtime_profiles TEXT,
                 last_error TEXT,
                 last_status_reason TEXT,
-                component_state TEXT
+                component_state TEXT,
+                port_base INTEGER
             )",
         )
         .execute(&pool)

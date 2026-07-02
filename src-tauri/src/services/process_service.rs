@@ -1522,6 +1522,7 @@ mod tests {
             component_states: Vec::new(),
             cpu_usage: None,
             memory_usage: None,
+            ports: None,
         }
     }
 

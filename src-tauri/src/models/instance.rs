@@ -312,6 +312,9 @@ pub struct Instance {
     pub component_states: Vec<InstanceComponentState>,
     pub cpu_usage: Option<f64>,
     pub memory_usage: Option<f64>,
+    /// 每实例分配的端口块(由 port_base 派生);未分配(尚未启动过的旧实例)为 None。
+    #[serde(default)]
+    pub ports: Option<crate::services::instance_ports::InstancePorts>,
 }
 
 /// 数据库存储结构
@@ -336,6 +339,7 @@ pub struct DbInstanceRecord {
     pub last_error: Option<String>,
     pub last_status_reason: Option<String>,
     pub component_state: Option<String>,
+    pub port_base: Option<i64>,
 }
 
 impl DbInstanceRecord {
@@ -389,6 +393,9 @@ impl DbInstanceRecord {
             component_states,
             cpu_usage: None,
             memory_usage: None,
+            ports: self
+                .port_base
+                .map(crate::services::instance_ports::InstancePorts::from_base),
         }
     }
 }

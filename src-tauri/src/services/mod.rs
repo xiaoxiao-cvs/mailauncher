@@ -7,6 +7,7 @@ pub mod cpu_freq;
 pub mod download_service;
 pub mod gpu_info;
 pub mod install_service;
+pub mod instance_ports;
 pub mod instance_service;
 pub mod lifecycle_service;
 pub mod load_average;

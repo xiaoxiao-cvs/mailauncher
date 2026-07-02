@@ -198,6 +198,9 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
     ensure_column(pool, "instances", "last_status_reason", "TEXT").await?;
     ensure_column(pool, "instances", "component_state", "TEXT").await?;
     ensure_column(pool, "instances", "component_runtime_profiles", "TEXT").await?;
+    // 每实例端口块基址(G10-1):四端口由 port_base 按偏移派生,支持多实例并发不撞口。
+    ensure_column(pool, "instances", "port_base", "INTEGER").await?;
+    backfill_instance_port_base(pool).await?;
 
     sqlx::query("CREATE INDEX IF NOT EXISTS ix_instances_name ON instances (name)")
         .execute(pool)
@@ -362,6 +365,42 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
         .await?;
 
     info!("[数据库] 建表迁移完成（14 张表）");
+    Ok(())
+}
+
+/// 回填既有实例的 port_base(G10-1)。
+///
+/// 新增 port_base 列后既有行为 NULL,这里按创建顺序逐个原子分配连续基址,使升级前就存在的实例
+/// 也进入"每实例独立端口"体系。分配 SQL 与 `instance_ports::ensure_instance_ports` 同构
+/// (子查询取 MAX+STRIDE),逐行执行让每个既有实例拿到递增基址。
+async fn backfill_instance_port_base(pool: &SqlitePool) -> Result<(), AppError> {
+    use crate::services::instance_ports::{PORT_BASE_START, PORT_BASE_STRIDE};
+
+    let null_ids: Vec<(String,)> =
+        sqlx::query_as("SELECT id FROM instances WHERE port_base IS NULL ORDER BY created_at, id")
+            .fetch_all(pool)
+            .await?;
+
+    if null_ids.is_empty() {
+        return Ok(());
+    }
+
+    for (id,) in &null_ids {
+        sqlx::query(
+            r#"UPDATE instances
+               SET port_base = (
+                   SELECT COALESCE(MAX(port_base), ?1 - ?2) + ?2 FROM instances
+               )
+               WHERE id = ?3 AND port_base IS NULL"#,
+        )
+        .bind(PORT_BASE_START)
+        .bind(PORT_BASE_STRIDE)
+        .bind(id)
+        .execute(pool)
+        .await?;
+    }
+
+    info!("[数据库] 已为 {} 个既有实例回填端口基址", null_ids.len());
     Ok(())
 }
 
