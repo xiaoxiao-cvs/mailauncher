@@ -50,6 +50,11 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
 
   const confirm = React.useCallback<ConfirmFn>((opts) => {
     return new Promise<boolean>((resolve) => {
+      // 若上一次确认尚未结算(极端场景:编程式连续调用 confirm()),先以取消收尾旧承诺再接管,
+      // 否则 resolverRef 被覆盖会让旧 Promise 永不结算而泄漏。新的确认取代旧的,语义上等于取消旧的。
+      if (resolverRef.current) {
+        resolverRef.current(false);
+      }
       resolverRef.current = resolve;
       setOptions(opts);
     });

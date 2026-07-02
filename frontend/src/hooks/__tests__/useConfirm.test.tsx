@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import {
+  render,
+  renderHook,
+  screen,
+  waitFor,
+  act,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { ConfirmProvider, useConfirm } from "../useConfirm";
@@ -67,6 +73,23 @@ describe("useConfirm / ConfirmProvider", () => {
     await user.keyboard("{Escape}");
 
     await waitFor(() => expect(onResult).toHaveBeenCalledWith(false));
+  });
+
+  it("上一次确认尚未结算时再次 confirm(),旧承诺以 false 收尾而非泄漏", async () => {
+    const { result } = renderHook(() => useConfirm(), {
+      wrapper: ({ children }) => <ConfirmProvider>{children}</ConfirmProvider>,
+    });
+
+    let first!: Promise<boolean>;
+    act(() => {
+      first = result.current({ description: "第一次" });
+    });
+    // 第二次调用应接管 resolver,并把第一个承诺以取消(false)收尾。
+    act(() => {
+      void result.current({ description: "第二次" });
+    });
+
+    await expect(first).resolves.toBe(false);
   });
 
   it("useConfirm 在 <ConfirmProvider> 外使用时抛错", () => {
