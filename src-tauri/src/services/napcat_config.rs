@@ -17,6 +17,29 @@ use crate::errors::{AppError, AppResult};
 /// 适配器连入的端口,须与 `install_service` 写给适配器 config.toml 的 `napcat_server.port` 一致。
 const ADAPTER_WS_PORT: i64 = 3001;
 
+/// 为实例推导正向 WS 的鉴权 token。
+///
+/// NapCat 服务端与 MaiBot 适配器客户端两侧的 token 必须一致才能鉴权连上。两处配置在不同时机
+/// 写入(适配器 config 在安装期、NapCat onebot 在登录后),无法互相读取,故用实例目录名 + 域分隔
+/// 经 sha256 确定性推导:同一实例两侧算出的 token 恒等、非空,且不同实例互不相同。取实例目录名而非
+/// 绝对路径,避免两侧路径写法差异(分隔符/末尾斜杠)导致不一致。
+pub fn derive_ws_token(instance_root: &Path) -> String {
+    use sha2::{Digest, Sha256};
+    let seed = instance_root
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| instance_root.to_string_lossy().to_string());
+    let mut hasher = Sha256::new();
+    hasher.update(seed.as_bytes());
+    hasher.update(b"|mailauncher-onebot-ws");
+    let hex: String = hasher
+        .finalize()
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect();
+    hex[..32].to_string()
+}
+
 /// 幂等确保实例下所有 NapCat onebot11 配置都开了 127.0.0.1:3001 正向 WS;返回是否有文件被改动。
 ///
 /// 扫描 `<instance_root>/NapCat/config/onebot11_*.json`,`network.websocketServers` 里缺 3001
@@ -28,6 +51,7 @@ pub fn ensure_napcat_ws(instance_root: &Path) -> AppResult<bool> {
         return Ok(false);
     }
 
+    let token = derive_ws_token(instance_root);
     let mut patched_any = false;
     for entry in std::fs::read_dir(&config_dir)?.flatten() {
         let path = entry.path();
@@ -38,7 +62,7 @@ pub fn ensure_napcat_ws(instance_root: &Path) -> AppResult<bool> {
         if !is_onebot {
             continue;
         }
-        match patch_onebot_file(&path) {
+        match patch_onebot_file(&path, &token) {
             Ok(true) => {
                 patched_any = true;
                 info!("已为 NapCat 注入 {} 正向 WS: {:?}", ADAPTER_WS_PORT, path);
@@ -52,7 +76,7 @@ pub fn ensure_napcat_ws(instance_root: &Path) -> AppResult<bool> {
 
 /// 往单个 onebot11 文件注入 3001 正向 WS(已存在该端口条目则不动),返回是否改动。
 /// 整文件读入 serde_json::Value 后只往 websocketServers 数组追加,其余字段原样保留。
-fn patch_onebot_file(path: &Path) -> AppResult<bool> {
+fn patch_onebot_file(path: &Path, token: &str) -> AppResult<bool> {
     let text = std::fs::read_to_string(path)?;
     let mut root: serde_json::Value = serde_json::from_str(&text)?;
 
@@ -79,7 +103,7 @@ fn patch_onebot_file(path: &Path) -> AppResult<bool> {
         "reportSelfMessage": false,
         "enableForcePushEvent": false,
         "messagePostFormat": "array",
-        "token": "",
+        "token": token,
         "debug": false,
         "heartInterval": 30000
     }));
@@ -107,4 +131,59 @@ pub fn spawn_ws_watcher(instance_root: std::path::PathBuf) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn derive_ws_token_is_deterministic_and_nonempty() {
+        let a = derive_ws_token(&PathBuf::from("/data/instances/inst_alpha"));
+        let b = derive_ws_token(&PathBuf::from("/data/instances/inst_alpha"));
+        assert_eq!(a, b, "同一实例两侧推导的 token 必须相等");
+        assert_eq!(a.len(), 32);
+    }
+
+    #[test]
+    fn derive_ws_token_depends_only_on_instance_name() {
+        // 前缀不同、实例目录名相同 → token 相同(两侧路径写法差异不影响一致性)
+        let a = derive_ws_token(&PathBuf::from("/opt/x/instances/inst_alpha"));
+        let b = derive_ws_token(&PathBuf::from("/var/data/inst_alpha"));
+        assert_eq!(a, b);
+        // 不同实例名 → token 不同
+        let c = derive_ws_token(&PathBuf::from("/opt/x/instances/inst_beta"));
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn ensure_napcat_ws_injects_derived_nonempty_token() {
+        let dir = tempfile::tempdir().expect("临时目录");
+        let instance_root = dir.path();
+        let config_dir = instance_root.join("NapCat").join("config");
+        std::fs::create_dir_all(&config_dir).expect("建 config 目录");
+        std::fs::write(
+            config_dir.join("onebot11_123.json"),
+            r#"{"network":{"websocketServers":[]}}"#,
+        )
+        .expect("写 onebot json");
+
+        assert!(ensure_napcat_ws(instance_root).expect("注入失败"));
+
+        let content =
+            std::fs::read_to_string(config_dir.join("onebot11_123.json")).expect("读取");
+        let root: serde_json::Value = serde_json::from_str(&content).expect("解析");
+        let entry = root["network"]["websocketServers"]
+            .as_array()
+            .expect("数组")
+            .iter()
+            .find(|s| s["port"].as_i64() == Some(ADAPTER_WS_PORT))
+            .expect("应有 3001 条目")
+            .clone();
+        let token = entry["token"].as_str().expect("token 字段");
+        assert!(!token.is_empty(), "token 必须非空");
+        // 与适配器侧相同 instance_root 的确定性推导一致 → 两侧 token 相等
+        assert_eq!(token, derive_ws_token(instance_root));
+    }
 }

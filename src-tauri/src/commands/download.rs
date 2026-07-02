@@ -453,8 +453,13 @@ async fn execute_download_task(
                     "正在配置 NapCat Adapter...",
                     "configuring",
                 );
-                install_service::setup_adapter_config(&component_dir, app_handle, &event_name)
-                    .await?;
+                install_service::setup_adapter_config(
+                    &component_dir,
+                    &instance_dir,
+                    app_handle,
+                    &event_name,
+                )
+                .await?;
             }
 
             DownloadItemType::Napcat => {

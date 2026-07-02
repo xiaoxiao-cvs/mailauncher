@@ -458,7 +458,7 @@ pub async fn setup_maibot_config(
 /// 写入 NapCat 适配器插件 config.toml（纯文件操作，便于测试）。
 ///
 /// 返回是否实际写入；若文件已存在则跳过并返回 false。
-fn write_adapter_plugin_config(adapter_dir: &Path) -> AppResult<bool> {
+fn write_adapter_plugin_config(adapter_dir: &Path, token: &str) -> AppResult<bool> {
     let target = adapter_dir.join("config.toml");
     if target.exists() {
         info!("适配器 config.toml 已存在，跳过生成: {:?}", target);
@@ -473,7 +473,8 @@ fn write_adapter_plugin_config(adapter_dir: &Path) -> AppResult<bool> {
     doc["plugin"]["config_version"] = value(ADAPTER_SUPPORTED_CONFIG_VERSION);
     doc["napcat_server"]["host"] = value(ADAPTER_DEFAULT_NAPCAT_HOST);
     doc["napcat_server"]["port"] = value(ADAPTER_DEFAULT_NAPCAT_PORT);
-    doc["napcat_server"]["token"] = value("");
+    // token 与 NapCat 正向 WS 服务端两侧必须一致,统一由 napcat_config::derive_ws_token 按实例确定性推导
+    doc["napcat_server"]["token"] = value(token);
 
     std::fs::write(&target, doc.to_string())
         .map_err(|e| AppError::FileSystem(format!("写入适配器 config.toml 失败: {}", e)))?;
@@ -490,12 +491,14 @@ fn write_adapter_plugin_config(adapter_dir: &Path) -> AppResult<bool> {
 ///   由配置面板后续调整）。
 pub async fn setup_adapter_config(
     adapter_dir: &Path,
+    instance_root: &Path,
     app_handle: &AppHandle,
     event_name: &str,
 ) -> AppResult<()> {
     info!("配置 NapCat 适配器插件: {:?}", adapter_dir);
 
-    if write_adapter_plugin_config(adapter_dir)? {
+    let token = crate::services::napcat_config::derive_ws_token(instance_root);
+    if write_adapter_plugin_config(adapter_dir, &token)? {
         let _ = app_handle.emit(event_name, "已生成 NapCat 适配器 config.toml");
     }
     Ok(())
@@ -822,7 +825,8 @@ mod tests {
             .join("plugins")
             .join("MaiBot-Napcat-Adapter");
 
-        let written = write_adapter_plugin_config(&adapter_dir).expect("写适配器配置失败");
+        let written =
+            write_adapter_plugin_config(&adapter_dir, "deadbeeftoken").expect("写适配器配置失败");
         assert!(written);
 
         let content = fs::read_to_string(adapter_dir.join("config.toml")).expect("读取失败");
@@ -833,7 +837,8 @@ mod tests {
         assert_eq!(doc["plugin"]["config_version"].as_str(), Some("0.1.0"));
         assert_eq!(doc["napcat_server"]["host"].as_str(), Some("127.0.0.1"));
         assert_eq!(doc["napcat_server"]["port"].as_integer(), Some(3001));
-        assert_eq!(doc["napcat_server"]["token"].as_str(), Some(""));
+        // token 由调用方传入(实例确定性推导),写入后应原样落库、非空
+        assert_eq!(doc["napcat_server"]["token"].as_str(), Some("deadbeeftoken"));
     }
 
     #[test]
@@ -846,7 +851,7 @@ mod tests {
         )
         .expect("写已有配置失败");
 
-        let written = write_adapter_plugin_config(adapter_dir).expect("调用失败");
+        let written = write_adapter_plugin_config(adapter_dir, "tok").expect("调用失败");
         assert!(!written, "已存在配置时应跳过");
 
         let content = fs::read_to_string(adapter_dir.join("config.toml")).expect("读取失败");
