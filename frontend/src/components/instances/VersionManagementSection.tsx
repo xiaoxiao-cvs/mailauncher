@@ -18,6 +18,7 @@ import {
   type ComponentCommitInfo,
 } from "@/services/versionMaintenanceApi";
 import { useTransportEvent } from "@/hooks/useTransportEvent";
+import { useConfirm } from "@/hooks/useConfirm";
 import {
   GitCommit,
   ArrowRight,
@@ -45,6 +46,7 @@ type DisplayComponentType = keyof typeof COMPONENT_MAP;
 export const VersionManagementSection: React.FC<
   VersionManagementSectionProps
 > = ({ instanceId }) => {
+  const confirm = useConfirm();
   const [activeTab] = useState<DisplayComponentType>("MaiBot");
   const [isVisualizerOpen, setIsVisualizerOpen] = useState(false);
   // 更新检查走网络,默认不查;用户点"检查"后置真,触发该组件的 check_component_update。
@@ -122,13 +124,13 @@ export const VersionManagementSection: React.FC<
   const [isResettingData, setIsResettingData] = useState(false);
 
   const handleResetData = async () => {
-    if (
-      !window.confirm(
+    const ok = await confirm({
+      description:
         "确定重置实例数据吗？将清空 MaiBot/data 目录下的聊天记录、知识库等运行数据，此操作不可撤销。配置与代码不受影响，实例需已停止。",
-      )
-    ) {
-      return;
-    }
+      confirmText: "重置数据",
+      destructive: true,
+    });
+    if (!ok) return;
     setIsResettingData(true);
     try {
       await resetInstanceData(instanceId);
@@ -387,6 +389,7 @@ const GitVisualizerModal: React.FC<{
   instanceId: string;
   component: string;
 }> = ({ isOpen, onClose, local, updateCheck, name, instanceId, component }) => {
+  const confirm = useConfirm();
   const isUpToDate = updateCheck ? !updateCheck.has_update : true;
   const currentCommit =
     updateCheck?.current_commit?.slice(0, 7) ||
@@ -418,13 +421,12 @@ const GitVisualizerModal: React.FC<{
 
   const handleRollback = async () => {
     if (!selectedCommit) return;
-    if (
-      !window.confirm(
-        `确定回滚 ${component} 到 commit ${selectedCommit.slice(0, 7)} 吗？回滚前会自动备份当前配置与数据。`,
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      description: `确定回滚 ${component} 到 commit ${selectedCommit.slice(0, 7)} 吗？回滚前会自动备份当前配置与数据。`,
+      confirmText: "回滚",
+      destructive: true,
+    });
+    if (!ok) return;
     setIsRollingBack(true);
     try {
       await rollbackComponent(instanceId, component, selectedCommit);

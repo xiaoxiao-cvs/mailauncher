@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { Surface, TactileButton } from "@/components/ls";
 import { useOnboardingState } from "@/hooks/useOnboardingState";
+import { useConfirm } from "@/hooks/useConfirm";
 
 /**
  * 引导重置区:清除 onboarding_completed 标记并把应用带回引导流程。
@@ -12,11 +13,15 @@ import { useOnboardingState } from "@/hooks/useOnboardingState";
  */
 export function OnboardingResetSection() {
   const { reset } = useOnboardingState();
+  const confirm = useConfirm();
 
-  const handleReset = () => {
-    const confirmed = window.confirm(
-      "确定要重新开始引导流程吗？应用将跳转到引导页，需要重新走一遍环境检测等步骤。",
-    );
+  const handleReset = async () => {
+    const confirmed = await confirm({
+      title: "重置引导流程",
+      description:
+        "确定要重新开始引导流程吗？应用将跳转到引导页，需要重新走一遍环境检测等步骤。",
+      confirmText: "重新引导",
+    });
     if (!confirmed) return;
 
     toast.info("即将重新进入引导流程...");

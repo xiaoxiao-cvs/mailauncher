@@ -13,6 +13,7 @@ import {
   useClearLogsMutation,
 } from "@/hooks/queries/useLogQueries";
 import { useState, type CSSProperties } from "react";
+import { useConfirm } from "@/hooks/useConfirm";
 
 interface LogViewerProps {
   className?: string;
@@ -44,6 +45,7 @@ function levelStyle(level: string): CSSProperties {
 
 export function LogViewer({ className }: LogViewerProps) {
   const [selectedLog, setSelectedLog] = useState<string>("");
+  const confirm = useConfirm();
 
   const {
     data: logs = [],
@@ -60,15 +62,20 @@ export function LogViewer({ className }: LogViewerProps) {
     }
   };
 
-  const handleClear = () => {
-    if (selectedLog && confirm("确定要清空所有日志吗？")) {
-      clearMutation.mutate(undefined, {
-        onSuccess: () => {
-          setSelectedLog("");
-          void loadLogs();
-        },
-      });
-    }
+  const handleClear = async () => {
+    if (!selectedLog) return;
+    const ok = await confirm({
+      description: "确定要清空所有日志吗？",
+      confirmText: "清空",
+      destructive: true,
+    });
+    if (!ok) return;
+    clearMutation.mutate(undefined, {
+      onSuccess: () => {
+        setSelectedLog("");
+        void loadLogs();
+      },
+    });
   };
 
   const getParsedLogs = () => {

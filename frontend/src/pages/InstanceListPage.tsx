@@ -18,9 +18,11 @@ import {
   useDeleteInstanceMutation,
   useUpdateInstanceMutation,
 } from "@/hooks/queries/useInstanceQueries";
+import { useConfirm } from "@/hooks/useConfirm";
 
 export const InstanceListPage: React.FC = () => {
   const navigate = useNavigate();
+  const confirm = useConfirm();
 
   // 使用 React Query hooks 获取数据
   const {
@@ -155,9 +157,12 @@ export const InstanceListPage: React.FC = () => {
 
   // 处理删除实例
   const handleDelete = async (id: string) => {
-    if (!confirm("确定要删除这个实例吗？此操作不可恢复。")) {
-      return;
-    }
+    const ok = await confirm({
+      description: "确定要删除这个实例吗？此操作不可恢复。",
+      confirmText: "删除",
+      destructive: true,
+    });
+    if (!ok) return;
 
     setActionLoading(id);
     try {

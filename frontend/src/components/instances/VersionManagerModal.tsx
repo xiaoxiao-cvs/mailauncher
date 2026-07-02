@@ -23,6 +23,7 @@ import {
 import { VersionComparisonTab, BackupRestoreTab } from "./version";
 import { toast } from "sonner";
 import { createManualBackup } from "@/services/versionMaintenanceApi";
+import { useConfirm } from "@/hooks/useConfirm";
 
 interface VersionManagerModalProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ export const VersionManagerModal: React.FC<VersionManagerModalProps> = ({
   onClose,
   instanceId,
 }) => {
+  const confirm = useConfirm();
   const [selectedComponent, setSelectedComponent] = useState<string | null>(
     null,
   );
@@ -82,10 +84,13 @@ export const VersionManagerModal: React.FC<VersionManagerModalProps> = ({
   };
 
   const handleRestore = async (backupId: string) => {
-    if (
-      !confirm("确定恢复此备份吗？将用备份覆盖当前的配置与数据，代码不受影响。")
-    )
-      return;
+    const ok = await confirm({
+      description:
+        "确定恢复此备份吗？将用备份覆盖当前的配置与数据，代码不受影响。",
+      confirmText: "恢复",
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await restoreMutation.mutateAsync({ instanceId, backupId });

@@ -26,6 +26,7 @@ import {
   ScheduleUpdate,
 } from "@/services/scheduleApi";
 import { ScheduleListView, ScheduleFormView } from "@/components/schedule";
+import { useConfirm } from "@/hooks/useConfirm";
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -40,6 +41,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   onClose,
   instanceId,
 }) => {
+  const confirm = useConfirm();
   const [formMode, setFormMode] = useState<FormMode>("view");
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
 
@@ -196,13 +198,17 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
   // 删除任务
   const handleDelete = async (scheduleId: string) => {
-    if (confirm("确定要删除这个计划任务吗？")) {
-      try {
-        await deleteMutation.mutateAsync(scheduleId);
-        refetch();
-      } catch {
-        // Error handled by mutation
-      }
+    const ok = await confirm({
+      description: "确定要删除这个计划任务吗？",
+      confirmText: "删除",
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteMutation.mutateAsync(scheduleId);
+      refetch();
+    } catch {
+      // Error handled by mutation
     }
   };
 

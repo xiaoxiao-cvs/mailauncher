@@ -21,6 +21,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { MainLayout } from "@/layouts/MainLayout";
 import logger, { routerLogger } from "@/utils/logger";
 import { useOnboardingState } from "@/hooks/useOnboardingState";
+import { ConfirmProvider } from "@/hooks/useConfirm";
 import { startMetrics } from "@/services/metrics/timeSeriesStore";
 import { Toaster } from "sonner";
 import { useTheme } from "@/components/theme";
@@ -127,9 +128,12 @@ function App() {
         <InstallTaskProvider>
           {/* 全局 WebSocket 管理器 - 在任何页面都保持连接 */}
           <GlobalWebSocketManager />
-          <ErrorBoundary>
-            <AppRoutes />
-          </ErrorBoundary>
+          {/* 全局确认对话框出口:各处 useConfirm() 弹出的统一样式确认面在此承载 */}
+          <ConfirmProvider>
+            <ErrorBoundary>
+              <AppRoutes />
+            </ErrorBoundary>
+          </ConfirmProvider>
         </InstallTaskProvider>
       </NotificationProvider>
     </Router>

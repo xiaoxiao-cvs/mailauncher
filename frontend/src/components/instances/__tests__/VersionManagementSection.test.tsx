@@ -3,6 +3,14 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { VersionManagementSection } from "../VersionManagementSection";
 
+const mockConfirm = vi.fn();
+
+// 确认对话框已迁移到全局 useConfirm();mock 掉该 hook,让处理器拿到可控 confirm(),
+// 无需在测试里挂 ConfirmProvider。GitVisualizerModal 的回滚确认同源共用此 mock。
+vi.mock("@/hooks/useConfirm", () => ({
+  useConfirm: () => mockConfirm,
+}));
+
 vi.mock("@/hooks/queries/useVersionQueries", () => ({
   useComponentsVersionQuery: vi.fn(),
   useCheckComponentUpdateQuery: vi.fn(),
@@ -119,18 +127,18 @@ describe("VersionManagementSection", () => {
 
   it("点击重置数据时先弹确认框,取消则不调用后端", async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, "confirm").mockReturnValue(false);
+    mockConfirm.mockResolvedValue(false);
 
     render(<VersionManagementSection instanceId="inst_001" />);
     await user.click(screen.getByRole("button", { name: /重置数据/ }));
 
-    expect(window.confirm).toHaveBeenCalled();
+    await waitFor(() => expect(mockConfirm).toHaveBeenCalled());
     expect(resetInstanceData).not.toHaveBeenCalled();
   });
 
   it("确认重置数据后调用 resetInstanceData 并提示成功", async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+    mockConfirm.mockResolvedValue(true);
     vi.mocked(resetInstanceData).mockResolvedValue(undefined);
 
     render(<VersionManagementSection instanceId="inst_001" />);
@@ -144,7 +152,7 @@ describe("VersionManagementSection", () => {
 
   it("重置数据被后端拒绝(实例运行中)时提示后端返回的错误", async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+    mockConfirm.mockResolvedValue(true);
     vi.mocked(resetInstanceData).mockRejectedValue(
       new Error("实例正在运行,请先停止实例后再重置数据"),
     );
