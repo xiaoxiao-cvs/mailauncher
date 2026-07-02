@@ -47,10 +47,66 @@ pub async fn get_instance(pool: &SqlitePool, id: &str) -> AppResult<Option<Insta
     Ok(record.map(DbInstanceRecord::into_instance))
 }
 
+/// Windows 保留设备名(不区分大小写,带任意扩展名也仍被保留)。
+const WINDOWS_RESERVED_NAMES: &[&str] = &[
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+];
+
+/// 校验实例名能否安全用作磁盘目录名。
+///
+/// 实例名直接作为目录名(instance_path = name)。未消毒会导致:路径穿越(`..`)、
+/// 落到非预期目录(含分隔符)、Windows 上创建失败(非法字符/保留名)或被静默改写
+/// (结尾点或空格被去除,造成目录名与数据库记录不一致)。非法即拒绝并给出明确原因,不静默改写。
+pub fn validate_instance_name(name: &str) -> AppResult<()> {
+    if name.trim().is_empty() {
+        return Err(AppError::InvalidInput("实例名不能为空".to_string()));
+    }
+    if name.trim() != name {
+        return Err(AppError::InvalidInput("实例名首尾不能包含空白字符".to_string()));
+    }
+    if name.chars().count() > 64 {
+        return Err(AppError::InvalidInput("实例名过长(最多 64 字符)".to_string()));
+    }
+    if name.contains('/') || name.contains('\\') {
+        return Err(AppError::InvalidInput(
+            "实例名不能包含路径分隔符 / 或 \\".to_string(),
+        ));
+    }
+    if name.contains("..") {
+        return Err(AppError::InvalidInput("实例名不能包含 '..'".to_string()));
+    }
+    const INVALID_CHARS: &[char] = &[':', '*', '?', '"', '<', '>', '|'];
+    if let Some(c) = name
+        .chars()
+        .find(|c| INVALID_CHARS.contains(c) || c.is_control())
+    {
+        return Err(AppError::InvalidInput(format!(
+            "实例名不能包含非法字符 '{}'",
+            c
+        )));
+    }
+    if name.ends_with('.') || name.ends_with(' ') {
+        return Err(AppError::InvalidInput("实例名不能以点或空格结尾".to_string()));
+    }
+    // 保留名判定取第一个点之前的主名(Windows 下 "CON.txt" 同样被保留)
+    let stem = name.split('.').next().unwrap_or(name);
+    if WINDOWS_RESERVED_NAMES
+        .iter()
+        .any(|r| r.eq_ignore_ascii_case(stem))
+    {
+        return Err(AppError::InvalidInput(format!(
+            "实例名 '{}' 是系统保留名,请换一个",
+            name
+        )));
+    }
+    Ok(())
+}
+
 /// 创建新实例
 ///
 /// 逻辑与 Python `InstanceService.create_instance` 保持一致：
-/// 1. 校验名称唯一性
+/// 1. 校验名称合法与唯一性
 /// 2. 生成 inst_xxx ID
 /// 3. 创建实例目录
 /// 4. 写入数据库
@@ -58,6 +114,9 @@ pub async fn create_instance(
     pool: &SqlitePool,
     data: CreateInstanceRequest,
 ) -> AppResult<Instance> {
+    // 0. 校验名称合法(实例名将直接作为磁盘目录名,须防路径穿越/非法字符/保留名)
+    validate_instance_name(&data.name)?;
+
     // 1. 校验名称唯一性
     let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM instances WHERE name = ?")
         .bind(&data.name)
@@ -291,6 +350,36 @@ pub async fn get_instance_status(
 mod tests {
     use super::*;
     use sqlx::SqlitePool;
+
+    #[test]
+    fn validate_instance_name_accepts_normal_names() {
+        for name in ["my_bot", "麦麦-01", "bot.v2", "Instance 01 内含空格"] {
+            assert!(validate_instance_name(name).is_ok(), "应接受: {name}");
+        }
+    }
+
+    #[test]
+    fn validate_instance_name_rejects_dangerous_names() {
+        for name in [
+            "",
+            "   ",
+            "../evil",
+            "a/b",
+            "a\\b",
+            "CON",
+            "nul.txt",
+            "trailing ",
+            "trailingdot.",
+            "a:b",
+            "a*b",
+            "a|b",
+        ] {
+            assert!(
+                validate_instance_name(name).is_err(),
+                "应拒绝: {name:?}"
+            );
+        }
+    }
 
     async fn setup_test_db() -> SqlitePool {
         let pool = SqlitePool::connect("sqlite::memory:")
