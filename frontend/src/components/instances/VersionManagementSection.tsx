@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import {
   useComponentsVersionQuery,
@@ -9,8 +10,25 @@ import {
   ComponentVersionInfo,
   ComponentUpdateCheck,
 } from "@/services/versionApi";
-import { GitCommit, ArrowRight, Loader2, GitBranch, X } from "lucide-react";
-import { Surface, TactileButton, Badge } from "@/components/ls";
+import {
+  reinstallInstanceDependencies,
+  resetInstanceData,
+  listComponentCommits,
+  rollbackComponent,
+  type ComponentCommitInfo,
+} from "@/services/versionMaintenanceApi";
+import { useTransportEvent } from "@/hooks/useTransportEvent";
+import {
+  GitCommit,
+  ArrowRight,
+  Loader2,
+  GitBranch,
+  X,
+  RefreshCw,
+  Trash2,
+  History,
+} from "lucide-react";
+import { Surface, TactileButton, Badge, Select } from "@/components/ls";
 import { springSoft, springSettle } from "@/design/motion";
 
 interface VersionManagementSectionProps {
@@ -63,10 +81,62 @@ export const VersionManagementSection: React.FC<
         instanceId,
         component: componentName,
         createBackup: true,
-        updateMethod: "git",
+        // P2-22:按本地记录的安装方式动态选择更新方式,而非写死 git
+        // (release 型组件如 NapCat 由后端 check_component_update / update_component
+        // 自行按 install_method 分支处理,这里仅为该字段的展示/意图标注保持一致)。
+        updateMethod:
+          localData?.install_method === "release" ? "release" : "git",
       });
     } catch (error) {
       console.error("Update failed:", error);
+    }
+  };
+
+  // ==================== 重装依赖(P2-19) ====================
+
+  const [isReinstalling, setIsReinstalling] = useState(false);
+  const [reinstallLogs, setReinstallLogs] = useState<string[]>([]);
+
+  useTransportEvent<string>(
+    isReinstalling ? `reinstall-deps-log-${instanceId}` : null,
+    (line) => {
+      setReinstallLogs((prev) => [...prev.slice(-49), line]);
+    },
+  );
+
+  const handleReinstallDependencies = async () => {
+    setReinstallLogs([]);
+    setIsReinstalling(true);
+    try {
+      await reinstallInstanceDependencies(instanceId);
+      toast.success("依赖重装完成");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsReinstalling(false);
+    }
+  };
+
+  // ==================== 重置实例数据(P1-13) ====================
+
+  const [isResettingData, setIsResettingData] = useState(false);
+
+  const handleResetData = async () => {
+    if (
+      !window.confirm(
+        "确定重置实例数据吗？将清空 MaiBot/data 目录下的聊天记录、知识库等运行数据，此操作不可撤销。配置与代码不受影响，实例需已停止。",
+      )
+    ) {
+      return;
+    }
+    setIsResettingData(true);
+    try {
+      await resetInstanceData(instanceId);
+      toast.success("实例数据已重置");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsResettingData(false);
     }
   };
 
@@ -233,12 +303,68 @@ export const VersionManagementSection: React.FC<
           </div>
         </div>
 
+        {/* 维护操作(P2-19 重装依赖 / P1-13 重置数据):不常用、有一定破坏性,单独一行拉开与常规操作的距离 */}
+        <div
+          className="flex items-center justify-between gap-2 pt-2"
+          style={{ borderTop: "1px solid var(--ls-hairline)" }}
+        >
+          <TactileButton
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleReinstallDependencies();
+            }}
+            disabled={isReinstalling}
+            className="px-2 py-1 text-xs disabled:opacity-50"
+          >
+            {isReinstalling ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3" />
+            )}
+            重装依赖
+          </TactileButton>
+          <TactileButton
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleResetData();
+            }}
+            disabled={isResettingData}
+            className="px-2 py-1 text-xs disabled:opacity-50"
+            style={{ color: "var(--ls-danger)" }}
+          >
+            {isResettingData ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Trash2 className="h-3 w-3" />
+            )}
+            重置数据
+          </TactileButton>
+        </div>
+
+        {(isReinstalling || reinstallLogs.length > 0) && (
+          <Surface
+            variant="inset"
+            className="max-h-32 overflow-y-auto p-2 font-mono text-[11px]"
+            style={{ color: "var(--ls-ink-soft)" }}
+          >
+            {reinstallLogs.length === 0 ? (
+              <div>正在启动...</div>
+            ) : (
+              reinstallLogs.map((line, i) => <div key={i}>{line}</div>)
+            )}
+          </Surface>
+        )}
+
         <GitVisualizerModal
           isOpen={isVisualizerOpen}
           onClose={() => setIsVisualizerOpen(false)}
           local={localData}
           updateCheck={updateCheck}
           name={name}
+          instanceId={instanceId}
+          component={COMPONENT_MAP[name]}
         />
       </motion.div>
     );
@@ -258,13 +384,59 @@ const GitVisualizerModal: React.FC<{
   local: ComponentVersionInfo;
   updateCheck: ComponentUpdateCheck | undefined;
   name: string;
-}> = ({ isOpen, onClose, local, updateCheck, name }) => {
+  instanceId: string;
+  component: string;
+}> = ({ isOpen, onClose, local, updateCheck, name, instanceId, component }) => {
   const isUpToDate = updateCheck ? !updateCheck.has_update : true;
   const currentCommit =
     updateCheck?.current_commit?.slice(0, 7) ||
     local.commit_hash?.slice(0, 7) ||
     "—";
   const latestCommit = updateCheck?.latest_commit?.slice(0, 7) || "—";
+
+  // ==================== 历史版本回滚(P2-23) ====================
+
+  const [isRollbackOpen, setIsRollbackOpen] = useState(false);
+  const [isLoadingCommits, setIsLoadingCommits] = useState(false);
+  const [commits, setCommits] = useState<ComponentCommitInfo[]>([]);
+  const [selectedCommit, setSelectedCommit] = useState<string>("");
+  const [isRollingBack, setIsRollingBack] = useState(false);
+
+  const openRollbackPicker = async () => {
+    setIsRollbackOpen(true);
+    if (commits.length > 0) return;
+    setIsLoadingCommits(true);
+    try {
+      const list = await listComponentCommits(instanceId, component);
+      setCommits(list);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsLoadingCommits(false);
+    }
+  };
+
+  const handleRollback = async () => {
+    if (!selectedCommit) return;
+    if (
+      !window.confirm(
+        `确定回滚 ${component} 到 commit ${selectedCommit.slice(0, 7)} 吗？回滚前会自动备份当前配置与数据。`,
+      )
+    ) {
+      return;
+    }
+    setIsRollingBack(true);
+    try {
+      await rollbackComponent(instanceId, component, selectedCommit);
+      toast.success("回滚完成");
+      setIsRollbackOpen(false);
+      setSelectedCommit("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsRollingBack(false);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -438,6 +610,75 @@ const GitVisualizerModal: React.FC<{
                     )}
                   </div>
                 )}
+
+                {/* 历史版本回滚(P2-23) */}
+                <div
+                  className="mt-6 pt-4"
+                  style={{ borderTop: "1px solid var(--ls-hairline)" }}
+                >
+                  {!isRollbackOpen ? (
+                    <TactileButton
+                      variant="ghost"
+                      onClick={openRollbackPicker}
+                      className="px-2 py-1 text-xs"
+                    >
+                      <History className="h-3.5 w-3.5" />
+                      回滚到历史版本
+                    </TactileButton>
+                  ) : (
+                    <div className="space-y-2">
+                      <div
+                        className="flex items-center gap-1.5 text-xs"
+                        style={{ color: "var(--ls-ink-soft)" }}
+                      >
+                        <History className="h-3.5 w-3.5" />
+                        选择历史提交(本地仓库可见范围,可能不含完整远端历史)
+                      </div>
+                      {isLoadingCommits ? (
+                        <div
+                          className="flex items-center gap-2 text-xs"
+                          style={{ color: "var(--ls-ink-faint)" }}
+                        >
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          加载历史提交中...
+                        </div>
+                      ) : commits.length === 0 ? (
+                        <div
+                          className="text-xs"
+                          style={{ color: "var(--ls-ink-faint)" }}
+                        >
+                          未获取到历史提交
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Select
+                            className="max-w-xs"
+                            placeholder="选择目标 commit"
+                            value={selectedCommit}
+                            onValueChange={setSelectedCommit}
+                            options={commits.map((c) => ({
+                              value: c.hash,
+                              label: `${c.shortHash} · ${c.subject}`,
+                            }))}
+                          />
+                          <TactileButton
+                            variant="solid"
+                            onClick={handleRollback}
+                            disabled={!selectedCommit || isRollingBack}
+                            className="px-2 py-1 text-xs disabled:opacity-50"
+                          >
+                            {isRollingBack ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <History className="h-3 w-3" />
+                            )}
+                            回滚到此版本
+                          </TactileButton>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </Surface>
           </motion.div>

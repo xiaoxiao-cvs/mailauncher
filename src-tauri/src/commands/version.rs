@@ -8,7 +8,7 @@ use crate::errors::{AppError, AppResult};
 use crate::models::download::DownloadItemType;
 use crate::models::update::*;
 use crate::models::{SuccessResponse, UpdateHistory, VersionBackup};
-use crate::services::version_service;
+use crate::services::{install_service, version_service};
 use crate::state::AppState;
 
 // ==================== 辅助：获取实例基础目录 ====================
@@ -44,6 +44,10 @@ pub async fn get_instance_components_version(
 /// 检查单个组件是否有更新
 ///
 /// 对应 Python GET `/instances/{id}/components/{component}/check-update`
+///
+/// Release 型组件(目前仅 NapCat)按 Release tag 走独立检查分支(见 P2-22)：
+/// 该类组件不是 git 检出，用 commit 对比逻辑既拿不到本地 commit，也与用户实际安装的
+/// Release 包版本无关。
 #[tauri::command]
 pub async fn check_component_update(
     state: State<'_, AppState>,
@@ -52,12 +56,26 @@ pub async fn check_component_update(
 ) -> AppResult<ComponentUpdateCheck> {
     let item_type = parse_component_type(&component)?;
     let base_dir = resolve_instance_base_dir(&state.db, &instance_id).await?;
-    version_service::check_component_update(&state.db, &instance_id, &item_type, &base_dir).await
+    let repo = version_service::get_github_repo(&item_type);
+
+    if repo.has_releases {
+        version_service::check_release_component_update(&item_type, &base_dir).await
+    } else {
+        version_service::check_component_update(&state.db, &instance_id, &item_type, &base_dir)
+            .await
+    }
 }
 
-/// 更新组件到最新版本
+/// 更新组件到最新版本，或（`target_version` 非空时）回滚到指定历史 commit。
 ///
 /// 对应 Python POST `/instances/{id}/components/{component}/update`
+///
+/// - Release 型组件(目前仅 NapCat，见 P2-22)：不支持 `target_version`（Release 整包分发，
+///   无历史 commit 概念），走 `update_release_component` 重新下载安装最新包。
+/// - Git 型组件：`target_version` 为空时正常 `git pull`；非空时视为一次显式回滚（见 P2-23，
+///   `list_component_commits` 供选择），跳过 pull 直接 checkout 目标 commit。
+///   更新（非回滚）成功后追加执行 `install_dependencies`（见 P2-19/P2-20），
+///   使 requirements 变化后自动补装，无需用户手动再点"重装依赖"。
 #[tauri::command]
 pub async fn update_component(
     app_handle: AppHandle,
@@ -73,10 +91,19 @@ pub async fn update_component(
     let repo = version_service::get_github_repo(&item_type);
     let component_dir = base_dir.join(repo.folder);
 
+    if repo.has_releases && target_version.is_some() {
+        return Err(AppError::InvalidInput(
+            "Release 型组件不支持按历史 commit 回滚".to_string(),
+        ));
+    }
+
     let event_name = format!("update-log-{}-{}", instance_id, component);
 
-    // 记录更新前 commit,作为 update_history 的 from_commit(成功/失败都要落库)
-    let from_commit = version_service::get_local_commit(&component_dir).unwrap_or_default();
+    // 记录更新前版本标识,作为 update_history 的 from_commit(成功/失败都要落库)。
+    // git 型组件取 commit hash;release 型组件无 git 检出,退回读取本地版本号占位。
+    let from_commit = version_service::get_local_commit(&component_dir)
+        .or_else(|| version_service::get_local_version_from_file(&component_dir, &component))
+        .unwrap_or_default();
 
     // 更新前自动备份配置与数据(代码由 Git 兜底无需备份);默认开,可显式传 false 关闭。
     // 备份失败直接中止更新——宁可不更新,也不让用户在没有退路的情况下动数据。
@@ -101,16 +128,21 @@ pub async fn update_component(
         }
     }
 
-    // 执行更新 (git pull / checkout)。失败时也要落一条 failed 历史,再把原始错误抛给上层。
+    // 执行更新。失败时也要落一条 failed 历史,再把原始错误抛给上层。
     let _ = app_handle.emit(&event_name, "正在更新组件...");
-    if let Err(e) = version_service::update_component_git(
-        &component_dir,
-        target_version.as_deref(),
-        &app_handle,
-        &event_name,
-    )
-    .await
-    {
+    let update_result = if repo.has_releases {
+        version_service::update_release_component(&base_dir, &app_handle, &event_name).await
+    } else {
+        version_service::update_component_git(
+            &component_dir,
+            target_version.as_deref(),
+            &app_handle,
+            &event_name,
+        )
+        .await
+    };
+
+    if let Err(e) = update_result {
         let _ = version_service::record_update_history(
             &state.db,
             &instance_id,
@@ -125,15 +157,39 @@ pub async fn update_component(
         return Err(e);
     }
 
-    // 记录更新历史(成功)
-    let to_commit = version_service::get_local_commit(&component_dir).unwrap_or_default();
+    // requirements 可能随更新变化,git 型组件更新成功后立即补装依赖(P2-20)。
+    // 回滚(target_version 非空)语义是"退回某个历史状态"而非"引入新依赖",不重装；
+    // Release 型组件无 requirements.txt，install_dependencies 内部会直接判空跳过。
+    if !repo.has_releases && target_version.is_none() {
+        let venv_dir = base_dir.join(".venv");
+        if venv_dir.exists() {
+            let _ = app_handle.emit(&event_name, "正在检查并补装依赖...");
+            install_service::install_dependencies(
+                &component_dir,
+                &venv_dir,
+                &app_handle,
+                &event_name,
+            )
+            .await?;
+        }
+    }
+
+    // 记录更新历史:显式指定 target_version 视为一次回滚,与常规更新在历史里区分开。
+    let to_commit = version_service::get_local_commit(&component_dir)
+        .or_else(|| version_service::get_local_version_from_file(&component_dir, &component))
+        .unwrap_or_default();
+    let status = if target_version.is_some() {
+        "rollback"
+    } else {
+        "success"
+    };
     version_service::record_update_history(
         &state.db,
         &instance_id,
         &component,
         &from_commit,
         Some(&to_commit),
-        "success",
+        status,
         backup_id.as_deref(),
         None,
     )
@@ -224,6 +280,102 @@ pub async fn get_component_releases(
     let item_type = parse_component_type(&component)?;
     let repo = version_service::get_github_repo(&item_type);
     version_service::get_releases(repo.owner, repo.name, limit).await
+}
+
+// ==================== 依赖重装 / 历史回滚 / 手动备份 / 数据重置 ====================
+
+/// 重装实例依赖(P2-19)：删除并重建虚拟环境,逐组件重新安装 requirements.txt。
+///
+/// 危险但可恢复的操作——不动配置/数据/代码,仅重建 Python 依赖环境；
+/// 通过 `reinstall-deps-log-{instance_id}` 事件推送实时日志。
+#[tauri::command]
+pub async fn reinstall_instance_dependencies(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+    instance_id: String,
+    python_path: Option<String>,
+) -> AppResult<SuccessResponse> {
+    let instance = crate::services::instance_service::get_instance(&state.db, &instance_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
+    let instance_path = instance
+        .instance_path
+        .clone()
+        .ok_or_else(|| AppError::NotFound("实例路径未设置".to_string()))?;
+    let base_dir = crate::utils::platform::get_instances_dir().join(&instance_path);
+
+    // 未显式传入 python_path 时,复用实例安装时记录的解释器路径,保证重装环境与初装一致;
+    // 仍为空则交给 install_service::resolve_python 的自动探测(py -3 / python3 / python)。
+    let effective_python_path = python_path.or(instance.python_path);
+
+    let event_name = format!("reinstall-deps-log-{}", instance_id);
+
+    install_service::reinstall_dependencies(
+        &base_dir,
+        effective_python_path.as_deref(),
+        &app_handle,
+        &event_name,
+    )
+    .await?;
+
+    Ok(SuccessResponse::ok("依赖重装完成"))
+}
+
+/// 列出组件仓库本地可见的历史提交(P2-23)，供前端展示以选择回滚目标。
+///
+/// 只读，纯 `git log`。`limit` 未传时默认 30 条。
+#[tauri::command]
+pub async fn list_component_commits(
+    state: State<'_, AppState>,
+    instance_id: String,
+    component: String,
+    limit: Option<usize>,
+) -> AppResult<Vec<version_service::ComponentCommitInfo>> {
+    let item_type = parse_component_type(&component)?;
+    let base_dir = resolve_instance_base_dir(&state.db, &instance_id).await?;
+    let repo = version_service::get_github_repo(&item_type);
+    let component_dir = base_dir.join(repo.folder);
+
+    version_service::list_component_commits(&component_dir, limit.unwrap_or(30))
+}
+
+/// 立即创建一份手动备份(P2-26)：快照组件当前 config/data,`manualbak_` 前缀,不受自动裁剪影响。
+///
+/// 返回备份 id；组件目录下既无 config 也无 data 时返回 `None`。
+#[tauri::command]
+pub async fn create_manual_backup(
+    state: State<'_, AppState>,
+    instance_id: String,
+    component: String,
+) -> AppResult<Option<String>> {
+    let item_type = parse_component_type(&component)?;
+    let base_dir = resolve_instance_base_dir(&state.db, &instance_id).await?;
+    let repo = version_service::get_github_repo(&item_type);
+    let component_dir = base_dir.join(repo.folder);
+
+    version_service::create_manual_backup(&state.db, &instance_id, &item_type, &component_dir)
+        .await
+}
+
+/// 重置实例数据(P1-13)：清空 `MaiBot/data` 目录(保留 `webui.json`)，不动配置/代码/实例记录。
+///
+/// 要求实例已停止——运行中的进程可能正持有 data 目录下文件句柄(如 SQLite 数据库)，
+/// 边跑边删会导致进程崩溃或数据损坏。
+#[tauri::command]
+pub async fn reset_instance_data(
+    state: State<'_, AppState>,
+    instance_id: String,
+) -> AppResult<SuccessResponse> {
+    if state.process_manager.is_instance_running(&instance_id).await {
+        return Err(AppError::InvalidInput(
+            "实例正在运行,请先停止实例后再重置数据".to_string(),
+        ));
+    }
+
+    let base_dir = resolve_instance_base_dir(&state.db, &instance_id).await?;
+    version_service::reset_instance_data(&base_dir)?;
+
+    Ok(SuccessResponse::ok("实例数据已重置"))
 }
 
 /// 检查启动器自身更新

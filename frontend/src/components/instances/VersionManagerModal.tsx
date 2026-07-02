@@ -21,6 +21,8 @@ import {
   TabsTrigger,
 } from "@/components/ls";
 import { VersionComparisonTab, BackupRestoreTab } from "./version";
+import { toast } from "sonner";
+import { createManualBackup } from "@/services/versionMaintenanceApi";
 
 interface VersionManagerModalProps {
   isOpen: boolean;
@@ -39,6 +41,7 @@ export const VersionManagerModal: React.FC<VersionManagerModalProps> = ({
   const [updateConfirmed, setUpdateConfirmed] = useState(false);
   const [updateMethod] = useState<"git" | "release">("git");
   const [showBackups, setShowBackups] = useState(false);
+  const [isManualBackingUp, setIsManualBackingUp] = useState(false);
 
   const { data: components = [] } = useComponentsVersionQuery(instanceId, {
     enabled: isOpen,
@@ -49,7 +52,7 @@ export const VersionManagerModal: React.FC<VersionManagerModalProps> = ({
       enabled: !!selectedComponent,
     });
 
-  const { data: backups = [] } = useBackupsQuery(
+  const { data: backups = [], refetch: refetchBackups } = useBackupsQuery(
     instanceId,
     selectedComponent || undefined,
     {
@@ -89,6 +92,24 @@ export const VersionManagerModal: React.FC<VersionManagerModalProps> = ({
       setShowBackups(false);
     } catch (error) {
       console.error("恢复失败:", error);
+    }
+  };
+
+  // 手动即时备份当前选中组件(P2-26):成功后刷新备份列表。
+  const handleManualBackup = async (component: string) => {
+    setIsManualBackingUp(true);
+    try {
+      const backupId = await createManualBackup(instanceId, component);
+      if (backupId) {
+        toast.success(`已创建备份: ${backupId}`);
+        refetchBackups();
+      } else {
+        toast.error("该组件当前无 config/data 可备份");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsManualBackingUp(false);
     }
   };
 
@@ -177,6 +198,9 @@ export const VersionManagerModal: React.FC<VersionManagerModalProps> = ({
                       backups={backups}
                       onRestore={handleRestore}
                       isRestoring={restoreMutation.isPending}
+                      component={selectedComponent ?? undefined}
+                      onManualBackup={handleManualBackup}
+                      isBackingUp={isManualBackingUp}
                     />
                   </TabsContent>
                 </Tabs>

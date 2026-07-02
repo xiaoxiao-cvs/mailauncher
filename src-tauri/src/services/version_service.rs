@@ -5,7 +5,7 @@
 use std::path::Path;
 
 use sqlx::SqlitePool;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 use tracing::{info, warn};
 
 use crate::errors::{AppError, AppResult};
@@ -21,8 +21,7 @@ pub struct GitHubRepo {
     pub name: &'static str,
     /// 本地目录名
     pub folder: &'static str,
-    /// 是否使用 Release（为 false 时对比 commit）
-    #[allow(dead_code)]
+    /// 是否使用 Release（为 true 时按 Release tag 检查/更新，而非 git commit）
     pub has_releases: bool,
 }
 
@@ -296,6 +295,67 @@ pub fn get_local_version_from_file(component_path: &Path, _component: &str) -> O
     None
 }
 
+/// 单条 git 提交摘要，供前端展示历史版本列表以供选择回滚。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ComponentCommitInfo {
+    /// 完整 commit hash
+    pub hash: String,
+    /// 短 hash（7 位）
+    pub short_hash: String,
+    /// 提交说明首行
+    pub subject: String,
+    /// 提交时间（`git log` 的 `%ci`，含时区）
+    pub date: String,
+}
+
+/// 列出组件仓库本地可见的历史提交（只读，供前端选择回滚目标）。
+///
+/// 纯 `git log`，不做任何写操作。注意组件仓库均以 `git clone --depth 1` 浅克隆安装，
+/// 首次安装后本地仅有 1 条提交；历史随后续 `git pull` 增量累积，并非完整远程历史——
+/// 这是浅克隆的固有限制，而非本函数的缺陷。
+pub fn list_component_commits(
+    component_path: &Path,
+    limit: usize,
+) -> AppResult<Vec<ComponentCommitInfo>> {
+    let limit_arg = format!("-n{}", limit);
+    let output = std::process::Command::new("git")
+        .args([
+            "log",
+            limit_arg.as_str(),
+            "--pretty=format:%H%x1f%h%x1f%s%x1f%ci",
+        ])
+        .current_dir(component_path)
+        .output()
+        .map_err(|e| AppError::Process(format!("执行 git log 失败: {}", e)))?;
+
+    if !output.status.success() {
+        return Err(AppError::Process(format!(
+            "git log 失败: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )));
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    let commits = text
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.splitn(4, '\u{1f}');
+            let hash = parts.next()?.to_string();
+            let short_hash = parts.next()?.to_string();
+            let subject = parts.next()?.to_string();
+            let date = parts.next()?.to_string();
+            Some(ComponentCommitInfo {
+                hash,
+                short_hash,
+                subject,
+                date,
+            })
+        })
+        .collect();
+    Ok(commits)
+}
+
 // ==================== 组件版本检查 ====================
 
 /// 检查单个组件是否有更新
@@ -341,6 +401,63 @@ pub async fn check_component_update(
     })
 }
 
+/// 检查 Release 型组件（目前仅 NapCat）是否有更新。
+///
+/// Release 型组件不是 git 检出（`get_local_commit` 恒为 `None`），也不适合用
+/// `check_component_update` 的 commit 对比逻辑（GitHub commits API 对 NapCat 仓库返回的
+/// 是其源码提交历史，与用户本地安装的 Release 包版本无关）。改为对比本地
+/// `get_local_version_from_file`（读 Release 包内 `package.json` 的 version 字段）
+/// 与最新 Release 的 `tag_name`。
+pub async fn check_release_component_update(
+    item_type: &crate::models::download::DownloadItemType,
+    base_dir: &Path,
+) -> AppResult<ComponentUpdateCheck> {
+    let repo = get_github_repo(item_type);
+    let component_path = base_dir.join(repo.folder);
+    let component = repo.name;
+
+    let local_version = get_local_version_from_file(&component_path, component);
+    let releases = get_releases(repo.owner, repo.name, Some(1)).await?;
+    let latest = releases.first();
+
+    let has_update =
+        release_version_has_update(local_version.as_deref(), latest.map(|r| r.tag_name.as_str()));
+
+    Ok(ComponentUpdateCheck {
+        component: component.to_string(),
+        current_version: local_version,
+        current_commit: None,
+        latest_version: latest.map(|r| r.tag_name.clone()),
+        latest_commit: None,
+        has_update,
+        update_notes: latest.and_then(|r| r.body.clone()),
+        commits_behind: None,
+    })
+}
+
+/// 纯比较逻辑：本地版本与最新 Release tag（自动去除可能存在的 `v` 前缀）是否不同。
+/// 本地版本未知（`None`）但存在最新 tag 时保守判定为"有更新"，交由用户主动确认，
+/// 而非静默判定"已是最新"掩盖潜在的过期风险；双方均未知则判定为"无更新"。
+fn release_version_has_update(local_version: Option<&str>, latest_tag: Option<&str>) -> bool {
+    match (local_version, latest_tag) {
+        (Some(local), Some(latest)) => local != latest.trim_start_matches('v'),
+        (None, Some(_)) => true,
+        _ => false,
+    }
+}
+
+/// 更新 Release 型组件（目前仅 NapCat）：重新下载安装最新 Release 整包。
+///
+/// 不走 git pull/checkout，直接复用 `download_service::download_napcat`——其内部已实现
+/// 更新前 config 目录备份、解压覆盖、config 目录恢复的完整流程。
+pub async fn update_release_component(
+    instance_dir: &Path,
+    app_handle: &AppHandle,
+    event_name: &str,
+) -> AppResult<()> {
+    crate::services::download_service::download_napcat(instance_dir, app_handle, event_name).await
+}
+
 /// 获取实例所有组件的版本信息
 pub async fn get_instance_components_version(
     pool: &SqlitePool,
@@ -368,9 +485,56 @@ pub async fn get_instance_components_version(
 
 // ==================== 组件更新执行 ====================
 
-/// 通过 Git pull 更新组件
+/// 探测组件仓库当前是否处于 detached HEAD(通常是此前一次版本回滚——见 `list_component_commits` +
+/// `target_commit` 回滚——遗留的状态)。detached 状态下 `git pull` 会直接报错拒绝执行，
+/// 必须先归位到某个分支。
+fn is_detached_head(component_path: &Path) -> bool {
+    std::process::Command::new("git")
+        .args(["symbolic-ref", "-q", "HEAD"])
+        .current_dir(component_path)
+        .output()
+        .map(|o| !o.status.success())
+        .unwrap_or(false)
+}
+
+/// 探测组件仓库的默认分支名:优先取 `origin/HEAD` 指向的分支，取不到（如浅克隆未设置该符号引用）
+/// 时退回探测本地是否存在 `main` / `master` 分支。全部失败返回 `None`。
+fn detect_default_branch(component_path: &Path) -> Option<String> {
+    let output = std::process::Command::new("git")
+        .args(["symbolic-ref", "refs/remotes/origin/HEAD"])
+        .current_dir(component_path)
+        .output()
+        .ok()?;
+    if output.status.success() {
+        let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        // 形如 refs/remotes/origin/main -> main
+        if let Some(name) = raw.rsplit('/').next() {
+            if !name.is_empty() {
+                return Some(name.to_string());
+            }
+        }
+    }
+
+    for candidate in ["main", "master"] {
+        let check = std::process::Command::new("git")
+            .args(["rev-parse", "--verify", candidate])
+            .current_dir(component_path)
+            .output()
+            .ok()?;
+        if check.status.success() {
+            return Some(candidate.to_string());
+        }
+    }
+    None
+}
+
+/// 通过 Git pull 更新组件，或（`target_commit` 非空时）回滚到指定历史 commit。
 ///
 /// 对应 Python `ComponentUpdateService.update_component_from_git`。
+///
+/// `target_commit` 为 `Some` 时视为一次显式版本回滚：跳过 `git pull`（回滚不需要先合并最新历史），
+/// 直接 checkout 目标 commit（进入 detached HEAD）。`target_commit` 为 `None` 时视为常规更新：
+/// 若仓库当前处于 detached HEAD（上一次回滚遗留），先归位到默认分支，再执行 `git pull`。
 pub async fn update_component_git(
     component_path: &Path,
     target_commit: Option<&str>,
@@ -379,24 +543,52 @@ pub async fn update_component_git(
 ) -> AppResult<()> {
     use crate::services::download_service::run_command_with_output;
 
-    // git pull
-    let output = run_command_with_output(
-        "git",
-        &["pull", "--progress"],
-        Some(component_path),
-        app_handle,
-        event_name,
-    )
-    .await?;
+    if target_commit.is_none() {
+        if is_detached_head(component_path) {
+            let default_branch = detect_default_branch(component_path).ok_or_else(|| {
+                AppError::Process(
+                    "仓库处于 detached HEAD 且无法确定默认分支，无法自动归位，请手动处理".to_string(),
+                )
+            })?;
+            let _ = app_handle.emit(
+                event_name,
+                format!("检测到 detached HEAD，正在归位到 {}...", default_branch),
+            );
+            let output = run_command_with_output(
+                "git",
+                &["checkout", default_branch.as_str()],
+                Some(component_path),
+                app_handle,
+                event_name,
+            )
+            .await?;
+            if !output.success {
+                return Err(AppError::Process(format!(
+                    "从 detached HEAD 归位到 {} 失败: {}",
+                    default_branch, output.stderr
+                )));
+            }
+        }
 
-    if !output.success {
-        return Err(AppError::Process(format!(
-            "Git pull 失败: {}",
-            output.stderr
-        )));
+        let output = run_command_with_output(
+            "git",
+            &["pull", "--progress"],
+            Some(component_path),
+            app_handle,
+            event_name,
+        )
+        .await?;
+
+        if !output.success {
+            return Err(AppError::Process(format!(
+                "Git pull 失败: {}",
+                output.stderr
+            )));
+        }
     }
 
-    // 如果指定了 commit，checkout
+    // 指定了 commit：checkout 到该 commit（常规更新走 target_version 精确对齐，或本函数开头
+    // 判定的回滚场景直接跳过 pull 到此处执行）。
     if let Some(commit) = target_commit {
         let output = run_command_with_output(
             "git",
@@ -490,6 +682,71 @@ pub async fn backup_component_data(
 
     info!(
         "更新前备份完成: {} → {} ({} 字节, {})",
+        repo.folder, backup_id, backup_size, description
+    );
+    Ok(Some(backup_id))
+}
+
+/// 立即手动备份(用户主动触发)：快照组件目录下存在的 config/data,写入 backups/{manualbak_id}/。
+///
+/// 与 `backup_component_data` 逻辑一致，仅前缀（`manualbak_` 而非 `databak_`）与描述不同：
+/// `prune_data_backups` 的裁剪查询按 `databak\_%` 前缀过滤，手动备份不受自动裁剪影响，
+/// 需要用户自行到"备份管理"里删除。返回备份 id；组件目录下既无 config 也无 data 时返回 None。
+pub async fn create_manual_backup(
+    pool: &SqlitePool,
+    instance_id: &str,
+    item_type: &crate::models::download::DownloadItemType,
+    component_dir: &Path,
+) -> AppResult<Option<String>> {
+    use uuid::Uuid;
+
+    let repo = get_github_repo(item_type);
+
+    let present: Vec<&str> = DATA_BACKUP_ITEMS
+        .iter()
+        .copied()
+        .filter(|item| component_dir.join(item).exists())
+        .collect();
+    if present.is_empty() {
+        info!("组件 {} 无 config/data 可备份,跳过手动备份", repo.folder);
+        return Ok(None);
+    }
+
+    let backup_id = format!(
+        "manualbak_{}",
+        &Uuid::new_v4().to_string().replace('-', "")[..12]
+    );
+    let backup_path = crate::utils::platform::get_data_root()
+        .join("backups")
+        .join(&backup_id);
+    std::fs::create_dir_all(&backup_path)
+        .map_err(|e| AppError::FileSystem(format!("创建备份目录失败: {}", e)))?;
+
+    let copied = snapshot_items(component_dir, &backup_path, &present)?;
+
+    let backup_size = fs_dir_size(&backup_path);
+    let commit_hash = get_local_commit(component_dir);
+    let version = get_local_version_from_file(component_dir, repo.name);
+    let description = format!("手动备份: {}", copied.join("+"));
+
+    sqlx::query(
+        "INSERT INTO version_backups (id, instance_id, component, version, commit_hash, backup_path, backup_size, description, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+    )
+    .bind(&backup_id)
+    .bind(instance_id)
+    .bind(repo.folder)
+    .bind(&version)
+    .bind(&commit_hash)
+    .bind(backup_path.to_string_lossy().as_ref())
+    .bind(backup_size as i64)
+    .bind(&description)
+    .execute(pool)
+    .await
+    .map_err(|e: sqlx::Error| AppError::Database(format!("记录手动备份失败: {}", e)))?;
+
+    info!(
+        "手动备份完成: {} → {} ({} 字节, {})",
         repo.folder, backup_id, backup_size, description
     );
     Ok(Some(backup_id))
@@ -628,6 +885,41 @@ pub fn restore_full_backup(backup_path: &Path, component_dir: &Path) -> AppResul
     }
     std::fs::rename(&temp_restore_dir, component_dir)
         .map_err(|e| AppError::FileSystem(format!("重命名恢复目录失败: {}", e)))?;
+    Ok(())
+}
+
+/// 重置实例数据：清空 `MaiBot/data` 目录下的内容，但保留 `webui.json`。
+///
+/// `webui.json` 是 MaiBot WebUI 的会话令牌文件（`maisaka_monitor_service` 靠其中的
+/// `access_token` 对 WS 连接鉴权），随数据一起清空会导致监控连接失效、需要重新登录才能恢复，
+/// 保守起见跳过它——真正想清掉登录态应走专门的"退出登录"，而非数据重置。
+/// 只清数据，不动实例记录（`instances` / `component_versions` 表）、不动配置（`config/`）、
+/// 不动代码；调用方须自行确认实例已停止（本函数不做进程存活检查）。
+pub fn reset_instance_data(instance_root: &Path) -> AppResult<()> {
+    let data_dir = instance_root.join("MaiBot").join("data");
+    if !data_dir.exists() {
+        info!("MaiBot/data 不存在,无需重置: {:?}", data_dir);
+        return Ok(());
+    }
+
+    let entries = std::fs::read_dir(&data_dir)
+        .map_err(|e| AppError::FileSystem(format!("读取 data 目录失败: {}", e)))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| AppError::FileSystem(format!("遍历 data 目录失败: {}", e)))?;
+        if entry.file_name() == "webui.json" {
+            continue;
+        }
+        let path = entry.path();
+        if path.is_dir() {
+            std::fs::remove_dir_all(&path)
+                .map_err(|e| AppError::FileSystem(format!("删除 {:?} 失败: {}", path, e)))?;
+        } else {
+            std::fs::remove_file(&path)
+                .map_err(|e| AppError::FileSystem(format!("删除 {:?} 失败: {}", path, e)))?;
+        }
+    }
+
+    info!("实例数据已重置: {:?}", data_dir);
     Ok(())
 }
 
@@ -1900,5 +2192,254 @@ mod tests {
         assert_eq!(rows[0].to_commit, None);
         assert_eq!(rows[0].backup_id, None);
         assert_eq!(rows[0].error_message, Some("git pull 冲突".to_string()));
+    }
+
+    // ==================== release_version_has_update ====================
+
+    #[test]
+    fn release_version_has_update_detects_difference_and_strips_v_prefix() {
+        assert!(release_version_has_update(Some("4.5.6"), Some("v4.5.7")));
+        assert!(!release_version_has_update(Some("4.5.6"), Some("v4.5.6")));
+        assert!(!release_version_has_update(Some("4.5.6"), Some("4.5.6")));
+    }
+
+    #[test]
+    fn release_version_has_update_defaults_true_when_local_unknown() {
+        assert!(release_version_has_update(None, Some("v1.0.0")));
+    }
+
+    #[test]
+    fn release_version_has_update_false_when_latest_unknown() {
+        assert!(!release_version_has_update(Some("1.0.0"), None));
+        assert!(!release_version_has_update(None, None));
+    }
+
+    // ==================== detached HEAD / 默认分支探测 / git log(list_component_commits) ====================
+
+    /// 在临时目录初始化一个真实 git 仓库，提交两个 commit，返回按提交顺序排列的 commit hash。
+    /// 显式 `-b main` 固定默认分支名，避免依赖运行环境的 git 全局配置。
+    fn init_test_git_repo(dir: &Path) -> Vec<String> {
+        let run = |args: &[&str]| {
+            let output = std::process::Command::new("git")
+                .args(args)
+                .current_dir(dir)
+                .output()
+                .unwrap_or_else(|e| panic!("执行 git {:?} 失败: {}", args, e));
+            assert!(
+                output.status.success(),
+                "git {:?} 失败: {}",
+                args,
+                String::from_utf8_lossy(&output.stderr)
+            );
+        };
+        run(&["init", "-b", "main"]);
+        run(&["config", "user.email", "test@example.com"]);
+        run(&["config", "user.name", "test"]);
+
+        let mut hashes = Vec::new();
+        for i in 0..2 {
+            std::fs::write(dir.join("a.txt"), format!("{}", i)).expect("写入失败");
+            run(&["add", "."]);
+            let commit_msg = format!("commit {}", i);
+            run(&["commit", "-m", commit_msg.as_str()]);
+            let out = std::process::Command::new("git")
+                .args(["rev-parse", "HEAD"])
+                .current_dir(dir)
+                .output()
+                .expect("git rev-parse 失败");
+            hashes.push(String::from_utf8_lossy(&out.stdout).trim().to_string());
+        }
+        hashes
+    }
+
+    #[test]
+    fn is_detached_head_false_right_after_commit() {
+        let tmp = tempfile::tempdir().expect("临时目录");
+        init_test_git_repo(tmp.path());
+        assert!(!is_detached_head(tmp.path()), "刚提交完应在分支上,非 detached");
+    }
+
+    #[test]
+    fn is_detached_head_true_after_checkout_specific_commit() {
+        let tmp = tempfile::tempdir().expect("临时目录");
+        let hashes = init_test_git_repo(tmp.path());
+
+        std::process::Command::new("git")
+            .args(["checkout", &hashes[0]])
+            .current_dir(tmp.path())
+            .output()
+            .expect("checkout 失败");
+
+        assert!(
+            is_detached_head(tmp.path()),
+            "checkout 到具体 commit 后应处于 detached HEAD"
+        );
+    }
+
+    #[test]
+    fn detect_default_branch_falls_back_to_local_main_without_origin() {
+        let tmp = tempfile::tempdir().expect("临时目录");
+        init_test_git_repo(tmp.path());
+        // 无 origin 远程时,回退探测本地 main/master 分支是否存在。
+        assert_eq!(
+            detect_default_branch(tmp.path()),
+            Some("main".to_string())
+        );
+    }
+
+    #[test]
+    fn detect_default_branch_none_for_non_git_directory() {
+        let tmp = tempfile::tempdir().expect("临时目录");
+        assert_eq!(detect_default_branch(tmp.path()), None);
+    }
+
+    #[test]
+    fn list_component_commits_returns_newest_first_with_expected_fields() {
+        let tmp = tempfile::tempdir().expect("临时目录");
+        let hashes = init_test_git_repo(tmp.path());
+
+        let commits = list_component_commits(tmp.path(), 10).expect("git log 失败");
+
+        assert_eq!(commits.len(), 2);
+        assert_eq!(commits[0].hash, hashes[1], "git log 默认按最新提交在前排序");
+        assert_eq!(commits[0].subject, "commit 1");
+        assert_eq!(commits[1].hash, hashes[0]);
+        assert_eq!(commits[1].subject, "commit 0");
+        assert!(!commits[0].short_hash.is_empty());
+        assert!(commits[0].hash.starts_with(&commits[0].short_hash));
+        assert!(!commits[0].date.is_empty());
+    }
+
+    #[test]
+    fn list_component_commits_respects_limit() {
+        let tmp = tempfile::tempdir().expect("临时目录");
+        init_test_git_repo(tmp.path());
+
+        let commits = list_component_commits(tmp.path(), 1).expect("git log 失败");
+        assert_eq!(commits.len(), 1);
+    }
+
+    #[test]
+    fn list_component_commits_errors_for_non_git_directory() {
+        let tmp = tempfile::tempdir().expect("临时目录");
+        let result = list_component_commits(tmp.path(), 10);
+        assert!(result.is_err(), "非 git 目录应返回错误而非空列表");
+    }
+
+    // ==================== DB: create_manual_backup ====================
+
+    #[tokio::test]
+    async fn create_manual_backup_writes_row_with_manualbak_prefix_and_is_not_pruned() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_manual_bak").await;
+        let tmp = tempfile::tempdir().expect("临时目录");
+        let comp = tmp.path().join("MaiBot");
+        std::fs::create_dir_all(comp.join("config")).unwrap();
+        std::fs::write(comp.join("config").join("bot_config.toml"), b"k=1").unwrap();
+
+        let backup_id =
+            create_manual_backup(&pool, "inst_manual_bak", &DownloadItemType::Maibot, &comp)
+                .await
+                .expect("手动备份失败")
+                .expect("应产生备份 id");
+
+        assert!(
+            backup_id.starts_with("manualbak_"),
+            "手动备份必须用 manualbak_ 前缀区别于自动的 databak_"
+        );
+
+        let backups = get_backups(&pool, "inst_manual_bak", Some("MaiBot"))
+            .await
+            .expect("查询失败");
+        assert_eq!(backups.len(), 1);
+        assert_eq!(backups[0].id, backup_id);
+        assert!(backups[0]
+            .description
+            .as_deref()
+            .unwrap_or("")
+            .contains("手动备份"));
+
+        // manualbak_ 前缀不受 databak_ 裁剪查询(id LIKE 'databak\_%')触及,即便 keep=0。
+        prune_data_backups(&pool, "inst_manual_bak", "MaiBot", 0).await;
+        let after_prune = get_backups(&pool, "inst_manual_bak", Some("MaiBot"))
+            .await
+            .expect("查询失败");
+        assert_eq!(after_prune.len(), 1, "手动备份不应被自动裁剪删除");
+    }
+
+    #[tokio::test]
+    async fn create_manual_backup_returns_none_when_nothing_to_backup() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_manual_empty").await;
+        let tmp = tempfile::tempdir().expect("临时目录");
+        let comp = tmp.path().join("MaiBot");
+        std::fs::create_dir_all(comp.join("src")).unwrap(); // 无 config/data/config.toml
+
+        let result =
+            create_manual_backup(&pool, "inst_manual_empty", &DownloadItemType::Maibot, &comp)
+                .await
+                .expect("调用失败");
+        assert!(result.is_none());
+
+        let backups = get_backups(&pool, "inst_manual_empty", None)
+            .await
+            .expect("查询失败");
+        assert!(backups.is_empty());
+    }
+
+    // ==================== reset_instance_data ====================
+
+    #[test]
+    fn reset_instance_data_clears_data_dir_but_keeps_webui_json() {
+        let tmp = tempfile::tempdir().expect("临时目录");
+        let data_dir = tmp.path().join("MaiBot").join("data");
+        std::fs::create_dir_all(data_dir.join("sub")).unwrap();
+        std::fs::write(data_dir.join("MaiBot.db"), b"DBDATA").unwrap();
+        std::fs::write(data_dir.join("sub").join("x.txt"), b"x").unwrap();
+        std::fs::write(data_dir.join("webui.json"), br#"{"access_token":"tok"}"#).unwrap();
+
+        reset_instance_data(tmp.path()).expect("重置失败");
+
+        assert!(!data_dir.join("MaiBot.db").exists(), "数据文件应被清空");
+        assert!(!data_dir.join("sub").exists(), "数据子目录应被清空");
+        assert!(
+            data_dir.join("webui.json").exists(),
+            "webui.json 必须保留(否则监控连接会话失效)"
+        );
+        assert_eq!(
+            std::fs::read(data_dir.join("webui.json")).unwrap(),
+            br#"{"access_token":"tok"}"#
+        );
+    }
+
+    #[test]
+    fn reset_instance_data_is_noop_when_data_dir_absent() {
+        let tmp = tempfile::tempdir().expect("临时目录");
+        // 不创建 MaiBot/data,函数应静默成功而非报错。
+        let result = reset_instance_data(tmp.path());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn reset_instance_data_does_not_touch_config_dir() {
+        let tmp = tempfile::tempdir().expect("临时目录");
+        let maibot_dir = tmp.path().join("MaiBot");
+        std::fs::create_dir_all(maibot_dir.join("data")).unwrap();
+        std::fs::write(maibot_dir.join("data").join("MaiBot.db"), b"D").unwrap();
+        std::fs::create_dir_all(maibot_dir.join("config")).unwrap();
+        std::fs::write(
+            maibot_dir.join("config").join("bot_config.toml"),
+            b"qq=1",
+        )
+        .unwrap();
+
+        reset_instance_data(tmp.path()).expect("重置失败");
+
+        assert!(!maibot_dir.join("data").join("MaiBot.db").exists());
+        assert_eq!(
+            std::fs::read(maibot_dir.join("config").join("bot_config.toml")).unwrap(),
+            b"qq=1",
+            "重置数据不得动配置目录"
+        );
     }
 }

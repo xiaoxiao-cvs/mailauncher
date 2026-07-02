@@ -265,6 +265,65 @@ pub async fn install_dependencies(
     Ok(())
 }
 
+// ==================== 依赖重装 ====================
+
+/// 组件目录相对实例根目录的路径,按依赖顺序登记(适配器插件依赖 MaiBot 已重装完毕的解释器环境)。
+/// NapCat 走 Release 整包分发、无 requirements.txt,不在此列。
+const REINSTALL_COMPONENT_DIRS: [&str; 3] = [
+    "MaiBot",
+    "MaiBot/plugins/MaiBot-Napcat-Adapter",
+    "MaiMBot-LPMM",
+];
+
+/// 重装实例依赖:删除并重建共享虚拟环境,再逐个已安装组件重新执行 `pip install -r requirements.txt`。
+///
+/// 用于虚拟环境损坏、Python 版本切换等需要"推倒重来"的场景,不触碰配置/数据/代码，
+/// 仅重建 Python 依赖环境。复用 `create_virtual_environment` + `install_dependencies`：
+/// 组件目录若不存在（未安装该组件）直接跳过。
+pub async fn reinstall_dependencies(
+    instance_dir: &Path,
+    python_path: Option<&str>,
+    app_handle: &AppHandle,
+    event_name: &str,
+) -> AppResult<()> {
+    let venv_dir = instance_dir.join(".venv");
+    if remove_existing_venv(&venv_dir)? {
+        let _ = app_handle.emit(event_name, "旧虚拟环境已删除");
+        info!("已删除旧虚拟环境: {:?}", venv_dir);
+    }
+
+    // create_virtual_environment 依据 project_dir 的父目录确定 venv 落点，
+    // 与安装流程一致地传入 MaiBot 子目录，使 venv 落在 instance_dir/.venv。
+    let maibot_dir = instance_dir.join("MaiBot");
+    let _ = app_handle.emit(event_name, "正在重建虚拟环境...");
+    create_virtual_environment(&maibot_dir, python_path, app_handle, event_name).await?;
+    upgrade_pip(&venv_dir, app_handle, event_name).await?;
+
+    for rel in REINSTALL_COMPONENT_DIRS {
+        let component_dir = instance_dir.join(rel);
+        if !component_dir.exists() {
+            info!("组件目录不存在，跳过重装依赖: {:?}", component_dir);
+            continue;
+        }
+        let _ = app_handle.emit(event_name, format!("正在重装依赖: {}...", rel));
+        install_dependencies(&component_dir, &venv_dir, app_handle, event_name).await?;
+    }
+
+    let _ = app_handle.emit(event_name, "依赖重装完成");
+    info!("依赖重装完成: {:?}", instance_dir);
+    Ok(())
+}
+
+/// 若虚拟环境目录存在则整体删除,返回是否实际执行了删除。纯文件系统操作，便于单测。
+fn remove_existing_venv(venv_dir: &Path) -> AppResult<bool> {
+    if !venv_dir.exists() {
+        return Ok(false);
+    }
+    std::fs::remove_dir_all(venv_dir)
+        .map_err(|e| AppError::FileSystem(format!("删除旧虚拟环境失败: {}", e)))?;
+    Ok(true)
+}
+
 // ==================== 配置生成 ====================
 
 /// 从 MaiBot 源码读取 CONFIG_VERSION 并将末位修订号减一。
@@ -974,5 +1033,46 @@ mod tests {
 
         assert_eq!(venv_dir, instance_dir.join(".venv"));
         assert!(!venv_dir.exists());
+    }
+
+    // ==================== reinstall_dependencies ====================
+
+    #[test]
+    fn reinstall_component_dirs_lists_expected_components_in_dependency_order() {
+        // MaiBot 必须排第一(适配器插件依赖其已重装完毕的解释器环境);NapCat 不在列表内(Release 分发,无 requirements.txt)。
+        assert_eq!(
+            REINSTALL_COMPONENT_DIRS,
+            [
+                "MaiBot",
+                "MaiBot/plugins/MaiBot-Napcat-Adapter",
+                "MaiMBot-LPMM",
+            ]
+        );
+        assert!(!REINSTALL_COMPONENT_DIRS.contains(&"NapCat"));
+    }
+
+    #[test]
+    fn remove_existing_venv_deletes_dir_and_reports_true() {
+        let dir = tempdir().expect("创建临时目录失败");
+        let venv_dir = dir.path().join(".venv");
+        fs::create_dir_all(venv_dir.join("Scripts")).expect("创建虚拟环境骨架失败");
+        fs::write(venv_dir.join("Scripts").join("marker.txt"), b"x").expect("写入失败");
+        assert!(venv_dir.exists());
+
+        let removed = remove_existing_venv(&venv_dir).expect("删除失败");
+
+        assert!(removed, "存在的虚拟环境目录应报告已删除");
+        assert!(!venv_dir.exists(), "虚拟环境目录应被整体删除");
+    }
+
+    #[test]
+    fn remove_existing_venv_is_noop_when_absent() {
+        let dir = tempdir().expect("创建临时目录失败");
+        let venv_dir = dir.path().join(".venv");
+        assert!(!venv_dir.exists());
+
+        let removed = remove_existing_venv(&venv_dir).expect("调用失败");
+
+        assert!(!removed, "不存在的虚拟环境目录不应报告删除动作");
     }
 }
