@@ -83,9 +83,36 @@ pub async fn update_instance(
     instance_id: String,
     data: UpdateInstanceRequest,
 ) -> AppResult<Instance> {
-    instance_service::update_instance(&state.db, &instance_id, data)
+    // 记录旧 qq_account,用于把选中的账号幂等回写到 bot_config.toml。
+    let old_qq = instance_service::get_instance(&state.db, &instance_id)
         .await?
-        .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))
+        .and_then(|i| i.qq_account);
+    let requested_qq = data.qq_account.clone();
+
+    let updated = instance_service::update_instance(&state.db, &instance_id, data)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
+
+    // 本次请求带来了新的、且与旧值不同的 qq_account → 幂等回写到 bot_config.toml，
+    // 保证选账号后配置同步。回写是次要副作用(DB 已更新),失败仅告警不阻断整体更新。
+    if let Some(new_qq) = requested_qq {
+        if !new_qq.is_empty() && old_qq.as_deref() != Some(new_qq.as_str()) {
+            if let Some(instance_path) = updated.instance_path.as_deref() {
+                let maibot_dir = crate::utils::platform::get_instances_dir()
+                    .join(instance_path)
+                    .join("MaiBot");
+                if let Err(e) = crate::services::install_service::sync_qq_account_to_bot_config(
+                    &maibot_dir,
+                    old_qq.as_deref(),
+                    &new_qq,
+                ) {
+                    tracing::warn!("回写 qq_account 到 bot_config.toml 失败: {}", e);
+                }
+            }
+        }
+    }
+
+    Ok(updated)
 }
 
 /// 删除实例

@@ -375,6 +375,62 @@ fn write_maibot_config_stub(
     Ok(Some(stub_version))
 }
 
+/// 幂等地把实例选中的 QQ 号回写到 `bot_config.toml` 的 `[bot].qq_account`。
+///
+/// 仅当配置里的当前值为空、或仍等于旧值(即上次由启动器写入的值)时才覆写,
+/// 避免覆盖用户在配置里手动改成的其它值。用 toml_edit 原地改写以保留注释与格式。
+/// 配置文件尚不存在(还没安装/首启 MaiBot)时静默跳过。
+pub fn sync_qq_account_to_bot_config(
+    maibot_dir: &Path,
+    old_qq: Option<&str>,
+    new_qq: &str,
+) -> AppResult<()> {
+    let bot_config_path = maibot_dir.join("config").join("bot_config.toml");
+    if !bot_config_path.exists() {
+        return Ok(());
+    }
+
+    let content = std::fs::read_to_string(&bot_config_path)
+        .map_err(|e| AppError::FileSystem(format!("读取 bot_config.toml 失败: {}", e)))?;
+    let mut doc = content
+        .parse::<DocumentMut>()
+        .map_err(|e| AppError::Config(format!("解析 bot_config.toml 失败: {}", e)))?;
+
+    let current = doc
+        .get("bot")
+        .and_then(|b| b.get("qq_account"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let old = old_qq.unwrap_or("");
+
+    // 当前值非空且不等于旧值 → 用户手动改过,尊重其值,不覆写。
+    if !current.is_empty() && current != old {
+        info!("bot_config.toml 的 qq_account 已被手动改为 {current},跳过自动回写");
+        return Ok(());
+    }
+    if current == new_qq {
+        return Ok(());
+    }
+
+    doc["bot"]["qq_account"] = value(new_qq);
+    // 平台字段可能被清空,顺带补 qq。
+    let platform_empty = doc
+        .get("bot")
+        .and_then(|b| b.get("platform"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .is_empty();
+    if platform_empty {
+        doc["bot"]["platform"] = value("qq");
+    }
+
+    std::fs::write(&bot_config_path, doc.to_string())
+        .map_err(|e| AppError::FileSystem(format!("写入 bot_config.toml 失败: {}", e)))?;
+    info!("已回写 qq_account={new_qq} 到 {bot_config_path:?}");
+    Ok(())
+}
+
 /// 配置 MaiBot：写入最小 stub 触发首启自生成完整配置。
 ///
 /// 替换原先的模板复制逻辑（上游模板已删除）。仅写 `config/bot_config.toml`，
@@ -689,6 +745,70 @@ mod tests {
         // 不创建 src/config/config.py，读取版本应报错。
         let result = write_maibot_config_stub(dir.path(), None);
         assert!(result.is_err(), "缺少 config.py 时必须报错而非静默写错版本");
+    }
+
+    // ==================== sync_qq_account_to_bot_config ====================
+
+    /// 在临时目录里造一份带注释的 bot_config.toml。
+    fn write_bot_config_fixture(maibot_dir: &Path, qq: &str, platform: &str) {
+        let config_dir = maibot_dir.join("config");
+        fs::create_dir_all(&config_dir).expect("创建 config 目录失败");
+        fs::write(
+            config_dir.join("bot_config.toml"),
+            format!(
+                "[bot]\n# 用户注释:请勿删除\nplatform = \"{platform}\"\nqq_account = \"{qq}\"\n"
+            ),
+        )
+        .expect("写 bot_config.toml 失败");
+    }
+
+    fn read_bot_qq(maibot_dir: &Path) -> String {
+        let content = fs::read_to_string(maibot_dir.join("config").join("bot_config.toml"))
+            .expect("读取失败");
+        let doc: toml::Value = toml::from_str(&content).expect("解析失败");
+        doc["bot"]["qq_account"].as_str().unwrap_or("").to_string()
+    }
+
+    #[test]
+    fn sync_qq_account_overwrites_when_matches_old_and_keeps_comment() {
+        let dir = tempdir().expect("创建临时目录失败");
+        let maibot_dir = dir.path();
+        write_bot_config_fixture(maibot_dir, "111", "qq");
+
+        sync_qq_account_to_bot_config(maibot_dir, Some("111"), "222").expect("回写失败");
+
+        assert_eq!(read_bot_qq(maibot_dir), "222");
+        let content = fs::read_to_string(maibot_dir.join("config").join("bot_config.toml"))
+            .expect("读取失败");
+        assert!(content.contains("# 用户注释:请勿删除"), "toml_edit 应保留用户注释");
+    }
+
+    #[test]
+    fn sync_qq_account_overwrites_when_empty() {
+        let dir = tempdir().expect("创建临时目录失败");
+        let maibot_dir = dir.path();
+        write_bot_config_fixture(maibot_dir, "", "qq");
+
+        sync_qq_account_to_bot_config(maibot_dir, None, "333").expect("回写失败");
+        assert_eq!(read_bot_qq(maibot_dir), "333");
+    }
+
+    #[test]
+    fn sync_qq_account_respects_user_manual_change() {
+        let dir = tempdir().expect("创建临时目录失败");
+        let maibot_dir = dir.path();
+        // 配置里是 999(用户手改),而启动器记录的旧值是 111
+        write_bot_config_fixture(maibot_dir, "999", "qq");
+
+        sync_qq_account_to_bot_config(maibot_dir, Some("111"), "222").expect("调用失败");
+        assert_eq!(read_bot_qq(maibot_dir), "999", "不得覆盖用户手改值");
+    }
+
+    #[test]
+    fn sync_qq_account_skips_when_config_absent() {
+        let dir = tempdir().expect("创建临时目录失败");
+        sync_qq_account_to_bot_config(dir.path(), Some("111"), "222")
+            .expect("缺配置时应跳过而非报错");
     }
 
     // ==================== setup_adapter_config (写插件 config.toml) ====================
