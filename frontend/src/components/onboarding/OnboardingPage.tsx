@@ -38,9 +38,11 @@ export function OnboardingPage({
     [],
   );
 
-  // 切换步骤时重置 canProceed（非 EULA 步骤默认可继续）
+  // 切换步骤时重置 canProceed（EULA 步骤、环境检测步骤自行通过 EulaContext 上报真实状态，
+  // 这里不强制覆盖为 true，避免检测结果出来前出现"下一步"可点的空档）
   useEffect(() => {
-    if (currentStep !== 0) {
+    const step = ONBOARDING_STEPS[currentStep];
+    if (currentStep !== 0 && !step?.isEnvironmentStep) {
       setCanProceed(true);
       setButtonLabel(null);
     }

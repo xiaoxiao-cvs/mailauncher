@@ -1,3 +1,4 @@
+import { useContext, useEffect } from "react";
 import { CheckIcon, XIcon, LoaderIcon, RefreshCwIcon } from "lucide-react";
 
 import { Surface, TactileButton, Badge } from "@/components/ls";
@@ -5,6 +6,7 @@ import {
   useGitEnvironmentQuery,
   usePythonVersionsQuery,
 } from "@/hooks/queries/useEnvironmentQueries";
+import { EulaContext } from "./EulaContext";
 
 interface EnvironmentDetectionProps {
   stepColor: string;
@@ -18,6 +20,9 @@ interface EnvironmentDetectionProps {
 export function EnvironmentDetection({
   onEnvironmentReady,
 }: EnvironmentDetectionProps) {
+  // 引导页"下一步"闸门：与 EulaAgreement 共用同一套 canProceed 通道
+  const { onCanProceedChange, onButtonLabelChange } = useContext(EulaContext);
+
   // Git 环境检查
   const {
     data: gitInfo,
@@ -41,10 +46,23 @@ export function EnvironmentDetection({
   const isAllReady = isGitAvailable && isPythonAvailable;
   const isChecking = isCheckingGit || isCheckingPython;
 
-  // 通知父组件环境状态
-  if (onEnvironmentReady && !isChecking) {
-    onEnvironmentReady(isAllReady);
-  }
+  // 通知引导页环境就绪状态：检测进行中或依赖缺失时阻断"下一步"，防止用户跳过必需环境
+  useEffect(() => {
+    if (isChecking) {
+      onCanProceedChange(false);
+      onButtonLabelChange("正在检测环境...");
+      return;
+    }
+    onCanProceedChange(isAllReady);
+    onButtonLabelChange(isAllReady ? null : "请先安装 Git 与 Python 后再继续");
+    onEnvironmentReady?.(isAllReady);
+  }, [
+    isChecking,
+    isAllReady,
+    onCanProceedChange,
+    onButtonLabelChange,
+    onEnvironmentReady,
+  ]);
 
   // 重新检查所有环境
   const handleRecheckAll = () => {

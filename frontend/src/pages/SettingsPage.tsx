@@ -12,6 +12,7 @@ import {
   SourceManagerPanel,
   DiagnosticsSection,
 } from "@/components/settings";
+import { OnboardingResetSection } from "@/components/settings/OnboardingResetSection";
 import { ApiProviderConfig } from "@/components/onboarding/ApiProviderConfig";
 
 export function SettingsPage() {
@@ -64,6 +65,7 @@ export function SettingsPage() {
             <ThemeSettings />
             <UpdateCheckSection />
             <DiagnosticsSection />
+            <OnboardingResetSection />
           </TabsContent>
 
           <TabsContent

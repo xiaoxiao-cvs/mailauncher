@@ -5,16 +5,16 @@ import {
   SearchCheckIcon,
   SettingsIcon,
   FolderOpenIcon,
-} from 'lucide-react'
-import type { OnboardingStep } from '@/types/onboarding'
-import { EulaAgreement } from './EulaAgreement'
-import { ThemeSelector } from '@/components/theme/ThemeSelector'
-import { BackendConnectivity } from './BackendConnectivity'
-import { EnvironmentDetection } from './EnvironmentDetection'
-import { EnvironmentSettings } from './EnvironmentSettings'
-import { InstallPathConfig } from './InstallPathConfig'
+} from "lucide-react";
+import type { OnboardingStep } from "@/types/onboarding";
+import { EulaAgreement } from "./EulaAgreement";
+import { ThemeSelector } from "@/components/theme/ThemeSelector";
+import { BackendConnectivity } from "./BackendConnectivity";
+import { EnvironmentDetection } from "./EnvironmentDetection";
+import { EnvironmentSettings } from "./EnvironmentSettings";
+import { InstallPathConfig } from "./InstallPathConfig";
 
-const APPLE_BLUE = '#007AFF'
+const APPLE_BLUE = "#007AFF";
 
 /**
  * 引导步骤数据
@@ -31,62 +31,64 @@ const APPLE_BLUE = '#007AFF'
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 0,
-    title: '用户协议',
-    subtitle: '请阅读并同意最终用户许可协议',
+    title: "用户协议",
+    subtitle: "请阅读并同意最终用户许可协议",
     description: [],
     icon: <ScrollTextIcon className="w-5 h-5" />,
-    gradient: 'from-brand to-brand',
+    gradient: "from-brand to-brand",
     color: APPLE_BLUE,
-    component: <EulaAgreement />
+    component: <EulaAgreement />,
   },
   {
     id: 1,
-    title: '外观设置',
-    subtitle: '选择你喜欢的主题风格',
+    title: "外观设置",
+    subtitle: "选择你喜欢的主题风格",
     description: [],
     icon: <PaletteIcon className="w-5 h-5" />,
-    gradient: 'from-brand to-brand',
+    gradient: "from-brand to-brand",
     color: APPLE_BLUE,
-    component: <ThemeSelector />
+    component: <ThemeSelector />,
   },
   {
     id: 2,
-    title: '联通性检查',
-    subtitle: '配置后端服务连接',
+    title: "联通性检查",
+    subtitle: "配置后端服务连接",
     description: [],
     icon: <ServerIcon className="w-5 h-5" />,
-    gradient: 'from-brand to-brand',
+    gradient: "from-brand to-brand",
     color: APPLE_BLUE,
-    component: <BackendConnectivity stepColor={APPLE_BLUE} />
+    component: <BackendConnectivity stepColor={APPLE_BLUE} />,
   },
   {
     id: 3,
-    title: '环境检测',
-    subtitle: '检查必要的开发工具',
+    title: "环境检测",
+    subtitle: "检查必要的开发工具",
     description: [],
     icon: <SearchCheckIcon className="w-5 h-5" />,
-    gradient: 'from-brand to-brand',
+    gradient: "from-brand to-brand",
     color: APPLE_BLUE,
-    component: <EnvironmentDetection stepColor={APPLE_BLUE} />
+    // 必需依赖（Git/Python）未就绪时阻断"下一步"，与 EulaContext 联动见 EnvironmentDetection
+    isEnvironmentStep: true,
+    component: <EnvironmentDetection stepColor={APPLE_BLUE} />,
   },
   {
     id: 4,
-    title: '环境配置',
-    subtitle: '配置 Python 运行环境',
+    title: "环境配置",
+    subtitle: "配置 Python 运行环境",
     description: [],
     icon: <SettingsIcon className="w-5 h-5" />,
-    gradient: 'from-brand to-brand',
+    gradient: "from-brand to-brand",
     color: APPLE_BLUE,
-    component: <EnvironmentSettings stepColor={APPLE_BLUE} />
+    component: <EnvironmentSettings stepColor={APPLE_BLUE} />,
   },
   {
     id: 5,
-    title: '安装配置',
-    subtitle: '设置 Bot 实例安装位置',
+    title: "安装配置",
+    subtitle: "设置 Bot 实例安装位置",
     description: [],
     icon: <FolderOpenIcon className="w-5 h-5" />,
-    gradient: 'from-brand to-brand',
+    gradient: "from-brand to-brand",
     color: APPLE_BLUE,
-    component: <InstallPathConfig stepColor={APPLE_BLUE} />
-  }
-]
+    component: <InstallPathConfig stepColor={APPLE_BLUE} />,
+  },
+];
