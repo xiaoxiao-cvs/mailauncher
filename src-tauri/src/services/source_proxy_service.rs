@@ -192,6 +192,23 @@ pub async fn save_source_config(pool: &SqlitePool, config: &SourceConfig) -> App
     config_service::set_config(pool, KEY_SOURCE_CONFIG, &raw, Some("下载源配置")).await
 }
 
+/// 解析当前生效的 GitHub 镜像前缀(启用且优先级最高者的 prefix)。
+///
+/// 无启用镜像、命中官方源(prefix 为空)或读取失败时返回空串,配合 [`apply_github_mirror`]
+/// 即为官方直连。所有走 GitHub 出站的下载路径(git clone / uv / NapCat / 启动器自更新资产)
+/// 都应经此统一解析,避免各处各写一套导致镜像只覆盖部分下载。
+pub async fn resolve_active_github_prefix(pool: &SqlitePool) -> String {
+    match get_source_config(pool).await {
+        Ok(config) => pick_active_github(&config.github)
+            .map(|m| m.prefix.clone())
+            .unwrap_or_default(),
+        Err(e) => {
+            tracing::warn!("读取下载源配置失败,GitHub 走官方直连: {}", e);
+            String::new()
+        }
+    }
+}
+
 // ==================== 纯函数：注入用 ====================
 
 /// 用 GitHub 镜像前缀重写仓库 URL。
@@ -680,5 +697,59 @@ mod tests {
         save_source_config(&pool, &config).await.expect("保存失败");
         let loaded = get_source_config(&pool).await.expect("读取失败");
         assert_eq!(loaded, config);
+    }
+
+    // ==================== resolve_active_github_prefix ====================
+
+    #[tokio::test]
+    async fn resolve_active_github_prefix_returns_enabled_mirror_prefix() {
+        let pool = setup_test_db().await;
+        let config = SourceConfig {
+            github: vec![
+                GithubMirror {
+                    id: "official".to_string(),
+                    name: "官方".to_string(),
+                    prefix: String::new(),
+                    priority: 10,
+                    enabled: false,
+                },
+                GithubMirror {
+                    id: "custom".to_string(),
+                    name: "自定义镜像".to_string(),
+                    prefix: "https://gh.internal/".to_string(),
+                    priority: 90,
+                    enabled: true,
+                },
+            ],
+            pypi: vec![],
+        };
+        save_source_config(&pool, &config).await.expect("保存失败");
+
+        let prefix = resolve_active_github_prefix(&pool).await;
+        assert_eq!(prefix, "https://gh.internal/");
+        // 与 apply_github_mirror 组合后应真正改写 URL
+        assert_eq!(
+            apply_github_mirror("https://github.com/x/y/releases/download/v1/a.zip", &prefix),
+            "https://gh.internal/https://github.com/x/y/releases/download/v1/a.zip"
+        );
+    }
+
+    #[tokio::test]
+    async fn resolve_active_github_prefix_empty_when_only_official_enabled() {
+        let pool = setup_test_db().await;
+        let config = SourceConfig {
+            github: vec![GithubMirror {
+                id: "official".to_string(),
+                name: "官方".to_string(),
+                prefix: String::new(),
+                priority: 10,
+                enabled: true,
+            }],
+            pypi: vec![],
+        };
+        save_source_config(&pool, &config).await.expect("保存失败");
+
+        let prefix = resolve_active_github_prefix(&pool).await;
+        assert_eq!(prefix, "");
     }
 }

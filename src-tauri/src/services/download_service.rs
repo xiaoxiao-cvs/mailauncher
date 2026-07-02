@@ -79,15 +79,7 @@ async fn resolve_proxy_env(app_handle: &AppHandle) -> Vec<(String, String)> {
 /// 无启用镜像或读取失败时返回空串（官方直连，URL 原样使用）。
 async fn resolve_github_prefix(app_handle: &AppHandle) -> String {
     let state = app_handle.state::<AppState>();
-    match source_proxy_service::get_source_config(&state.db).await {
-        Ok(config) => source_proxy_service::pick_active_github(&config.github)
-            .map(|m| m.prefix.clone())
-            .unwrap_or_default(),
-        Err(e) => {
-            warn!("读取下载源配置失败，GitHub 走官方直连: {}", e);
-            String::new()
-        }
-    }
+    source_proxy_service::resolve_active_github_prefix(&state.db).await
 }
 
 // ==================== 下载管理器 ====================
@@ -419,10 +411,12 @@ pub async fn download_napcat(
         None
     };
 
-    // 下载 zip
+    // 下载 zip(经当前启用的 GitHub 镜像前缀重写,与 git clone 走同一套源配置)
     let _ = app_handle.emit(event_name, "正在下载 NapCat Shell...");
     let zip_path = instance_dir.join("NapCat.Shell.zip");
-    download_file(NAPCAT_SHELL_URL, &zip_path, app_handle, event_name).await?;
+    let napcat_prefix = resolve_github_prefix(app_handle).await;
+    let napcat_url = source_proxy_service::apply_github_mirror(NAPCAT_SHELL_URL, &napcat_prefix);
+    download_file(&napcat_url, &zip_path, app_handle, event_name).await?;
 
     // 解压
     let _ = app_handle.emit(event_name, "正在解压 NapCat Shell...");

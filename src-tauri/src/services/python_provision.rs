@@ -223,7 +223,16 @@ pub async fn download_and_extract_uv(app: &AppHandle) -> AppResult<PathBuf> {
             std::env::consts::ARCH
         ))
     })?;
-    let url = uv_download_url(asset);
+    // uv 也是 GitHub Release 资产,经当前启用的镜像前缀重写(与 git clone / NapCat 走同一套源配置)
+    let url = {
+        use tauri::Manager;
+        let raw = uv_download_url(asset);
+        let prefix = crate::services::source_proxy_service::resolve_active_github_prefix(
+            &app.state::<crate::state::AppState>().db,
+        )
+        .await;
+        crate::services::source_proxy_service::apply_github_mirror(&raw, &prefix)
+    };
 
     let target_dir = bundled_uv_dir();
     std::fs::create_dir_all(&target_dir)

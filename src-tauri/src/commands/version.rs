@@ -267,15 +267,25 @@ pub async fn install_launcher_update(
     }
     #[cfg(target_os = "windows")]
     {
+        use crate::services::source_proxy_service;
+        use tauri::Manager;
+
         let target = version_service::resolve_install_target(&channel, version.as_deref()).await?;
+        // 安装包与签名同为 GitHub Release 资产,经当前启用的镜像前缀重写(与 git/uv/NapCat 走同一套源配置)。
+        // 签名仍在下方用内置公钥校验,镜像即便返回损坏内容也会被 minisign 拦下,不牺牲安全。
+        let gh_prefix =
+            source_proxy_service::resolve_active_github_prefix(&app.state::<AppState>().db).await;
+        let installer_url =
+            source_proxy_service::apply_github_mirror(&target.installer_url, &gh_prefix);
+        let sig_url = source_proxy_service::apply_github_mirror(&target.sig_url, &gh_prefix);
         info!(
             "[自更新] 目标版本 {},下载 {}",
             target.version, target.installer_name
         );
-        let bytes = download_installer_with_progress(&app, &target.installer_url).await?;
+        let bytes = download_installer_with_progress(&app, &installer_url).await?;
 
         // 安全关键:用内置 updater 公钥校验签名,未过不安装
-        let sig = version_service::fetch_text(&target.sig_url).await?;
+        let sig = version_service::fetch_text(&sig_url).await?;
         version_service::verify_launcher_signature(&bytes, &sig)?;
         info!("[自更新] 签名校验通过,准备安装 {}", target.version);
 
