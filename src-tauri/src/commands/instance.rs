@@ -137,6 +137,27 @@ pub async fn get_instance_webui_url(
     )
 }
 
+/// 获取实例 NapCat 管理面板的 token 直登 URL。
+///
+/// 供前端"打开 NapCat 面板"入口用。NapCat 尚未首次运行/登录(webui.json 未生成或缺 token)时
+/// 返回明确错误。
+#[tauri::command]
+pub async fn get_instance_napcat_url(
+    state: State<'_, AppState>,
+    instance_id: String,
+) -> AppResult<String> {
+    let instance_path =
+        crate::services::maisaka_monitor_service::fetch_instance_path(&state.db, &instance_id)
+            .await
+            .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))?;
+    let instance_root = crate::utils::platform::get_instances_dir().join(&instance_path);
+    crate::services::napcat_config::build_napcat_webui_url(&instance_root).ok_or_else(|| {
+        AppError::InvalidInput(
+            "NapCat 管理面板尚未就绪:请先启动实例并完成 NapCat 首次运行/登录".to_string(),
+        )
+    })
+}
+
 /// 删除实例
 #[tauri::command]
 pub async fn delete_instance(

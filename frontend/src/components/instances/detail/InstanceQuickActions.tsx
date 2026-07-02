@@ -1,5 +1,12 @@
 import { motion } from "motion/react";
-import { Clock, Server, History, Globe, type LucideIcon } from "lucide-react";
+import {
+  Clock,
+  Server,
+  History,
+  Globe,
+  MonitorSmartphone,
+  type LucideIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Surface, TactileButton } from "@/components/ls";
 import { springSoft } from "@/design/motion";
@@ -46,11 +53,11 @@ export function InstanceQuickActions({
   onOpenSchedule,
   onOpenVersionManager,
 }: InstanceQuickActionsProps) {
-  // 打开 MaiBot WebUI:向后端取 token 直登 URL,再用临时 <a target=_blank> 交由 Tauri
-  // 按外链方式打开(与引导页外链同一机制,无需 opener 插件)。实例没起时后端会明确报错。
-  const openWebUI = async () => {
+  // 打开外部面板:向后端取带 token 的直登 URL,再用临时 <a target=_blank> 交由 Tauri 按外链
+  // 打开(与引导页外链同一机制,无需 opener 插件)。实例未就绪时后端会以明确错误 reject。
+  const openExternal = async (fetchUrl: () => Promise<string>) => {
     try {
-      const url = await instanceApi.getInstanceWebUiUrl(instanceId);
+      const url = await fetchUrl();
       const a = document.createElement("a");
       a.href = url;
       a.target = "_blank";
@@ -78,11 +85,25 @@ export function InstanceQuickActions({
         <div className="grid grid-cols-2 gap-3">
           <ActionTile icon={Server} label="配置" onClick={onOpenConfig} />
           <ActionTile icon={Clock} label="计划" onClick={onOpenSchedule} />
-          <ActionTile icon={Globe} label="打开 WebUI" onClick={openWebUI} />
+          <ActionTile
+            icon={Globe}
+            label="打开 WebUI"
+            onClick={() =>
+              openExternal(() => instanceApi.getInstanceWebUiUrl(instanceId))
+            }
+          />
+          <ActionTile
+            icon={MonitorSmartphone}
+            label="NapCat 面板"
+            onClick={() =>
+              openExternal(() => instanceApi.getInstanceNapcatUrl(instanceId))
+            }
+          />
           <ActionTile
             icon={History}
             label="版本管理"
             onClick={onOpenVersionManager}
+            className="col-span-2"
           />
         </div>
       </Surface>

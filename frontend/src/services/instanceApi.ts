@@ -263,6 +263,14 @@ class InstanceApiClient {
   }
 
   /**
+   * 获取实例 NapCat 管理面板的 token 直登 URL。
+   * NapCat 未首次运行/登录(webui.json 未生成或缺 token)时,后端会以明确错误 reject。
+   */
+  async getInstanceNapcatUrl(instanceId: string): Promise<string> {
+    return tauriInvoke<string>("get_instance_napcat_url", { instanceId });
+  }
+
+  /**
    * 启动指定组件
    */
   async startComponent(

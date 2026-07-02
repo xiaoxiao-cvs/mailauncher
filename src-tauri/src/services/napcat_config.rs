@@ -133,6 +133,35 @@ pub fn spawn_ws_watcher(instance_root: std::path::PathBuf) {
     });
 }
 
+/// 拼出 NapCat WebUI 的 token 直登 URL:`http://{host}:{port}/webui/web_login?token={token}`。
+///
+/// 读 `<instance_root>/NapCat/config/webui.json`(NapCat 首次运行后才生成)。文件不存在、
+/// token 为空时返回 None(NapCat 尚未起过/未登录)。host=0.0.0.0 归一为 127.0.0.1。
+/// URL 与字段格式对照 maibot-ref/MaiBotOneKey(service-manager.ts:1485、init-manager.ts:2356)。
+pub(crate) fn build_napcat_webui_url(instance_root: &Path) -> Option<String> {
+    let path = instance_root
+        .join("NapCat")
+        .join("config")
+        .join("webui.json");
+    let text = std::fs::read_to_string(&path).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let token = value
+        .get("token")
+        .and_then(|t| t.as_str())
+        .filter(|s| !s.is_empty())?;
+    let host = value
+        .get("host")
+        .and_then(|h| h.as_str())
+        .unwrap_or("127.0.0.1");
+    let host = if host.is_empty() || host == "0.0.0.0" {
+        "127.0.0.1"
+    } else {
+        host
+    };
+    let port = value.get("port").and_then(|p| p.as_u64()).unwrap_or(6099);
+    Some(format!("http://{host}:{port}/webui/web_login?token={token}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,5 +214,36 @@ mod tests {
         assert!(!token.is_empty(), "token 必须非空");
         // 与适配器侧相同 instance_root 的确定性推导一致 → 两侧 token 相等
         assert_eq!(token, derive_ws_token(instance_root));
+    }
+
+    #[test]
+    fn build_napcat_webui_url_normalizes_host_and_builds_login_path() {
+        let dir = tempfile::tempdir().expect("临时目录");
+        let instance_root = dir.path();
+        let config_dir = instance_root.join("NapCat").join("config");
+        std::fs::create_dir_all(&config_dir).expect("建 config 目录");
+        std::fs::write(
+            config_dir.join("webui.json"),
+            r#"{"host":"0.0.0.0","port":6099,"token":"abc123"}"#,
+        )
+        .expect("写 webui.json");
+
+        assert_eq!(
+            build_napcat_webui_url(instance_root),
+            Some("http://127.0.0.1:6099/webui/web_login?token=abc123".to_string())
+        );
+    }
+
+    #[test]
+    fn build_napcat_webui_url_none_when_absent_or_tokenless() {
+        let dir = tempfile::tempdir().expect("临时目录");
+        // 无配置
+        assert_eq!(build_napcat_webui_url(dir.path()), None);
+        // 有配置但 token 空
+        let config_dir = dir.path().join("NapCat").join("config");
+        std::fs::create_dir_all(&config_dir).expect("建 config 目录");
+        std::fs::write(config_dir.join("webui.json"), r#"{"port":6099,"token":""}"#)
+            .expect("写 webui.json");
+        assert_eq!(build_napcat_webui_url(dir.path()), None);
     }
 }
