@@ -33,7 +33,11 @@ reqwest = { version = "0.12", features = ["json", "stream"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
 thiserror = "2"
-tracing = "0.1"
+# 显式启用 tracing 的 log 桥接:后端统一用 tracing::info!/warn! 记录,而 tauri-plugin-log 捕获的是
+# `log` facade。本项目未注册任何 tracing Subscriber,后端日志能落盘完全依赖 tracing→log 桥接;此前该桥接
+# 仅由 sqlx 等依赖传递性开启,上游一旦调整就会静默断链。用 log-always 显式钉死,确保 tracing 事件始终产出
+# log 记录(即便日后引入 tracing Subscriber 也不会把事件从 log 侧夺走)。
+tracing = { version = "0.1", features = ["log-always"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 toml_edit = "0.22"
 toml = "0.8"
