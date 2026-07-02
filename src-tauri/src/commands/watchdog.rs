@@ -66,6 +66,16 @@ pub async fn get_watchdog_status(
             .cloned()
             .unwrap_or_else(|| instance_id.clone());
 
+        // 端口健康探测簿记:未探测过的会话回退 (false, 0)。
+        let (port_unreachable, port_probe_consecutive_failures) = match state
+            .watchdog_registry
+            .port_health_snapshot(&session_id)
+            .await
+        {
+            Some(p) => (p.unreachable, p.consecutive_failures),
+            None => (false, 0),
+        };
+
         result.push(WatchdogInstanceStatus {
             instance_id,
             instance_name,
@@ -74,6 +84,8 @@ pub async fn get_watchdog_status(
             is_alive,
             retry_count,
             next_attempt_at,
+            port_unreachable,
+            port_probe_consecutive_failures,
         });
     }
 

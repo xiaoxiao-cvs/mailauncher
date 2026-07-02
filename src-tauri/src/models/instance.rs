@@ -66,6 +66,13 @@ pub enum ComponentLifecycleStatus {
     Stopped,
     Failed,
     Unknown,
+    /// 进程存活但组件监听端口连续探测不可达("假死")的中间态。
+    ///
+    /// 由 `services::watchdog` 的独立端口健康探测周期判定(连续 N 次 TCP 探测失败，
+    /// 阈值见 `services::watchdog::PORT_PROBE_FAIL_THRESHOLD`)，与常规启停状态机
+    /// (Starting/Running/Stopping/Stopped/Failed)正交：不参与那几个状态间的转移，
+    /// 只用于把"进程没死但服务已无响应"这一事实诚实地呈现给前端，而不是笼统地报 Running。
+    Unreachable,
 }
 
 impl ComponentLifecycleStatus {

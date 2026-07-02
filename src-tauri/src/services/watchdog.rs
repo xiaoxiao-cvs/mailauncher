@@ -13,6 +13,15 @@
 //!   list_desired_running 已过滤掉外部会话,不在看门狗自动重启职责内。
 //! - 退避 + 上限:同一组件连续重启最多 MAX_RETRIES 次,间隔按 BACKOFF_SECS 递增;一旦巡检到
 //!   该组件存活,或用户手动操作(start 重置期望态/stop 置 Stopped),计数清零,避免无限重启风暴。
+//!
+//! 端口健康探测(独立周期,与上面的重启巡检解耦):
+//! - "进程存活"不等于"服务健康"——NapCat 进程可能因内部异常卡死但宿主进程不退出，此时重启巡检
+//!   看到的 is_component_running 仍为 true，不会触发任何动作，用户却看不出组件已经失联。
+//! - 因此另起一条按 PORT_PROBE_TICK_SECS(与 TICK_SECS 不同的独立周期)巡检的 TCP 可达性探测：
+//!   对有已知监听端口的组件(目前仅 NapCat 的 3001，复用 process_service::component_listen_ports
+//!   同一份定义)做连接探测，连续 PORT_PROBE_FAIL_THRESHOLD 次失败即判定为 Unreachable("假死")。
+//! - 判定结果只读写在 WatchdogRegistry 的独立簿记里，不影响重启巡检的 should_restart 判断——
+//!   假死是"存活但无响应"，贸然用重启逻辑杀掉再拉起属于越权，留给用户/上层按需处理。
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -34,6 +43,18 @@ const MAX_RETRIES: u32 = 3;
 
 /// 每次重启的退避间隔(秒),按已尝试次数取:第 1 次失败后等 5s,第 2 次 15s,第 3 次 45s。
 const BACKOFF_SECS: [u64; 3] = [5, 15, 45];
+
+/// 端口健康探测的巡检周期(秒)。
+///
+/// 刻意与 TICK_SECS(重启巡检周期)取不同值:两者职责独立(存活 vs 健康)，周期也不必绑定——
+/// 端口探测是纯本地 TCP 连接、开销小，稍快的周期能更快发现"假死"而不必和重启巡检抢同一个 tick。
+const PORT_PROBE_TICK_SECS: u64 = 5;
+
+/// 端口连续探测失败达到该次数才判定为"假死"(Unreachable)。
+///
+/// 取 3 次而非 1 次:避免组件重启瞬间、或探测本身偶发抖动(如系统一时繁忙)被误判为假死；
+/// 与 PORT_PROBE_TICK_SECS=5s 搭配，最快 15s 内识别出真正的假死，足够及时又不会太敏感。
+const PORT_PROBE_FAIL_THRESHOLD: u32 = 3;
 
 /// 自动重启偏好的 config KV key 前缀,实际 key 形如 "autorestart:<instance_id>"。
 const AUTORESTART_KEY_PREFIX: &str = "autorestart:";
@@ -59,7 +80,19 @@ impl RestartBookkeeping {
     }
 }
 
-/// 看门狗重启簿记的共享态。
+/// 单个组件会话的端口健康探测簿记(看门狗内存态,不持久化)。
+///
+/// 与 `RestartBookkeeping` 分开存放:两者的清零时机不同——重启簿记在"进程存活"时清零，
+/// 端口健康簿记在"端口探测可达"时清零，进程刚重启但端口还没起来的窗口期两者语义不应互相污染。
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PortHealthBookkeeping {
+    /// 当前连续探测失败次数(探测到可达即清零)。
+    pub consecutive_failures: u32,
+    /// 是否已判定为"假死"(连续失败次数达到 PORT_PROBE_FAIL_THRESHOLD)。
+    pub unreachable: bool,
+}
+
+/// 看门狗重启簿记与端口健康簿记的共享态。
 ///
 /// 看门狗循环以前把 `HashMap<session_id, RestartBookkeeping>` 私有在 spawn 闭包里,只读命令拿不到。
 /// 现搬到此共享态(`Arc<Mutex<..>>`,与 ProcessManager 同构),作为 AppState 字段在看门狗循环与
@@ -68,6 +101,9 @@ impl RestartBookkeeping {
 #[derive(Clone, Default)]
 pub struct WatchdogRegistry {
     inner: Arc<Mutex<HashMap<String, RestartBookkeeping>>>,
+    /// 端口健康探测簿记,由独立周期的 spawn_port_health_loop 读写，与 inner 分开加锁，
+    /// 避免端口探测与重启巡检互相阻塞对方的临界区。
+    port_health: Arc<Mutex<HashMap<String, PortHealthBookkeeping>>>,
 }
 
 impl WatchdogRegistry {
@@ -78,6 +114,11 @@ impl WatchdogRegistry {
     /// 拷贝指定会话当前簿记快照(只读,不存在返回 None)。
     pub async fn snapshot(&self, session_id: &str) -> Option<RestartBookkeeping> {
         self.inner.lock().await.get(session_id).cloned()
+    }
+
+    /// 拷贝指定会话当前端口健康簿记快照(只读,不存在返回 None,调用方应视为"未探测/健康")。
+    pub async fn port_health_snapshot(&self, session_id: &str) -> Option<PortHealthBookkeeping> {
+        self.port_health.lock().await.get(session_id).copied()
     }
 }
 
@@ -95,6 +136,29 @@ fn should_restart(
     desired_running && !alive && autorestart_enabled && retry_count < max_retries
 }
 
+/// 纯函数:给定当前端口健康簿记与本次探测是否可达,计算探测后的新簿记状态。
+///
+/// 与 should_restart 同样的设计取向——把判定逻辑抽成无副作用纯函数,便于穷举边界
+/// (阈值前一次/恰好达阈值/达阈值后又失败/失败后恢复)做单测,不依赖真实 TCP 探测与 tokio 运行时。
+/// 一旦判定为假死(unreachable=true)，需显式探测到可达才会清零复位，不会中途"和稀泥"退半步。
+fn next_port_health(
+    current: PortHealthBookkeeping,
+    reachable: bool,
+) -> PortHealthBookkeeping {
+    if reachable {
+        PortHealthBookkeeping {
+            consecutive_failures: 0,
+            unreachable: false,
+        }
+    } else {
+        let consecutive_failures = current.consecutive_failures + 1;
+        PortHealthBookkeeping {
+            consecutive_failures,
+            unreachable: current.unreachable || consecutive_failures >= PORT_PROBE_FAIL_THRESHOLD,
+        }
+    }
+}
+
 /// 解析实例的自动重启偏好:读 config KV "autorestart:<instance_id>"。
 ///
 /// 缺省(从未设置)视为开启(true):看门狗默认守护,符合"装完即用、崩了自动救"的产品取向。
@@ -110,7 +174,17 @@ async fn autorestart_enabled(
 }
 
 /// 启动看门狗后台循环。
+///
+/// 内部实际拉起两条独立周期的后台任务:重启巡检(spawn_restart_loop,周期 TICK_SECS)与
+/// 端口健康探测(spawn_port_health_loop,周期 PORT_PROBE_TICK_SECS)。调用方(lib.rs 启动流程)
+/// 只需调这一个入口，两条巡检各自的节奏与失败互不影响对方。
 pub fn spawn_watchdog(app_handle: AppHandle) {
+    spawn_restart_loop(app_handle.clone());
+    spawn_port_health_loop(app_handle);
+}
+
+/// 重启巡检后台循环(职责与周期见模块顶部文档)。
+fn spawn_restart_loop(app_handle: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut ticker = tokio::time::interval(Duration::from_secs(TICK_SECS));
         info!(
@@ -238,6 +312,87 @@ pub fn spawn_watchdog(app_handle: AppHandle) {
     });
 }
 
+/// 端口健康探测后台循环(职责与周期见模块顶部文档)。
+///
+/// 只对"有已知监听端口"的组件做探测(目前仅 NapCat)：MaiBot 没有启动器可确知的固定端口，
+/// 强行探测只会产生恒定误报，故直接跳过并清理其可能残留的簿记。
+fn spawn_port_health_loop(app_handle: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let mut ticker = tokio::time::interval(Duration::from_secs(PORT_PROBE_TICK_SECS));
+        info!(
+            "[看门狗-端口探测] 已启动,tick={}s,连续 {} 次失败判定假死",
+            PORT_PROBE_TICK_SECS, PORT_PROBE_FAIL_THRESHOLD
+        );
+
+        loop {
+            ticker.tick().await;
+
+            let (process_manager, registry) = {
+                let state = app_handle.state::<AppState>();
+                (state.process_manager.clone(), state.watchdog_registry.clone())
+            };
+
+            let desired_running = process_manager.list_desired_running().await;
+
+            // 清理已不再期望运行的会话簿记,防止 map 无限增长。
+            let still_tracked: std::collections::HashSet<String> = desired_running
+                .iter()
+                .map(|(instance_id, component)| format!("{}::{}", instance_id, component))
+                .collect();
+            {
+                let mut health = registry.port_health.lock().await;
+                health.retain(|session_id, _| still_tracked.contains(session_id));
+            }
+
+            for (instance_id, component) in desired_running {
+                let session_id = format!("{}::{}", instance_id, component);
+
+                let Some(component_type) =
+                    crate::models::ComponentType::from_value(&component)
+                else {
+                    continue;
+                };
+                let ports = crate::services::process_service::component_listen_ports(component_type);
+                if ports.is_empty() {
+                    // 无已知监听端口(如 MaiBot):不探测,顺带清掉可能残留的旧簿记。
+                    registry.port_health.lock().await.remove(&session_id);
+                    continue;
+                }
+
+                // 进程本身已不在跑:存活与否交由重启巡检处理,端口探测在此不重复判定,
+                // 避免"进程已退"和"假死"两种不同性质的异常混淆成同一个告警。
+                let alive = process_manager
+                    .is_component_running(&instance_id, &component)
+                    .await;
+                if !alive {
+                    registry.port_health.lock().await.remove(&session_id);
+                    continue;
+                }
+
+                // 全部已知端口都需可达才算健康;任一端口不可达即计一次失败。
+                let reachable = ports
+                    .iter()
+                    .all(|&port| crate::services::process_service::is_tcp_port_in_use(port));
+
+                let mut health = registry.port_health.lock().await;
+                let previous = health.get(&session_id).copied().unwrap_or_default();
+                let updated = next_port_health(previous, reachable);
+
+                if updated.unreachable && !previous.unreachable {
+                    warn!(
+                        "[看门狗-端口探测] {} 连续 {} 次端口不可达,判定为假死(进程存活但服务无响应)",
+                        session_id, updated.consecutive_failures
+                    );
+                } else if !updated.unreachable && previous.unreachable {
+                    info!("[看门狗-端口探测] {} 端口已恢复可达,解除假死判定", session_id);
+                }
+
+                health.insert(session_id, updated);
+            }
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -312,6 +467,89 @@ mod tests {
 
         // 另一未簿记会话仍为 None,确认快照按 session_id 精确取。
         assert!(registry.snapshot("inst_b::napcat").await.is_none());
+    }
+
+    // ==================== 端口健康探测 ====================
+
+    #[tokio::test]
+    async fn port_health_snapshot_reflects_bookkeeping_and_absence() {
+        let registry = WatchdogRegistry::new();
+
+        // 未探测过的会话:快照为 None(命令层据此回退 port_unreachable=false)。
+        assert!(registry.port_health_snapshot("inst_a::napcat").await.is_none());
+
+        registry.port_health.lock().await.insert(
+            "inst_a::napcat".to_string(),
+            PortHealthBookkeeping {
+                consecutive_failures: 3,
+                unreachable: true,
+            },
+        );
+
+        let snap = registry
+            .port_health_snapshot("inst_a::napcat")
+            .await
+            .expect("已写入的端口健康簿记不应为 None");
+        assert_eq!(snap.consecutive_failures, 3);
+        assert!(snap.unreachable);
+
+        // 另一未簿记会话仍为 None。
+        assert!(registry.port_health_snapshot("inst_b::napcat").await.is_none());
+    }
+
+    #[test]
+    fn next_port_health_accumulates_failures_up_to_threshold() {
+        let fresh = PortHealthBookkeeping::default();
+
+        // 第 1 次失败:未达阈值,不假死。
+        let after_1 = next_port_health(fresh, false);
+        assert_eq!(after_1.consecutive_failures, 1);
+        assert!(!after_1.unreachable);
+
+        // 第 2 次失败:仍未达阈值(PORT_PROBE_FAIL_THRESHOLD = 3)。
+        let after_2 = next_port_health(after_1, false);
+        assert_eq!(after_2.consecutive_failures, 2);
+        assert!(!after_2.unreachable);
+
+        // 第 3 次失败:恰好达阈值,判定假死。
+        let after_3 = next_port_health(after_2, false);
+        assert_eq!(after_3.consecutive_failures, 3);
+        assert!(after_3.unreachable);
+
+        // 第 4 次失败:已经假死,继续累加计数且保持假死。
+        let after_4 = next_port_health(after_3, false);
+        assert_eq!(after_4.consecutive_failures, 4);
+        assert!(after_4.unreachable);
+    }
+
+    #[test]
+    fn next_port_health_recovers_immediately_on_reachable() {
+        // 已判定假死的会话,一旦探测到可达就立即清零并解除假死,不做"半信半疑"的渐进恢复。
+        let unreachable = PortHealthBookkeeping {
+            consecutive_failures: 5,
+            unreachable: true,
+        };
+        let recovered = next_port_health(unreachable, true);
+        assert_eq!(recovered.consecutive_failures, 0);
+        assert!(!recovered.unreachable);
+    }
+
+    #[test]
+    fn next_port_health_reachable_resets_partial_failure_streak() {
+        // 尚未达阈值的失败streak,一次可达探测也应立即清零,不能"抵消一次"这种渐进逻辑。
+        let partial = PortHealthBookkeeping {
+            consecutive_failures: 2,
+            unreachable: false,
+        };
+        let reset = next_port_health(partial, true);
+        assert_eq!(reset.consecutive_failures, 0);
+        assert!(!reset.unreachable);
+    }
+
+    #[test]
+    fn port_probe_fail_threshold_matches_module_doc() {
+        // 守护常量语义不漂移:阈值应为正数且与模块文档所述一致(当前设计值 3)。
+        assert_eq!(PORT_PROBE_FAIL_THRESHOLD, 3);
     }
 
     #[test]

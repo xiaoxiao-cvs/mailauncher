@@ -14,6 +14,13 @@ use serde::Serialize;
 ///   簿记过的会话(从未崩溃)为 0。
 /// next_attempt_at:下次允许尝试自动重启的最早时刻(退避用);无退避计划(可立即尝试或未在簿记中)
 ///   时为 None,以 null 诚实表达,不用 0 掩盖。
+/// port_unreachable:进程存活但组件监听端口连续探测不可达的"假死"判定,取自
+///   `services::watchdog::WatchdogRegistry::port_health_snapshot`;未被端口探测周期
+///   簿记过(如组件本身无已知监听端口)时为 false。
+/// port_probe_consecutive_failures:端口健康探测当前连续失败次数,达到
+///   `services::watchdog::PORT_PROBE_FAIL_THRESHOLD` 才会翻转 port_unreachable 为 true;
+///   未被簿记时为 0。保留该原始计数(而非只给一个布尔)是为了让前端能展示"探测中/第几次失败"，
+///   不必等到判定坐实假死才有任何提示。
 #[derive(Debug, Clone, Serialize)]
 pub struct WatchdogInstanceStatus {
     pub instance_id: String,
@@ -23,4 +30,6 @@ pub struct WatchdogInstanceStatus {
     pub is_alive: bool,
     pub retry_count: u32,
     pub next_attempt_at: Option<DateTime<Utc>>,
+    pub port_unreachable: bool,
+    pub port_probe_consecutive_failures: u32,
 }

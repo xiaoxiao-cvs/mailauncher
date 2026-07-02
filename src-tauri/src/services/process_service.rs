@@ -221,11 +221,58 @@ impl ProcessInfo {
     }
 
     /// 终止进程
+    ///
+    /// Windows 下改用 `taskkill /F /T /PID` 做进程树查杀:PTY 直接拉起的往往只是壳/launcher
+    /// 进程，真正的服务(如 NapCat 拉起的 Node 子进程)常挂在其下；`child.kill()` 只杀根进程，
+    /// 会在系统中残留子进程僵尸。非 Windows 平台保持原 `child.kill()` 行为不变。
+    /// 仅替换"强杀"这一步，10 秒优雅等待窗口(GRACE_POLLS)不受影响。
     pub fn kill(&mut self) {
         if let Some(mut child) = self.child.take() {
-            let _ = child.kill();
+            #[cfg(target_os = "windows")]
+            {
+                match self.host_pid.map(kill_process_tree_windows) {
+                    Some(Ok(())) => {}
+                    Some(Err(e)) => {
+                        warn!(
+                            "[进程管理] {} taskkill 进程树查杀失败，回退到默认 kill: {}",
+                            self.session_id, e
+                        );
+                        let _ = child.kill();
+                    }
+                    None => {
+                        // 无 host_pid 可用(理论上不应发生于本地托管进程)，回退默认 kill。
+                        let _ = child.kill();
+                    }
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                let _ = child.kill();
+            }
         }
         self.mark_stopped();
+    }
+}
+
+/// Windows 下用 `taskkill /F /T /PID` 强制查杀指定 PID 及其整棵子进程树。
+///
+/// `/T` 是连带清理 NapCat(Node)等拉起子进程的关键：不加 `/T` 只杀根 PTY 壳进程，
+/// 子进程会变成孤儿继续占用端口/资源。`taskkill` 对"进程已不存在"会返回非零退出码，
+/// 调用方需据此判断是否需要回退到 `child.kill()`。
+#[cfg(target_os = "windows")]
+fn kill_process_tree_windows(pid: u32) -> std::io::Result<()> {
+    let output = std::process::Command::new("taskkill")
+        .args(["/F", "/T", "/PID", &pid.to_string()])
+        .output()?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(std::io::Error::other(format!(
+            "taskkill 退出码 {:?}: {}",
+            output.status.code(),
+            String::from_utf8_lossy(&output.stderr).trim()
+        )))
     }
 }
 
@@ -1212,11 +1259,13 @@ pub fn build_component_command(
 /// 若上一轮 NapCat 未退干净仍占着 3001,新进程会因端口被占而起不来,故启动前先探测。
 const NAPCAT_FORWARD_WS_PORT: u16 = 3001;
 
-/// 返回某组件启动后会以服务端身份监听的本地端口(用于启动前冲突探测)。
+/// 返回某组件启动后会以服务端身份监听的本地端口(用于启动前冲突探测，及看门狗端口健康探测复用)。
 ///
 /// 仅收录代码库中有确切定义来源的端口:NapCat 的 3001。MaiBot 的 bot.py 不由启动器
 /// 绑定固定端口(上游未在本仓暴露 WebUI 端口常量),故返回空,不臆造端口。
-fn component_listen_ports(component: ComponentType) -> &'static [u16] {
+/// `pub(crate)`:供 services::watchdog 的独立端口健康探测周期复用同一份端口定义，
+/// 避免在看门狗里另起一份端口清单导致口径漂移。
+pub(crate) fn component_listen_ports(component: ComponentType) -> &'static [u16] {
     match component {
         ComponentType::NapCat => &[NAPCAT_FORWARD_WS_PORT],
         ComponentType::Main => &[],
@@ -1226,7 +1275,9 @@ fn component_listen_ports(component: ComponentType) -> &'static [u16] {
 /// 探测 127.0.0.1:port 是否已被占用(能在超时内成功 TCP 连上即视为被占)。
 ///
 /// 抽成纯函数便于单测:传入临时监听 socket 的端口应判定为占用,空闲端口应判定为空闲。
-fn is_tcp_port_in_use(port: u16) -> bool {
+/// `pub(crate)`:同时作为看门狗端口健康探测的可达性判定——"连得上"复用为"健康"语义
+/// (与启动前冲突探测的"连得上即被占"是同一个 TCP 探测事实,仅解读方向相反)。
+pub(crate) fn is_tcp_port_in_use(port: u16) -> bool {
     use std::net::{Ipv4Addr, SocketAddr, TcpStream};
     use std::time::Duration;
 
@@ -1591,6 +1642,43 @@ mod tests {
         // 释放监听后,同一端口应判定为空闲。
         drop(listener);
         assert!(!super::is_tcp_port_in_use(port), "释放后的端口应判定为空闲");
+    }
+
+    // ==================== 强杀:Windows 进程树查杀 ====================
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn kill_process_tree_windows_succeeds_for_running_process() {
+        // 起一个短生命周期的占位进程(ping 30 次约 30s 足够查杀期间存活),验证 taskkill 能成功终止。
+        let mut child = std::process::Command::new("ping")
+            .args(["127.0.0.1", "-n", "30"])
+            .spawn()
+            .expect("启动占位进程失败");
+        let pid = child.id();
+
+        assert!(
+            super::kill_process_tree_windows(pid).is_ok(),
+            "对存活进程的 taskkill 查杀应成功"
+        );
+
+        // 查杀后进程应已退出;taskkill 本身同步等待终止完成，但留一点轮询余量吸收系统抖动。
+        let mut exited = false;
+        for _ in 0..20 {
+            if child.try_wait().expect("查询占位进程状态失败").is_some() {
+                exited = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        assert!(exited, "taskkill 后占位进程应已退出");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn kill_process_tree_windows_errors_for_nonexistent_pid() {
+        // 极大 PID 在正常系统上不可能存在，taskkill 应报非成功退出码并转为 Err。
+        let result = super::kill_process_tree_windows(u32::MAX - 1);
+        assert!(result.is_err(), "对不存在的 PID 查杀应返回错误");
     }
 
     #[test]
