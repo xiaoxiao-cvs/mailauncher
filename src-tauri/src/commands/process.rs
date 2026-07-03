@@ -169,6 +169,16 @@ async fn start_component_inner(
     // 幂等、缺文件即跳过、内部吞错只 warn,不阻断启动——覆盖"已登录过重启"与首启两种时机。
     crate::services::napcat_config::reconcile_napcat_ports(instance_path, ports.napcat_ws)?;
 
+    // 启动前对齐 MaiBot 端口(bot_config.toml 的 maim_message.ws_server_port + webui.port)到本实例
+    // 端口,缺段则创建,赶在 MaiBot 首次加载填默认之前;缺文件即跳过。失败不阻断启动。
+    if let Err(e) = crate::services::maibot_config::patch_maibot_ports(
+        instance_path,
+        ports.maim,
+        ports.maibot_webui,
+    ) {
+        warn!("对齐 MaiBot 端口出错(忽略): {}", e);
+    }
+
     // 启动前健壮性把关仅适用本地托管:WSL2 的端口/venv 都在 guest 内,用宿主回环探测与宿主
     // .venv 路径校验会误判,故跳过(WSL2 的就绪由其运行时路径负责)。
     // 且仅当本组件确认未在运行时才校验(运行中的本组件自身就占着端口,不算冲突)。
