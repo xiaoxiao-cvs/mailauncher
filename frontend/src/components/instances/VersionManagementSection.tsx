@@ -79,15 +79,12 @@ export const VersionManagementSection: React.FC<
 
   const handleUpdate = async (componentName: string) => {
     try {
+      // 更新方式由后端按组件分发形态(has_releases)唯一判定(resolve_update_strategy),
+      // 前端不再传 updateMethod 提示(旧提示会与真实分发形态漂移)。
       await updateMutation.mutateAsync({
         instanceId,
         component: componentName,
         createBackup: true,
-        // P2-22:按本地记录的安装方式动态选择更新方式,而非写死 git
-        // (release 型组件如 NapCat 由后端 check_component_update / update_component
-        // 自行按 install_method 分支处理,这里仅为该字段的展示/意图标注保持一致)。
-        updateMethod:
-          localData?.install_method === "release" ? "release" : "git",
       });
     } catch (error) {
       console.error("Update failed:", error);

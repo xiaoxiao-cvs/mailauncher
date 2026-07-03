@@ -113,7 +113,6 @@ export async function updateComponent(
   instanceId: string,
   component: string,
   createBackup: boolean = true,
-  _updateMethod: "git" | "release" = "git",
 ): Promise<{
   backup_id?: string;
   old_version?: string;

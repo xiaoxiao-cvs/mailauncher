@@ -1,7 +1,7 @@
 /**
  * 版本管理相关的 React Query Hooks
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getInstanceComponentsVersion,
   checkComponentUpdate,
@@ -10,21 +10,22 @@ import {
   restoreBackup,
   getUpdateHistory,
   getComponentReleases,
-} from '@/services/versionApi';
+} from "@/services/versionApi";
 
 // ==================== Query Keys ====================
 
 export const versionKeys = {
-  all: ['versions'] as const,
-  components: (instanceId: string) => [...versionKeys.all, 'components', instanceId] as const,
-  componentDetail: (instanceId: string, component: string) => 
-    [...versionKeys.all, 'component', instanceId, component] as const,
-  backups: (instanceId: string, component?: string) => 
-    [...versionKeys.all, 'backups', instanceId, component] as const,
-  history: (instanceId: string, component?: string) => 
-    [...versionKeys.all, 'history', instanceId, component] as const,
-  releases: (component: string) => 
-    [...versionKeys.all, 'releases', component] as const,
+  all: ["versions"] as const,
+  components: (instanceId: string) =>
+    [...versionKeys.all, "components", instanceId] as const,
+  componentDetail: (instanceId: string, component: string) =>
+    [...versionKeys.all, "component", instanceId, component] as const,
+  backups: (instanceId: string, component?: string) =>
+    [...versionKeys.all, "backups", instanceId, component] as const,
+  history: (instanceId: string, component?: string) =>
+    [...versionKeys.all, "history", instanceId, component] as const,
+  releases: (component: string) =>
+    [...versionKeys.all, "releases", component] as const,
 };
 
 // ==================== Query Hooks ====================
@@ -37,12 +38,15 @@ export function useComponentsVersionQuery(
   options?: {
     enabled?: boolean;
     manualFetch?: boolean; // 是否手动触发获取
-  }
+  },
 ) {
   return useQuery({
     queryKey: versionKeys.components(instanceId!),
     queryFn: () => getInstanceComponentsVersion(instanceId!),
-    enabled: !!instanceId && (options?.enabled ?? true) && !(options?.manualFetch ?? false),
+    enabled:
+      !!instanceId &&
+      (options?.enabled ?? true) &&
+      !(options?.manualFetch ?? false),
     staleTime: 24 * 60 * 60 * 1000, // 24 小时内数据视为新鲜，不会自动重新获取
     gcTime: 24 * 60 * 60 * 1000, // 缓存保持 24 小时
     refetchOnMount: false, // 组件挂载时不自动重新获取（如果有缓存数据）
@@ -59,7 +63,7 @@ export function useCheckComponentUpdateQuery(
   component: string | undefined,
   options?: {
     enabled?: boolean;
-  }
+  },
 ) {
   return useQuery({
     queryKey: versionKeys.componentDetail(instanceId!, component!),
@@ -77,7 +81,7 @@ export function useBackupsQuery(
   component?: string,
   options?: {
     enabled?: boolean;
-  }
+  },
 ) {
   return useQuery({
     queryKey: versionKeys.backups(instanceId!, component),
@@ -96,7 +100,7 @@ export function useUpdateHistoryQuery(
   limit: number = 20,
   options?: {
     enabled?: boolean;
-  }
+  },
 ) {
   return useQuery({
     queryKey: versionKeys.history(instanceId!, component),
@@ -114,7 +118,7 @@ export function useComponentReleasesQuery(
   limit: number = 10,
   options?: {
     enabled?: boolean;
-  }
+  },
 ) {
   return useQuery({
     queryKey: versionKeys.releases(component!),
@@ -137,27 +141,28 @@ export function useUpdateComponentMutation() {
       instanceId,
       component,
       createBackup = true,
-      updateMethod = 'git',
     }: {
       instanceId: string;
       component: string;
       createBackup?: boolean;
-      updateMethod?: 'git' | 'release';
-    }) => updateComponent(instanceId, component, createBackup, updateMethod),
-    
+    }) => updateComponent(instanceId, component, createBackup),
+
     onSuccess: (_, variables) => {
       // 使更新后的组件版本信息无效，触发重新获取
-      queryClient.invalidateQueries({ 
-        queryKey: versionKeys.components(variables.instanceId) 
+      queryClient.invalidateQueries({
+        queryKey: versionKeys.components(variables.instanceId),
       });
-      queryClient.invalidateQueries({ 
-        queryKey: versionKeys.componentDetail(variables.instanceId, variables.component) 
+      queryClient.invalidateQueries({
+        queryKey: versionKeys.componentDetail(
+          variables.instanceId,
+          variables.component,
+        ),
       });
-      queryClient.invalidateQueries({ 
-        queryKey: versionKeys.backups(variables.instanceId) 
+      queryClient.invalidateQueries({
+        queryKey: versionKeys.backups(variables.instanceId),
       });
-      queryClient.invalidateQueries({ 
-        queryKey: versionKeys.history(variables.instanceId) 
+      queryClient.invalidateQueries({
+        queryKey: versionKeys.history(variables.instanceId),
       });
     },
   });
@@ -177,14 +182,14 @@ export function useRestoreBackupMutation() {
       instanceId: string;
       backupId: string;
     }) => restoreBackup(instanceId, backupId),
-    
+
     onSuccess: (_, variables) => {
       // 恢复后重新获取版本信息
-      queryClient.invalidateQueries({ 
-        queryKey: versionKeys.components(variables.instanceId) 
+      queryClient.invalidateQueries({
+        queryKey: versionKeys.components(variables.instanceId),
       });
-      queryClient.invalidateQueries({ 
-        queryKey: versionKeys.history(variables.instanceId) 
+      queryClient.invalidateQueries({
+        queryKey: versionKeys.history(variables.instanceId),
       });
     },
   });
@@ -198,14 +203,14 @@ export function useCheckAllUpdates(instanceId: string | undefined) {
 
   return useMutation({
     mutationFn: async () => {
-      if (!instanceId) throw new Error('实例 ID 不能为空');
-      
+      if (!instanceId) throw new Error("实例 ID 不能为空");
+
       // 强制刷新组件版本信息
-      await queryClient.invalidateQueries({ 
+      await queryClient.invalidateQueries({
         queryKey: versionKeys.components(instanceId),
-        refetchType: 'all'
+        refetchType: "all",
       });
-      
+
       // 获取最新数据
       return queryClient.fetchQuery({
         queryKey: versionKeys.components(instanceId),

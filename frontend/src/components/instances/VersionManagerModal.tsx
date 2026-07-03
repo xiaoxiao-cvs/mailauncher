@@ -41,7 +41,6 @@ export const VersionManagerModal: React.FC<VersionManagerModalProps> = ({
     null,
   );
   const [updateConfirmed, setUpdateConfirmed] = useState(false);
-  const [updateMethod] = useState<"git" | "release">("git");
   const [showBackups, setShowBackups] = useState(false);
   const [isManualBackingUp, setIsManualBackingUp] = useState(false);
 
@@ -73,7 +72,6 @@ export const VersionManagerModal: React.FC<VersionManagerModalProps> = ({
         instanceId,
         component: selectedComponent,
         createBackup: true,
-        updateMethod,
       });
 
       setUpdateConfirmed(false);
