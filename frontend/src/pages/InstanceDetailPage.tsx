@@ -22,6 +22,7 @@ import { InstanceAutorestartToggle } from "@/components/instances/detail/Instanc
 import { InstalledPluginsCard } from "@/components/instances/detail/InstalledPluginsCard";
 import { InstancePortsCard } from "@/components/instances/detail/InstancePortsCard";
 import { MaiBotDataCard } from "@/components/instances/detail/MaiBotDataCard";
+import { InstancePathMigrationCard } from "@/components/instances/detail/InstancePathMigrationCard";
 import {
   useInstanceQuery,
   useComponentStatusQuery,
@@ -217,6 +218,7 @@ export const InstanceDetailPage: React.FC = () => {
           <InstanceAutorestartToggle instanceId={instance.id} />
           <VersionManagementSection instanceId={instance.id} />
           <InstancePortsCard ports={instance.ports} />
+          <InstancePathMigrationCard instance={instance} />
           <MaiBotDataCard instanceId={instance.id} />
           <InstalledPluginsCard instanceId={instance.id} />
         </div>
