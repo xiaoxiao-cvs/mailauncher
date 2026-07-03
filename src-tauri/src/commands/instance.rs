@@ -115,6 +115,28 @@ pub async fn update_instance(
     Ok(updated)
 }
 
+/// 迁移实例部署目录到新路径(重命名 / 改部署位置)。
+///
+/// 破坏性操作:把磁盘上的既有实例目录从旧路径移动到新路径,并同步更新数据库中的
+/// instance_path / config_path / python_path / runtime_profile 等派生路径。安全前提由服务层保证:
+/// 实例仍在运行(组件存活或 DB 记录为活动态)、目标目录已存在、源目录缺失均会被拒绝,且移动失败或
+/// DB 写入失败都会回滚,不留半迁移状态。实例不存在时返回 NotFound。
+#[tauri::command]
+pub async fn migrate_instance_path(
+    state: State<'_, AppState>,
+    instance_id: String,
+    new_path: String,
+) -> AppResult<Instance> {
+    instance_service::migrate_instance_path(
+        &state.db,
+        &state.process_manager,
+        &instance_id,
+        &new_path,
+    )
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("实例 {} 不存在", instance_id)))
+}
+
 /// 获取实例 MaiBot WebUI 的 token 直登 URL。
 ///
 /// 供前端"打开 WebUI"入口用 `<a target=_blank>` 直接打开。实例未启动、或 WebUI 会话令牌

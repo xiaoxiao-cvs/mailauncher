@@ -162,6 +162,7 @@ pub fn run() {
             commands::instance::get_instance_status,
             commands::instance::create_instance,
             commands::instance::update_instance,
+            commands::instance::migrate_instance_path,
             commands::instance::delete_instance,
             commands::instance::get_napcat_accounts,
             commands::instance::get_instance_webui_url,
@@ -177,6 +178,12 @@ pub fn run() {
             commands::process::stop_component,
             commands::process::get_component_status,
             commands::process::get_instance_components,
+            // 批量启停(G10-2)
+            commands::batch_process::start_all_instances,
+            commands::batch_process::stop_all_instances,
+            // 实例数据管理(G8-3)
+            commands::maibot_data::get_maibot_data_stats,
+            commands::maibot_data::clear_maibot_data_category,
             // 终端交互
             commands::process::terminal_write,
             commands::process::terminal_get_history,

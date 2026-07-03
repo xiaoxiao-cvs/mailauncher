@@ -450,6 +450,31 @@ class InstanceApiClient {
   async getRecentActivity(limit?: number): Promise<RecentActivityItem[]> {
     return tauriInvoke<RecentActivityItem[]>("get_recent_activity", { limit });
   }
+
+  /** 启动全部实例(逐个复用单实例启动,单个失败不影响其余),返回成功/失败清单。 */
+  async startAllInstances(): Promise<BatchOperationResult> {
+    return tauriInvoke<BatchOperationResult>("start_all_instances");
+  }
+
+  /** 停止全部实例(逐个优雅停止),返回成功/失败清单。 */
+  async stopAllInstances(): Promise<BatchOperationResult> {
+    return tauriInvoke<BatchOperationResult>("stop_all_instances");
+  }
+
+  /**
+   * 迁移实例部署目录到新路径(重命名 / 改部署位置)。
+   * 破坏性操作:移动磁盘目录并同步 instance_path/config_path/python_path 等派生路径。
+   * 要求实例已停止、目标目录不存在;运行中或目标已存在会抛错。返回更新后的实例。
+   */
+  async migrateInstancePath(
+    instanceId: string,
+    newPath: string,
+  ): Promise<Instance> {
+    return tauriInvoke<Instance>("migrate_instance_path", {
+      instanceId,
+      newPath,
+    });
+  }
 }
 
 /** 麦麦结构化日志一条记录(对应 Rust MaibotLogRecord)。 */
@@ -514,6 +539,26 @@ export interface RecentActivityItem {
 export interface NapcatQrCode {
   dataUrl: string;
   mtimeMs: number;
+}
+
+/** 批量操作中单个成功项(对应 Rust BatchItemSuccess)。 */
+export interface BatchItemSuccess {
+  id: string;
+  name: string;
+}
+
+/** 批量操作中单个失败项(对应 Rust BatchItemFailure);error 为冒泡上来的原始原因。 */
+export interface BatchItemFailure {
+  id: string;
+  name: string;
+  error: string;
+}
+
+/** 批量启停聚合结果(对应 Rust BatchOperationResult)。 */
+export interface BatchOperationResult {
+  total: number;
+  succeeded: BatchItemSuccess[];
+  failed: BatchItemFailure[];
 }
 
 // 导出单例

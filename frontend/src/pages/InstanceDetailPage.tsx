@@ -21,6 +21,7 @@ import { InstanceQuickActions } from "@/components/instances/detail/InstanceQuic
 import { InstanceAutorestartToggle } from "@/components/instances/detail/InstanceAutorestartToggle";
 import { InstalledPluginsCard } from "@/components/instances/detail/InstalledPluginsCard";
 import { InstancePortsCard } from "@/components/instances/detail/InstancePortsCard";
+import { MaiBotDataCard } from "@/components/instances/detail/MaiBotDataCard";
 import {
   useInstanceQuery,
   useComponentStatusQuery,
@@ -216,6 +217,7 @@ export const InstanceDetailPage: React.FC = () => {
           <InstanceAutorestartToggle instanceId={instance.id} />
           <VersionManagementSection instanceId={instance.id} />
           <InstancePortsCard ports={instance.ports} />
+          <MaiBotDataCard instanceId={instance.id} />
           <InstalledPluginsCard instanceId={instance.id} />
         </div>
 

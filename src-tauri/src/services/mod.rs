@@ -13,6 +13,7 @@ pub mod lifecycle_service;
 pub mod load_average;
 pub mod log_service;
 pub mod maibot_config;
+pub mod maibot_data_service;
 pub mod maibot_log;
 pub mod maisaka_monitor_service;
 pub mod memory_info;

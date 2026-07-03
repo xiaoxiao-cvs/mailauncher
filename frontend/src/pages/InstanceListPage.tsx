@@ -7,7 +7,15 @@ import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { InstanceCard } from "@/components/instances/InstanceCard";
-import { Plus, RefreshCw, AlertCircle, Server } from "lucide-react";
+import {
+  Plus,
+  RefreshCw,
+  AlertCircle,
+  Server,
+  Play,
+  Square,
+} from "lucide-react";
+import { toast } from "sonner";
 import { Surface, Badge, StatusDot, TactileButton } from "@/components/ls";
 import { springSettle } from "@/design/motion";
 import {
@@ -18,6 +26,11 @@ import {
   useDeleteInstanceMutation,
   useUpdateInstanceMutation,
 } from "@/hooks/queries/useInstanceQueries";
+import {
+  useStartAllInstancesMutation,
+  useStopAllInstancesMutation,
+} from "@/hooks/queries/useBatchInstanceMutations";
+import type { BatchOperationResult } from "@/services/instanceApi";
 import { useConfirm } from "@/hooks/useConfirm";
 
 export const InstanceListPage: React.FC = () => {
@@ -40,6 +53,9 @@ export const InstanceListPage: React.FC = () => {
   const restartMutation = useRestartInstanceMutation();
   const deleteMutation = useDeleteInstanceMutation();
   const updateMutation = useUpdateInstanceMutation();
+  const startAllMutation = useStartAllInstancesMutation();
+  const stopAllMutation = useStopAllInstancesMutation();
+  const batchPending = startAllMutation.isPending || stopAllMutation.isPending;
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   // 排序用:运行实例的启动顺序(重排/入场动画交给 motion layout + 父级 stagger,无需手算 FLIP)
@@ -188,6 +204,39 @@ export const InstanceListPage: React.FC = () => {
     refetch();
   };
 
+  // 批量启停结果汇总:全成功报成功、有失败列出失败实例名。
+  const summarizeBatch = (verb: string, r: BatchOperationResult) => {
+    if (r.total === 0) {
+      toast.info("当前没有可操作的实例");
+      return;
+    }
+    if (r.failed.length === 0) {
+      toast.success(`已${verb}全部 ${r.succeeded.length} 个实例`);
+      return;
+    }
+    toast.error(
+      `${verb}完成:成功 ${r.succeeded.length} 个,失败 ${r.failed.length} 个(${r.failed
+        .map((f) => f.name)
+        .join("、")})`,
+    );
+  };
+
+  const handleStartAll = async () => {
+    try {
+      summarizeBatch("启动", await startAllMutation.mutateAsync());
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const handleStopAll = async () => {
+    try {
+      summarizeBatch("停止", await stopAllMutation.mutateAsync());
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   return (
     <div className="container mx-auto px-6 py-10 max-w-7xl">
       {/* 页面头部 */}
@@ -233,6 +282,24 @@ export const InstanceListPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <TactileButton
+            variant="ghost"
+            onClick={handleStartAll}
+            disabled={batchPending || instances.length === 0}
+            className="disabled:opacity-50"
+          >
+            <Play className="w-4 h-4" />
+            全部启动
+          </TactileButton>
+          <TactileButton
+            variant="ghost"
+            onClick={handleStopAll}
+            disabled={batchPending || instances.length === 0}
+            className="disabled:opacity-50"
+          >
+            <Square className="w-4 h-4" />
+            全部停止
+          </TactileButton>
           <TactileButton
             variant="ghost"
             onClick={handleRefresh}

@@ -101,3 +101,71 @@ export async function createManualBackup(
 export async function resetInstanceData(instanceId: string): Promise<void> {
   await tauriInvoke("reset_instance_data", { instanceId });
 }
+
+/**
+ * MaiBot/data 单个数据类别的占用统计（G8-3）—— 与 Rust `MaiBotDataCategory`
+ * （services/maibot_data_service.rs，标了 `#[serde(rename_all = "camelCase")]`）逐字段一致。
+ */
+export interface MaiBotDataCategory {
+  /** 类别 id（稳定标识，clearMaiBotDataCategory 的 category 入参） */
+  id: string;
+  /** 类别中文显示名 */
+  displayName: string;
+  /** 类别说明 */
+  description: string;
+  /** 是否允许清理（false 仅展示占用） */
+  cleanable: boolean;
+  /** 该类别占用字节数 */
+  sizeBytes: number;
+  /** 该类别文件数（递归，不含目录本身） */
+  fileCount: number;
+}
+
+/** 实例 MaiBot/data 的分类占用快照（G8-3）。 */
+export interface MaiBotDataStats {
+  instanceId: string;
+  /** MaiBot/data 绝对路径 */
+  dataDir: string;
+  /** data 目录是否存在（实例从未运行时为 false，各类别均 0） */
+  dataDirExists: boolean;
+  totalSizeBytes: number;
+  totalFileCount: number;
+  /** 扫描时刻（本地 ISO 字符串） */
+  scannedAt: string;
+  categories: MaiBotDataCategory[];
+}
+
+/** 清理某类别的结果（G8-3）。 */
+export interface ClearDataResult {
+  /** 被清理的类别 id */
+  category: string;
+  /** 释放的字节数 */
+  removedBytes: number;
+  /** 实际删除的顶层条目名 */
+  removedEntries: string[];
+  /** 清理完成时刻（本地 ISO 字符串） */
+  clearedAt: string;
+}
+
+/** 获取实例 MaiBot/data 的分类占用统计（G8-3，只读）。 */
+export async function getMaiBotDataStats(
+  instanceId: string,
+): Promise<MaiBotDataStats> {
+  return tauriInvoke<MaiBotDataStats>("get_maibot_data_stats", { instanceId });
+}
+
+/**
+ * 清空指定类别的 MaiBot/data 数据（G8-3，危险操作）。
+ *
+ * 后端强制要求实例已停止，且仅 cleanable 类别可清（images/emoji/temp/html_imgs）；
+ * 未停机 / 类别不可清 / 未知类别均会抛错。调用方须先用 useConfirm 二次确认。
+ */
+export async function clearMaiBotDataCategory(
+  instanceId: string,
+  category: string,
+): Promise<ClearDataResult> {
+  return tauriInvoke<ClearDataResult>("clear_maibot_data_category", {
+    instanceId,
+    category,
+  });
+}
