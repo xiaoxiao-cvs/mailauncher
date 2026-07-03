@@ -1252,23 +1252,20 @@ pub fn build_component_command(
 
 // ==================== 端口冲突检测 ====================
 
-/// NapCat 作为 OneBot 服务端监听的正向 WS 端口。
-///
-/// 与 `napcat_config::ADAPTER_WS_PORT` 及 `install_service::ADAPTER_DEFAULT_NAPCAT_PORT`
-/// 同源(均为 3001):NapCat 在此端口起 WS 服务端,MaiBot 内置适配器作为客户端连入。
-/// 若上一轮 NapCat 未退干净仍占着 3001,新进程会因端口被占而起不来,故启动前先探测。
-const NAPCAT_FORWARD_WS_PORT: u16 = 3001;
-
 /// 返回某组件启动后会以服务端身份监听的本地端口(用于启动前冲突探测，及看门狗端口健康探测复用)。
 ///
-/// 仅收录代码库中有确切定义来源的端口:NapCat 的 3001。MaiBot 的 bot.py 不由启动器
-/// 绑定固定端口(上游未在本仓暴露 WebUI 端口常量),故返回空,不臆造端口。
+/// 端口从实例分配的端口块 [`InstancePorts`] 取,不再全局硬编码(G10-1):NapCat 在 `napcat_ws`
+/// 起正向 WS 服务端,MaiBot 内置适配器作为客户端连入。MaiBot 的 bot.py 不由启动器绑定固定
+/// 端口(其 WebUI 端口 per-instance 由 MaiBot 自身 assert 自检),故 Main 返回空,不在此臆造。
 /// `pub(crate)`:供 services::watchdog 的独立端口健康探测周期复用同一份端口定义，
 /// 避免在看门狗里另起一份端口清单导致口径漂移。
-pub(crate) fn component_listen_ports(component: ComponentType) -> &'static [u16] {
+pub(crate) fn component_listen_ports(
+    component: ComponentType,
+    ports: &crate::services::instance_ports::InstancePorts,
+) -> Vec<u16> {
     match component {
-        ComponentType::NapCat => &[NAPCAT_FORWARD_WS_PORT],
-        ComponentType::Main => &[],
+        ComponentType::NapCat => vec![ports.napcat_ws],
+        ComponentType::Main => vec![],
     }
 }
 
@@ -1290,8 +1287,11 @@ pub(crate) fn is_tcp_port_in_use(port: u16) -> bool {
 ///
 /// 与 `ProcessManager::is_component_running` 配合:仅在本组件确认未在运行时才需要此探测
 /// (运行中的本组件自身就占着端口,不应误判为冲突),调用点在 process_service 启动路径上把关。
-pub fn ensure_component_ports_free(component: ComponentType) -> AppResult<()> {
-    for &port in component_listen_ports(component) {
+pub fn ensure_component_ports_free(
+    component: ComponentType,
+    ports: &crate::services::instance_ports::InstancePorts,
+) -> AppResult<()> {
+    for port in component_listen_ports(component, ports) {
         if is_tcp_port_in_use(port) {
             return Err(AppError::Process(format!(
                 "端口 {} 已被占用,无法启动组件 {};请先停止占用该端口的进程(可能是上一轮未退干净的同组件)后重试",
@@ -1683,19 +1683,22 @@ mod tests {
     }
 
     #[test]
-    fn napcat_listen_ports_include_forward_ws_and_main_has_none() {
+    fn napcat_listen_ports_use_instance_napcat_ws_and_main_has_none() {
+        let ports = crate::services::instance_ports::InstancePorts::from_base(21200);
+        // NapCat 探测端口取该实例分配的 napcat_ws,不再是全局常量。
         assert_eq!(
-            super::component_listen_ports(ComponentType::NapCat),
-            &[super::NAPCAT_FORWARD_WS_PORT]
+            super::component_listen_ports(ComponentType::NapCat, &ports),
+            vec![ports.napcat_ws]
         );
         // MaiBot 无启动器绑定的固定端口,不臆造。
-        assert!(super::component_listen_ports(ComponentType::Main).is_empty());
+        assert!(super::component_listen_ports(ComponentType::Main, &ports).is_empty());
     }
 
     #[test]
     fn ensure_component_ports_free_passes_for_main() {
+        let ports = crate::services::instance_ports::InstancePorts::from_base(21200);
         // Main 无监听端口,任何情况下都应放行。
-        assert!(super::ensure_component_ports_free(ComponentType::Main).is_ok());
+        assert!(super::ensure_component_ports_free(ComponentType::Main, &ports).is_ok());
     }
 
     // ==================== 依赖预检 ====================

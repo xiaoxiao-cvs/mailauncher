@@ -161,6 +161,14 @@ async fn start_component_inner(
 
     let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
 
+    // 解析该实例分配的端口块(G10-1):经 create_instance 之外的路径(下载安装等)创建的实例在此惰性分配。
+    let ports =
+        crate::services::instance_ports::ensure_instance_ports(&state.db, instance_id).await?;
+
+    // 启动前对齐 NapCat 正向 WS 契约两侧到本实例端口(onebot11 服务端 + 适配器客户端 config.toml)。
+    // 幂等、缺文件即跳过、内部吞错只 warn,不阻断启动——覆盖"已登录过重启"与首启两种时机。
+    crate::services::napcat_config::reconcile_napcat_ports(instance_path, ports.napcat_ws)?;
+
     // 启动前健壮性把关仅适用本地托管:WSL2 的端口/venv 都在 guest 内,用宿主回环探测与宿主
     // .venv 路径校验会误判,故跳过(WSL2 的就绪由其运行时路径负责)。
     // 且仅当本组件确认未在运行时才校验(运行中的本组件自身就占着端口,不算冲突)。
@@ -170,19 +178,14 @@ async fn start_component_inner(
             .await
     {
         // 端口冲突探测:被占则直接冒泡清晰错误,不启动(避免起一个必然失败的进程)。
-        crate::services::process_service::ensure_component_ports_free(component_spec.component)?;
+        crate::services::process_service::ensure_component_ports_free(
+            component_spec.component,
+            &ports,
+        )?;
 
         // MaiBot 启动前校验 venv 依赖就绪;缺失则冒泡可操作错误指引用户重装。
         if component_spec.component == ComponentType::Main {
             crate::services::process_service::ensure_maibot_dependencies_ready(instance_path)?;
-        }
-    }
-
-    // NapCat 启动前:幂等修好已存在的 onebot11(本次启动即读到正确配置,覆盖"已登录过的重启"场景)。
-    // 失败不阻断启动——大不了退回手动 WebUI 配。
-    if component_spec.component == ComponentType::NapCat {
-        if let Err(e) = crate::services::napcat_config::ensure_napcat_ws(instance_path) {
-            warn!("NapCat WS 预配置出错(忽略): {}", e);
         }
     }
 
@@ -222,7 +225,10 @@ async fn start_component_inner(
 
         // NapCat 启动后:轮询补首次登录才生成的 onebot11(覆盖"首次扫码登录"场景,NapCat 热重载生效)
         if component_spec.component == ComponentType::NapCat {
-            crate::services::napcat_config::spawn_ws_watcher(instance_path.to_path_buf());
+            crate::services::napcat_config::spawn_ws_watcher(
+                instance_path.to_path_buf(),
+                ports.napcat_ws,
+            );
         }
 
         return Ok(StartOutcome::Started);

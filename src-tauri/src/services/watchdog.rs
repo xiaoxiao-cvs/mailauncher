@@ -327,9 +327,13 @@ fn spawn_port_health_loop(app_handle: AppHandle) {
         loop {
             ticker.tick().await;
 
-            let (process_manager, registry) = {
+            let (process_manager, registry, pool) = {
                 let state = app_handle.state::<AppState>();
-                (state.process_manager.clone(), state.watchdog_registry.clone())
+                (
+                    state.process_manager.clone(),
+                    state.watchdog_registry.clone(),
+                    state.db.clone(),
+                )
             };
 
             let desired_running = process_manager.list_desired_running().await;
@@ -352,7 +356,27 @@ fn spawn_port_health_loop(app_handle: AppHandle) {
                 else {
                     continue;
                 };
-                let ports = crate::services::process_service::component_listen_ports(component_type);
+                // 解析该实例分配的端口(只读,不触发分配);从未分配(旧实例没启动过)则无可探测端口。
+                let instance_ports = match crate::services::instance_ports::read_instance_ports(
+                    &pool,
+                    &instance_id,
+                )
+                .await
+                {
+                    Ok(Some(p)) => p,
+                    Ok(None) => {
+                        registry.port_health.lock().await.remove(&session_id);
+                        continue;
+                    }
+                    Err(e) => {
+                        warn!("[看门狗-端口探测] 读取实例 {} 端口失败,跳过本轮: {}", instance_id, e);
+                        continue;
+                    }
+                };
+                let ports = crate::services::process_service::component_listen_ports(
+                    component_type,
+                    &instance_ports,
+                );
                 if ports.is_empty() {
                     // 无已知监听端口(如 MaiBot):不探测,顺带清掉可能残留的旧簿记。
                     registry.port_health.lock().await.remove(&session_id);

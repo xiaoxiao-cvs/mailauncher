@@ -14,9 +14,6 @@ use tracing::{info, warn};
 
 use crate::errors::{AppError, AppResult};
 
-/// 适配器连入的端口,须与 `install_service` 写给适配器 config.toml 的 `napcat_server.port` 一致。
-const ADAPTER_WS_PORT: i64 = 3001;
-
 /// 为实例推导正向 WS 的鉴权 token。
 ///
 /// NapCat 服务端与 MaiBot 适配器客户端两侧的 token 必须一致才能鉴权连上。两处配置在不同时机
@@ -40,12 +37,13 @@ pub fn derive_ws_token(instance_root: &Path) -> String {
     hex[..32].to_string()
 }
 
-/// 幂等确保实例下所有 NapCat onebot11 配置都开了 127.0.0.1:3001 正向 WS;返回是否有文件被改动。
+/// 幂等确保实例下所有 NapCat onebot11 配置都开了 127.0.0.1:`port` 正向 WS;返回是否有文件被改动。
 ///
-/// 扫描 `<instance_root>/NapCat/config/onebot11_*.json`,`network.websocketServers` 里缺 3001
-/// 条目的就补一条。config 目录不存在(尚未登录)时返回 `Ok(false)`。单个文件损坏只记日志跳过、
-/// 不阻断其余文件,也不阻断启动。
-pub fn ensure_napcat_ws(instance_root: &Path) -> AppResult<bool> {
+/// 端口取该实例分配的 `napcat_ws`(G10-1),不再全局硬编码 3001,使多实例各自监听独立端口。
+/// 扫描 `<instance_root>/NapCat/config/onebot11_*.json`,若已存在 mailauncher 注入的正向 WS
+/// 条目则把其端口对齐为 `port`(实例基址变更时纠偏),缺失则补一条。config 目录不存在(尚未登录)
+/// 时返回 `Ok(false)`。单个文件损坏只记日志跳过、不阻断其余文件,也不阻断启动。
+pub fn ensure_napcat_ws(instance_root: &Path, port: u16) -> AppResult<bool> {
     let config_dir = instance_root.join("NapCat").join("config");
     if !config_dir.is_dir() {
         return Ok(false);
@@ -62,10 +60,10 @@ pub fn ensure_napcat_ws(instance_root: &Path) -> AppResult<bool> {
         if !is_onebot {
             continue;
         }
-        match patch_onebot_file(&path, &token) {
+        match patch_onebot_file(&path, &token, port) {
             Ok(true) => {
                 patched_any = true;
-                info!("已为 NapCat 注入 {} 正向 WS: {:?}", ADAPTER_WS_PORT, path);
+                info!("已为 NapCat 注入/对齐 {} 正向 WS: {:?}", port, path);
             }
             Ok(false) => {}
             Err(e) => warn!("处理 NapCat 配置 {:?} 失败,跳过: {}", path, e),
@@ -74,9 +72,11 @@ pub fn ensure_napcat_ws(instance_root: &Path) -> AppResult<bool> {
     Ok(patched_any)
 }
 
-/// 往单个 onebot11 文件注入 3001 正向 WS(已存在该端口条目则不动),返回是否改动。
-/// 整文件读入 serde_json::Value 后只往 websocketServers 数组追加,其余字段原样保留。
-fn patch_onebot_file(path: &Path, token: &str) -> AppResult<bool> {
+/// 往单个 onebot11 文件注入/对齐 `port` 正向 WS,返回是否改动。
+///
+/// 认 `name == "mailauncher"` 的条目为启动器自管条目:存在则把端口对齐为 `port`(端口已一致则不改),
+/// 不存在则追加一条。整文件读入 serde_json::Value 后只改 websocketServers 数组,其余字段原样保留。
+fn patch_onebot_file(path: &Path, token: &str, port: u16) -> AppResult<bool> {
     let text = std::fs::read_to_string(path)?;
     let mut root: serde_json::Value = serde_json::from_str(&text)?;
 
@@ -88,18 +88,26 @@ fn patch_onebot_file(path: &Path, token: &str) -> AppResult<bool> {
             AppError::Config("NapCat onebot11 缺少 network.websocketServers 数组".to_string())
         })?;
 
-    let exists = servers
-        .iter()
-        .any(|s| s.get("port").and_then(|p| p.as_i64()) == Some(ADAPTER_WS_PORT));
-    if exists {
-        return Ok(false);
+    let port_i64 = port as i64;
+    // 已有启动器自管条目(name=mailauncher):端口不一致则对齐,一致则不动。
+    if let Some(existing) = servers
+        .iter_mut()
+        .find(|s| s.get("name").and_then(|n| n.as_str()) == Some("mailauncher"))
+    {
+        if existing.get("port").and_then(|p| p.as_i64()) == Some(port_i64) {
+            return Ok(false);
+        }
+        existing["port"] = serde_json::json!(port_i64);
+        existing["token"] = serde_json::json!(token);
+        std::fs::write(path, serde_json::to_string_pretty(&root)?)?;
+        return Ok(true);
     }
 
     servers.push(serde_json::json!({
         "enable": true,
         "name": "mailauncher",
         "host": "127.0.0.1",
-        "port": ADAPTER_WS_PORT,
+        "port": port_i64,
         "reportSelfMessage": false,
         "enableForcePushEvent": false,
         "messagePostFormat": "array",
@@ -112,18 +120,69 @@ fn patch_onebot_file(path: &Path, token: &str) -> AppResult<bool> {
     Ok(true)
 }
 
+/// 幂等把 MaiBot 内置 NapCat 适配器 config.toml 的 `[napcat_server].port` 对齐为 `port`(客户端连入口)。
+///
+/// 适配器装在 `<instance_root>/MaiBot/plugins/<repo>/config.toml`(含 `[napcat_server]` 段),这里
+/// 按模式发现该文件(不硬编码插件夹名):扫 `MaiBot/plugins/*/config.toml`,取首个含 `[napcat_server]`
+/// 段的即适配器配置。端口已一致则不改。文件/目录缺失(适配器未装)返回 `Ok(false)`,非致命。
+fn patch_adapter_napcat_port(instance_root: &Path, port: u16) -> AppResult<bool> {
+    use toml_edit::{value, DocumentMut};
+
+    let plugins_dir = instance_root.join("MaiBot").join("plugins");
+    if !plugins_dir.is_dir() {
+        return Ok(false);
+    }
+
+    for entry in std::fs::read_dir(&plugins_dir)?.flatten() {
+        let config_path = entry.path().join("config.toml");
+        if !config_path.is_file() {
+            continue;
+        }
+        let text = std::fs::read_to_string(&config_path)?;
+        let mut doc = match text.parse::<DocumentMut>() {
+            Ok(doc) => doc,
+            Err(e) => {
+                warn!("解析插件 config.toml {:?} 失败,跳过: {}", config_path, e);
+                continue;
+            }
+        };
+        // 仅认含 [napcat_server] 段的插件配置为适配器配置。
+        if doc.get("napcat_server").is_none() {
+            continue;
+        }
+        let current = doc["napcat_server"]["port"].as_integer();
+        if current == Some(port as i64) {
+            return Ok(false);
+        }
+        doc["napcat_server"]["port"] = value(port as i64);
+        std::fs::write(&config_path, doc.to_string())?;
+        info!("已对齐适配器 napcat_server.port -> {}: {:?}", port, config_path);
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+/// 按实例分配的 `napcat_ws` 端口对齐 NapCat 正向 WS 契约两侧(G10-1):
+/// NapCat 服务端 onebot11 + MaiBot 适配器客户端 config.toml。两侧幂等、缺文件即跳过,均非致命。
+pub fn reconcile_napcat_ports(instance_root: &Path, napcat_ws: u16) -> AppResult<()> {
+    if let Err(e) = ensure_napcat_ws(instance_root, napcat_ws) {
+        warn!("对齐 NapCat onebot11 正向 WS 端口出错(忽略): {}", e);
+    }
+    if let Err(e) = patch_adapter_napcat_port(instance_root, napcat_ws) {
+        warn!("对齐适配器 napcat_server.port 出错(忽略): {}", e);
+    }
+    Ok(())
+}
+
 /// NapCat 启动后调用:后台轮询补首次登录才生成的 onebot11(NapCat 监测到文件变更会热重载生效)。
 /// 每 3s 一次,补上一次即停,否则约 5 分钟后停止。幂等无副作用,故不必绑定 NapCat 生命周期。
-pub fn spawn_ws_watcher(instance_root: std::path::PathBuf) {
+pub fn spawn_ws_watcher(instance_root: std::path::PathBuf, port: u16) {
     tokio::spawn(async move {
         for _ in 0..100 {
             tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-            match ensure_napcat_ws(&instance_root) {
+            match ensure_napcat_ws(&instance_root, port) {
                 Ok(true) => {
-                    info!(
-                        "NapCat 登录后已自动注入 {} 正向 WS,适配器即将连上",
-                        ADAPTER_WS_PORT
-                    );
+                    info!("NapCat 登录后已自动注入 {} 正向 WS,适配器即将连上", port);
                     break;
                 }
                 Ok(false) => {}
@@ -186,8 +245,21 @@ mod tests {
         assert_ne!(a, c);
     }
 
+    fn mailauncher_entry(config_dir: &Path) -> serde_json::Value {
+        let content =
+            std::fs::read_to_string(config_dir.join("onebot11_123.json")).expect("读取");
+        let root: serde_json::Value = serde_json::from_str(&content).expect("解析");
+        root["network"]["websocketServers"]
+            .as_array()
+            .expect("数组")
+            .iter()
+            .find(|s| s["name"].as_str() == Some("mailauncher"))
+            .expect("应有 mailauncher 条目")
+            .clone()
+    }
+
     #[test]
-    fn ensure_napcat_ws_injects_derived_nonempty_token() {
+    fn ensure_napcat_ws_injects_instance_port_with_derived_token() {
         let dir = tempfile::tempdir().expect("临时目录");
         let instance_root = dir.path();
         let config_dir = instance_root.join("NapCat").join("config");
@@ -198,22 +270,79 @@ mod tests {
         )
         .expect("写 onebot json");
 
-        assert!(ensure_napcat_ws(instance_root).expect("注入失败"));
+        assert!(ensure_napcat_ws(instance_root, 21200).expect("注入失败"));
 
-        let content =
-            std::fs::read_to_string(config_dir.join("onebot11_123.json")).expect("读取");
-        let root: serde_json::Value = serde_json::from_str(&content).expect("解析");
-        let entry = root["network"]["websocketServers"]
-            .as_array()
-            .expect("数组")
-            .iter()
-            .find(|s| s["port"].as_i64() == Some(ADAPTER_WS_PORT))
-            .expect("应有 3001 条目")
-            .clone();
+        let entry = mailauncher_entry(&config_dir);
+        // 注入的端口是传入的实例端口,不是硬编码 3001。
+        assert_eq!(entry["port"].as_i64(), Some(21200));
         let token = entry["token"].as_str().expect("token 字段");
         assert!(!token.is_empty(), "token 必须非空");
         // 与适配器侧相同 instance_root 的确定性推导一致 → 两侧 token 相等
         assert_eq!(token, derive_ws_token(instance_root));
+    }
+
+    #[test]
+    fn ensure_napcat_ws_realigns_existing_entry_port_on_base_change() {
+        let dir = tempfile::tempdir().expect("临时目录");
+        let instance_root = dir.path();
+        let config_dir = instance_root.join("NapCat").join("config");
+        std::fs::create_dir_all(&config_dir).expect("建 config 目录");
+        std::fs::write(
+            config_dir.join("onebot11_123.json"),
+            r#"{"network":{"websocketServers":[]}}"#,
+        )
+        .expect("写 onebot json");
+
+        assert!(ensure_napcat_ws(instance_root, 21200).expect("首次注入"));
+        // 端口未变:幂等不改动。
+        assert!(!ensure_napcat_ws(instance_root, 21200).expect("再次同端口"));
+        // 端口变化:对齐既有 mailauncher 条目而非追加重复条目。
+        assert!(ensure_napcat_ws(instance_root, 21210).expect("端口变更对齐"));
+
+        let content =
+            std::fs::read_to_string(config_dir.join("onebot11_123.json")).expect("读取");
+        let root: serde_json::Value = serde_json::from_str(&content).expect("解析");
+        let servers = root["network"]["websocketServers"].as_array().expect("数组");
+        let mailauncher_entries = servers
+            .iter()
+            .filter(|s| s["name"].as_str() == Some("mailauncher"))
+            .count();
+        assert_eq!(mailauncher_entries, 1, "端口变更应对齐而非重复追加条目");
+        assert_eq!(mailauncher_entry(&config_dir)["port"].as_i64(), Some(21210));
+    }
+
+    #[test]
+    fn patch_adapter_napcat_port_aligns_only_config_with_napcat_server_section() {
+        let dir = tempfile::tempdir().expect("临时目录");
+        let instance_root = dir.path();
+        let plugins = instance_root.join("MaiBot").join("plugins");
+        let adapter_dir = plugins.join("napcat-adapter");
+        let other_dir = plugins.join("some-other-plugin");
+        std::fs::create_dir_all(&adapter_dir).expect("建适配器目录");
+        std::fs::create_dir_all(&other_dir).expect("建其他插件目录");
+        std::fs::write(
+            adapter_dir.join("config.toml"),
+            "[napcat_server]\nhost = \"127.0.0.1\"\nport = 3001\n",
+        )
+        .expect("写适配器 config");
+        std::fs::write(
+            other_dir.join("config.toml"),
+            "[plugin]\nenabled = true\nport = 3001\n",
+        )
+        .expect("写其他插件 config");
+
+        assert!(patch_adapter_napcat_port(instance_root, 21200).expect("对齐失败"));
+
+        let adapter = std::fs::read_to_string(adapter_dir.join("config.toml")).expect("读适配器");
+        let adapter_doc = adapter.parse::<toml_edit::DocumentMut>().expect("解析");
+        assert_eq!(adapter_doc["napcat_server"]["port"].as_integer(), Some(21200));
+
+        // 无 [napcat_server] 段的其他插件不被误改。
+        let other = std::fs::read_to_string(other_dir.join("config.toml")).expect("读其他");
+        assert!(other.contains("port = 3001"), "非适配器插件不应被改动");
+
+        // 幂等:端口已一致再调不改动。
+        assert!(!patch_adapter_napcat_port(instance_root, 21200).expect("幂等调用"));
     }
 
     #[test]

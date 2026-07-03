@@ -86,6 +86,21 @@ pub async fn ensure_instance_ports(
     Ok(InstancePorts::from_base(base))
 }
 
+/// 只读取已分配端口(不分配、无写副作用);未分配返回 None。
+///
+/// 供看门狗端口健康探测等只读路径使用:它周期性遍历运行中会话,只应读取端口而不能触发分配写。
+pub async fn read_instance_ports(
+    pool: &SqlitePool,
+    instance_id: &str,
+) -> AppResult<Option<InstancePorts>> {
+    let base: Option<i64> = sqlx::query_scalar("SELECT port_base FROM instances WHERE id = ?")
+        .bind(instance_id)
+        .fetch_optional(pool)
+        .await?
+        .flatten();
+    Ok(base.map(InstancePorts::from_base))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -152,5 +167,25 @@ mod tests {
     async fn missing_instance_errors() {
         let pool = mem_pool().await;
         assert!(ensure_instance_ports(&pool, "nope").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn read_does_not_allocate() {
+        let pool = mem_pool().await;
+        insert_instance(&pool, "inst_a").await;
+
+        // 未分配时只读返回 None,且不产生分配写副作用。
+        assert!(read_instance_ports(&pool, "inst_a").await.unwrap().is_none());
+        let base: Option<i64> = sqlx::query_scalar("SELECT port_base FROM instances WHERE id = ?")
+            .bind("inst_a")
+            .fetch_optional(&pool)
+            .await
+            .unwrap()
+            .flatten();
+        assert!(base.is_none(), "read_instance_ports 不得写库");
+
+        // 分配后只读能读回同一端口块。
+        let allocated = ensure_instance_ports(&pool, "inst_a").await.unwrap();
+        assert_eq!(read_instance_ports(&pool, "inst_a").await.unwrap(), Some(allocated));
     }
 }
