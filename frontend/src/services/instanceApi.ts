@@ -95,6 +95,14 @@ export interface InstanceComponentState {
   last_error?: string | null;
 }
 
+/** 每实例分配的端口块(后端由 port_base 派生);未分配(从未启动过的旧实例)为 null。 */
+export interface InstancePorts {
+  napcat_ws: number;
+  maim: number;
+  maibot_webui: number;
+  napcat_webui: number;
+}
+
 export interface Instance {
   id: string;
   name: string;
@@ -117,6 +125,7 @@ export interface Instance {
   component_states: InstanceComponentState[];
   cpu_usage?: number;
   memory_usage?: number;
+  ports?: InstancePorts | null;
 }
 
 export interface InstanceCreate {

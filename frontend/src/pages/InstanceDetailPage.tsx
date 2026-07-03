@@ -20,6 +20,7 @@ import { NapcatQrPanel } from "@/components/instances/detail/NapcatQrPanel";
 import { InstanceQuickActions } from "@/components/instances/detail/InstanceQuickActions";
 import { InstanceAutorestartToggle } from "@/components/instances/detail/InstanceAutorestartToggle";
 import { InstalledPluginsCard } from "@/components/instances/detail/InstalledPluginsCard";
+import { InstancePortsCard } from "@/components/instances/detail/InstancePortsCard";
 import {
   useInstanceQuery,
   useComponentStatusQuery,
@@ -214,6 +215,7 @@ export const InstanceDetailPage: React.FC = () => {
           />
           <InstanceAutorestartToggle instanceId={instance.id} />
           <VersionManagementSection instanceId={instance.id} />
+          <InstancePortsCard ports={instance.ports} />
           <InstalledPluginsCard instanceId={instance.id} />
         </div>
 
