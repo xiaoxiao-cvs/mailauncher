@@ -57,6 +57,35 @@ pub fn get_github_repo(item_type: &crate::models::download::DownloadItemType) ->
     }
 }
 
+/// 组件更新策略:一次组件更新走 Git(pull/checkout)还是 Release 整包(zip 重下覆盖)。
+///
+/// G5-G7:分支的唯一判据是组件仓库的分发形态(`GitHubRepo::has_releases`),而不是
+/// `component_versions` 表里记录的 install_method、也不是前端传来的 update_method 提示——
+/// 那两者只用于展示/意图标注,会因历史数据或人工改动而与真实分发形态漂移。真正决定
+/// "能不能 git pull"的是产物本身:NapCat 由 Release 的 NapCat.Shell.zip 整解压而来、目录下
+/// 没有 .git,对它执行 git pull 必然失败(G5-G7 技术债的根因)。以 has_releases 为唯一判据,
+/// 从判定源头杜绝 NapCat 误入 git 分支。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComponentUpdateStrategy {
+    /// Git 型组件(MaiBot / 适配器 / LPMM):git pull 更新,或 checkout 回滚到历史 commit。
+    Git,
+    /// Release 型组件(目前仅 NapCat):重新下载最新 Release zip 覆盖安装,复用
+    /// `download_service::download_napcat` 的 config 目录备份/恢复,配置不丢。
+    ReleaseZip,
+}
+
+/// 依据组件分发形态判定更新策略。`has_releases` 为 true 的组件(目前仅 NapCat)恒走
+/// `ReleaseZip`,永不进入 git pull 分支;其余走 `Git`。
+pub fn resolve_update_strategy(
+    item_type: &crate::models::download::DownloadItemType,
+) -> ComponentUpdateStrategy {
+    if get_github_repo(item_type).has_releases {
+        ComponentUpdateStrategy::ReleaseZip
+    } else {
+        ComponentUpdateStrategy::Git
+    }
+}
+
 /// 启动器自身仓库
 const LAUNCHER_OWNER: &str = "xiaoxiao-cvs";
 const LAUNCHER_REPO: &str = "mailauncher";
@@ -1363,6 +1392,59 @@ mod tests {
         assert_eq!(repo.name, "MaiMBot-LPMM");
         assert_eq!(repo.folder, "MaiMBot-LPMM");
         assert!(!repo.has_releases);
+    }
+
+    // ==================== resolve_update_strategy (G5-G7) ====================
+
+    #[test]
+    fn resolve_update_strategy_napcat_is_release_zip_never_git() {
+        // NapCat 由 Release 的 NapCat.Shell.zip 解压而来、目录下无 .git,更新必须走 zip 重下覆盖。
+        // 一旦被判为 Git 策略,update_component 就会对它执行 git pull 并必然失败——这正是 G5-G7
+        // 要根除的缺陷,故在判定源头钉死:NapCat 恒为 ReleaseZip、绝不为 Git。
+        assert_eq!(
+            resolve_update_strategy(&DownloadItemType::Napcat),
+            ComponentUpdateStrategy::ReleaseZip
+        );
+        assert_ne!(
+            resolve_update_strategy(&DownloadItemType::Napcat),
+            ComponentUpdateStrategy::Git,
+            "NapCat 绝不能被判定为 Git 更新策略(git pull 对 zip 产物必失败)"
+        );
+    }
+
+    #[test]
+    fn resolve_update_strategy_git_components_stay_git() {
+        // git 检出型组件(MaiBot / 适配器 / LPMM)走 Git 策略,不受 G5-G7 改动影响。
+        for item in [
+            DownloadItemType::Maibot,
+            DownloadItemType::NapcatAdapter,
+            DownloadItemType::Lpmm,
+        ] {
+            assert_eq!(
+                resolve_update_strategy(&item),
+                ComponentUpdateStrategy::Git,
+                "{:?} 是 git 检出组件,应走 Git 更新策略",
+                item
+            );
+        }
+    }
+
+    #[test]
+    fn resolve_update_strategy_matches_repo_has_releases() {
+        // 策略判定必须与 get_github_repo 的分发形态标记严格一致,避免两处判据漂移出分歧。
+        for item in [
+            DownloadItemType::Maibot,
+            DownloadItemType::Napcat,
+            DownloadItemType::NapcatAdapter,
+            DownloadItemType::Lpmm,
+        ] {
+            let expected = if get_github_repo(&item).has_releases {
+                ComponentUpdateStrategy::ReleaseZip
+            } else {
+                ComponentUpdateStrategy::Git
+            };
+            assert_eq!(resolve_update_strategy(&item), expected, "组件 {:?} 策略应与 has_releases 一致", item);
+        }
     }
 
     // ==================== filter_by_channel ====================

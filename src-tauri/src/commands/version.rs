@@ -56,13 +56,17 @@ pub async fn check_component_update(
 ) -> AppResult<ComponentUpdateCheck> {
     let item_type = parse_component_type(&component)?;
     let base_dir = resolve_instance_base_dir(&state.db, &instance_id).await?;
-    let repo = version_service::get_github_repo(&item_type);
 
-    if repo.has_releases {
-        version_service::check_release_component_update(&item_type, &base_dir).await
-    } else {
-        version_service::check_component_update(&state.db, &instance_id, &item_type, &base_dir)
-            .await
+    // 更新策略以组件分发形态为唯一判据(见 version_service::resolve_update_strategy):
+    // Release 型(NapCat)无 .git,既不能用 commit 对比检查、也不能 git pull 更新。
+    match version_service::resolve_update_strategy(&item_type) {
+        version_service::ComponentUpdateStrategy::ReleaseZip => {
+            version_service::check_release_component_update(&item_type, &base_dir).await
+        }
+        version_service::ComponentUpdateStrategy::Git => {
+            version_service::check_component_update(&state.db, &instance_id, &item_type, &base_dir)
+                .await
+        }
     }
 }
 
@@ -91,7 +95,11 @@ pub async fn update_component(
     let repo = version_service::get_github_repo(&item_type);
     let component_dir = base_dir.join(repo.folder);
 
-    if repo.has_releases && target_version.is_some() {
+    // 更新策略以组件分发形态为唯一判据:Release 型(NapCat)走 zip 重下覆盖,永不 git pull。
+    let strategy = version_service::resolve_update_strategy(&item_type);
+    let is_release = matches!(strategy, version_service::ComponentUpdateStrategy::ReleaseZip);
+
+    if is_release && target_version.is_some() {
         return Err(AppError::InvalidInput(
             "Release 型组件不支持按历史 commit 回滚".to_string(),
         ));
@@ -130,16 +138,19 @@ pub async fn update_component(
 
     // 执行更新。失败时也要落一条 failed 历史,再把原始错误抛给上层。
     let _ = app_handle.emit(&event_name, "正在更新组件...");
-    let update_result = if repo.has_releases {
-        version_service::update_release_component(&base_dir, &app_handle, &event_name).await
-    } else {
-        version_service::update_component_git(
-            &component_dir,
-            target_version.as_deref(),
-            &app_handle,
-            &event_name,
-        )
-        .await
+    let update_result = match strategy {
+        version_service::ComponentUpdateStrategy::ReleaseZip => {
+            version_service::update_release_component(&base_dir, &app_handle, &event_name).await
+        }
+        version_service::ComponentUpdateStrategy::Git => {
+            version_service::update_component_git(
+                &component_dir,
+                target_version.as_deref(),
+                &app_handle,
+                &event_name,
+            )
+            .await
+        }
     };
 
     if let Err(e) = update_result {
@@ -160,7 +171,7 @@ pub async fn update_component(
     // requirements 可能随更新变化,git 型组件更新成功后立即补装依赖(P2-20)。
     // 回滚(target_version 非空)语义是"退回某个历史状态"而非"引入新依赖",不重装；
     // Release 型组件无 requirements.txt，install_dependencies 内部会直接判空跳过。
-    if !repo.has_releases && target_version.is_none() {
+    if !is_release && target_version.is_none() {
         let venv_dir = base_dir.join(".venv");
         if venv_dir.exists() {
             let _ = app_handle.emit(&event_name, "正在检查并补装依赖...");
