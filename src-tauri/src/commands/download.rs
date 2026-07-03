@@ -609,6 +609,15 @@ async fn execute_download_task(
         .await
         .map_err(|e: sqlx::Error| AppError::Database(e.to_string()))?;
 
+    // 记录各已装组件版本到 component_versions(实例落库后才写,满足其 FK);此前从不写导致版本展示恒空。
+    crate::services::version_service::record_installed_component_versions(
+        pool,
+        &instance.id,
+        &instance_dir,
+        &task.selected_items,
+    )
+    .await?;
+
     // 若用户为本次安装录入了 QQ 号，幂等取出并写入实例记录，首启 NapCat 即可 -q 直连该账号。
     let pending_qq = pending_qq_accounts()
         .lock()

@@ -512,6 +512,52 @@ pub async fn get_instance_components_version(
         .collect())
 }
 
+/// 安装完成后把各已装组件的版本记入 `component_versions`(供版本管理展示与更新判定)。
+///
+/// 此前生产代码从不写此表,导致 `get_instance_components_version` 恒空、前端拿不到组件版本/安装方式。
+/// 须在实例记录落库后调用(表有 FK 指向 `instances(id)`)。每组件 best-effort 读本地 version 与 commit
+/// (Release 型无 git、commit 恒 None),`install_method` 复用 `resolve_update_strategy` 的唯一判据
+/// (Release→"release" / Git→"git"),与更新分支同源不漂移。幂等:先删同实例同组件旧行再插,避免
+/// 重装/更新后残留重复行。目录未落地的组件跳过;DB 错误自然冒泡。
+pub async fn record_installed_component_versions(
+    pool: &SqlitePool,
+    instance_id: &str,
+    instance_dir: &Path,
+    items: &[crate::models::download::DownloadItemType],
+) -> AppResult<()> {
+    for item_type in items {
+        let repo = get_github_repo(item_type);
+        let component_path = instance_dir.join(repo.folder);
+        if !component_path.exists() {
+            continue;
+        }
+
+        let version = get_local_version_from_file(&component_path, repo.name);
+        let (commit, install_method) = match resolve_update_strategy(item_type) {
+            ComponentUpdateStrategy::ReleaseZip => (None, "release"),
+            ComponentUpdateStrategy::Git => (get_local_commit(&component_path), "git"),
+        };
+
+        sqlx::query("DELETE FROM component_versions WHERE instance_id = ? AND component = ?")
+            .bind(instance_id)
+            .bind(repo.name)
+            .execute(pool)
+            .await?;
+        sqlx::query(
+            "INSERT INTO component_versions (instance_id, component, version, commit_hash, install_method)
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind(instance_id)
+        .bind(repo.name)
+        .bind(&version)
+        .bind(&commit)
+        .bind(install_method)
+        .execute(pool)
+        .await?;
+    }
+    Ok(())
+}
+
 // ==================== 组件更新执行 ====================
 
 /// 探测组件仓库当前是否处于 detached HEAD(通常是此前一次版本回滚——见 `list_component_commits` +
@@ -1704,6 +1750,55 @@ mod tests {
     fn get_local_commit_returns_none_for_nonexistent_path() {
         let commit = get_local_commit(Path::new("/tmp/mailauncher_nonexistent_repo_xyz"));
         assert_eq!(commit, None);
+    }
+
+    // ==================== DB: record_installed_component_versions ====================
+
+    #[tokio::test]
+    async fn record_installed_component_versions_writes_release_row_and_is_idempotent() {
+        let pool = setup_test_db().await;
+        insert_instance_row(&pool, "inst_rec1").await;
+
+        let tmp = tempfile::tempdir().expect("临时目录");
+        let instance_dir = tmp.path();
+        // NapCat(Release 型)装出目录 + package.json 版本
+        let napcat_dir = instance_dir.join("NapCat");
+        std::fs::create_dir_all(&napcat_dir).expect("建 NapCat 目录");
+        std::fs::write(napcat_dir.join("package.json"), r#"{"version":"4.9.9"}"#)
+            .expect("写 package.json");
+
+        record_installed_component_versions(
+            &pool,
+            "inst_rec1",
+            instance_dir,
+            &[DownloadItemType::Napcat],
+        )
+        .await
+        .expect("记录失败");
+
+        let rows = get_instance_components_version(&pool, "inst_rec1", Path::new("/tmp"))
+            .await
+            .expect("查询失败");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].component, "NapCatQQ");
+        assert_eq!(rows[0].version.as_deref(), Some("4.9.9"));
+        // Release 型判据来自 resolve_update_strategy(has_releases),记 release、无 git commit
+        assert_eq!(rows[0].install_method, "release");
+        assert!(rows[0].commit_hash.is_none(), "Release 型无 git commit");
+
+        // 幂等:同实例同组件重复记录不产生重复行(删旧插新)
+        record_installed_component_versions(
+            &pool,
+            "inst_rec1",
+            instance_dir,
+            &[DownloadItemType::Napcat],
+        )
+        .await
+        .expect("再次记录");
+        let rows2 = get_instance_components_version(&pool, "inst_rec1", Path::new("/tmp"))
+            .await
+            .expect("查询失败");
+        assert_eq!(rows2.len(), 1, "同组件重复记录应幂等,不留重复行");
     }
 
     // ==================== DB: get_instance_components_version ====================
