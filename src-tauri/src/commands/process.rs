@@ -167,7 +167,11 @@ async fn start_component_inner(
 
     // 启动前对齐 NapCat 正向 WS 契约两侧到本实例端口(onebot11 服务端 + 适配器客户端 config.toml)。
     // 幂等、缺文件即跳过、内部吞错只 warn,不阻断启动——覆盖"已登录过重启"与首启两种时机。
-    crate::services::napcat_config::reconcile_napcat_ports(instance_path, ports.napcat_ws)?;
+    crate::services::napcat_config::reconcile_napcat_ports(
+        instance_path,
+        ports.napcat_ws,
+        ports.napcat_webui,
+    )?;
 
     // 启动前对齐 MaiBot 端口(bot_config.toml 的 maim_message.ws_server_port + webui.port)到本实例
     // 端口,缺段则创建,赶在 MaiBot 首次加载填默认之前;缺文件即跳过。失败不阻断启动。

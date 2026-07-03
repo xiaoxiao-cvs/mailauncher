@@ -21,6 +21,18 @@ use crate::errors::{AppError, AppResult};
 /// 经 sha256 确定性推导:同一实例两侧算出的 token 恒等、非空,且不同实例互不相同。取实例目录名而非
 /// 绝对路径,避免两侧路径写法差异(分隔符/末尾斜杠)导致不一致。
 pub fn derive_ws_token(instance_root: &Path) -> String {
+    derive_token(instance_root, b"|mailauncher-onebot-ws")
+}
+
+/// 为实例推导 NapCat WebUI 登录 token(与 WS token 同法但换域,避免两者复用同一值)。
+/// 仅在启动器预创建 webui.json 时使用;若 webui.json 已由 NapCat 生成则保留其自带 token。
+pub fn derive_webui_token(instance_root: &Path) -> String {
+    derive_token(instance_root, b"|mailauncher-napcat-webui")
+}
+
+/// 按实例目录名 + 域分隔经 sha256 确定性推导 32 位 token。取目录名而非绝对路径,避免两侧路径
+/// 写法差异(分隔符/末尾斜杠)导致不一致。
+fn derive_token(instance_root: &Path, domain: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     let seed = instance_root
         .file_name()
@@ -28,7 +40,7 @@ pub fn derive_ws_token(instance_root: &Path) -> String {
         .unwrap_or_else(|| instance_root.to_string_lossy().to_string());
     let mut hasher = Sha256::new();
     hasher.update(seed.as_bytes());
-    hasher.update(b"|mailauncher-onebot-ws");
+    hasher.update(domain);
     let hex: String = hasher
         .finalize()
         .iter()
@@ -162,14 +174,65 @@ fn patch_adapter_napcat_port(instance_root: &Path, port: u16) -> AppResult<bool>
     Ok(false)
 }
 
-/// 按实例分配的 `napcat_ws` 端口对齐 NapCat 正向 WS 契约两侧(G10-1):
-/// NapCat 服务端 onebot11 + MaiBot 适配器客户端 config.toml。两侧幂等、缺文件即跳过,均非致命。
-pub fn reconcile_napcat_ports(instance_root: &Path, napcat_ws: u16) -> AppResult<()> {
+/// 幂等把 NapCat 自身 WebUI(扫码登录面板)端口对齐为本实例分配的 `napcat_webui`。
+///
+/// NapCat 启动即读 `<root>/NapCat/config/webui.json` 绑定 WebUI 端口,故必须启动前就位。既有文件
+/// 仅改 `port`、保留 token 等其余字段;文件缺失(首启前)则按官方一键包同款 schema 预创建(附派生
+/// token 使直登开箱即用),赶在 NapCat 首启绑定默认 6099 之前。NapCat 尊重既有 webui.json 不覆盖。
+/// `<root>/NapCat` 目录不存在(未安装 NapCat)返回 `Ok(false)`,非致命。
+fn patch_napcat_webui_port(instance_root: &Path, port: u16) -> AppResult<bool> {
+    let napcat_dir = instance_root.join("NapCat");
+    if !napcat_dir.is_dir() {
+        return Ok(false);
+    }
+    let config_dir = napcat_dir.join("config");
+    let path = config_dir.join("webui.json");
+
+    if path.is_file() {
+        let text = std::fs::read_to_string(&path)?;
+        let mut root: serde_json::Value = serde_json::from_str(&text)?;
+        if root.get("port").and_then(|p| p.as_u64()) == Some(port as u64) {
+            return Ok(false);
+        }
+        root["port"] = serde_json::json!(port);
+        std::fs::write(&path, serde_json::to_string_pretty(&root)?)?;
+        info!("已对齐 NapCat WebUI 端口 -> {}: {:?}", port, path);
+        return Ok(true);
+    }
+
+    std::fs::create_dir_all(&config_dir)?;
+    let token = derive_webui_token(instance_root);
+    let doc = serde_json::json!({
+        "host": "127.0.0.1",
+        "port": port,
+        "token": token,
+        "loginRate": 10,
+        "autoLoginAccount": "",
+        "theme": { "dark": {}, "light": {} },
+        "disableWebUI": false,
+        "disableNonLANAccess": false
+    });
+    std::fs::write(&path, serde_json::to_string_pretty(&doc)?)?;
+    info!("已预创建 NapCat WebUI 配置(port={}): {:?}", port, path);
+    Ok(true)
+}
+
+/// 按实例分配端口对齐 NapCat 侧全部端口(G10-1):
+/// 正向 WS 契约两侧(onebot11 服务端 + 适配器客户端 config.toml,均 `napcat_ws`)+ NapCat WebUI
+/// (`napcat_webui`)。逐项幂等、缺文件即跳过、吞错只 warn,均非致命,不阻断启动。
+pub fn reconcile_napcat_ports(
+    instance_root: &Path,
+    napcat_ws: u16,
+    napcat_webui: u16,
+) -> AppResult<()> {
     if let Err(e) = ensure_napcat_ws(instance_root, napcat_ws) {
         warn!("对齐 NapCat onebot11 正向 WS 端口出错(忽略): {}", e);
     }
     if let Err(e) = patch_adapter_napcat_port(instance_root, napcat_ws) {
         warn!("对齐适配器 napcat_server.port 出错(忽略): {}", e);
+    }
+    if let Err(e) = patch_napcat_webui_port(instance_root, napcat_webui) {
+        warn!("对齐 NapCat WebUI 端口出错(忽略): {}", e);
     }
     Ok(())
 }
@@ -361,6 +424,60 @@ mod tests {
             build_napcat_webui_url(instance_root),
             Some("http://127.0.0.1:6099/webui/web_login?token=abc123".to_string())
         );
+    }
+
+    #[test]
+    fn patch_napcat_webui_port_creates_config_with_derived_token_when_missing() {
+        let dir = tempfile::tempdir().expect("临时目录");
+        let instance_root = dir.path();
+        // NapCat 已装(目录存在)但 config/webui.json 尚未生成(首启前)。
+        std::fs::create_dir_all(instance_root.join("NapCat")).expect("建 NapCat 目录");
+
+        assert!(patch_napcat_webui_port(instance_root, 21203).expect("预创建失败"));
+
+        let path = instance_root
+            .join("NapCat")
+            .join("config")
+            .join("webui.json");
+        let root: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).expect("读取")).expect("解析");
+        assert_eq!(root["port"].as_u64(), Some(21203));
+        // 直登可用:token 非空且等于确定性派生值。
+        let token = root["token"].as_str().expect("token");
+        assert!(!token.is_empty());
+        assert_eq!(token, derive_webui_token(instance_root));
+    }
+
+    #[test]
+    fn patch_napcat_webui_port_aligns_existing_and_preserves_token() {
+        let dir = tempfile::tempdir().expect("临时目录");
+        let instance_root = dir.path();
+        let config_dir = instance_root.join("NapCat").join("config");
+        std::fs::create_dir_all(&config_dir).expect("建 config 目录");
+        std::fs::write(
+            config_dir.join("webui.json"),
+            r#"{"host":"0.0.0.0","port":6099,"token":"napcatowntoken"}"#,
+        )
+        .expect("写 webui.json");
+
+        assert!(patch_napcat_webui_port(instance_root, 21203).expect("对齐失败"));
+        let root: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(config_dir.join("webui.json")).expect("读取"),
+        )
+        .expect("解析");
+        assert_eq!(root["port"].as_u64(), Some(21203));
+        // 只改端口,NapCat 自带 token 保留。
+        assert_eq!(root["token"].as_str(), Some("napcatowntoken"));
+
+        // 幂等:端口已一致再调不改动。
+        assert!(!patch_napcat_webui_port(instance_root, 21203).expect("幂等调用"));
+    }
+
+    #[test]
+    fn patch_napcat_webui_port_noop_when_napcat_absent() {
+        let dir = tempfile::tempdir().expect("临时目录");
+        // 未安装 NapCat(无 NapCat 目录)时非致命 no-op。
+        assert!(!patch_napcat_webui_port(dir.path(), 21203).expect("缺 NapCat 应 no-op"));
     }
 
     #[test]
