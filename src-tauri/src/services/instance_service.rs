@@ -386,6 +386,24 @@ async fn migrate_instance_directory(
     profile.workspace_root = new_path.to_string();
     profile.python.path = new_python_path.clone();
     let runtime_profile_json = serde_json::to_string(&profile)?;
+
+    // 组件级运行时覆盖也须同步重指,否则迁移后 component_runtime_profiles 里指向旧目录的 python.path
+    // 变成悬空引用——get_component_runtime 优先取组件级覆盖,启动该组件会拉起已随迁移移走的旧解释器而失败。
+    // 与实例级同款处理:workspace_root 对齐新路径、python.path 指向旧目录内部的重指到新目录。
+    let component_profiles = existing
+        .component_runtime_profiles
+        .iter()
+        .map(|(component, profile)| {
+            let mut p = profile.clone();
+            p.workspace_root = new_path.to_string();
+            let rewritten_python = p.python.path.as_deref().map(|path| {
+                rewrite_path_prefix(path, &old_dir, &new_dir).unwrap_or_else(|| path.to_string())
+            });
+            p.python.path = rewritten_python;
+            (*component, p)
+        })
+        .collect::<std::collections::HashMap<_, _>>();
+    let component_profiles_json = serde_json::to_string(&component_profiles)?;
     let now = Utc::now().naive_utc();
 
     // 同盘 rename 原子移动:失败时磁盘无半迁移残留
@@ -401,13 +419,14 @@ async fn migrate_instance_directory(
     let update = sqlx::query(
         r#"UPDATE instances
            SET instance_path = ?, config_path = ?, python_path = ?,
-               runtime_profile = ?, updated_at = ?
+               runtime_profile = ?, component_runtime_profiles = ?, updated_at = ?
            WHERE id = ?"#,
     )
     .bind(new_path)
     .bind(&new_config_path)
     .bind(&new_python_path)
     .bind(&runtime_profile_json)
+    .bind(&component_profiles_json)
     .bind(now)
     .bind(&existing.id)
     .execute(pool)
@@ -972,6 +991,74 @@ mod tests {
             migrated.config_path.as_deref(),
             Some(system_config),
             "系统级 config_path 不应被改写"
+        );
+    }
+
+    #[tokio::test]
+    async fn migrate_instance_directory_rewrites_component_override_python_path() {
+        let pool = setup_test_db().await;
+        let tmp = tempfile::tempdir().expect("建临时目录失败");
+        let root = tmp.path();
+        seed_instance_dir(root, "old_deploy", "bot.py");
+
+        // 组件级覆盖:Main 组件用实例目录内的自定义解释器(组件级覆盖的典型用途)。
+        let inner_python = root.join("old_deploy").join("py-custom").join("python");
+        let inner_python_str = inner_python.to_string_lossy().to_string();
+        let mut comp: std::collections::HashMap<ComponentType, crate::models::RuntimeProfile> =
+            std::collections::HashMap::new();
+        comp.insert(
+            ComponentType::Main,
+            crate::models::RuntimeProfile::local("old_deploy", Some(inner_python_str.clone())),
+        );
+        let comp_json = serde_json::to_string(&comp).expect("序列化组件覆盖");
+
+        let now = Utc::now().naive_utc();
+        let runtime_profile_json =
+            crate::models::default_runtime_profile_json(Some("old_deploy"), None);
+        sqlx::query(
+            r#"INSERT INTO instances
+               (id, name, instance_path, bot_type, status, created_at, updated_at, run_time,
+                runtime_profile, component_runtime_profiles, component_state)
+               VALUES (?, ?, ?, 'maibot', 'stopped', ?, ?, 0, ?, ?, '[]')"#,
+        )
+        .bind("inst_mig_comp1")
+        .bind("comp-bot")
+        .bind("old_deploy")
+        .bind(now)
+        .bind(now)
+        .bind(runtime_profile_json)
+        .bind(&comp_json)
+        .execute(&pool)
+        .await
+        .expect("插入实例失败");
+
+        let existing = get_instance(&pool, "inst_mig_comp1")
+            .await
+            .unwrap()
+            .expect("实例应存在");
+        // 前置:组件级覆盖确实指向旧目录内解释器
+        assert_eq!(
+            existing
+                .component_runtime_profiles
+                .get(&ComponentType::Main)
+                .and_then(|p| p.python.path.as_deref()),
+            Some(inner_python_str.as_str()),
+        );
+
+        let migrated = migrate_instance_directory(&pool, &existing, "new_deploy", root)
+            .await
+            .expect("迁移应成功");
+
+        // 组件级覆盖的 python.path 随迁移重指到新目录(修复前此列不写,覆盖仍悬空指向旧目录)
+        let expected = root.join("new_deploy").join("py-custom").join("python");
+        assert_eq!(
+            migrated
+                .component_runtime_profiles
+                .get(&ComponentType::Main)
+                .and_then(|p| p.python.path.as_deref())
+                .map(Path::new),
+            Some(expected.as_path()),
+            "组件级覆盖 python.path 应随迁移重指到新目录",
         );
     }
 
